@@ -111,10 +111,8 @@ static void playThread (void const* argument) {
   memset (audioBuf, 0, 8192);
   BSP_AUDIO_OUT_Play ((uint16_t*)audioBuf, 8192);
 
-  int lastSeqNum = 0;
   while (true) {
     if (osSemaphoreWait (audioSem, 50) == osOK) {
-      int seqNum;
       int16_t* audioPtr = audioBuf + (audioBufferFull * 2048);
       //int16_t* audioSamples = hlsRadio->getAudioSamples (hlsRadio->mPlayFrame, seqNum);
       //if (hlsRadio->mPlaying && audioSamples) {
@@ -175,7 +173,7 @@ static void uiThread (void const* argument) {
     lcdDebug (lcdGetYSize()-48);
 
     // botLine sysInfo
-    sprintf (str, "%2d%% %d %02d", osGetCPUUsage(), xPortGetFreeHeapSize(), (int)took);
+    sprintf (str, "cpu:%2d%% heapFree:%d screenMs:%02d", osGetCPUUsage(), xPortGetFreeHeapSize(), (int)took);
     lcdString (LCD_WHITE, 20, str, 0, lcdGetYSize()-24, lcdGetXSize(), 24);
     lcdSendWait();
     lcdShowLayer (0, frameBufferAddress, 255);
