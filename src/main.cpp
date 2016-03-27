@@ -143,6 +143,51 @@ static void dhcpThread (void const* argument) {
 //{{{
 static void loadThread (void const* argument) {
 
+  BSP_SD_Init();
+  while (BSP_SD_IsDetected() != SD_PRESENT) {
+    lcdString (LCD_RED, 20, "no SD card", 0, 30, lcdGetXSize(), 24);
+    lcdSendWait();
+    }
+  char SD_Path[4];
+  if (FATFS_LinkDriver (&SD_Driver, SD_Path) != 0) {
+    lcdString (LCD_RED, 20, "FatFs SD error", 0, 30, lcdGetXSize(), 24);
+    lcdSendWait();
+    while(1) {}
+    }
+
+  FATFS fatFs;
+  f_mount (&fatFs, "", 0);
+
+  FILINFO filInfo;
+  filInfo.lfname = (char*)malloc (_MAX_LFN + 1);
+  filInfo.lfsize = _MAX_LFN + 1;
+
+  const char* ext ="MP3";
+
+  DIR dir;
+  if (f_opendir (&dir, "/") != FR_OK) {
+    lcdString (LCD_RED, 20, "openDir error", 0, 30, lcdGetXSize(), 24);
+    lcdSendWait();
+    while(1) {}
+    }
+
+  while (1) {
+    if ((f_readdir (&dir, &filInfo) != FR_OK) || filInfo.fname[0] == 0)
+      break;
+    if (filInfo.fname[0] == '.')
+      continue;
+
+    if (!(filInfo.fattrib & AM_DIR)) {
+      int i = 0;
+      while (filInfo.fname[i++] != '.') {;}
+      if ((filInfo.fname[i] == ext[0]) && (filInfo.fname[i+1] == ext[1]) && (filInfo.fname[i+2] == ext[2])) {
+        lcdString (LCD_BLUE, 20, filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname, 0, 30, lcdGetXSize(), 24);
+        osDelay (1000);
+        }
+      }
+    }
+
+
   while (true) {
     osDelay (1000);
     osSemaphoreWait (loadedSem, osWaitForever);
@@ -293,8 +338,8 @@ static void startThread (void const* argument) {
   osThreadCreate (&osThreadPlay, NULL);
 
   // ui
-  const osThreadDef_t osThreadUi = { (char*)uiTaskName, uiThread, osPriorityNormal, 0, 2000 };
-  osThreadCreate (&osThreadUi, NULL);
+  //const osThreadDef_t osThreadUi = { (char*)uiTaskName, uiThread, osPriorityNormal, 0, 2000 };
+ // osThreadCreate (&osThreadUi, NULL);
 
   httpServerInit();
 
