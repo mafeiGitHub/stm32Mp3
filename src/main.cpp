@@ -29,6 +29,7 @@
 #include "../Bsp/stm32746g_discovery_lcd.h"
 
 #include "../sys/cpuUsage.h"
+#include "../httpServer/httpServer.h"
 //}}}
 //{{{  ip defines
 // static IP address
@@ -294,6 +295,8 @@ static void startThread (void const* argument) {
   // ui
   const osThreadDef_t osThreadUi = { (char*)uiTaskName, uiThread, osPriorityNormal, 0, 2000 };
   osThreadCreate (&osThreadUi, NULL);
+
+  httpServerInit();
 
   for (;;)
     osThreadTerminate (NULL);

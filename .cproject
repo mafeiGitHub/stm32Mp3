@@ -128,6 +128,9 @@
 							<inputType id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s.661094692" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s"/>
 						</tool>
 					</fileInfo>
+					<fileInfo id="fr.ac6.managedbuild.config.gnu.cross.exe.debug.792794573.2103314838" name="fsdata.c" rcbsApplicability="disable" resourcePath="httpserver/fsdata.c" toolsToInvoke="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1902826541.522041423">
+						<tool id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1902826541.522041423" name="MCU GCC Compiler" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1902826541"/>
+					</fileInfo>
 					<sourceEntries>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Bsp"/>
 						<entry excluding="Source/portable/MemMang/heap_4.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="FreeRTOS"/>
@@ -136,6 +139,7 @@
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="STM32_Audio"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="fatfs"/>
 						<entry excluding="src/base/ftutil.c|src/autofit/hbshim.c|src/sfnt/ttpost.c|src/base/ftobjs.c|src/base/basepic.c|src/sfnt/ttmtx.c|src/autofit/afangles.c|src/autofit/aflatin.c|src/sfnt/ttbdf.c|src/truetype/ttpic.c|src/sfnt/sfntpic.c|src/truetype/ttinterp.c|src/sfnt/ttkern.c|src/base/ftfstype.c|src/raster/rastpic.c|src/autofit/afloader.c|src/base/ftgloadr.c|src/autofit/afindic.c|src/truetype/ttgload.c|src/autofit/aflatin2.c|src/sfnt/ttload.c|src/autofit/afhints.c|src/base/ftgxval.c|src/autofit/afmodule.c|src/autofit/afwarp.c|src/base/ftstream.c|src/sfnt/pngshim.c|src/base/fttrigon.c|src/autofit/afblue.c|src/base/ftpic.c|src/sfnt/ttsbit.c|src/base/ftdbgmem.c|src/truetype/ttdriver.c|src/truetype/ttsubpix.c|src/autofit/afglobal.c|src/sfnt/sfdriver.c|src/base/ftsnames.c|src/truetype/ttpload.c|src/sfnt/sfobjs.c|src/base/ftrfork.c|src/smooth/ftspic.c|src/autofit/afdummy.c|src/raster/ftraster.c|src/base/ftcalc.c|src/truetype/ttobjs.c|src/autofit/afranges.c|src/autofit/afpic.c|src/truetype/ttgxvar.c|src/base/ftotval.c|src/smooth/ftgrays.c|src/base/ftoutln.c|src/raster/ftrend1.c|src/autofit/afcjk.c|src/base/ftadvanc.c|src/sfnt/ttcmap.c|src/smooth/ftsmooth.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="freetype"/>
+						<entry excluding="fsdata.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="httpserver"/>
 						<entry excluding="new1.cpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="sys"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="tjpgd"/>
@@ -264,6 +268,9 @@
 							<inputType id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s.91478675" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s"/>
 						</tool>
 					</fileInfo>
+					<fileInfo id="fr.ac6.managedbuild.config.gnu.cross.exe.release.962948351.1065119236" name="fsdata.c" rcbsApplicability="disable" resourcePath="httpserver/fsdata.c" toolsToInvoke="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.2037190024.1961695449">
+						<tool id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.2037190024.1961695449" name="MCU GCC Compiler" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.2037190024"/>
+					</fileInfo>
 					<sourceEntries>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Bsp"/>
 						<entry excluding="Source/portable/MemMang/heap_4.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="FreeRTOS"/>
@@ -272,6 +279,7 @@
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="STM32_Audio"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="fatfs"/>
 						<entry excluding="src/base/ftutil.c|src/base/fttrigon.c|src/base/ftstream.c|src/base/ftsnames.c|src/base/ftrfork.c|src/base/ftpic.c|src/base/ftoutln.c|src/base/ftotval.c|src/base/ftobjs.c|src/base/ftgxval.c|src/base/ftgloadr.c|src/base/ftfstype.c|src/base/ftdbgmem.c|src/base/ftcalc.c|src/base/ftadvanc.c|src/base/basepic.c|src/raster/rastpic.c|src/raster/ftrend1.c|src/raster/ftraster.c|src/sfnt/ttsbit.c|src/sfnt/ttpost.c|src/sfnt/ttmtx.c|src/sfnt/ttload.c|src/sfnt/ttkern.c|src/sfnt/ttcmap.c|src/sfnt/ttbdf.c|src/sfnt/sfobjs.c|src/sfnt/sfntpic.c|src/sfnt/sfdriver.c|src/sfnt/pngshim.c|src/smooth/ftspic.c|src/smooth/ftsmooth.c|src/smooth/ftgrays.c|src/truetype/ttsubpix.c|src/truetype/ttpload.c|src/truetype/ttpic.c|src/truetype/ttobjs.c|src/truetype/ttinterp.c|src/truetype/ttgxvar.c|src/truetype/ttgload.c|src/truetype/ttdriver.c|src/autofit/hbshim.c|src/autofit/afwarp.c|src/autofit/afranges.c|src/autofit/afpic.c|src/autofit/afmodule.c|src/autofit/afloader.c|src/autofit/aflatin2.c|src/autofit/aflatin.c|src/autofit/afindic.c|src/autofit/afhints.c|src/autofit/afglobal.c|src/autofit/afdummy.c|src/autofit/afcjk.c|src/autofit/afblue.c|src/autofit/afangles.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="freetype"/>
+						<entry excluding="fsdata.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="httpserver"/>
 						<entry excluding="new1.cpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="sys"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="tjpgd"/>

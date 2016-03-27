@@ -1,9 +1,10 @@
-/tjpgd/
 /Bsp/
 /FreeRTOS/
 /HAL_Driver/
 /LwIP/
 /fatfs/
 /freetype/
+/httpserver/
 /src/
 /sys/
+/tjpgd/
