@@ -91,6 +91,55 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 
 // threads
 //{{{
+static void dhcpThread (void const* argument) {
+
+  auto netif = (struct netif*)argument;
+
+  struct ip_addr ipAddrInit;
+  IP4_ADDR (&ipAddrInit, 0, 0, 0, 0);
+
+  while (true) {
+    switch (DHCP_state) {
+      case DHCP_START:
+        netif->ip_addr = ipAddrInit;
+        netif->netmask = ipAddrInit;
+        netif->gw = ipAddrInit;
+        dhcp_start (netif);
+        DHCP_state = DHCP_WAIT_ADDRESS;
+        break;
+
+      case DHCP_WAIT_ADDRESS:
+        if (netif->ip_addr.addr) {
+          dhcp_stop (netif);
+          DHCP_state = DHCP_ADDRESS_ASSIGNED;
+          osSemaphoreRelease (dhcpSem);
+          }
+        else if (netif->dhcp->tries > 4) {
+          //  DHCP timeout
+          DHCP_state = DHCP_TIMEOUT;
+          dhcp_stop (netif);
+
+          // use static address
+          struct ip_addr ipAddr, netmask, gateway;
+          IP4_ADDR (&ipAddr, IP_ADDR0 ,IP_ADDR1 , IP_ADDR2 , IP_ADDR3 );
+          IP4_ADDR (&netmask, NETMASK_ADDR0, NETMASK_ADDR1, NETMASK_ADDR2, NETMASK_ADDR3);
+          IP4_ADDR (&gateway, GW_ADDR0, GW_ADDR1, GW_ADDR2, GW_ADDR3);
+          netif_set_addr (netif, &ipAddr , &netmask, &gateway);
+          osSemaphoreRelease (dhcpSem);
+          }
+        break;
+
+      default:
+        break;
+      }
+
+    osDelay (250); // ms
+    }
+
+  osThreadTerminate (NULL);
+  }
+//}}}
+//{{{
 static void loadThread (void const* argument) {
 
   while (true) {
@@ -145,6 +194,11 @@ static void uiThread (void const* argument) {
     auto time = osKernelSysTick();
     lcdClear (LCD_BLACK);
 
+    // topLine info
+    char str [80];
+    sprintf (str, "Mp3 player %s %s", __TIME__, __DATE__);
+    lcdString (LCD_WHITE, 20, str, 0, 0, lcdGetXSize(), 24);
+
     // volume bar
     lcdRect (LCD_YELLOW, lcdGetXSize()-20, 0, 20, (80 * lcdGetYSize()) / 100);
 
@@ -166,10 +220,6 @@ static void uiThread (void const* argument) {
         }
       }
 
-    // topLine info
-    char str [80];
-    sprintf (str, "Mp3 player %s %s", __TIME__, __DATE__);
-    lcdString (LCD_WHITE, 20, str, 0, 0, lcdGetXSize(), 24);
     lcdDebug (lcdGetYSize()-48);
 
     // botLine sysInfo
@@ -200,6 +250,38 @@ static void startThread (void const* argument) {
   lcdString (LCD_WHITE, 20, str, 0, 0, lcdGetXSize(), 24);
   lcdSendWait();
   lcdDisplayOn();
+
+  // create tcpIp stack thread
+  tcpip_init (NULL, NULL);
+
+  // init LwIP stack
+  struct ip_addr ipAddr, netmask, gateway;
+  IP4_ADDR (&ipAddr, IP_ADDR0, IP_ADDR1, IP_ADDR2, IP_ADDR3);
+  IP4_ADDR (&netmask, NETMASK_ADDR0, NETMASK_ADDR1 , NETMASK_ADDR2, NETMASK_ADDR3);
+  IP4_ADDR (&gateway, GW_ADDR0, GW_ADDR1, GW_ADDR2, GW_ADDR3);
+  netif_add (&gNetif, &ipAddr, &netmask, &gateway, NULL, &ethernetif_init, &tcpip_input);
+  netif_set_default (&gNetif);
+
+  if (netif_is_link_up (&gNetif)) {
+    //{{{  up
+    netif_set_up (&gNetif);
+    DHCP_state = DHCP_START;
+    //}}}
+    lcdString (LCD_BLUE, 20, "ethernet ok", 0, 30, lcdGetXSize(), 24);
+    }
+  else {
+    //{{{  down
+    netif_set_down (&gNetif);
+    DHCP_state = DHCP_LINK_DOWN;
+    //}}}
+    lcdString (LCD_RED, 20, "no ethernet", 0, 30, lcdGetXSize(), 24);
+    }
+  lcdSendWait();
+
+  const osThreadDef_t osThreadDHCP =  { (char*)dhcpTaskName, dhcpThread, osPriorityBelowNormal, 0, 256 };
+  osThreadCreate (&osThreadDHCP, &gNetif);
+
+  while (osSemaphoreWait (dhcpSem, 5000) == osOK) {}
 
   // load
   const osThreadDef_t osThreadLoad =  { (char*)loadTaskName, loadThread, osPriorityNormal, 0, 15000 };
@@ -329,9 +411,10 @@ int main() {
   vPortDefineHeapRegions (xHeapRegions);
 
   // init semaphores
+  osSemaphoreDef (dhcp);
+  dhcpSem = osSemaphoreCreate (osSemaphore (dhcp), -1);
   osSemaphoreDef (Loaded);
   loadedSem = osSemaphoreCreate (osSemaphore (Loaded), -1);
-
   osSemaphoreDef (aud);
   audioSem = osSemaphoreCreate (osSemaphore (aud), -1);
 
