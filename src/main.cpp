@@ -83,38 +83,49 @@ public:
   //}}}
   ~cInfo() {}
 
+  //{{{
   void title (char* str) {
     strcpy (mTitle, str);
     }
+  //}}}
+  //{{{
   void footer (char* str) {
-    //strcpy (mFooter, str);
+    strcpy (mFooter, str);
     }
-
+  //}}}
+  //{{{
   void line (int colour, char* str) {
+
     mLines[mCurLine].mColour = colour;
     strcpy (mLines[mCurLine].mStr, str);
     if (mCurLine < 100)
       mCurLine++;
     }
-
+  //}}}
+  //{{{
   void line (char* str) {
     line (LCD_WHITE, str);
     }
+  //}}}
 
+  //{{{
   void drawLines() {
+
     int y = 0;
     if (mTitle[0])
       lcdString (LCD_WHITE, mFontHeight, mTitle, 0, y, mWidth, mLineInc);
+
     for (auto i = 0; i < mCurLine; i++) {
       y += mLineInc;
-      if (y > mHeight - (2*mLineInc))
+      if (y > mHeight - (3*mLineInc))
         break;
       lcdString (mLines[i].mColour, mFontHeight, mLines[i].mStr, 0, y, mWidth, mLineInc);
       }
 
-    //if (mFooter[0])
-    //  lcdString (LCD_WHITE, mFontHeight, mFooter, 0, mHeight-mLineInc, mWidth, mLineInc);
+    if (mFooter[0])
+      lcdString (LCD_YELLOW, mFontHeight, mFooter, 0, mHeight-mLineInc-1, mWidth, mLineInc);
     }
+  //}}}
 
 private:
   //{{{
@@ -131,13 +142,13 @@ private:
   int mWidth = 0;
   int mHeight = 0;
 
-  int mFontHeight = 20;
-  int mLineInc = 30;
+  int mFontHeight = 18;
+  int mLineInc = 20;
 
   int mCurLine = 0;
   int mNumLines = 0;
-  char mTitle[100];
-  char mFooter[100];
+  char mTitle[50];
+  char mFooter[50];
   cLine mLines[100];
   };
 //}}}
@@ -216,51 +227,6 @@ static void dhcpThread (void const* argument) {
 //{{{
 static void loadThread (void const* argument) {
 
-  BSP_SD_Init();
-  while (BSP_SD_IsDetected() != SD_PRESENT) {
-    lcdString (LCD_RED, 20, "no SD card", 0, 30, lcdGetXSize(), 24);
-    lcdSendWait();
-    }
-  char SD_Path[4];
-  if (FATFS_LinkDriver (&SD_Driver, SD_Path) != 0) {
-    lcdString (LCD_RED, 20, "FatFs SD error", 0, 30, lcdGetXSize(), 24);
-    lcdSendWait();
-    while(1) {}
-    }
-
-  FATFS fatFs;
-  f_mount (&fatFs, "", 0);
-
-  FILINFO filInfo;
-  filInfo.lfname = (char*)malloc (_MAX_LFN + 1);
-  filInfo.lfsize = _MAX_LFN + 1;
-
-  const char* ext ="MP3";
-
-  DIR dir;
-  if (f_opendir (&dir, "/") != FR_OK) {
-    lcdString (LCD_RED, 20, "openDir error", 0, 30, lcdGetXSize(), 24);
-    lcdSendWait();
-    while(1) {}
-    }
-
-  while (1) {
-    if ((f_readdir (&dir, &filInfo) != FR_OK) || filInfo.fname[0] == 0)
-      break;
-    if (filInfo.fname[0] == '.')
-      continue;
-
-    if (!(filInfo.fattrib & AM_DIR)) {
-      int i = 0;
-      while (filInfo.fname[i++] != '.') {;}
-      if ((filInfo.fname[i] == ext[0]) && (filInfo.fname[i+1] == ext[1]) && (filInfo.fname[i+2] == ext[2])) {
-        lcdString (LCD_BLUE, 20, filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname, 0, 30, lcdGetXSize(), 24);
-        osDelay (1000);
-        }
-      }
-    }
-
-
   while (true) {
     osDelay (1000);
     osSemaphoreWait (loadedSem, osWaitForever);
@@ -334,17 +300,11 @@ static void uiThread (void const* argument) {
         }
       }
 
-    // topLine info
     char str [80];
-    //sprintf (str, "cpu:%2d%% heapFree:%d screenMs:%02d", osGetCPUUsage(), xPortGetFreeHeapSize(), (int)took);
-    //mInfo->footer (str);
+    sprintf (str, "cpu:%2d%% heapFree:%d screenMs:%02d", osGetCPUUsage(), xPortGetFreeHeapSize(), (int)took);
+    mInfo->footer (str);
     mInfo->drawLines();
     lcdDebug (lcdGetYSize()-48);
-
-    // botLine sysInfo
-    sprintf (str, "cpu:%2d%% heapFree:%d screenMs:%02d", osGetCPUUsage(), xPortGetFreeHeapSize(), (int)took);
-    lcdString (LCD_WHITE, 20, str, 0, lcdGetYSize()-24, lcdGetXSize(), 24);
-    lcdSendWait();
 
     for (auto i = 0; i < TS_State.touchDetected; i++) {
       auto x = TS_State.touchX[i];
@@ -352,6 +312,8 @@ static void uiThread (void const* argument) {
       if (TS_State.touchWeight[i])
         lcdEllipse (LCD_GREEN, x, y, TS_State.touchWeight[i], TS_State.touchWeight[i]);
       }
+
+    lcdSendWait();
     lcdShowLayer (0, frameBufferAddress, 255);
 
     took = osKernelSysTick() - time;
@@ -361,15 +323,13 @@ static void uiThread (void const* argument) {
 //{{{
 static void startThread (void const* argument) {
 
-  //  first time lcd message, must be in thread for lcdWait semaphore
   lcdClear (LCD_BLACK);
-
-  char str [40];
-  sprintf (str, "Mp3 player %s %s first", __TIME__, __DATE__);
-  mInfo->title (str);
-  lcdString (LCD_WHITE, 20, str, 0, 0, lcdGetXSize(), 24);
   lcdSendWait();
   lcdDisplayOn();
+
+  char str [40];
+  sprintf (str, "Mp3 %s %s", __TIME__, __DATE__);
+  mInfo->title (str);
 
   // ui
   const osThreadDef_t osThreadUi = { (char*)uiTaskName, uiThread, osPriorityNormal, 0, 2000 };
@@ -392,14 +352,14 @@ static void startThread (void const* argument) {
       netif_set_up (&gNetif);
       DHCP_state = DHCP_START;
       //}}}
-      lcdString (LCD_BLUE, 20, "ethernet ok", 0, 30, lcdGetXSize(), 24);
+      lcdString (LCD_BLUE, 16, "ethernet ok", 0, 30, lcdGetXSize(), 24);
       }
     else {
       //{{{  down
       netif_set_down (&gNetif);
       DHCP_state = DHCP_LINK_DOWN;
       //}}}
-      lcdString (LCD_RED, 20, "no ethernet", 0, 30, lcdGetXSize(), 24);
+      lcdString (LCD_RED, 16, "no ethernet", 0, 30, lcdGetXSize(), 24);
       }
     lcdSendWait();
 
