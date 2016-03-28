@@ -75,8 +75,8 @@ const char* uiTaskName = "UI";
 class cInfo {
 public:
   //{{{
-  cInfo (int width, int height, int lines) : mWidth(width), mHeight(height), mNumLines(lines) {
-
+  cInfo (int width, int height, int lines, bool lcdDebug) : mWidth(width), mHeight(height), mNumLines(lines),
+                                                            mLcdDebug(lcdDebug) {
     mTitle[0] = 0;
     mFooter[0] = 0;
     }
@@ -98,7 +98,7 @@ public:
 
     mLines[mCurLine].mColour = colour;
     strcpy (mLines[mCurLine].mStr, str);
-    if (mCurLine < 100)
+    if (mCurLine < mNumLines)
       mCurLine++;
     }
   //}}}
@@ -107,20 +107,41 @@ public:
     line (LCD_WHITE, str);
     }
   //}}}
+  //{{{
+  void setLcdDebug (bool enable) {
+    mLcdDebug = enable;
+    }
+  //}}}
 
   //{{{
   void drawLines() {
 
-    int y = 0;
-    if (mTitle[0])
-      lcdString (LCD_WHITE, mFontHeight, mTitle, 0, y, mWidth, mLineInc);
+    auto numDisplayLines = mHeight / mLineInc;
 
-    for (auto i = 0; i < mCurLine; i++) {
-      y += mLineInc;
-      if (y > mHeight - (3*mLineInc))
-        break;
-      lcdString (mLines[i].mColour, mFontHeight, mLines[i].mStr, 0, y, mWidth, mLineInc);
+    auto yFooter = 0;
+    if (mFooter[0]) {
+      yFooter -= mLineInc;
+      numDisplayLines--;
       }
+    if (mLcdDebug) {
+      yFooter -= mLineInc;
+      numDisplayLines--;
+      }
+
+    auto y = 0;
+    if (mTitle[0]) {
+      lcdString (LCD_WHITE, mFontHeight, mTitle, 0, y, mWidth, mLineInc);
+      numDisplayLines--;
+      }
+
+    auto firstLineIndex = (numDisplayLines >= mCurLine) ? 0 : mCurLine - numDisplayLines;
+    for (auto lineIndex = firstLineIndex; lineIndex < mCurLine; lineIndex++) {
+      y += mLineInc;
+      lcdString (mLines[lineIndex].mColour, mFontHeight, mLines[lineIndex].mStr, 0, y, mWidth, mLineInc);
+      }
+
+    if (mLcdDebug)
+      lcdDebug (mHeight - 2 * mLineInc);
 
     if (mFooter[0])
       lcdString (LCD_YELLOW, mFontHeight, mFooter, 0, mHeight-mLineInc-1, mWidth, mLineInc);
@@ -147,9 +168,12 @@ private:
 
   int mCurLine = 0;
   int mNumLines = 0;
+
+  bool mLcdDebug = false;
   char mTitle[50];
   char mFooter[50];
-  cLine mLines[100];
+
+  cLine mLines[1000];
   };
 //}}}
 //{{{  vars
@@ -285,7 +309,7 @@ static void uiThread (void const* argument) {
     // centre bar
     lcdRect (LCD_GREY, lcdGetXSize()/2, 0, 1, lcdGetYSize());
 
-    // waveform
+    //{{{  waveform
     int frames = 0;
     uint8_t* power = nullptr;
     int frame = 0 - lcdGetXSize()/2;
@@ -299,18 +323,21 @@ static void uiThread (void const* argument) {
         frames--;
         }
       }
+    //}}}
 
     char str [80];
     sprintf (str, "cpu:%2d%% heapFree:%d screenMs:%02d", osGetCPUUsage(), xPortGetFreeHeapSize(), (int)took);
     mInfo->footer (str);
     mInfo->drawLines();
-    lcdDebug (lcdGetYSize()-48);
 
     for (auto i = 0; i < TS_State.touchDetected; i++) {
       auto x = TS_State.touchX[i];
       auto y = TS_State.touchY[i];
-      if (TS_State.touchWeight[i])
+      if (TS_State.touchWeight[i]) {
         lcdEllipse (LCD_GREEN, x, y, TS_State.touchWeight[i], TS_State.touchWeight[i]);
+        sprintf (str, "touch %2d %2d", x, y);
+        mInfo->line (str);
+        }
       }
 
     lcdSendWait();
@@ -396,7 +423,6 @@ static void startThread (void const* argument) {
   filInfo.lfname = (char*)malloc (_MAX_LFN + 1);
   filInfo.lfsize = _MAX_LFN + 1;
 
-  const char* ext ="MP3";
 
   DIR dir;
   if (f_opendir (&dir, "/") != FR_OK) {
@@ -406,23 +432,22 @@ static void startThread (void const* argument) {
   mInfo->line ("open dir ok");
 
   while (true) {
+    auto extension ="MP3";
     if ((f_readdir (&dir, &filInfo) != FR_OK) || filInfo.fname[0] == 0)
       break;
-    mInfo->line ((char*)&filInfo.fname);
-
     if (filInfo.fname[0] == '.')
       continue;
-
     if (!(filInfo.fattrib & AM_DIR)) {
-      int i = 0;
+      auto i = 0;
       while (filInfo.fname[i++] != '.') {;}
-      if ((filInfo.fname[i] == ext[0]) && (filInfo.fname[i+1] == ext[1]) && (filInfo.fname[i+2] == ext[2])) {
+      if ((filInfo.fname[i] == extension[0]) && 
+          (filInfo.fname[i+1] == extension[1]) && 
+          (filInfo.fname[i+2] == extension[2])) {
         mInfo->line (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname);
         }
       }
     }
 
-  osDelay (10000);
   for (;;)
     osThreadTerminate (NULL);
   }
@@ -547,7 +572,7 @@ int main() {
   audioSem = osSemaphoreCreate (osSemaphore (aud), -1);
 
   lcdInit (SDRAM_FRAME0);
-  mInfo = new cInfo (lcdGetXSize(), lcdGetYSize(), 100);
+  mInfo = new cInfo (lcdGetXSize(), lcdGetYSize(), 1000, true);
 
   // kick off start thread
   const osThreadDef_t osThreadStart = { (char*)startTaskName, startThread, osPriorityNormal, 0, 4000 };
