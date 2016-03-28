@@ -7,6 +7,8 @@
 #include <stdint.h>
 #include <math.h>
 
+#include <string>
+
 #include "cmsis_os.h"
 
 #include "../Bsp/ethernetif.h"
@@ -30,6 +32,8 @@
 
 #include "../sys/cpuUsage.h"
 #include "../httpServer/httpServer.h"
+
+//#include "cMp3decoder.h"
 //}}}
 //{{{  ip defines
 // static IP address
@@ -75,41 +79,45 @@ const char* uiTaskName = "UI";
 class cInfo {
 public:
   //{{{
-  cInfo (int width, int height, int lines, bool lcdDebug) : mWidth(width), mHeight(height), mNumLines(lines),
-                                                            mLcdDebug(lcdDebug) {
-    mTitle[0] = 0;
-    mFooter[0] = 0;
+  cInfo()  {
+    mWidth = lcdGetXSize();
+    mHeight = lcdGetYSize();
     }
   //}}}
   ~cInfo() {}
 
   //{{{
-  void title (char* str) {
-    strcpy (mTitle, str);
-    }
-  //}}}
-  //{{{
-  void footer (char* str) {
-    strcpy (mFooter, str);
-    }
-  //}}}
-  //{{{
-  void line (int colour, char* str) {
-
-    mLines[mCurLine].mColour = colour;
-    strcpy (mLines[mCurLine].mStr, str);
-    if (mCurLine < mNumLines)
-      mCurLine++;
-    }
-  //}}}
-  //{{{
-  void line (char* str) {
-    line (LCD_WHITE, str);
+  int getNumLines() {
+    return mCurLine;
     }
   //}}}
   //{{{
   void setLcdDebug (bool enable) {
     mLcdDebug = enable;
+    }
+  //}}}
+  //{{{
+  void setTitle (std::string str) {
+    mTitle = str;
+    }
+  //}}}
+  //{{{
+  void setFooter (std::string str) {
+    mFooter = str;
+    }
+  //}}}
+  //{{{
+  void line (int colour, std::string str) {
+
+    mLines[mCurLine].mColour = colour;
+    mLines[mCurLine].mStr = str;
+    if (mCurLine < mMaxLine-1)
+      mCurLine++;
+    }
+  //}}}
+  //{{{
+  void line (std::string str) {
+    line (LCD_WHITE, str);
     }
   //}}}
 
@@ -119,7 +127,7 @@ public:
     auto numDisplayLines = mHeight / mLineInc;
 
     auto yFooter = 0;
-    if (mFooter[0]) {
+    if (!mFooter.empty()) {
       yFooter -= mLineInc;
       numDisplayLines--;
       }
@@ -129,22 +137,22 @@ public:
       }
 
     auto y = 0;
-    if (mTitle[0]) {
-      lcdString (LCD_WHITE, mFontHeight, mTitle, 0, y, mWidth, mLineInc);
+    if (!mTitle.empty()) {
+      lcdString (LCD_WHITE, mFontHeight, mTitle.c_str(), 0, y, mWidth, mLineInc);
       numDisplayLines--;
       }
 
     auto firstLineIndex = (numDisplayLines >= mCurLine) ? 0 : mCurLine - numDisplayLines;
     for (auto lineIndex = firstLineIndex; lineIndex < mCurLine; lineIndex++) {
       y += mLineInc;
-      lcdString (mLines[lineIndex].mColour, mFontHeight, mLines[lineIndex].mStr, 0, y, mWidth, mLineInc);
+      lcdString (mLines[lineIndex].mColour, mFontHeight, mLines[lineIndex].mStr.c_str(), 0, y, mWidth, mLineInc);
       }
 
     if (mLcdDebug)
       lcdDebug (mHeight - 2 * mLineInc);
 
-    if (mFooter[0])
-      lcdString (LCD_YELLOW, mFontHeight, mFooter, 0, mHeight-mLineInc-1, mWidth, mLineInc);
+    if (!mFooter.empty())
+      lcdString (LCD_YELLOW, mFontHeight, mFooter.c_str(), 0, mHeight-mLineInc-1, mWidth, mLineInc);
     }
   //}}}
 
@@ -152,11 +160,11 @@ private:
   //{{{
   class cLine {
   public:
-    cLine() { mStr[0] = 0; }
+    cLine() {}
     ~cLine() {}
 
-    int mColour = 0;
-    char mStr[60];
+    int mColour = LCD_WHITE;
+    std::string mStr;
     };
   //}}}
 
@@ -166,13 +174,12 @@ private:
   int mFontHeight = 18;
   int mLineInc = 20;
 
-  int mCurLine = 0;
-  int mNumLines = 0;
-
   bool mLcdDebug = false;
-  char mTitle[50];
-  char mFooter[50];
+  std::string mTitle;
+  std::string mFooter;
 
+  int mCurLine = 0;
+  int mMaxLine = 1000;
   cLine mLines[1000];
   };
 //}}}
@@ -298,7 +305,6 @@ static void uiThread (void const* argument) {
 
     frameBufferAddress = (frameBufferAddress == SDRAM_FRAME0) ? SDRAM_FRAME1 : SDRAM_FRAME0;
     lcdSetLayer (0, frameBufferAddress);
-
     lcdFrameSync();
     auto time = osKernelSysTick();
     lcdClear (LCD_BLACK);
@@ -325,21 +331,21 @@ static void uiThread (void const* argument) {
       }
     //}}}
 
-    char str [80];
-    sprintf (str, "cpu:%2d%% heapFree:%d screenMs:%02d", osGetCPUUsage(), xPortGetFreeHeapSize(), (int)took);
-    mInfo->footer (str);
-    mInfo->drawLines();
-
     for (auto i = 0; i < TS_State.touchDetected; i++) {
       auto x = TS_State.touchX[i];
       auto y = TS_State.touchY[i];
       if (TS_State.touchWeight[i]) {
         lcdEllipse (LCD_GREEN, x, y, TS_State.touchWeight[i], TS_State.touchWeight[i]);
+        char str [80];
         sprintf (str, "touch %2d %2d", x, y);
         mInfo->line (str);
         }
       }
 
+    char str [80];
+    sprintf (str, "cpu:%2d%% heapFree:%d screenMs:%02d %d", osGetCPUUsage(), xPortGetFreeHeapSize(), (int)took, mInfo->getNumLines());
+    mInfo->setFooter (str);
+    mInfo->drawLines();
     lcdSendWait();
     lcdShowLayer (0, frameBufferAddress, 255);
 
@@ -356,7 +362,7 @@ static void startThread (void const* argument) {
 
   char str [40];
   sprintf (str, "Mp3 %s %s", __TIME__, __DATE__);
-  mInfo->title (str);
+  mInfo->setTitle (str);
 
   // ui
   const osThreadDef_t osThreadUi = { (char*)uiTaskName, uiThread, osPriorityNormal, 0, 2000 };
@@ -440,8 +446,8 @@ static void startThread (void const* argument) {
     if (!(filInfo.fattrib & AM_DIR)) {
       auto i = 0;
       while (filInfo.fname[i++] != '.') {;}
-      if ((filInfo.fname[i] == extension[0]) && 
-          (filInfo.fname[i+1] == extension[1]) && 
+      if ((filInfo.fname[i] == extension[0]) &&
+          (filInfo.fname[i+1] == extension[1]) &&
           (filInfo.fname[i+2] == extension[2])) {
         mInfo->line (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname);
         }
@@ -572,7 +578,7 @@ int main() {
   audioSem = osSemaphoreCreate (osSemaphore (aud), -1);
 
   lcdInit (SDRAM_FRAME0);
-  mInfo = new cInfo (lcdGetXSize(), lcdGetYSize(), 1000, true);
+  mInfo = new cInfo();
 
   // kick off start thread
   const osThreadDef_t osThreadStart = { (char*)startTaskName, startThread, osPriorityNormal, 0, 4000 };
