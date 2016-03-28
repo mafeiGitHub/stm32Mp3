@@ -70,6 +70,77 @@ const char* playTaskName = "Play";
 const char* loadTaskName = "Load";
 const char* uiTaskName = "UI";
 //}}}
+
+//{{{
+class cInfo {
+public:
+  //{{{
+  cInfo (int width, int height, int lines) : mWidth(width), mHeight(height), mNumLines(lines) {
+
+    mTitle[0] = 0;
+    mFooter[0] = 0;
+    }
+  //}}}
+  ~cInfo() {}
+
+  void title (char* str) {
+    strcpy (mTitle, str);
+    }
+  void footer (char* str) {
+    //strcpy (mFooter, str);
+    }
+
+  void line (int colour, char* str) {
+    mLines[mCurLine].mColour = colour;
+    strcpy (mLines[mCurLine].mStr, str);
+    if (mCurLine < 100)
+      mCurLine++;
+    }
+
+  void line (char* str) {
+    line (LCD_WHITE, str);
+    }
+
+  void drawLines() {
+    int y = 0;
+    if (mTitle[0])
+      lcdString (LCD_WHITE, mFontHeight, mTitle, 0, y, mWidth, mLineInc);
+    for (auto i = 0; i < mCurLine; i++) {
+      y += mLineInc;
+      if (y > mHeight - (2*mLineInc))
+        break;
+      lcdString (mLines[i].mColour, mFontHeight, mLines[i].mStr, 0, y, mWidth, mLineInc);
+      }
+
+    //if (mFooter[0])
+    //  lcdString (LCD_WHITE, mFontHeight, mFooter, 0, mHeight-mLineInc, mWidth, mLineInc);
+    }
+
+private:
+  //{{{
+  class cLine {
+  public:
+    cLine() { mStr[0] = 0; }
+    ~cLine() {}
+
+    int mColour = 0;
+    char mStr[60];
+    };
+  //}}}
+
+  int mWidth = 0;
+  int mHeight = 0;
+
+  int mFontHeight = 20;
+  int mLineInc = 30;
+
+  int mCurLine = 0;
+  int mNumLines = 0;
+  char mTitle[100];
+  char mFooter[100];
+  cLine mLines[100];
+  };
+//}}}
 //{{{  vars
 static struct netif gNetif;
 static volatile uint8_t DHCP_state = DHCP_START;
@@ -77,6 +148,8 @@ static volatile uint8_t DHCP_state = DHCP_START;
 static osSemaphoreId dhcpSem;
 static osSemaphoreId audioSem;
 static osSemaphoreId loadedSem;
+
+static cInfo* mInfo;
 //}}}
 
 //{{{
@@ -266,6 +339,9 @@ static void uiThread (void const* argument) {
         }
       }
 
+    //sprintf (str, "cpu:%2d%% heapFree:%d screenMs:%02d", osGetCPUUsage(), xPortGetFreeHeapSize(), (int)took);
+    //mInfo->footer (str);
+    mInfo->drawLines();
     lcdDebug (lcdGetYSize()-48);
 
     // botLine sysInfo
@@ -297,52 +373,98 @@ static void startThread (void const* argument) {
   lcdSendWait();
   lcdDisplayOn();
 
-  // create tcpIp stack thread
-  tcpip_init (NULL, NULL);
+  if (false) {
+    // create tcpIp stack thread
+    tcpip_init (NULL, NULL);
 
-  // init LwIP stack
-  struct ip_addr ipAddr, netmask, gateway;
-  IP4_ADDR (&ipAddr, IP_ADDR0, IP_ADDR1, IP_ADDR2, IP_ADDR3);
-  IP4_ADDR (&netmask, NETMASK_ADDR0, NETMASK_ADDR1 , NETMASK_ADDR2, NETMASK_ADDR3);
-  IP4_ADDR (&gateway, GW_ADDR0, GW_ADDR1, GW_ADDR2, GW_ADDR3);
-  netif_add (&gNetif, &ipAddr, &netmask, &gateway, NULL, &ethernetif_init, &tcpip_input);
-  netif_set_default (&gNetif);
+    // init LwIP stack
+    struct ip_addr ipAddr, netmask, gateway;
+    IP4_ADDR (&ipAddr, IP_ADDR0, IP_ADDR1, IP_ADDR2, IP_ADDR3);
+    IP4_ADDR (&netmask, NETMASK_ADDR0, NETMASK_ADDR1 , NETMASK_ADDR2, NETMASK_ADDR3);
+    IP4_ADDR (&gateway, GW_ADDR0, GW_ADDR1, GW_ADDR2, GW_ADDR3);
+    netif_add (&gNetif, &ipAddr, &netmask, &gateway, NULL, &ethernetif_init, &tcpip_input);
+    netif_set_default (&gNetif);
 
-  if (netif_is_link_up (&gNetif)) {
-    //{{{  up
-    netif_set_up (&gNetif);
-    DHCP_state = DHCP_START;
-    //}}}
-    lcdString (LCD_BLUE, 20, "ethernet ok", 0, 30, lcdGetXSize(), 24);
+    if (netif_is_link_up (&gNetif)) {
+      //{{{  up
+      netif_set_up (&gNetif);
+      DHCP_state = DHCP_START;
+      //}}}
+      lcdString (LCD_BLUE, 20, "ethernet ok", 0, 30, lcdGetXSize(), 24);
+      }
+    else {
+      //{{{  down
+      netif_set_down (&gNetif);
+      DHCP_state = DHCP_LINK_DOWN;
+      //}}}
+      lcdString (LCD_RED, 20, "no ethernet", 0, 30, lcdGetXSize(), 24);
+      }
+    lcdSendWait();
+
+    const osThreadDef_t osThreadDHCP =  { (char*)dhcpTaskName, dhcpThread, osPriorityBelowNormal, 0, 256 };
+    osThreadCreate (&osThreadDHCP, &gNetif);
+
+    while (osSemaphoreWait (dhcpSem, 5000) == osOK) {}
+    httpServerInit();
+    // load
+    //const osThreadDef_t osThreadLoad =  { (char*)loadTaskName, loadThread, osPriorityNormal, 0, 15000 };
+    //osThreadCreate (&osThreadLoad, NULL);
+    // play
+    //const osThreadDef_t osThreadPlay =  { (char*)playTaskName, playThread, osPriorityAboveNormal, 0, 2000 };
+    //osThreadCreate (&osThreadPlay, NULL);
     }
-  else {
-    //{{{  down
-    netif_set_down (&gNetif);
-    DHCP_state = DHCP_LINK_DOWN;
-    //}}}
-    lcdString (LCD_RED, 20, "no ethernet", 0, 30, lcdGetXSize(), 24);
-    }
-  lcdSendWait();
-
-  const osThreadDef_t osThreadDHCP =  { (char*)dhcpTaskName, dhcpThread, osPriorityBelowNormal, 0, 256 };
-  osThreadCreate (&osThreadDHCP, &gNetif);
-
-  while (osSemaphoreWait (dhcpSem, 5000) == osOK) {}
-
-  // load
-  const osThreadDef_t osThreadLoad =  { (char*)loadTaskName, loadThread, osPriorityNormal, 0, 15000 };
-  osThreadCreate (&osThreadLoad, NULL);
-
-  // play
-  const osThreadDef_t osThreadPlay =  { (char*)playTaskName, playThread, osPriorityAboveNormal, 0, 2000 };
-  osThreadCreate (&osThreadPlay, NULL);
 
   // ui
-  //const osThreadDef_t osThreadUi = { (char*)uiTaskName, uiThread, osPriorityNormal, 0, 2000 };
- // osThreadCreate (&osThreadUi, NULL);
+  const osThreadDef_t osThreadUi = { (char*)uiTaskName, uiThread, osPriorityNormal, 0, 2000 };
+  osThreadCreate (&osThreadUi, NULL);
 
-  httpServerInit();
+  BSP_SD_Init();
+  while (BSP_SD_IsDetected() != SD_PRESENT)
+    mInfo->line (LCD_RED, "no SD card");
+  mInfo->line ("SD card");
 
+  char SD_Path[4];
+  if (FATFS_LinkDriver (&SD_Driver, SD_Path) != 0) {
+    mInfo->line (LCD_RED, "FatFs SD error");
+    while (true) {}
+    }
+  mInfo->line ("FATSFS ok");
+
+  FATFS fatFs;
+  f_mount (&fatFs, "", 0);
+  mInfo->line ("mount ok");
+
+  FILINFO filInfo;
+  filInfo.lfname = (char*)malloc (_MAX_LFN + 1);
+  filInfo.lfsize = _MAX_LFN + 1;
+
+  const char* ext ="MP3";
+
+  DIR dir;
+  if (f_opendir (&dir, "/") != FR_OK) {
+    mInfo->line (LCD_RED, "openDir error");
+    while (true) {}
+    }
+  mInfo->line ("open dir ok");
+
+  while (true) {
+    if ((f_readdir (&dir, &filInfo) != FR_OK) || filInfo.fname[0] == 0)
+      break;
+    mInfo->line ((char*)&filInfo.fname);
+
+    if (filInfo.fname[0] == '.')
+      continue;
+
+    if (!(filInfo.fattrib & AM_DIR)) {
+      int i = 0;
+      while (filInfo.fname[i++] != '.') {;}
+      if ((filInfo.fname[i] == ext[0]) && (filInfo.fname[i+1] == ext[1]) && (filInfo.fname[i+2] == ext[2])) {
+        mInfo->line (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname);
+        }
+      }
+    }
+
+  osDelay (10000);
   for (;;)
     osThreadTerminate (NULL);
   }
@@ -467,6 +589,7 @@ int main() {
   audioSem = osSemaphoreCreate (osSemaphore (aud), -1);
 
   lcdInit (SDRAM_FRAME0);
+  mInfo = new cInfo (lcdGetXSize(), lcdGetYSize(), 100);
 
   // kick off start thread
   const osThreadDef_t osThreadStart = { (char*)startTaskName, startThread, osPriorityNormal, 0, 4000 };
