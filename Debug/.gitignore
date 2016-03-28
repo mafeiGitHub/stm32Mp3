@@ -1,3 +1,5 @@
+/Bsp/
+/FreeRTOS/
 /HAL_Driver/
 /LwIP/
 /fatfs/
@@ -6,5 +8,3 @@
 /src/
 /sys/
 /tjpgd/
-/Bsp/
-/FreeRTOS/

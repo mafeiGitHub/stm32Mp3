@@ -20,3 +20,7 @@ void AUDIO_IN_SAIx_DMAx_IRQHandler();
 
 void LTDC_IRQHandler();
 void DMA2D_IRQHandler();
+
+void DMA2_Stream3_IRQHandler();
+void DMA2_Stream6_IRQHandler();
+void SDMMC1_IRQHandler();

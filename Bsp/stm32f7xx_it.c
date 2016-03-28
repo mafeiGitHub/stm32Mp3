@@ -30,3 +30,7 @@ void AUDIO_OUT_SAIx_DMAx_IRQHandler() { HAL_DMA_IRQHandler (haudio_out_sai.hdmat
 
 void LTDC_IRQHandler() { LCD_LTDC_IRQHandler(); }
 void DMA2D_IRQHandler() { LCD_DMA2D_IRQHandler(); }
+
+void DMA2_Stream3_IRQHandler() { BSP_SD_DMA_Rx_IRQHandler(); }
+void DMA2_Stream6_IRQHandler() { BSP_SD_DMA_Tx_IRQHandler(); }
+void SDMMC1_IRQHandler() { BSP_SD_IRQHandler(); }
