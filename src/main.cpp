@@ -234,52 +234,66 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 
 // threads
 //{{{
-static void dhcpThread (void const* argument) {
+static void uiThread (void const* argument) {
 
-  auto netif = (struct netif*)argument;
+  uint32_t frameBufferAddress = SDRAM_FRAME0;
 
-  struct ip_addr ipAddrInit;
-  IP4_ADDR (&ipAddrInit, 0, 0, 0, 0);
-
+  //  init touch
+  TS_StateTypeDef TS_State;
+  BSP_TS_Init (lcdGetXSize(), lcdGetYSize());
+  uint32_t took = 0;
   while (true) {
-    switch (DHCP_state) {
-      case DHCP_START:
-        netif->ip_addr = ipAddrInit;
-        netif->netmask = ipAddrInit;
-        netif->gw = ipAddrInit;
-        dhcp_start (netif);
-        DHCP_state = DHCP_WAIT_ADDRESS;
-        break;
+    BSP_TS_GetState (&TS_State);
 
-      case DHCP_WAIT_ADDRESS:
-        if (netif->ip_addr.addr) {
-          dhcp_stop (netif);
-          DHCP_state = DHCP_ADDRESS_ASSIGNED;
-          osSemaphoreRelease (dhcpSem);
-          }
-        else if (netif->dhcp->tries > 4) {
-          //  DHCP timeout
-          DHCP_state = DHCP_TIMEOUT;
-          dhcp_stop (netif);
+    frameBufferAddress = (frameBufferAddress == SDRAM_FRAME0) ? SDRAM_FRAME1 : SDRAM_FRAME0;
+    lcdSetLayer (0, frameBufferAddress);
+    lcdFrameSync();
+    auto time = osKernelSysTick();
+    lcdClear (LCD_BLACK);
 
-          // use static address
-          struct ip_addr ipAddr, netmask, gateway;
-          IP4_ADDR (&ipAddr, IP_ADDR0 ,IP_ADDR1 , IP_ADDR2 , IP_ADDR3 );
-          IP4_ADDR (&netmask, NETMASK_ADDR0, NETMASK_ADDR1, NETMASK_ADDR2, NETMASK_ADDR3);
-          IP4_ADDR (&gateway, GW_ADDR0, GW_ADDR1, GW_ADDR2, GW_ADDR3);
-          netif_set_addr (netif, &ipAddr , &netmask, &gateway);
-          osSemaphoreRelease (dhcpSem);
-          }
-        break;
-
-      default:
-        break;
+    //{{{  touchscreen
+    for (auto i = 0; i < TS_State.touchDetected; i++) {
+      auto x = TS_State.touchX[i];
+      auto y = TS_State.touchY[i];
+      if (TS_State.touchWeight[i]) {
+        lcdEllipse (LCD_GREEN, x, y, TS_State.touchWeight[i], TS_State.touchWeight[i]);
+        char str [80];
+        sprintf (str, "touch %2d %2d", x, y);
+        mInfo.line (str);
+        }
       }
+    //}}}
+    //{{{  volume bar
+    lcdRect (LCD_YELLOW, lcdGetXSize()-20, 0, 20, (80 * lcdGetYSize()) / 100);
+    //}}}
+    //{{{  centre bar
+    lcdRect (LCD_GREY, lcdGetXSize()/2, 0, 1, lcdGetYSize());
+    //}}}
+    //{{{  waveform
+    int frames = 0;
+    uint8_t* power = nullptr;
+    int frame = 0 - lcdGetXSize()/2;
+    for (auto x = 0; x < lcdGetXSize(); x++, frame++) {
+      if (frames <= 0)
+        power = nullptr;
+      if (power) {
+        uint8_t top = *power++;
+        uint8_t ylen = *power++;
+        lcdRect (LCD_BLUE, x, top, 1, ylen);
+        frames--;
+        }
+      }
+    //}}}
 
-    osDelay (250); // ms
+    char str [80];
+    sprintf (str, "%2d%% %dfree %02dms %dlines", osGetCPUUsage(), xPortGetFreeHeapSize(), (int)took, mInfo.getNumLines());
+    mInfo.setFooter (str);
+    mInfo.drawLines();
+    lcdSendWait();
+    lcdShowLayer (0, frameBufferAddress, 255);
+
+    took = osKernelSysTick() - time;
     }
-
-  osThreadTerminate (NULL);
   }
 //}}}
 //{{{
@@ -366,66 +380,52 @@ static void playThread (void const* argument) {
   }
 //}}}
 //{{{
-static void uiThread (void const* argument) {
+static void dhcpThread (void const* argument) {
 
-  uint32_t frameBufferAddress = SDRAM_FRAME0;
+  auto netif = (struct netif*)argument;
 
-  //  init touch
-  TS_StateTypeDef TS_State;
-  BSP_TS_Init (lcdGetXSize(), lcdGetYSize());
-  uint32_t took = 0;
+  struct ip_addr ipAddrInit;
+  IP4_ADDR (&ipAddrInit, 0, 0, 0, 0);
+
   while (true) {
-    BSP_TS_GetState (&TS_State);
+    switch (DHCP_state) {
+      case DHCP_START:
+        netif->ip_addr = ipAddrInit;
+        netif->netmask = ipAddrInit;
+        netif->gw = ipAddrInit;
+        dhcp_start (netif);
+        DHCP_state = DHCP_WAIT_ADDRESS;
+        break;
 
-    frameBufferAddress = (frameBufferAddress == SDRAM_FRAME0) ? SDRAM_FRAME1 : SDRAM_FRAME0;
-    lcdSetLayer (0, frameBufferAddress);
-    lcdFrameSync();
-    auto time = osKernelSysTick();
-    lcdClear (LCD_BLACK);
+      case DHCP_WAIT_ADDRESS:
+        if (netif->ip_addr.addr) {
+          dhcp_stop (netif);
+          DHCP_state = DHCP_ADDRESS_ASSIGNED;
+          osSemaphoreRelease (dhcpSem);
+          }
+        else if (netif->dhcp->tries > 4) {
+          //  DHCP timeout
+          DHCP_state = DHCP_TIMEOUT;
+          dhcp_stop (netif);
 
-    //{{{  touchscreen
-    for (auto i = 0; i < TS_State.touchDetected; i++) {
-      auto x = TS_State.touchX[i];
-      auto y = TS_State.touchY[i];
-      if (TS_State.touchWeight[i]) {
-        lcdEllipse (LCD_GREEN, x, y, TS_State.touchWeight[i], TS_State.touchWeight[i]);
-        char str [80];
-        sprintf (str, "touch %2d %2d", x, y);
-        mInfo.line (str);
-        }
+          // use static address
+          struct ip_addr ipAddr, netmask, gateway;
+          IP4_ADDR (&ipAddr, IP_ADDR0 ,IP_ADDR1 , IP_ADDR2 , IP_ADDR3 );
+          IP4_ADDR (&netmask, NETMASK_ADDR0, NETMASK_ADDR1, NETMASK_ADDR2, NETMASK_ADDR3);
+          IP4_ADDR (&gateway, GW_ADDR0, GW_ADDR1, GW_ADDR2, GW_ADDR3);
+          netif_set_addr (netif, &ipAddr , &netmask, &gateway);
+          osSemaphoreRelease (dhcpSem);
+          }
+        break;
+
+      default:
+        break;
       }
-    //}}}
-    //{{{  volume bar
-    lcdRect (LCD_YELLOW, lcdGetXSize()-20, 0, 20, (80 * lcdGetYSize()) / 100);
-    //}}}
-    //{{{  centre bar
-    lcdRect (LCD_GREY, lcdGetXSize()/2, 0, 1, lcdGetYSize());
-    //}}}
-    //{{{  waveform
-    int frames = 0;
-    uint8_t* power = nullptr;
-    int frame = 0 - lcdGetXSize()/2;
-    for (auto x = 0; x < lcdGetXSize(); x++, frame++) {
-      if (frames <= 0)
-        power = nullptr;
-      if (power) {
-        uint8_t top = *power++;
-        uint8_t ylen = *power++;
-        lcdRect (LCD_BLUE, x, top, 1, ylen);
-        frames--;
-        }
-      }
-    //}}}
 
-    char str [80];
-    sprintf (str, "%2d%% %dfree %02dms %dlines", osGetCPUUsage(), xPortGetFreeHeapSize(), (int)took, mInfo.getNumLines());
-    mInfo.setFooter (str);
-    mInfo.drawLines();
-    lcdSendWait();
-    lcdShowLayer (0, frameBufferAddress, 255);
-
-    took = osKernelSysTick() - time;
+    osDelay (250); // ms
     }
+
+  osThreadTerminate (NULL);
   }
 //}}}
 //{{{
@@ -443,7 +443,7 @@ static void startThread (void const* argument) {
 
   // load
   const char* loadTaskName = "Load";
-  const osThreadDef_t osThreadLoad =  { (char*)loadTaskName, loadThread, osPriorityNormal, 0, 15000 };
+  const osThreadDef_t osThreadLoad =  { (char*)loadTaskName, loadThread, osPriorityNormal, 0, 8000 };
   osThreadCreate (&osThreadLoad, NULL);
 
   // play
@@ -480,7 +480,9 @@ static void startThread (void const* argument) {
     const osThreadDef_t osThreadDHCP =  { (char*)dhcpTaskName, dhcpThread, osPriorityBelowNormal, 0, 256 };
     osThreadCreate (&osThreadDHCP, &gNetif);
 
-    while (osSemaphoreWait (dhcpSem, 5000) == osOK) {}
+    while (osSemaphoreWait (dhcpSem, 1000) == osOK)
+      osDelay (1000);
+
     mInfo.line ("dhcp address allocated");
     httpServerInit();
     mInfo.line ("httpServer started");

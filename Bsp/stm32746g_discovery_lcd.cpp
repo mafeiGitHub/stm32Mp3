@@ -347,8 +347,8 @@ void lcdInit (uint32_t frameBufferAddress) {
   //}}}
 
   // font init
-  for (int i = 0; i < maxChars; i++)
-    chars[i] = NULL;
+  for (auto i = 0; i < maxChars; i++)
+    chars[i] = nullptr;
   lcdSetFont (freeSansBold, freeSansBold_len);
   }
 //}}}
@@ -480,25 +480,22 @@ void lcdStamp (uint32_t col, uint8_t* src, int16_t x, int16_t y, uint16_t xlen, 
 //{{{
 void lcdString (uint32_t col, int fontHeight, std::string str, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
 
-  int i = 0;
-  while (str[i] && (x < lcdGetXSize())) {
-    unsigned char ch = (unsigned char)str[i];
-    i++;
-    if ((ch >= 0x20) && (ch <= 0x7F)) {
-      tFontChar* fontChar = chars[ch - 0x20];
-      if (fontChar == NULL) {
+  for (unsigned int i = 0; i < str.size(); i++) {
+    if ((str[i] >= 0x20) && (str[i] <= 0x7F)) {
+      auto fontChar = chars[str[i] - 0x20];
+      if (fontChar == nullptr) {
         FT_Set_Pixel_Sizes (FTface, 0, fontHeight);
-        FT_Load_Char (FTface, ch, FT_LOAD_RENDER);
+        FT_Load_Char (FTface, str[i], FT_LOAD_RENDER);
 
         // cache char info
         fontChar = (tFontChar*)malloc (sizeof(tFontChar));
-        chars[ch - 0x20] = fontChar;
+        chars[str[i] - 0x20] = fontChar;
         fontChar->left = FTglyphSlot->bitmap_left;
         fontChar->top = FTglyphSlot->bitmap_top;
         fontChar->pitch = FTglyphSlot->bitmap.pitch;
         fontChar->rows = FTglyphSlot->bitmap.rows;
         fontChar->advance = FTglyphSlot->advance.x / 64;
-        fontChar->bitmap = NULL;
+        fontChar->bitmap = nullptr;
 
         if (FTglyphSlot->bitmap.buffer) {
           // cache char bitmap
@@ -507,9 +504,10 @@ void lcdString (uint32_t col, int fontHeight, std::string str, int16_t x, int16_
           }
         }
 
-      if (fontChar->bitmap)
+      if (x + fontChar->left + fontChar->pitch > lcdGetXSize())
+        break;
+      else if (fontChar->bitmap)
         lcdStamp (col, fontChar->bitmap, x + fontChar->left, y + fontHeight - fontChar->top, fontChar->pitch, fontChar->rows);
-
       x += fontChar->advance;
       }
     }
