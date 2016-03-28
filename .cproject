@@ -41,8 +41,6 @@
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/HAL_Driver/Inc"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/system"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/src/include"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/agg/include"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/agg/font_freetype"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/src/include/ipv4"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/sys"/>
 								</option>
@@ -128,9 +126,6 @@
 							<inputType id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s.661094692" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s"/>
 						</tool>
 					</fileInfo>
-					<fileInfo id="fr.ac6.managedbuild.config.gnu.cross.exe.debug.792794573.2103314838" name="fsdata.c" rcbsApplicability="disable" resourcePath="httpserver/fsdata.c" toolsToInvoke="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1902826541.522041423">
-						<tool id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1902826541.522041423" name="MCU GCC Compiler" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1902826541"/>
-					</fileInfo>
 					<sourceEntries>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Bsp"/>
 						<entry excluding="Source/portable/MemMang/heap_4.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="FreeRTOS"/>
@@ -174,19 +169,17 @@
 								<option id="fr.ac6.managedbuild.gnu.c.compiler.option.optimization.level.152188123" name="Optimization Level" superClass="fr.ac6.managedbuild.gnu.c.compiler.option.optimization.level" useByScannerDiscovery="false" value="fr.ac6.managedbuild.gnu.c.optimization.level.most" valueType="enumerated"/>
 								<option id="gnu.c.compiler.option.debugging.level.25876666" name="Debug Level" superClass="gnu.c.compiler.option.debugging.level" useByScannerDiscovery="false" value="gnu.c.debugging.level.none" valueType="enumerated"/>
 								<option id="gnu.c.compiler.option.include.paths.846750791" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" useByScannerDiscovery="false" valueType="includePath">
-									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}/agg/include&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}/agg/font_freetype&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}/CMSIS/core&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}/CMSIS/device&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}/freetype/include&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}/FreeRTOS/CMSIS_RTOS&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}/FreeRTOS/include&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}/FreeRTOS/portable/GCC/ARM_CM7/r0p1&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}/HAL_Driver/Inc&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}/LwIP/system&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}/LwIP/src/include&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}/LwIP/src/include/ipv4&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}/sys&quot;"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/CMSIS/core"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/CMSIS/device"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/freetype/include"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/CMSIS_RTOS"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/include"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/portable/GCC/ARM_CM7/r0p1"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/HAL_Driver/Inc"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/system"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/src/include"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/src/include/ipv4"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/sys"/>
 								</option>
 								<option id="gnu.c.compiler.option.preprocessor.def.symbols.1415057323" name="Defined symbols (-D)" superClass="gnu.c.compiler.option.preprocessor.def.symbols" useByScannerDiscovery="false" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="STM32F7"/>
@@ -267,9 +260,6 @@
 							<inputType id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.c.901193471" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.c"/>
 							<inputType id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s.91478675" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s"/>
 						</tool>
-					</fileInfo>
-					<fileInfo id="fr.ac6.managedbuild.config.gnu.cross.exe.release.962948351.1065119236" name="fsdata.c" rcbsApplicability="disable" resourcePath="httpserver/fsdata.c" toolsToInvoke="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.2037190024.1961695449">
-						<tool id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.2037190024.1961695449" name="MCU GCC Compiler" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.2037190024"/>
 					</fileInfo>
 					<sourceEntries>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Bsp"/>

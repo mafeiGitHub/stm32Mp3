@@ -141,26 +141,27 @@ public:
 
     auto y = 0;
     if (!mTitle.empty()) {
-      lcdString (LCD_WHITE, mFontHeight, mTitle.c_str(), 0, y, mWidth, mLineInc);
+      lcdString (LCD_WHITE, mFontHeight, mTitle, 0, y, mWidth, mLineInc);
       numDisplayLines--;
       }
 
-    auto firstLineIndex = (numDisplayLines >= mCurLine) ? 0 : mCurLine - numDisplayLines;
-    for (auto lineIndex = firstLineIndex; lineIndex < mCurLine; lineIndex++) {
+    for (auto lineIndex = (numDisplayLines >= mCurLine) ? 0 : mCurLine - numDisplayLines; lineIndex < mCurLine; lineIndex++) {
       y += mLineInc;
       auto x = 0;
       if (mShowTime) {
-        lcdString (LCD_GREEN, mFontHeight, toString (mLines[lineIndex].mTime-mTime).c_str(), x, y, mWidth, mLineInc);
+        lcdString (LCD_GREEN, mFontHeight,
+                   toString ((mLines[lineIndex].mTime-mTime)/1000) + "." + toString ((mLines[lineIndex].mTime-mTime) % 1000),
+                   x, y, mWidth, mLineInc);
         x += mLineInc*3;
         }
-      lcdString (mLines[lineIndex].mColour, mFontHeight, mLines[lineIndex].mStr.c_str(), x, y, mWidth, mLineInc);
+      lcdString (mLines[lineIndex].mColour, mFontHeight, mLines[lineIndex].mStr, x, y, mWidth, mLineInc);
       }
 
     if (mLcdDebug)
       lcdDebug (mHeight - 2 * mLineInc);
 
     if (!mFooter.empty())
-      lcdString (LCD_YELLOW, mFontHeight, mFooter.c_str(), 0, mHeight-mLineInc-1, mWidth, mLineInc);
+      lcdString (LCD_YELLOW, mFontHeight, mFooter, 0, mHeight-mLineInc-1, mWidth, mLineInc);
     }
   //}}}
 
@@ -217,7 +218,7 @@ static osSemaphoreId dhcpSem;
 static osSemaphoreId audioSem;
 static osSemaphoreId loadedSem;
 
-static cInfo* mInfo;
+static cInfo mInfo;
 //}}}
 
 //{{{
@@ -286,19 +287,19 @@ static void loadThread (void const* argument) {
 
   BSP_SD_Init();
   while (BSP_SD_IsDetected() != SD_PRESENT)
-    mInfo->line (LCD_RED, "no SD card");
-  mInfo->line ("SD card");
+    mInfo.line (LCD_RED, "no SD card");
+  mInfo.line ("SD card");
 
   char SD_Path[4];
   if (FATFS_LinkDriver (&SD_Driver, SD_Path) != 0) {
-    mInfo->line (LCD_RED, "SD card error");
+    mInfo.line (LCD_RED, "SD card error");
     while (true) {}
     }
-  mInfo->line ("FAT fileSystem");
+  mInfo.line ("FAT fileSystem");
 
   FATFS fatFs;
   f_mount (&fatFs, "", 0);
-  mInfo->line ("fileSystem mounted");
+  mInfo.line ("fileSystem mounted");
 
   FILINFO filInfo;
   filInfo.lfname = (char*)malloc (_MAX_LFN + 1);
@@ -307,10 +308,10 @@ static void loadThread (void const* argument) {
 
   DIR dir;
   if (f_opendir (&dir, "/") != FR_OK) {
-    mInfo->line (LCD_RED, "openDir error");
+    mInfo.line (LCD_RED, "openDir error");
     while (true) {}
     }
-  mInfo->line ("opened directory");
+  mInfo.line ("opened directory");
 
   while (true) {
     auto extension ="MP3";
@@ -324,14 +325,14 @@ static void loadThread (void const* argument) {
       if ((filInfo.fname[i] == extension[0]) &&
           (filInfo.fname[i+1] == extension[1]) &&
           (filInfo.fname[i+2] == extension[2])) {
-        mInfo->line (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname);
+        mInfo.line (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname);
         }
       }
     }
 
   while (true) {
     osDelay (5000);
-    mInfo->line ("load tick");
+    mInfo.line ("load tick");
     //osSemaphoreWait (loadedSem, osWaitForever);
     }
   }
@@ -348,10 +349,10 @@ static void playThread (void const* argument) {
   memset (audioBuf, 0, 8192);
   BSP_AUDIO_OUT_Play ((uint16_t*)audioBuf, 8192);
 
-  mInfo->line ("playThread started");
+  mInfo.line ("playThread started");
   while (true) {
     if (osSemaphoreWait (audioSem, 50) == osOK) {
-      int16_t* audioPtr = audioBuf + (audioBufferFull * 2048);
+      //int16_t* audioPtr = audioBuf + (audioBufferFull * 2048);
       //int16_t* audioSamples = hlsRadio->getAudioSamples (hlsRadio->mPlayFrame, seqNum);
       //if (hlsRadio->mPlaying && audioSamples) {
       //  memcpy (audioPtr, audioSamples, 4096);
@@ -390,7 +391,7 @@ static void uiThread (void const* argument) {
         lcdEllipse (LCD_GREEN, x, y, TS_State.touchWeight[i], TS_State.touchWeight[i]);
         char str [80];
         sprintf (str, "touch %2d %2d", x, y);
-        mInfo->line (str);
+        mInfo.line (str);
         }
       }
     //}}}
@@ -417,9 +418,9 @@ static void uiThread (void const* argument) {
     //}}}
 
     char str [80];
-    sprintf (str, "%2d%% %dfree %02dms %dlines", osGetCPUUsage(), xPortGetFreeHeapSize(), (int)took, mInfo->getNumLines());
-    mInfo->setFooter (str);
-    mInfo->drawLines();
+    sprintf (str, "%2d%% %dfree %02dms %dlines", osGetCPUUsage(), xPortGetFreeHeapSize(), (int)took, mInfo.getNumLines());
+    mInfo.setFooter (str);
+    mInfo.drawLines();
     lcdSendWait();
     lcdShowLayer (0, frameBufferAddress, 255);
 
@@ -452,7 +453,7 @@ static void startThread (void const* argument) {
 
   // create tcpIp stack thread
   tcpip_init (NULL, NULL);
-  mInfo->line ("tcpip_init ok");
+  mInfo.line ("tcpip_init ok");
 
   // init LwIP stack
   struct ip_addr ipAddr, netmask, gateway;
@@ -466,23 +467,23 @@ static void startThread (void const* argument) {
     //{{{  no ethernet
     netif_set_down (&gNetif);
     DHCP_state = DHCP_LINK_DOWN;
-    mInfo->line (LCD_RED, "no ethernet");
+    mInfo.line (LCD_RED, "no ethernet");
     }
     //}}}
   else {
     // ethernet ok
     netif_set_up (&gNetif);
     DHCP_state = DHCP_START;
-    mInfo->line ("ethernet connected");
+    mInfo.line ("ethernet connected");
 
     const char* dhcpTaskName = "DHCP";
     const osThreadDef_t osThreadDHCP =  { (char*)dhcpTaskName, dhcpThread, osPriorityBelowNormal, 0, 256 };
     osThreadCreate (&osThreadDHCP, &gNetif);
 
     while (osSemaphoreWait (dhcpSem, 5000) == osOK) {}
-    mInfo->line ("dhcp address allocated");
+    mInfo.line ("dhcp address allocated");
     httpServerInit();
-    mInfo->line ("httpServer started");
+    mInfo.line ("httpServer started");
     }
 
   for (;;)
@@ -609,10 +610,9 @@ int main() {
   audioSem = osSemaphoreCreate (osSemaphore (aud), -1);
 
   lcdInit (SDRAM_FRAME0);
-  mInfo = new cInfo();
   char str [40];
   sprintf (str, "Mp3 %s %s", __TIME__, __DATE__);
-  mInfo->setTitle (str);
+  mInfo.setTitle (str);
 
   // kick off start thread
   const char* startTaskName = "Start";

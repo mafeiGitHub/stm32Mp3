@@ -1,5 +1,5 @@
-// stm32746g_discovery_lcd.c
-/*{{{  includes*/
+// stm32746g_discovery_lcd.cpp
+//{{{  includes
 #include "stm32746g_discovery_lcd.h"
 
 #include "cmsis_os.h"
@@ -9,8 +9,8 @@
 
 extern int freeSansBold_len;
 extern const uint8_t freeSansBold[64228];
-/*}}}*/
-/*{{{  defines*/
+//}}}
+//{{{  defines
 #define ABS(X) ((X) > 0 ? (X) : -(X))
 
 #define LCD_DISP_PIN           GPIO_PIN_12
@@ -53,8 +53,8 @@ extern const uint8_t freeSansBold[64228];
 #define CM_L4              ((uint32_t)0x00000008)  // L4 color mode
 #define CM_A8              ((uint32_t)0x00000009)  // A8 color mode
 #define CM_A4              ((uint32_t)0x0000000A)  // A4 color mode
-/*}}}*/
-/*{{{  struct tLTDC*/
+//}}}
+//{{{  struct tLTDC
 typedef struct {
   osSemaphoreId sem;
   uint32_t timeouts;
@@ -65,8 +65,8 @@ typedef struct {
   uint32_t lineTicks;
   uint32_t frameWait;
   } tLTDC;
-/*}}}*/
-/*{{{  struct tDma2d*/
+//}}}
+//{{{  struct tDma2d
 typedef struct {
   osSemaphoreId sem;
   uint32_t* isrBuf;
@@ -78,8 +78,8 @@ typedef struct {
   uint32_t irqTcCount;
   uint32_t timeouts;
   } tDma2d;
-/*}}}*/
-/*{{{  struct tFontChar*/
+//}}}
+//{{{  struct tFontChar
 typedef struct {
   uint8_t* bitmap;
   int16_t left;
@@ -88,8 +88,8 @@ typedef struct {
   int16_t rows;
   int16_t advance;
   } tFontChar;
-/*}}}*/
-/*{{{  static vars*/
+//}}}
+//{{{  static vars
 static uint32_t curFrameBufferAddress;
 static uint32_t setFrameBufferAddress[2];
 static uint32_t showFrameBufferAddress[2];
@@ -104,10 +104,10 @@ static tFontChar* chars[maxChars];
 static FT_Library FTlibrary;
 static FT_Face FTface;
 static FT_GlyphSlot FTglyphSlot;
-/*}}}*/
+//}}}
 LTDC_HandleTypeDef hLtdc;
 
-/*{{{*/
+//{{{
 void LCD_LTDC_IRQHandler() {
 
   if (LTDC->ISR & LTDC_IT_FU) ltdc.fifoUnderunIrq++;
@@ -138,8 +138,8 @@ void LCD_LTDC_IRQHandler() {
 
   LTDC->ICR = LTDC_FLAG_LI | LTDC_FLAG_FU | LTDC_FLAG_TE;
   }
-/*}}}*/
-/*{{{*/
+//}}}
+//{{{
 void LCD_DMA2D_IRQHandler() {
 
   // debug count interrupts
@@ -180,12 +180,12 @@ void LCD_DMA2D_IRQHandler() {
       break;
     }
   }
-/*}}}*/
+//}}}
 
-/*{{{*/
+//{{{
 void lcdInit (uint32_t frameBufferAddress) {
 
-  /*{{{  LTDC, dma2d clock enable*/
+  //{{{  LTDC, dma2d clock enable
   // enable the LTDC and DMA2D clocks
   __HAL_RCC_LTDC_CLK_ENABLE();
   __HAL_RCC_DMA2D_CLK_ENABLE();
@@ -196,8 +196,8 @@ void lcdInit (uint32_t frameBufferAddress) {
   __HAL_RCC_GPIOI_CLK_ENABLE();
   __HAL_RCC_GPIOJ_CLK_ENABLE();
   __HAL_RCC_GPIOK_CLK_ENABLE();
-  /*}}}*/
-  /*{{{  LTDC pin config*/
+  //}}}
+  //{{{  LTDC pin config
   // GPIOE config
   GPIO_InitTypeDef gpio_init_structure;
   gpio_init_structure.Pin       = GPIO_PIN_4;
@@ -242,9 +242,9 @@ void lcdInit (uint32_t frameBufferAddress) {
   gpio_init_structure.Pin       = LCD_BL_CTRL_PIN;
   gpio_init_structure.Mode      = GPIO_MODE_OUTPUT_PP;
   HAL_GPIO_Init (LCD_BL_CTRL_GPIO_PORT, &gpio_init_structure);
-  /*}}}*/
+  //}}}
 
-  /*{{{  LTDC timing config*/
+  //{{{  LTDC timing config
   #define RK043FN48H_WIDTH   480 // LCD PIXEL WIDTH
   #define RK043FN48H_HSYNC   41  // Horizontal synchronization
   #define RK043FN48H_HBP     13  // Horizontal back porch
@@ -275,22 +275,22 @@ void lcdInit (uint32_t frameBufferAddress) {
   periph_clk_init_struct.PLLSAI.PLLSAIR = 5; // could be 7
   periph_clk_init_struct.PLLSAIDivR = RCC_PLLSAIDIVR_4;
   HAL_RCCEx_PeriphCLKConfig (&periph_clk_init_struct);
-  /*}}}*/
-  /*{{{  LTDC Polarity*/
+  //}}}
+  //{{{  LTDC Polarity
   hLtdc.Init.HSPolarity = LTDC_HSPOLARITY_AL;
   hLtdc.Init.VSPolarity = LTDC_VSPOLARITY_AL;
   hLtdc.Init.DEPolarity = LTDC_DEPOLARITY_AL;
   hLtdc.Init.PCPolarity = LTDC_PCPOLARITY_IPC;
-  /*}}}*/
-  /*{{{  LTDC width height*/
+  //}}}
+  //{{{  LTDC width height
   hLtdc.LayerCfg->ImageWidth = RK043FN48H_WIDTH;
   hLtdc.LayerCfg->ImageHeight = RK043FN48H_HEIGHT;
-  /*}}}*/
-  /*{{{  LTDC Background value*/
+  //}}}
+  //{{{  LTDC Background value
   hLtdc.Init.Backcolor.Blue = 0;
   hLtdc.Init.Backcolor.Green = 0;
   hLtdc.Init.Backcolor.Red = 0;
-  /*}}}*/
+  //}}}
   hLtdc.Instance = LTDC;
   HAL_LTDC_Init (&hLtdc);
 
@@ -299,7 +299,7 @@ void lcdInit (uint32_t frameBufferAddress) {
   showFrameBufferAddress[1] = frameBufferAddress;
   showAlpha[1] = 0;
 
-  /*{{{  LTDC IRQ init*/
+  //{{{  LTDC IRQ init
   osSemaphoreDef (ltdcSem);
   ltdc.sem = osSemaphoreCreate (osSemaphore (ltdcSem), -1);
   ltdc.timeouts = 0;
@@ -318,8 +318,8 @@ void lcdInit (uint32_t frameBufferAddress) {
 
   // enable line interrupt
   LTDC->IER |= LTDC_IT_LI;
-  /*}}}*/
-  /*{{{  dma2d IRQ init*/
+  //}}}
+  //{{{  dma2d IRQ init
   // unchanging dma2d regs
   DMA2D->OPFCCR  = DMA2D_ARGB8888; // bgnd fb ARGB
   DMA2D->BGPFCCR = DMA2D_ARGB8888;
@@ -344,15 +344,15 @@ void lcdInit (uint32_t frameBufferAddress) {
 
   HAL_NVIC_SetPriority (DMA2D_IRQn, 0x05, 0);
   HAL_NVIC_EnableIRQ (DMA2D_IRQn);
-  /*}}}*/
+  //}}}
 
   // font init
   for (int i = 0; i < maxChars; i++)
     chars[i] = NULL;
   lcdSetFont (freeSansBold, freeSansBold_len);
   }
-/*}}}*/
-/*{{{*/
+//}}}
+//{{{
 void lcdLayerInit (uint8_t layer, uint32_t frameBufferAddress) {
 
   LTDC_LayerCfgTypeDef* curLayerCfg = &hLtdc.LayerCfg[layer];
@@ -386,8 +386,8 @@ void lcdLayerInit (uint8_t layer, uint32_t frameBufferAddress) {
   showFrameBufferAddress[layer] = frameBufferAddress;
   showAlpha[layer] = 255;
   }
-/*}}}*/
-/*{{{*/
+//}}}
+//{{{
 void lcdDisplayOn() {
 
   // enable LTDC
@@ -399,8 +399,8 @@ void lcdDisplayOn() {
   // turn on backlight
   HAL_GPIO_WritePin (LCD_BL_CTRL_GPIO_PORT, LCD_BL_CTRL_PIN, GPIO_PIN_SET);  /* Assert LCD_BL_CTRL pin */
   }
-/*}}}*/
-/*{{{*/
+//}}}
+//{{{
 void lcdDisplayOff() {
 
   // disable LTDC
@@ -412,9 +412,9 @@ void lcdDisplayOff() {
   // turn off backlight
   HAL_GPIO_WritePin (LCD_BL_CTRL_GPIO_PORT, LCD_BL_CTRL_PIN, GPIO_PIN_RESET);/* De-assert LCD_BL_CTRL pin */
   }
-/*}}}*/
+//}}}
 
-/*{{{*/
+//{{{
 void lcdDebug (int16_t y) {
 
   char debugStr [80];
@@ -424,32 +424,32 @@ void lcdDebug (int16_t y) {
            (int)ltdc.transferErrorIrq, (int)ltdc.fifoUnderunIrq);
   lcdString (LCD_WHITE, 20, debugStr, 0, y, lcdGetXSize(), 24);
   }
-/*}}}*/
+//}}}
 
-/*{{{*/
+//{{{
 void lcdSetLayer (uint8_t layer, uint32_t frameBufferAddress) {
 
   curFrameBufferAddress = frameBufferAddress;
   setFrameBufferAddress[layer] = frameBufferAddress;
   }
-/*}}}*/
-/*{{{*/
+//}}}
+//{{{
 void lcdShowLayer (uint8_t layer, uint32_t frameBufferAddress, uint8_t alpha) {
 
   showFrameBufferAddress[layer] = frameBufferAddress;
   showAlpha[layer] = alpha;
   }
-/*}}}*/
-/*{{{*/
+//}}}
+//{{{
 void lcdFrameSync() {
 
   ltdc.frameWait = 1;
   if (osSemaphoreWait (ltdc.sem, 100) != osOK)
     ltdc.timeouts++;
   }
-/*}}}*/
+//}}}
 
-/*{{{*/
+//{{{
 void lcdSetFont (const uint8_t* font, int length) {
 
   FT_Init_FreeType (&FTlibrary);
@@ -458,9 +458,9 @@ void lcdSetFont (const uint8_t* font, int length) {
   //FT_Done_Face(face);
   //FT_Done_FreeType (library);
   }
-/*}}}*/
+//}}}
 
-/*{{{*/
+//{{{
 void lcdStamp (uint32_t col, uint8_t* src, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
 
   if (xlen && ylen) {
@@ -476,12 +476,14 @@ void lcdStamp (uint32_t col, uint8_t* src, int16_t x, int16_t y, uint16_t xlen, 
       dma.highWater = dma.curBuf;
     }
   }
-/*}}}*/
-/*{{{*/
-void lcdString (uint32_t col, int fontHeight, const char* str, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
+//}}}
+//{{{
+void lcdString (uint32_t col, int fontHeight, std::string str, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
 
-  while (*str && (x < lcdGetXSize())) {
-    unsigned char ch = (unsigned char)*str++;
+  int i = 0;
+  while (str[i] && (x < lcdGetXSize())) {
+    unsigned char ch = (unsigned char)str[i];
+    i++;
     if ((ch >= 0x20) && (ch <= 0x7F)) {
       tFontChar* fontChar = chars[ch - 0x20];
       if (fontChar == NULL) {
@@ -512,9 +514,9 @@ void lcdString (uint32_t col, int fontHeight, const char* str, int16_t x, int16_
       }
     }
   }
-/*}}}*/
+//}}}
 
-/*{{{*/
+//{{{
 void lcdRect (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
 
   if (!xlen)
@@ -532,8 +534,8 @@ void lcdRect (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) 
   if (dma.curBuf > dma.highWater)
     dma.highWater = dma.curBuf;
   }
-/*}}}*/
-/*{{{*/
+//}}}
+//{{{
 void lcdClipRect (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
 
   if (x >= lcdGetXSize())
@@ -561,8 +563,8 @@ void lcdClipRect (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t yl
 
   lcdRect (col, x, y, xend - x, yend - y);
   }
-/*}}}*/
-/*{{{*/
+//}}}
+//{{{
 void lcdEllipse (uint32_t col, int16_t x, int16_t y, uint16_t xradius, uint16_t yradius) {
 
   if (!xradius)
@@ -589,28 +591,28 @@ void lcdEllipse (uint32_t col, int16_t x, int16_t y, uint16_t xradius, uint16_t 
       err += ++y1*2 + 1;
     } while (y1 <= 0);
   }
-/*}}}*/
-/*{{{*/
+//}}}
+//{{{
 void lcdClear (uint32_t col) {
 
   lcdRect (col, 0, 0, lcdGetXSize(), lcdGetYSize());
   }
-/*}}}*/
+//}}}
 
-/*{{{*/
+//{{{
 void lcdPixel (uint32_t col, int16_t x, int16_t y) {
 
   *(uint32_t*)(curFrameBufferAddress + (y*lcdGetXSize() + x)*4) = col;
   }
-/*}}}*/
-/*{{{*/
+//}}}
+//{{{
 void lcdClipPixel (uint32_t col, int16_t x, int16_t y) {
 
   if ((x >= 0) && (y > 0) && (x < lcdGetXSize()) && (y < lcdGetYSize()))
     *(uint32_t*)(curFrameBufferAddress + (y*lcdGetXSize() + x)*4) = col;
   }
-/*}}}*/
-/*{{{*/
+//}}}
+//{{{
 void lcdLine (uint32_t col, int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
 
   int16_t deltax = ABS(x2 - x1);        /* The difference between the x's */
@@ -673,8 +675,8 @@ void lcdLine (uint32_t col, int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
     y += yinc2;                               /* Change the y as appropriate */
     }
   }
-/*}}}*/
-/*{{{*/
+//}}}
+//{{{
 void lcdOutRect (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
 
   lcdClipRect (col, x, y, xlen, 1);
@@ -682,8 +684,8 @@ void lcdOutRect (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t yle
   lcdClipRect (col, x, y + ylen, xlen, 1);
   lcdClipRect (col, x, y, 1, ylen);
   }
-/*}}}*/
-/*{{{*/
+//}}}
+//{{{
 void lcdOutEllipse (uint32_t col, int16_t x, int16_t y, uint16_t xradius, uint16_t yradius) {
 
   if (xradius && yradius) {
@@ -709,16 +711,16 @@ void lcdOutEllipse (uint32_t col, int16_t x, int16_t y, uint16_t xradius, uint16
       } while (y1 <= 0);
     }
   }
-/*}}}*/
+//}}}
 
-/*{{{*/
+//{{{
 void lcdSend() {
 
   // send first opCode using IRQhandler
   LCD_DMA2D_IRQHandler();
   }
-/*}}}*/
-/*{{{*/
+//}}}
+//{{{
 void lcdWait() {
 
   if (osSemaphoreWait (dma.sem, 500) != osOK)
@@ -728,11 +730,11 @@ void lcdWait() {
   *dma.buf = 0;
   dma.curBuf = dma.buf+1;
   }
-/*}}}*/
-/*{{{*/
+//}}}
+//{{{
 void lcdSendWait() {
 
   lcdSend();
   lcdWait();
   }
-/*}}}*/
+//}}}

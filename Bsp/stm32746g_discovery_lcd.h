@@ -1,4 +1,5 @@
 #pragma once
+#include <string>
 #include "stm32746g_discovery.h"
 //{{{
 #ifdef __cplusplus
@@ -61,7 +62,7 @@ void lcdFrameSync();
 void lcdSetFont (const uint8_t* font, int length);
 
 void lcdStamp (uint32_t col, uint8_t* src, int16_t x, int16_t y, uint16_t xpitch, uint16_t ylen);
-void lcdString (uint32_t col, int fontHeight, const char* str, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen);
+void lcdString (uint32_t col, int fontHeight, std::string str, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen);
 
 void lcdRect (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen);
 void lcdClipRect (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen);

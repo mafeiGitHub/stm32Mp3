@@ -5,13 +5,14 @@
 #include "cmsis_os.h"
 #include "ethernetif.h"
 
-#include "stm32746g_discovery_lcd.h"
+//#include "stm32746g_discovery_lcd.h"
 extern LTDC_HandleTypeDef hLtdc;
+void LCD_LTDC_IRQHandler();
+void LCD_DMA2D_IRQHandler();
 
 #include "stm32746g_discovery_audio.h"
 extern SAI_HandleTypeDef haudio_in_sai;
 extern SAI_HandleTypeDef haudio_out_sai;
-
 
 void NMI_Handler() {}
 void DebugMon_Handler() {}
