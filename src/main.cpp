@@ -313,11 +313,6 @@ static void uiThread (void const* argument) {
     auto time = osKernelSysTick();
     lcdClear (LCD_BLACK);
 
-    // topLine info
-    char str [80];
-    sprintf (str, "Mp3 player %s %s", __TIME__, __DATE__);
-    lcdString (LCD_WHITE, 20, str, 0, 0, lcdGetXSize(), 24);
-
     // volume bar
     lcdRect (LCD_YELLOW, lcdGetXSize()-20, 0, 20, (80 * lcdGetYSize()) / 100);
 
@@ -339,6 +334,8 @@ static void uiThread (void const* argument) {
         }
       }
 
+    // topLine info
+    char str [80];
     //sprintf (str, "cpu:%2d%% heapFree:%d screenMs:%02d", osGetCPUUsage(), xPortGetFreeHeapSize(), (int)took);
     //mInfo->footer (str);
     mInfo->drawLines();
@@ -348,7 +345,6 @@ static void uiThread (void const* argument) {
     sprintf (str, "cpu:%2d%% heapFree:%d screenMs:%02d", osGetCPUUsage(), xPortGetFreeHeapSize(), (int)took);
     lcdString (LCD_WHITE, 20, str, 0, lcdGetYSize()-24, lcdGetXSize(), 24);
     lcdSendWait();
-    lcdShowLayer (0, frameBufferAddress, 255);
 
     for (auto i = 0; i < TS_State.touchDetected; i++) {
       auto x = TS_State.touchX[i];
@@ -356,6 +352,7 @@ static void uiThread (void const* argument) {
       if (TS_State.touchWeight[i])
         lcdEllipse (LCD_GREEN, x, y, TS_State.touchWeight[i], TS_State.touchWeight[i]);
       }
+    lcdShowLayer (0, frameBufferAddress, 255);
 
     took = osKernelSysTick() - time;
     }
@@ -369,9 +366,14 @@ static void startThread (void const* argument) {
 
   char str [40];
   sprintf (str, "Mp3 player %s %s first", __TIME__, __DATE__);
+  mInfo->title (str);
   lcdString (LCD_WHITE, 20, str, 0, 0, lcdGetXSize(), 24);
   lcdSendWait();
   lcdDisplayOn();
+
+  // ui
+  const osThreadDef_t osThreadUi = { (char*)uiTaskName, uiThread, osPriorityNormal, 0, 2000 };
+  osThreadCreate (&osThreadUi, NULL);
 
   if (false) {
     // create tcpIp stack thread
@@ -413,10 +415,6 @@ static void startThread (void const* argument) {
     //const osThreadDef_t osThreadPlay =  { (char*)playTaskName, playThread, osPriorityAboveNormal, 0, 2000 };
     //osThreadCreate (&osThreadPlay, NULL);
     }
-
-  // ui
-  const osThreadDef_t osThreadUi = { (char*)uiTaskName, uiThread, osPriorityNormal, 0, 2000 };
-  osThreadCreate (&osThreadUi, NULL);
 
   BSP_SD_Init();
   while (BSP_SD_IsDetected() != SD_PRESENT)
