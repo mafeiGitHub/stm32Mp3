@@ -78,16 +78,18 @@ public:
   cInfo()  {
     mWidth = lcdGetXSize();
     mHeight = lcdGetYSize();
-    mTime = osKernelSysTick();
+    mStartTime = osKernelSysTick();
+    updateDisplayLines();
     }
   //}}}
   ~cInfo() {}
 
   //{{{
-  int getNumLines() {
-    return mCurLine;
+  int getLastLine() {
+    return mLastLine;
     }
   //}}}
+
   //{{{
   void setShowTime (bool enable) {
     mShowTime = enable;
@@ -96,26 +98,34 @@ public:
   //{{{
   void setLcdDebug (bool enable) {
     mLcdDebug = enable;
+    updateDisplayLines();
     }
   //}}}
   //{{{
   void setTitle (std::string str) {
     mTitle = str;
+    updateDisplayLines();
     }
   //}}}
   //{{{
   void setFooter (std::string str) {
     mFooter = str;
+    updateDisplayLines();
     }
   //}}}
   //{{{
   void line (int colour, std::string str) {
 
-    mLines[mCurLine].mTime = osKernelSysTick();
-    mLines[mCurLine].mColour = colour;
-    mLines[mCurLine].mStr = str;
-    if (mCurLine < mMaxLine-1)
-      mCurLine++;
+    bool tailing = mLastLine == (int)mDisplayFirstLine + mNumDisplayLines - 1;
+
+    auto line = (mLastLine < mMaxLine-1) ? mLastLine+1 : mLastLine;
+    mLines[line].mTime = osKernelSysTick();
+    mLines[line].mColour = colour;
+    mLines[line].mStr = str;
+    mLastLine = line;
+
+    if (tailing)
+      mDisplayFirstLine = mLastLine - mNumDisplayLines + 1;
     }
   //}}}
   //{{{
@@ -125,33 +135,33 @@ public:
   //}}}
 
   //{{{
+  void incDisplayLines (int inc) {
+
+    float value = mDisplayFirstLine - (inc / 4.0f);
+
+    if (value < 0)
+      mDisplayFirstLine = 0;
+    else if ((mLastLine > (int)mNumDisplayLines-1) && (value > mLastLine - mNumDisplayLines + 1))
+      mDisplayFirstLine = mLastLine - mNumDisplayLines + 1;
+    else
+      mDisplayFirstLine = value;
+    }
+  //}}}
+  //{{{
   void drawLines() {
 
-    auto numDisplayLines = mHeight / mLineInc;
-
-    auto yFooter = 0;
-    if (!mFooter.empty()) {
-      yFooter -= mLineInc;
-      numDisplayLines--;
-      }
-    if (mLcdDebug) {
-      yFooter -= mLineInc;
-      numDisplayLines--;
-      }
-
     auto y = 0;
-    if (!mTitle.empty()) {
+    if (!mTitle.empty())
       lcdString (LCD_WHITE, mFontHeight, mTitle, 0, y, mWidth, mLineInc);
-      numDisplayLines--;
-      }
 
-    for (auto lineIndex = (numDisplayLines >= mCurLine) ? 0 : mCurLine - numDisplayLines; lineIndex < mCurLine; lineIndex++) {
+    auto displayLastLine = ((int)mDisplayFirstLine + mNumDisplayLines - 1 >= mLastLine) ? mLastLine : ((int)mDisplayFirstLine + mNumDisplayLines - 1);
+    for (auto lineIndex = (int)mDisplayFirstLine; lineIndex <= displayLastLine; lineIndex++) {
       y += mLineInc;
       auto x = 0;
       if (mShowTime) {
         lcdString (LCD_GREEN, mFontHeight,
-                   toString ((mLines[lineIndex].mTime-mTime)/1000) + "." + toString ((mLines[lineIndex].mTime-mTime) % 1000),
-                   x, y, mWidth, mLineInc);
+                   toString ((mLines[lineIndex].mTime-mStartTime)/1000) + "." +
+                   toString ((mLines[lineIndex].mTime-mStartTime) % 1000), x, y, mWidth, mLineInc);
         x += mLineInc*3;
         }
       lcdString (mLines[lineIndex].mColour, mFontHeight, mLines[lineIndex].mStr, x, y, mWidth, mLineInc);
@@ -164,6 +174,8 @@ public:
       lcdString (LCD_YELLOW, mFontHeight, mFooter, 0, mHeight-mLineInc-1, mWidth, mLineInc);
     }
   //}}}
+  int mNumDisplayLines = 0;
+  float mDisplayFirstLine = 0;
 
 private:
   //{{{
@@ -191,9 +203,27 @@ private:
     std::string mStr;
     };
   //}}}
+  //{{{
+  void updateDisplayLines() {
+
+    auto lines = mHeight / mLineInc;
+
+    if (!mTitle.empty())
+      lines--;
+
+    if (mLcdDebug)
+      lines--;
+
+    if (!mFooter.empty())
+      lines--;
+
+    mNumDisplayLines = lines;
+    }
+  //}}}
 
   int mWidth = 0;
   int mHeight = 0;
+  int mStartTime = 0;
 
   int mFontHeight = 18;
   int mLineInc = 20;
@@ -204,10 +234,9 @@ private:
   std::string mTitle;
   std::string mFooter;
 
-  int mTime = 0;
-  int mCurLine = 0;
-  int mMaxLine = 1000;
-  cLine mLines[1000];
+  int mLastLine = -1;
+  int mMaxLine = 200;
+  cLine mLines[200];
   };
 //}}}
 //{{{  vars
@@ -236,6 +265,8 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 //{{{
 static void uiThread (void const* argument) {
 
+  auto lastx = -1;
+  auto lasty = -1;
   uint32_t frameBufferAddress = SDRAM_FRAME0;
 
   //  init touch
@@ -256,10 +287,21 @@ static void uiThread (void const* argument) {
       auto x = TS_State.touchX[i];
       auto y = TS_State.touchY[i];
       if (TS_State.touchWeight[i]) {
-        lcdEllipse (LCD_GREEN, x, y, TS_State.touchWeight[i], TS_State.touchWeight[i]);
-        char str [80];
-        sprintf (str, "touch %2d %2d", x, y);
-        mInfo.line (str);
+        if (x < 80) {
+          if (lasty > -1)
+            mInfo.incDisplayLines (y - lasty);
+          lasty = y;
+          }
+        else {
+          lcdEllipse (LCD_GREEN, x, y, TS_State.touchWeight[i], TS_State.touchWeight[i]);
+          char str [80];
+          sprintf (str, "touch %2d %2d", x, y);
+          mInfo.line (str);
+          }
+        }
+      else {
+        lastx = -1;
+        lasty = -1;
         }
       }
     //}}}
@@ -286,7 +328,9 @@ static void uiThread (void const* argument) {
     //}}}
 
     char str [80];
-    sprintf (str, "%2d%% %dfree %02dms %dlines", osGetCPUUsage(), xPortGetFreeHeapSize(), (int)took, mInfo.getNumLines());
+    sprintf (str, "%2d%% %d:free %02dms %d %d %d",
+             osGetCPUUsage(), xPortGetFreeHeapSize(), (int)took,
+             mInfo.getLastLine(), mInfo.mNumDisplayLines, (int)mInfo.mDisplayFirstLine);
     mInfo.setFooter (str);
     mInfo.drawLines();
     lcdSendWait();
@@ -300,46 +344,46 @@ static void uiThread (void const* argument) {
 static void loadThread (void const* argument) {
 
   BSP_SD_Init();
-  while (BSP_SD_IsDetected() != SD_PRESENT)
+  while (BSP_SD_IsDetected() != SD_PRESENT) {
     mInfo.line (LCD_RED, "no SD card");
+    osDelay (1000);
+    }
   mInfo.line ("SD card");
 
   char SD_Path[4];
-  if (FATFS_LinkDriver (&SD_Driver, SD_Path) != 0) {
+  if (FATFS_LinkDriver (&SD_Driver, SD_Path) != 0)
     mInfo.line (LCD_RED, "SD card error");
-    while (true) {}
-    }
-  mInfo.line ("FAT fileSystem");
+  else {
+    mInfo.line ("SD card found");
 
-  FATFS fatFs;
-  f_mount (&fatFs, "", 0);
-  mInfo.line ("fileSystem mounted");
+    FATFS fatFs;
+    f_mount (&fatFs, "", 0);
+    mInfo.line ("FAT fileSystem mounted");
 
-  FILINFO filInfo;
-  filInfo.lfname = (char*)malloc (_MAX_LFN + 1);
-  filInfo.lfsize = _MAX_LFN + 1;
+    DIR dir;
+    if (f_opendir (&dir, "/") != FR_OK)
+      mInfo.line (LCD_RED, "directory open error");
+    else {
+      mInfo.line ("directory opened");
 
-
-  DIR dir;
-  if (f_opendir (&dir, "/") != FR_OK) {
-    mInfo.line (LCD_RED, "openDir error");
-    while (true) {}
-    }
-  mInfo.line ("opened directory");
-
-  while (true) {
-    auto extension ="MP3";
-    if ((f_readdir (&dir, &filInfo) != FR_OK) || filInfo.fname[0] == 0)
-      break;
-    if (filInfo.fname[0] == '.')
-      continue;
-    if (!(filInfo.fattrib & AM_DIR)) {
-      auto i = 0;
-      while (filInfo.fname[i++] != '.') {;}
-      if ((filInfo.fname[i] == extension[0]) &&
-          (filInfo.fname[i+1] == extension[1]) &&
-          (filInfo.fname[i+2] == extension[2])) {
-        mInfo.line (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname);
+      FILINFO filInfo;
+      filInfo.lfname = (char*)malloc (_MAX_LFN + 1);
+      filInfo.lfsize = _MAX_LFN + 1;
+      auto extension = "MP3";
+      while (true) {
+        if ((f_readdir (&dir, &filInfo) != FR_OK) || filInfo.fname[0] == 0)
+          break;
+        if (filInfo.fname[0] == '.')
+          continue;
+        if (!(filInfo.fattrib & AM_DIR)) {
+          auto i = 0;
+          while (filInfo.fname[i++] != '.') {;}
+          if ((filInfo.fname[i] == extension[0]) &&
+              (filInfo.fname[i+1] == extension[1]) &&
+              (filInfo.fname[i+2] == extension[2])) {
+            mInfo.line (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname);
+            }
+          }
         }
       }
     }
