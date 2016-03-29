@@ -102,14 +102,14 @@ public:
     }
   //}}}
   //{{{
-  void setTitle (std::string str) {
-    mTitle = str;
+  void setTitle (std::string title) {
+    mTitle = title;
     updateDisplayLines();
     }
   //}}}
   //{{{
-  void setFooter (std::string str) {
-    mFooter = str;
+  void setFooter (std::string footer) {
+    mFooter = footer;
     updateDisplayLines();
     }
   //}}}
@@ -129,7 +129,7 @@ public:
     auto line = (mLastLine < mMaxLine-1) ? mLastLine+1 : mLastLine;
     mLines[line].mTime = osKernelSysTick();
     mLines[line].mColour = colour;
-    mLines[line].mStr = str;
+    mLines[line].mString = str;
     mLastLine = line;
 
     if (tailing)
@@ -190,7 +190,7 @@ public:
                    toString ((mLines[lineIndex].mTime-mStartTime) % 1000), x, y, mWidth, mLineInc);
         x += mLineInc*3;
         }
-      lcdString (mLines[lineIndex].mColour, mFontHeight, mLines[lineIndex].mStr, x, y, mWidth, mLineInc);
+      lcdString (mLines[lineIndex].mColour, mFontHeight, mLines[lineIndex].mString, x, y, mWidth, mLineInc);
       y += mLineInc;
       }
 
@@ -211,7 +211,7 @@ private:
 
     int mTime = 0;
     int mColour = LCD_WHITE;
-    std::string mStr;
+    std::string mString;
     };
   //}}}
   //{{{
