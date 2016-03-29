@@ -62,7 +62,7 @@ void lcdFrameSync();
 void lcdSetFont (const uint8_t* font, int length);
 
 void lcdStamp (uint32_t col, uint8_t* src, int16_t x, int16_t y, uint16_t xpitch, uint16_t ylen);
-void lcdString (uint32_t col, int fontHeight, std::string str, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen);
+int lcdString (uint32_t col, int fontHeight, std::string str, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen);
 
 void lcdRect (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen);
 void lcdClipRect (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen);

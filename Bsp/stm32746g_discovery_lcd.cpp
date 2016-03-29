@@ -478,7 +478,7 @@ void lcdStamp (uint32_t col, uint8_t* src, int16_t x, int16_t y, uint16_t xlen, 
   }
 //}}}
 //{{{
-void lcdString (uint32_t col, int fontHeight, std::string str, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
+int lcdString (uint32_t col, int fontHeight, std::string str, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
 
   for (unsigned int i = 0; i < str.size(); i++) {
     if ((str[i] >= 0x20) && (str[i] <= 0x7F)) {
@@ -511,6 +511,8 @@ void lcdString (uint32_t col, int fontHeight, std::string str, int16_t x, int16_
       x += fontChar->advance;
       }
     }
+
+  return x;
   }
 //}}}
 
