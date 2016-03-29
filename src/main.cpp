@@ -114,6 +114,14 @@ public:
     }
   //}}}
   //{{{
+  std::string toString (int value) {
+
+    std::ostringstream os;
+    os << value;
+    return os.str();
+    }
+  //}}}
+  //{{{
   void line (int colour, std::string str) {
 
     bool tailing = mLastLine == (int)mDisplayFirstLine + mNumDisplayLines - 1;
@@ -135,6 +143,15 @@ public:
   //}}}
 
   //{{{
+  void setDisplayTail() {
+
+    if (mLastLine > (int)mNumDisplayLines-1)
+      mDisplayFirstLine = mLastLine - mNumDisplayLines + 1;
+    else
+      mDisplayFirstLine = 0;
+    }
+  //}}}
+  //{{{
   void incDisplayLines (int inc) {
 
     float value = mDisplayFirstLine - (inc / 4.0f);
@@ -151,12 +168,21 @@ public:
   void drawLines() {
 
     auto y = 0;
-    if (!mTitle.empty())
+    if (!mTitle.empty()) {
       lcdString (LCD_WHITE, mFontHeight, mTitle, 0, y, mWidth, mLineInc);
-
-    auto displayLastLine = ((int)mDisplayFirstLine + mNumDisplayLines - 1 >= mLastLine) ? mLastLine : ((int)mDisplayFirstLine + mNumDisplayLines - 1);
-    for (auto lineIndex = (int)mDisplayFirstLine; lineIndex <= displayLastLine; lineIndex++) {
       y += mLineInc;
+      }
+
+    if (mLastLine >= 0) {
+      auto yorg = mLineInc + ((int)mDisplayFirstLine * mNumDisplayLines * mLineInc / (mLastLine + 1));
+      auto ylen = mNumDisplayLines * mNumDisplayLines * mLineInc / (mLastLine + 1);
+      lcdRect (LCD_YELLOW, 0, yorg, 8, ylen);
+      }
+
+    auto lastLine = (int)mDisplayFirstLine + mNumDisplayLines - 1;
+    if (lastLine > mLastLine)
+      lastLine = mLastLine;
+    for (auto lineIndex = (int)mDisplayFirstLine; lineIndex <= lastLine; lineIndex++) {
       auto x = 0;
       if (mShowTime) {
         lcdString (LCD_GREEN, mFontHeight,
@@ -165,6 +191,7 @@ public:
         x += mLineInc*3;
         }
       lcdString (mLines[lineIndex].mColour, mFontHeight, mLines[lineIndex].mStr, x, y, mWidth, mLineInc);
+      y += mLineInc;
       }
 
     if (mLcdDebug)
@@ -174,24 +201,8 @@ public:
       lcdString (LCD_YELLOW, mFontHeight, mFooter, 0, mHeight-mLineInc-1, mWidth, mLineInc);
     }
   //}}}
-  int mNumDisplayLines = 0;
-  float mDisplayFirstLine = 0;
 
 private:
-  //{{{
-  template <typename T> std::string toString (T value) {
-  // non std::to_string in g++
-
-    // create an output string stream
-    std::ostringstream os;
-
-    // throw the value into the string stream
-    os << value;
-
-    // convert the string stream into a string and return
-    return os.str();
-    }
-  //}}}
   //{{{
   class cLine {
   public:
@@ -225,8 +236,10 @@ private:
   int mHeight = 0;
   int mStartTime = 0;
 
-  int mFontHeight = 18;
-  int mLineInc = 20;
+  float mDisplayFirstLine = 0;
+  int mNumDisplayLines = 0;
+  int mFontHeight = 16;
+  int mLineInc = 18;
 
   bool mShowTime = true;
   bool mLcdDebug = false;
@@ -235,8 +248,8 @@ private:
   std::string mFooter;
 
   int mLastLine = -1;
-  int mMaxLine = 200;
-  cLine mLines[200];
+  int mMaxLine = 500;
+  cLine mLines[500];
   };
 //}}}
 //{{{  vars
@@ -265,6 +278,8 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 //{{{
 static void uiThread (void const* argument) {
 
+  mInfo.line ("UIThread started");
+
   auto lastx = -1;
   auto lasty = -1;
   uint32_t frameBufferAddress = SDRAM_FRAME0;
@@ -282,29 +297,27 @@ static void uiThread (void const* argument) {
     auto time = osKernelSysTick();
     lcdClear (LCD_BLACK);
 
-    //{{{  touchscreen
+    //  touchscreen
     for (auto i = 0; i < TS_State.touchDetected; i++) {
       auto x = TS_State.touchX[i];
       auto y = TS_State.touchY[i];
       if (TS_State.touchWeight[i]) {
-        if (x < 80) {
-          if (lasty > -1)
-            mInfo.incDisplayLines (y - lasty);
-          lasty = y;
-          }
-        else {
+        if (x > 200) {
           lcdEllipse (LCD_GREEN, x, y, TS_State.touchWeight[i], TS_State.touchWeight[i]);
-          char str [80];
-          sprintf (str, "touch %2d %2d", x, y);
-          mInfo.line (str);
+          mInfo.line ("touch:" + mInfo.toString(x) + "," + mInfo.toString (y));
           }
+        else if (lasty != -1)
+          mInfo.incDisplayLines (y - lasty);
+        else if (y > 260)
+          mInfo.setDisplayTail();
+        lastx = x;
+        lasty = y;
         }
       else {
         lastx = -1;
         lasty = -1;
         }
       }
-    //}}}
     //{{{  volume bar
     lcdRect (LCD_YELLOW, lcdGetXSize()-20, 0, 20, (80 * lcdGetYSize()) / 100);
     //}}}
@@ -327,11 +340,9 @@ static void uiThread (void const* argument) {
       }
     //}}}
 
-    char str [80];
-    sprintf (str, "%2d%% %d:free %02dms %d %d %d",
-             osGetCPUUsage(), xPortGetFreeHeapSize(), (int)took,
-             mInfo.getLastLine(), mInfo.mNumDisplayLines, (int)mInfo.mDisplayFirstLine);
-    mInfo.setFooter (str);
+    mInfo.setFooter (mInfo.toString (osGetCPUUsage()) + "% " +
+                     mInfo.toString (xPortGetFreeHeapSize()) + "free " +
+                     mInfo.toString (took) + "ms");
     mInfo.drawLines();
     lcdSendWait();
     lcdShowLayer (0, frameBufferAddress, 255);
@@ -343,18 +354,19 @@ static void uiThread (void const* argument) {
 //{{{
 static void loadThread (void const* argument) {
 
+  mInfo.line ("loadThread started");
   BSP_SD_Init();
   while (BSP_SD_IsDetected() != SD_PRESENT) {
     mInfo.line (LCD_RED, "no SD card");
     osDelay (1000);
     }
-  mInfo.line ("SD card");
+  mInfo.line ("SD card found");
 
   char SD_Path[4];
   if (FATFS_LinkDriver (&SD_Driver, SD_Path) != 0)
-    mInfo.line (LCD_RED, "SD card error");
+    mInfo.line (LCD_RED, "SD driver error");
   else {
-    mInfo.line ("SD card found");
+    mInfo.line ("SD driver found");
 
     FATFS fatFs;
     f_mount (&fatFs, "", 0);
@@ -398,6 +410,8 @@ static void loadThread (void const* argument) {
 //{{{
 static void playThread (void const* argument) {
 
+  mInfo.line ("playThread started");
+
   int curVol = 80;
   BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_BOTH, curVol, 48000);
   BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
@@ -407,7 +421,7 @@ static void playThread (void const* argument) {
   memset (audioBuf, 0, 8192);
   BSP_AUDIO_OUT_Play ((uint16_t*)audioBuf, 8192);
 
-  mInfo.line ("playThread started");
+  mInfo.line ("playThread loop");
   while (true) {
     if (osSemaphoreWait (audioSem, 50) == osOK) {
       //int16_t* audioPtr = audioBuf + (audioBufferFull * 2048);
@@ -426,6 +440,7 @@ static void playThread (void const* argument) {
 //{{{
 static void dhcpThread (void const* argument) {
 
+  mInfo.line ("dhcpThread started");
   auto netif = (struct netif*)argument;
 
   struct ip_addr ipAddrInit;
@@ -474,6 +489,8 @@ static void dhcpThread (void const* argument) {
 //}}}
 //{{{
 static void startThread (void const* argument) {
+
+  mInfo.line ("startThread started");
 
   // clear LCD and turn it on
   lcdClear (LCD_BLACK);
