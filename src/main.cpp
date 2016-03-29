@@ -72,6 +72,14 @@
 //}}}
 
 //{{{
+static std::string toString (int value) {
+
+  std::ostringstream os;
+  os << value;
+  return os.str();
+  }
+//}}}
+//{{{
 class cInfo {
 public:
   //{{{
@@ -83,12 +91,6 @@ public:
     }
   //}}}
   ~cInfo() {}
-
-  //{{{
-  int getLastLine() {
-    return mLastLine;
-    }
-  //}}}
 
   //{{{
   void setShowTime (bool enable) {
@@ -111,14 +113,6 @@ public:
   void setFooter (std::string footer) {
     mFooter = footer;
     updateDisplayLines();
-    }
-  //}}}
-  //{{{
-  std::string toString (int value) {
-
-    std::ostringstream os;
-    os << value;
-    return os.str();
     }
   //}}}
   //{{{
@@ -158,7 +152,9 @@ public:
 
     if (value < 0)
       mDisplayFirstLine = 0;
-    else if ((mLastLine > (int)mNumDisplayLines-1) && (value > mLastLine - mNumDisplayLines + 1))
+    else if (mLastLine <= (int)mNumDisplayLines-1)
+      mDisplayFirstLine = 0;
+    else if (value > mLastLine - mNumDisplayLines + 1)
       mDisplayFirstLine = mLastLine - mNumDisplayLines + 1;
     else
       mDisplayFirstLine = value;
@@ -204,17 +200,6 @@ public:
 
 private:
   //{{{
-  class cLine {
-  public:
-    cLine() {}
-    ~cLine() {}
-
-    int mTime = 0;
-    int mColour = LCD_WHITE;
-    std::string mString;
-    };
-  //}}}
-  //{{{
   void updateDisplayLines() {
 
     auto lines = mHeight / mLineInc;
@@ -249,6 +234,18 @@ private:
 
   int mLastLine = -1;
   int mMaxLine = 500;
+
+  //{{{
+  class cLine {
+  public:
+    cLine() {}
+    ~cLine() {}
+
+    int mTime = 0;
+    int mColour = LCD_WHITE;
+    std::string mString;
+    };
+  //}}}
   cLine mLines[500];
   };
 //}}}
@@ -304,7 +301,7 @@ static void uiThread (void const* argument) {
       if (TS_State.touchWeight[i]) {
         if (x > 200) {
           lcdEllipse (LCD_GREEN, x, y, TS_State.touchWeight[i], TS_State.touchWeight[i]);
-          mInfo.line ("touch:" + mInfo.toString(x) + "," + mInfo.toString (y));
+          mInfo.line (toString(x) + "," + toString (y)+ "," + toString (TS_State.touchWeight[i]));
           }
         else if (lasty != -1)
           mInfo.incDisplayLines (y - lasty);
@@ -340,9 +337,7 @@ static void uiThread (void const* argument) {
       }
     //}}}
 
-    mInfo.setFooter (mInfo.toString (osGetCPUUsage()) + "% " +
-                     mInfo.toString (xPortGetFreeHeapSize()) + "free " +
-                     mInfo.toString (took) + "ms");
+    mInfo.setFooter (toString (osGetCPUUsage()) + "% " + toString (xPortGetFreeHeapSize()) + "free " + toString (took) + "ms");
     mInfo.drawLines();
     lcdSendWait();
     lcdShowLayer (0, frameBufferAddress, 255);
@@ -400,9 +395,10 @@ static void loadThread (void const* argument) {
       }
     }
 
+  int tick = 0;
   while (true) {
     osDelay (5000);
-    mInfo.line ("load tick");
+    mInfo.line ("load tick" + toString (tick++));
     //osSemaphoreWait (loadedSem, osWaitForever);
     }
   }
@@ -524,19 +520,12 @@ static void startThread (void const* argument) {
   netif_add (&gNetif, &ipAddr, &netmask, &gateway, NULL, &ethernetif_init, &tcpip_input);
   netif_set_default (&gNetif);
 
-  if (!netif_is_link_up (&gNetif)) {
-    //{{{  no ethernet
-    netif_set_down (&gNetif);
-    DHCP_state = DHCP_LINK_DOWN;
-    mInfo.line (LCD_RED, "no ethernet");
-    }
-    //}}}
-  else {
+  if (netif_is_link_up (&gNetif)) {
     // ethernet ok
     netif_set_up (&gNetif);
-    DHCP_state = DHCP_START;
     mInfo.line ("ethernet connected");
 
+    DHCP_state = DHCP_START;
     const char* dhcpTaskName = "DHCP";
     const osThreadDef_t osThreadDHCP =  { (char*)dhcpTaskName, dhcpThread, osPriorityBelowNormal, 0, 256 };
     osThreadCreate (&osThreadDHCP, &gNetif);
@@ -548,6 +537,13 @@ static void startThread (void const* argument) {
     httpServerInit();
     mInfo.line ("httpServer started");
     }
+  else {
+    //{{{  no ethernet
+    netif_set_down (&gNetif);
+    DHCP_state = DHCP_LINK_DOWN;
+    mInfo.line (LCD_RED, "no ethernet");
+    }
+    //}}}
 
   for (;;)
     osThreadTerminate (NULL);
@@ -651,7 +647,7 @@ static void initSystemClock216() {
 //{{{
 int main() {
 
-  // init cpu caches, clocks and memoryregions
+  // init cpu caches, clocks, memory regions
   SCB_EnableICache();
   SCB_EnableDCache();
   HAL_Init();
