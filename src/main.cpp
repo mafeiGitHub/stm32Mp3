@@ -137,7 +137,12 @@ public:
   //}}}
 
   //{{{
-  void setDisplayTail() {
+  void displayFirst() {
+    mDisplayFirstLine = 0;
+    }
+  //}}}
+  //{{{
+  void displayTail() {
 
     if (mLastLine > (int)mNumDisplayLines-1)
       mDisplayFirstLine = mLastLine - mNumDisplayLines + 1;
@@ -306,32 +311,37 @@ static void uiThread (void const* argument) {
         auto y = tsState.touchY[i];
 
         if ((x >= kInfo) && (x < kVolume))
-          mInfo.line (toString(x) + "," + toString (y) + "," + toString (tsState.touchWeight[i]) + " " + toString(i));
+          mInfo.line (toString(x) + "," + toString (y) + "," + toString (tsState.touchWeight[i]));
 
-        lcdEllipse (x < kInfo ? LCD_GREEN : x < 440 ? LCD_MAGENTA : LCD_YELLOW, x, y, tsState.touchWeight[i], tsState.touchWeight[i]);
-        if (x < kInfo) {
-          //{{{  adjust mInfo
-          if (y > 260)
-            mInfo.setDisplayTail();
-          else if (lastValid[i])
-            mInfo.incDisplayLines (x-lastx[i], y - lasty[i]);
-          }
-          //}}}
-        else if (x >= kVolume){
-          //{{{  adjust volume
-          auto volume = lastValid[i] ? mVolume + float(y - lasty[i]) / lcdGetYSize() : float(y) / lcdGetYSize();
-
-          if (volume < 0)
-            volume = 0;
-          else if (volume > 1.0f)
-            volume = 1.0f;
-
-          if (volume != mVolume) {
-            mInfo.line ("vol " + toString(int(volume*100)) + "%");
-            mVolume = volume;
+        lcdEllipse (i > 0 ? LCD_LIGHTGREY : x < kInfo ? LCD_GREEN : x < kVolume ? LCD_MAGENTA : LCD_YELLOW, 
+                    x, y, tsState.touchWeight[i], tsState.touchWeight[i]);
+        if (i == 0) {
+          if (x < kInfo) {
+            //{{{  adjust mInfo
+            if (y <= 20)
+              mInfo.displayFirst();
+            else if (y >= 260)
+              mInfo.displayTail();
+            else if (lastValid[i])
+              mInfo.incDisplayLines (x-lastx[i], y - lasty[i]);
             }
+            //}}}
+          else if (x >= kVolume){
+            //{{{  adjust volume
+            auto volume = lastValid[i] ? mVolume + float(y - lasty[i]) / lcdGetYSize() : float(y) / lcdGetYSize();
+
+            if (volume < 0)
+              volume = 0;
+            else if (volume > 1.0f)
+              volume = 1.0f;
+
+            if (volume != mVolume) {
+              mInfo.line ("vol " + toString(int(volume*100)) + "%");
+              mVolume = volume;
+              }
+            }
+            //}}}
           }
-          //}}}
         lastx[i] = x;
         lasty[i] = y;
         lastValid[i] = true;
