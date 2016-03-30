@@ -85,10 +85,23 @@ public:
   //{{{
   cLcd()  {
     mStartTime = osKernelSysTick();
-    updateNumDisplayLines();
+    updateNumDrawLines();
     }
   //}}}
   ~cLcd() {}
+
+  //{{{
+  void init (uint32_t buffer0, uint32_t buffer1) {
+
+    mBuffer[0] = buffer0;
+    mBuffer[1] = buffer1;
+
+    lcdInit (mBuffer[0]);
+    lcdClear (LCD_BLACK);
+    lcdSendWait();
+    lcdDisplayOn();
+    }
+  //}}}
 
   //{{{
   int getWidth() {
@@ -108,19 +121,19 @@ public:
   //{{{
   void setDebug (bool enable) {
     mDebug = enable;
-    updateNumDisplayLines();
+    updateNumDrawLines();
     }
   //}}}
   //{{{
   void setTitle (std::string title) {
     mTitle = title;
-    updateNumDisplayLines();
+    updateNumDrawLines();
     }
   //}}}
   //{{{
   void setFooter (std::string footer) {
     mFooter = footer;
-    updateNumDisplayLines();
+    updateNumDrawLines();
     }
   //}}}
   //{{{
@@ -245,7 +258,7 @@ public:
 
 private:
   //{{{
-  void updateNumDisplayLines() {
+  void updateNumDrawLines() {
 
     auto numDrawLines = lcdGetYSize() / mLineInc;
 
@@ -300,6 +313,8 @@ private:
     };
   //}}}
   cLine mLines[500];
+
+  uint32_t mBuffer [2] = {0,0};
   };
 //}}}
 //{{{  vars
@@ -362,7 +377,9 @@ static void uiThread (void const* argument) {
         if (touch == 0) {
           if (x < kInfo)
             mLcd.pressed (pressed[touch], x, y, pressed[touch] ? x - lastx[touch] : 0, pressed[touch] ? y - lasty[touch] : 0);
-          else if (x >= kVolume) {
+          else if (x < kVolume)
+            mLcd.line (toString(x) + "," + toString (y) + "," + toString (tsState.touchWeight[touch]));
+          else {
             //{{{  adjust volume
             auto volume = pressed[touch] ? mVolume + float(y - lasty[touch]) / mLcd.getHeight(): float(y) / mLcd.getHeight();
 
@@ -377,8 +394,6 @@ static void uiThread (void const* argument) {
               }
             }
             //}}}
-          else
-            mLcd.line (toString(x) + "," + toString (y) + "," + toString (tsState.touchWeight[touch]));
           }
         lastx[touch] = x;
         lasty[touch] = y;
@@ -557,11 +572,9 @@ static void dhcpThread (void const* argument) {
 //{{{
 static void startThread (void const* argument) {
 
+  mLcd.init (SDRAM_FRAME0, SDRAM_FRAME1);
+  mLcd.setTitle (__TIME__ __DATE__);
   mLcd.line ("startThread started");
-
-  lcdClear (LCD_BLACK);
-  lcdSendWait();
-  lcdDisplayOn();
 
   const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 2000 };
   osThreadCreate (&osThreadUi, NULL);
@@ -720,9 +733,6 @@ int main() {
   // init heap
   HeapRegion_t xHeapRegions[] = { {(uint8_t*)SDRAM_HEAP, SDRAM_HEAP_SIZE }, { NULL, 0 } };
   vPortDefineHeapRegions (xHeapRegions);
-
-  lcdInit (SDRAM_FRAME0);
-  mLcd.setTitle (__TIME__ __DATE__);
 
   // init semaphores
   osSemaphoreDef (dhcp);
