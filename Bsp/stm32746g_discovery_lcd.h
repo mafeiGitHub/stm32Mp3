@@ -7,7 +7,7 @@
 #endif
 //}}}
 
-//{{{  LCD_colours defines
+//{{{  LCD colour defines
 #define LCD_BLUE          ((uint32_t)0xFF0000FF)
 #define LCD_GREEN         ((uint32_t)0xFF00FF00)
 #define LCD_RED           ((uint32_t)0xFFFF0000)
@@ -65,15 +65,15 @@ void lcdStamp (uint32_t col, uint8_t* src, int16_t x, int16_t y, uint16_t xpitch
 int lcdString (uint32_t col, int fontHeight, std::string str, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen);
 
 void lcdRect (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen);
-void lcdClipRect (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen);
+void lcdRectClipped (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen);
 void lcdEllipse (uint32_t col, int16_t x, int16_t Ypos, uint16_t xradius, uint16_t yradius);
 void lcdClear (uint32_t col);
 
 void lcdPixel (uint32_t col, int16_t x, int16_t y);
-void lcdClippedPixel (uint32_t col, int16_t x, int16_t y);
+void lcdPixelClipped (uint32_t col, int16_t x, int16_t y);
 void lcdLine (uint32_t col, int16_t x1, int16_t y1, int16_t x2, int16_t y2);
-void lcdOutRect (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen);
-void lcdOutEllipse (uint32_t col, int16_t x, int16_t y, uint16_t xradius, uint16_t yradius);
+void lcdRectOutline (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen);
+void lcdEllipseOutline (uint32_t col, int16_t x, int16_t y, uint16_t xradius, uint16_t yradius);
 
 void lcdSend();
 void lcdWait();

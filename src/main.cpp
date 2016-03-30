@@ -146,9 +146,9 @@ public:
     }
   //}}}
   //{{{
-  void incDisplayLines (int inc) {
+  void incDisplayLines (int xinc, int yinc) {
 
-    float value = mDisplayFirstLine - (inc / 4.0f);
+    float value = mDisplayFirstLine - (yinc / 4.0f);
 
     if (value < 0)
       mDisplayFirstLine = 0;
@@ -258,6 +258,7 @@ static osSemaphoreId audioSem;
 static osSemaphoreId loadedSem;
 
 static cInfo mInfo;
+static float mVolume = 0.8f;
 //}}}
 
 //{{{
@@ -275,18 +276,22 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 //{{{
 static void uiThread (void const* argument) {
 
+  const int kInfo = 150;
+  const int kVolume = 440;
+
   mInfo.line ("UIThread started");
 
-  auto lastx = -1;
-  auto lasty = -1;
+  bool lastValid [5] = {false, false, false, false, false};
+  int lastx [5];
+  int lasty [5];
   uint32_t frameBufferAddress = SDRAM_FRAME0;
 
   //  init touch
-  TS_StateTypeDef TS_State;
+  TS_StateTypeDef tsState;
   BSP_TS_Init (lcdGetXSize(), lcdGetYSize());
   uint32_t took = 0;
   while (true) {
-    BSP_TS_GetState (&TS_State);
+    BSP_TS_GetState (&tsState);
 
     frameBufferAddress = (frameBufferAddress == SDRAM_FRAME0) ? SDRAM_FRAME1 : SDRAM_FRAME0;
     lcdSetLayer (0, frameBufferAddress);
@@ -295,46 +300,62 @@ static void uiThread (void const* argument) {
     lcdClear (LCD_BLACK);
 
     //  touchscreen
-    for (auto i = 0; i < TS_State.touchDetected; i++) {
-      auto x = TS_State.touchX[i];
-      auto y = TS_State.touchY[i];
-      if (TS_State.touchWeight[i]) {
-        if (x > 200) {
-          lcdEllipse (LCD_GREEN, x, y, TS_State.touchWeight[i], TS_State.touchWeight[i]);
-          mInfo.line (toString(x) + "," + toString (y)+ "," + toString (TS_State.touchWeight[i]));
+    for (auto i = 0; i < 5; i++) {
+      if ((i < tsState.touchDetected) && tsState.touchWeight[i]) {
+        auto x = tsState.touchX[i];
+        auto y = tsState.touchY[i];
+
+        if ((x >= kInfo) && (x < kVolume))
+          mInfo.line (toString(x) + "," + toString (y) + "," + toString (tsState.touchWeight[i]) + " " + toString(i));
+
+        lcdEllipse (x < kInfo ? LCD_GREEN : x < 440 ? LCD_MAGENTA : LCD_YELLOW, x, y, tsState.touchWeight[i], tsState.touchWeight[i]);
+        if (x < kInfo) {
+          //{{{  adjust mInfo
+          if (y > 260)
+            mInfo.setDisplayTail();
+          else if (lastValid[i])
+            mInfo.incDisplayLines (x-lastx[i], y - lasty[i]);
           }
-        else if (lasty != -1)
-          mInfo.incDisplayLines (y - lasty);
-        else if (y > 260)
-          mInfo.setDisplayTail();
-        lastx = x;
-        lasty = y;
+          //}}}
+        else if (x >= kVolume){
+          //{{{  adjust volume
+          auto volume = lastValid[i] ? mVolume + float(y - lasty[i]) / lcdGetYSize() : float(y) / lcdGetYSize();
+
+          if (volume < 0)
+            volume = 0;
+          else if (volume > 1.0f)
+            volume = 1.0f;
+
+          if (volume != mVolume) {
+            mInfo.line ("vol " + toString(int(volume*100)) + "%");
+            mVolume = volume;
+            }
+          }
+          //}}}
+        lastx[i] = x;
+        lasty[i] = y;
+        lastValid[i] = true;
         }
-      else {
-        lastx = -1;
-        lasty = -1;
-        }
+      else
+        lastValid[i] = false;
       }
     //{{{  volume bar
-    lcdRect (LCD_YELLOW, lcdGetXSize()-20, 0, 20, (80 * lcdGetYSize()) / 100);
-    //}}}
-    //{{{  centre bar
-    lcdRect (LCD_GREY, lcdGetXSize()/2, 0, 1, lcdGetYSize());
+    lcdRect (LCD_YELLOW, lcdGetXSize()-20, 0, 20, int(mVolume * lcdGetYSize()));
     //}}}
     //{{{  waveform
-    int frames = 0;
-    uint8_t* power = nullptr;
-    int frame = 0 - lcdGetXSize()/2;
-    for (auto x = 0; x < lcdGetXSize(); x++, frame++) {
-      if (frames <= 0)
-        power = nullptr;
-      if (power) {
-        uint8_t top = *power++;
-        uint8_t ylen = *power++;
-        lcdRect (LCD_BLUE, x, top, 1, ylen);
-        frames--;
-        }
-      }
+    //int frames = 0;
+    //uint8_t* power = nullptr;
+    //int frame = 0 - lcdGetXSize()/2;
+    //for (auto x = 0; x < lcdGetXSize(); x++, frame++) {
+      //if (frames <= 0)
+        //power = nullptr;
+      //if (power) {
+        //uint8_t top = *power++;
+        //uint8_t ylen = *power++;
+        //lcdRect (LCD_BLUE, x, top, 1, ylen);
+        //frames--;
+        //}
+      //}
     //}}}
 
     mInfo.setFooter (toString (osGetCPUUsage()) + "% " + toString (xPortGetFreeHeapSize()) + "free " + toString (took) + "ms");

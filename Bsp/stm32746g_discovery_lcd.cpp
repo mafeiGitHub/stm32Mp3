@@ -517,6 +517,12 @@ int lcdString (uint32_t col, int fontHeight, std::string str, int16_t x, int16_t
 //}}}
 
 //{{{
+void lcdClear (uint32_t col) {
+
+  lcdRect (col, 0, 0, lcdGetXSize(), lcdGetYSize());
+  }
+//}}}
+//{{{
 void lcdRect (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
 
   if (!xlen)
@@ -536,7 +542,7 @@ void lcdRect (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) 
   }
 //}}}
 //{{{
-void lcdClipRect (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
+void lcdRectClipped (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
 
   if (x >= lcdGetXSize())
     return;
@@ -578,8 +584,8 @@ void lcdEllipse (uint32_t col, int16_t x, int16_t y, uint16_t xradius, uint16_t 
   float k = (float)yradius / xradius;
 
   do {
-    lcdClipRect (col, (x-(uint16_t)(x1 / k)), y + y1, (2*(uint16_t)(x1 / k) + 1), 1);
-    lcdClipRect (col, (x-(uint16_t)(x1 / k)), y - y1, (2*(uint16_t)(x1 / k) + 1), 1);
+    lcdRectClipped (col, (x-(uint16_t)(x1 / k)), y + y1, (2*(uint16_t)(x1 / k) + 1), 1);
+    lcdRectClipped (col, (x-(uint16_t)(x1 / k)), y - y1, (2*(uint16_t)(x1 / k) + 1), 1);
 
     int e2 = err;
     if (e2 <= x1) {
@@ -592,12 +598,6 @@ void lcdEllipse (uint32_t col, int16_t x, int16_t y, uint16_t xradius, uint16_t 
     } while (y1 <= 0);
   }
 //}}}
-//{{{
-void lcdClear (uint32_t col) {
-
-  lcdRect (col, 0, 0, lcdGetXSize(), lcdGetYSize());
-  }
-//}}}
 
 //{{{
 void lcdPixel (uint32_t col, int16_t x, int16_t y) {
@@ -606,7 +606,7 @@ void lcdPixel (uint32_t col, int16_t x, int16_t y) {
   }
 //}}}
 //{{{
-void lcdClipPixel (uint32_t col, int16_t x, int16_t y) {
+void lcdPixelClipped (uint32_t col, int16_t x, int16_t y) {
 
   if ((x >= 0) && (y > 0) && (x < lcdGetXSize()) && (y < lcdGetYSize()))
     *(uint32_t*)(curFrameBufferAddress + (y*lcdGetXSize() + x)*4) = col;
@@ -664,7 +664,7 @@ void lcdLine (uint32_t col, int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
   }
 
   for (int curpixel = 0; curpixel <= num_pixels; curpixel++) {
-    lcdClipPixel (col, x, y);   /* Draw the current pixel */
+    lcdPixelClipped (col, x, y);   /* Draw the current pixel */
     num += num_add;                            /* Increase the numerator by the top of the fraction */
     if (num >= den) {                          /* Check if numerator >= denominator */
       num -= den;                             /* Calculate the new numerator value */
@@ -677,16 +677,16 @@ void lcdLine (uint32_t col, int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
   }
 //}}}
 //{{{
-void lcdOutRect (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
+void lcdRectOutline (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
 
-  lcdClipRect (col, x, y, xlen, 1);
-  lcdClipRect (col, x + xlen, y, 1, ylen);
-  lcdClipRect (col, x, y + ylen, xlen, 1);
-  lcdClipRect (col, x, y, 1, ylen);
+  lcdRectClipped (col, x, y, xlen, 1);
+  lcdRectClipped (col, x + xlen, y, 1, ylen);
+  lcdRectClipped (col, x, y + ylen, xlen, 1);
+  lcdRectClipped (col, x, y, 1, ylen);
   }
 //}}}
 //{{{
-void lcdOutEllipse (uint32_t col, int16_t x, int16_t y, uint16_t xradius, uint16_t yradius) {
+void lcdEllipseOutline (uint32_t col, int16_t x, int16_t y, uint16_t xradius, uint16_t yradius) {
 
   if (xradius && yradius) {
     int x1 = 0;
@@ -695,10 +695,10 @@ void lcdOutEllipse (uint32_t col, int16_t x, int16_t y, uint16_t xradius, uint16
     float k = (float)yradius / xradius;
 
     do {
-      lcdClipPixel (col, x - (uint16_t)(x1 / k), y + y1);
-      lcdClipPixel (col, x + (uint16_t)(x1 / k), y + y1);
-      lcdClipPixel (col, x + (uint16_t)(x1 / k), y - y1);
-      lcdClipPixel (col, x - (uint16_t)(x1 / k), y - y1);
+      lcdPixelClipped (col, x - (uint16_t)(x1 / k), y + y1);
+      lcdPixelClipped (col, x + (uint16_t)(x1 / k), y + y1);
+      lcdPixelClipped (col, x + (uint16_t)(x1 / k), y - y1);
+      lcdPixelClipped (col, x - (uint16_t)(x1 / k), y - y1);
 
       int e2 = err;
       if (e2 <= x1) {
