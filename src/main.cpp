@@ -281,21 +281,23 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 //{{{
 static void uiThread (void const* argument) {
 
+  const int kTop = 20;
+  const int kTail = 260;
   const int kInfo = 150;
   const int kVolume = 440;
 
   mInfo.line ("UIThread started");
+  BSP_TS_Init (lcdGetXSize(), lcdGetYSize());
 
-  bool lastValid [5] = {false, false, false, false, false};
+  bool pressed [5] = {false, false, false, false, false};
   int lastx [5];
   int lasty [5];
   uint32_t frameBufferAddress = SDRAM_FRAME0;
 
   //  init touch
-  TS_StateTypeDef tsState;
-  BSP_TS_Init (lcdGetXSize(), lcdGetYSize());
   uint32_t took = 0;
   while (true) {
+    TS_StateTypeDef tsState;
     BSP_TS_GetState (&tsState);
 
     frameBufferAddress = (frameBufferAddress == SDRAM_FRAME0) ? SDRAM_FRAME1 : SDRAM_FRAME0;
@@ -313,22 +315,22 @@ static void uiThread (void const* argument) {
         if ((x >= kInfo) && (x < kVolume))
           mInfo.line (toString(x) + "," + toString (y) + "," + toString (tsState.touchWeight[i]));
 
-        lcdEllipse (i > 0 ? LCD_LIGHTGREY : x < kInfo ? LCD_GREEN : x < kVolume ? LCD_MAGENTA : LCD_YELLOW, 
+        lcdEllipse (i > 0 ? LCD_LIGHTGREY : x < kInfo ? LCD_GREEN : x < kVolume ? LCD_MAGENTA : LCD_YELLOW,
                     x, y, tsState.touchWeight[i], tsState.touchWeight[i]);
         if (i == 0) {
           if (x < kInfo) {
             //{{{  adjust mInfo
-            if (y <= 20)
+            if (y <= kTop)
               mInfo.displayFirst();
-            else if (y >= 260)
+            else if (y >= kTail)
               mInfo.displayTail();
-            else if (lastValid[i])
+            else if (pressed[i])
               mInfo.incDisplayLines (x-lastx[i], y - lasty[i]);
             }
             //}}}
           else if (x >= kVolume){
             //{{{  adjust volume
-            auto volume = lastValid[i] ? mVolume + float(y - lasty[i]) / lcdGetYSize() : float(y) / lcdGetYSize();
+            auto volume = pressed[i] ? mVolume + float(y - lasty[i]) / lcdGetYSize() : float(y) / lcdGetYSize();
 
             if (volume < 0)
               volume = 0;
@@ -344,10 +346,10 @@ static void uiThread (void const* argument) {
           }
         lastx[i] = x;
         lasty[i] = y;
-        lastValid[i] = true;
+        pressed[i] = true;
         }
       else
-        lastValid[i] = false;
+        pressed[i] = false;
       }
     //{{{  volume bar
     lcdRect (LCD_YELLOW, lcdGetXSize()-20, 0, 20, int(mVolume * lcdGetYSize()));
