@@ -464,13 +464,16 @@ void lcdSetFont (const uint8_t* font, int length) {
 void lcdStamp (uint32_t col, uint8_t* src, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
 
   if (xlen && ylen) {
-    *dma.curBuf++ = col;                                                         // colour
+    if (y + ylen > lcdGetYSize()) // bottom yclip
+      ylen = lcdGetYSize() - y;
+
+    *dma.curBuf++ = col;                                                    // colour
     *dma.curBuf++ = curFrameBufferAddress + ((y * lcdGetXSize()) + x) * 4;  // bgnd fb start address
-    *dma.curBuf++ = lcdGetXSize() - xlen;                                        // stride
-    *dma.curBuf++ = (xlen << 16) | ylen;                                         // xlen:ylen
-    *dma.curBuf++ = (uint32_t)src;                                               // src start address
-    *dma.curBuf++ = 0;                                                           // terminate
-    *(dma.curBuf-7) = 2;                                                         // stamp opCode
+    *dma.curBuf++ = lcdGetXSize() - xlen;                                   // stride
+    *dma.curBuf++ = (xlen << 16) | ylen;                                    // xlen:ylen
+    *dma.curBuf++ = (uint32_t)src;                                          // src start address
+    *dma.curBuf++ = 0;                                                      // terminate
+    *(dma.curBuf-7) = 2;                                                    // stamp opCode
 
     if (dma.curBuf > dma.highWater)
       dma.highWater = dma.curBuf;
