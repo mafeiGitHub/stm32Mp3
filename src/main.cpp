@@ -50,13 +50,6 @@
 #define GW_ADDR1  168
 #define GW_ADDR2  0
 #define GW_ADDR3  1
-
-// dhcp defines
-#define DHCP_START             (uint8_t)1
-#define DHCP_WAIT_ADDRESS      (uint8_t)2
-#define DHCP_ADDRESS_ASSIGNED  (uint8_t)3
-#define DHCP_TIMEOUT           (uint8_t)4
-#define DHCP_LINK_DOWN         (uint8_t)5
 //}}}
 //{{{  sdram allocation
 #define SDRAM_FRAME0   0xC0000000 // frameBuffer 272*480*4 = 0x7f800 = 512k-2048b leave bit of guard for clipping errors
@@ -67,7 +60,6 @@
 
 //{{{  vars
 static struct netif gNetif;
-static volatile uint8_t DHCP_state = DHCP_START;
 
 static osSemaphoreId dhcpSem;
 static osSemaphoreId audioSem;
@@ -262,52 +254,37 @@ static void dhcpThread (void const* argument) {
 
   struct ip_addr nullIpAddr;
   IP4_ADDR (&nullIpAddr, 0, 0, 0, 0);
+  netif->ip_addr = nullIpAddr;
+  netif->netmask = nullIpAddr;
+  netif->gw = nullIpAddr;
+  dhcp_start (netif);
 
-  bool exit = false;
-  while (!exit) {
-    switch (DHCP_state) {
-      case DHCP_START:
-        netif->ip_addr = nullIpAddr;
-        netif->netmask = nullIpAddr;
-        netif->gw = nullIpAddr;
-        dhcp_start (netif);
-        DHCP_state = DHCP_WAIT_ADDRESS;
-        break;
-
-      case DHCP_WAIT_ADDRESS:
-        if (netif->ip_addr.addr) {
-          mLcd.text ("dhcp allocated " + mLcd.toString (netif->ip_addr.addr & 0xFF) + "." +
-                                         mLcd.toString ((netif->ip_addr.addr >> 16) & 0xFF) + "." +
-                                         mLcd.toString ((netif->ip_addr.addr >> 8) & 0xFF) + "." +
-                                         mLcd.toString (netif->ip_addr.addr >> 24));
-          dhcp_stop (netif);
-          DHCP_state = DHCP_ADDRESS_ASSIGNED;
-          osSemaphoreRelease (dhcpSem);
-          exit = true;
-          }
-        else if (netif->dhcp->tries > 4) {
-          //  DHCP timeout
-          DHCP_state = DHCP_TIMEOUT;
-          dhcp_stop (netif);
-
-          // use static address
-          struct ip_addr ipAddr;
-          IP4_ADDR (&ipAddr, IP_ADDR0 ,IP_ADDR1 , IP_ADDR2 , IP_ADDR3 );
-          struct ip_addr netmask;
-          IP4_ADDR (&netmask, NETMASK_ADDR0, NETMASK_ADDR1, NETMASK_ADDR2, NETMASK_ADDR3);
-          struct ip_addr gateway;
-          IP4_ADDR (&gateway, GW_ADDR0, GW_ADDR1, GW_ADDR2, GW_ADDR3);
-          netif_set_addr (netif, &ipAddr , &netmask, &gateway);
-          osSemaphoreRelease (dhcpSem);
-          exit = true;
-          }
-        break;
-
-      default:
-        break;
+  while (true) {
+    if (netif->ip_addr.addr) {
+      mLcd.text (LCD_YELLOW, "dhcp allocated " + mLcd.toString (netif->ip_addr.addr & 0xFF) + "." +
+                                                 mLcd.toString ((netif->ip_addr.addr >> 16) & 0xFF) + "." +
+                                                 mLcd.toString ((netif->ip_addr.addr >> 8) & 0xFF) + "." +
+                                                 mLcd.toString (netif->ip_addr.addr >> 24));
+      dhcp_stop (netif);
+      osSemaphoreRelease (dhcpSem);
+      break;
       }
+    else if (netif->dhcp->tries > 4) {
+      mLcd.text (LCD_RED, "dhcp timeout");
+      dhcp_stop (netif);
 
-    osDelay (250); // ms
+      // use static address
+      struct ip_addr ipAddr;
+      IP4_ADDR (&ipAddr, IP_ADDR0 ,IP_ADDR1 , IP_ADDR2 , IP_ADDR3 );
+      struct ip_addr netmask;
+      IP4_ADDR (&netmask, NETMASK_ADDR0, NETMASK_ADDR1, NETMASK_ADDR2, NETMASK_ADDR3);
+      struct ip_addr gateway;
+      IP4_ADDR (&gateway, GW_ADDR0, GW_ADDR1, GW_ADDR2, GW_ADDR3);
+      netif_set_addr (netif, &ipAddr , &netmask, &gateway);
+      osSemaphoreRelease (dhcpSem);
+      break;
+      }
+    osDelay (250); 
     }
 
   osThreadTerminate (NULL);
@@ -344,10 +321,8 @@ static void startThread (void const* argument) {
     netif_set_up (&gNetif);
     mLcd.text ("ethernet connected");
 
-    DHCP_state = DHCP_START;
     const osThreadDef_t osThreadDHCP =  { (char*)"DHCP", dhcpThread, osPriorityBelowNormal, 0, 512 };
     osThreadCreate (&osThreadDHCP, &gNetif);
-
     while (osSemaphoreWait (dhcpSem, 1000) == osOK)
       osDelay (1000);
 
@@ -357,7 +332,6 @@ static void startThread (void const* argument) {
   else {
     //{{{  no ethernet
     netif_set_down (&gNetif);
-    DHCP_state = DHCP_LINK_DOWN;
     mLcd.text (LCD_RED, "no ethernet");
     }
     //}}}
