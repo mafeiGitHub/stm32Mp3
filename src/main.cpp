@@ -87,7 +87,7 @@ static void uiThread (void const* argument) {
   const int kInfo = 150;
   const int kVolume = 440;
 
-  mLcd.text ("UIthread started");
+  mLcd.text ("uiThread started");
 
   int pressed [5] = {0, 0, 0, 0, 0};
   int lastx [5];
@@ -284,7 +284,7 @@ static void dhcpThread (void const* argument) {
       osSemaphoreRelease (dhcpSem);
       break;
       }
-    osDelay (250); 
+    osDelay (250);
     }
 
   osThreadTerminate (NULL);

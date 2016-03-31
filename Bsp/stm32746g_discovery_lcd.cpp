@@ -84,7 +84,6 @@ static tLTDC ltdc;
 
 static osSemaphoreId DmaSem;
 static uint32_t* DmaIsrBuf;
-#define DMA_BUF (uint32_t*)0x20000000
 
 #define maxChars 0x60
 //{{{  struct tFontChar
@@ -103,6 +102,7 @@ static FT_Library FTlibrary;
 static FT_Face FTface;
 static FT_GlyphSlot FTglyphSlot;
 //}}}
+#define DMA_BUF (uint32_t*)0x20000000
 
 LTDC_HandleTypeDef hLtdc;
 //{{{
