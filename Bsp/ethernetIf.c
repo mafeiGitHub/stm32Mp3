@@ -3,10 +3,10 @@
 // match linker ram sections, somehow linked into .elf, made .bin enormous and failed download verify
 // - just pass address explicitly, mirroring linker def
 //
-// Memory_B1(xrw) : ORIGIN = 0x20000000, LENGTH = 0xA0   RxDescripSection
-// Memory_B2(xrw) : ORIGIN = 0x200000A0, LENGTH = 0xA0   TxDescripSection
-// Memory_B3(xrw) : ORIGIN = 0x20000140, LENGTH = 0x1dc4 RxBUF
-// Memory_B4(xrw) : ORIGIN = 0x20001F04, LENGTH = 0x1dc4 TxBUF
+// Memory_B1(xrw) : ORIGIN = 0x20008000, LENGTH = 0xA0   RxDescripSection
+// Memory_B2(xrw) : ORIGIN = 0x200080A0, LENGTH = 0xA0   TxDescripSection
+// Memory_B3(xrw) : ORIGIN = 0x20008140, LENGTH = 0x1dc4 RxBUF
+// Memory_B4(xrw) : ORIGIN = 0x20009F04, LENGTH = 0x1dc4 TxBUF
 //
 // ETH_DMADescTypeDef DMARxDscrTab[ETH_RXBUFNB] __attribute__((section(".RxDescripSection"))); // Ethernet Rx MA Descriptor
 // ETH_DMADescTypeDef DMATxDscrTab[ETH_TXBUFNB] __attribute__((section(".TxDescripSection"))); // Ethernet Tx DMA Descriptor
@@ -251,10 +251,10 @@ static void low_level_init (struct netif* netif) {
     netif->flags |= NETIF_FLAG_LINK_UP;
 
   // Initialize Rx Descriptors list: Chain Mode
-  HAL_ETH_DMARxDescListInit (&EthHandle, (ETH_DMADescTypeDef*)0x20000000, (uint8_t*)0x20000140, ETH_RXBUFNB);
+  HAL_ETH_DMARxDescListInit (&EthHandle, (ETH_DMADescTypeDef*)0x20008000, (uint8_t*)0x20008140, ETH_RXBUFNB);
 
   // Initialize Tx Descriptors list: Chain Mode
-  HAL_ETH_DMATxDescListInit (&EthHandle, (ETH_DMADescTypeDef*)0x200000A0, (uint8_t*)0x20001F04, ETH_TXBUFNB);
+  HAL_ETH_DMATxDescListInit (&EthHandle, (ETH_DMADescTypeDef*)0x200080A0, (uint8_t*)0x20009F04, ETH_TXBUFNB);
 
   // set netif MAC hardware address length
   netif->hwaddr_len = ETHARP_HWADDR_LEN;

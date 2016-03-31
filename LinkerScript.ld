@@ -17,11 +17,12 @@ _Min_Stack_Size = 0x400; /* required amount of stack */
 MEMORY
 {
 FLASH (rx)   : ORIGIN = 0x08000000, LENGTH =    1024K
-RAM_B1(xrw)  : ORIGIN = 0x20000000, LENGTH =    0xA0    /* ethernet rx desc buf */
-RAM_B2(xrw)  : ORIGIN = 0x200000A0, LENGTH =    0xA0    /* ethernet tx desc buf */
-RAM_B3(xrw)  : ORIGIN = 0x20000140, LENGTH =  0x1dc4    /* ethernet rx buf */
-RAM_B4(xrw)  : ORIGIN = 0x20001F04, LENGTH =  0x1dc4    /* ethernet tx buf */
-RAM (xrw)    : ORIGIN = 0x20003CC8, LENGTH = 0x4c338    /* malloc heap, startup stack - 312k - TCM, SRAM1, SRAM2 */
+RAM_B0(xrw)  : ORIGIN = 0x20000000, LENGTH =  0x8000   /* lcd dma buffer */
+RAM_B1(xrw)  : ORIGIN = 0x20008000, LENGTH =    0xA0   /* ethernet rx desc buf */
+RAM_B2(xrw)  : ORIGIN = 0x200080A0, LENGTH =    0xA0   /* ethernet tx desc buf */
+RAM_B3(xrw)  : ORIGIN = 0x20008140, LENGTH =  0x1dc4   /* ethernet rx buf */
+RAM_B4(xrw)  : ORIGIN = 0x20009F04, LENGTH =  0x1dc4   /* ethernet tx buf */
+RAM (xrw)    : ORIGIN = 0x20010000, LENGTH = 0x40000   /* malloc heap, startup stack - 256k - TCM, SRAM1, SRAM2 */
 }
 
 /* Define output sections */

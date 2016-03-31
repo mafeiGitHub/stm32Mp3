@@ -82,20 +82,9 @@ typedef struct {
 //}}}
 static tLTDC ltdc;
 
-//{{{  struct tDma2d
-typedef struct {
-  osSemaphoreId sem;
-  uint32_t* isrBuf;
-  uint32_t* curBuf;
-  uint32_t* highWater;
-  uint32_t buf[5000];  // should overflow into counts first
-  uint32_t irqTeCount;
-  uint32_t irqCeCount;
-  uint32_t irqTcCount;
-  uint32_t timeouts;
-  } tDma2d;
-//}}}
-static tDma2d dma;
+static osSemaphoreId DmaSem;
+static uint32_t* DmaIsrBuf;
+#define DMA_BUF (uint32_t*)0x20000000
 
 #define maxChars 0x60
 //{{{  struct tFontChar
@@ -151,41 +140,34 @@ void LCD_LTDC_IRQHandler() {
 //{{{
 void LCD_DMA2D_IRQHandler() {
 
-  // debug count interrupts
-  if (DMA2D->ISR & DMA2D_ISR_TEIF) dma.irqTeCount++;
-  if (DMA2D->ISR & DMA2D_ISR_CEIF) dma.irqCeCount++;
-  if (DMA2D->ISR & DMA2D_ISR_TCIF) dma.irqTcCount++;
-
   // clear interrupt flags
   DMA2D->IFCR = DMA2D_ISR_TCIF | DMA2D_ISR_TEIF | DMA2D_ISR_CEIF;
 
-  switch (*dma.isrBuf) {
+  switch (*DmaIsrBuf++) {
     case 1: // fill
-      dma.isrBuf++;
-      DMA2D->OCOLR = *dma.isrBuf++;  // colour
-      DMA2D->OMAR  = *dma.isrBuf++;  // fb start address
-      DMA2D->OOR   = *dma.isrBuf++;  // stride
-      DMA2D->NLR   = *dma.isrBuf++;  // xlen:ylen
+      DMA2D->OCOLR = *DmaIsrBuf++;  // colour
+      DMA2D->OMAR  = *DmaIsrBuf++;  // fb start address
+      DMA2D->OOR   = *DmaIsrBuf++;  // stride
+      DMA2D->NLR   = *DmaIsrBuf++;  // xlen:ylen
       DMA2D->CR = DMA2D_CR_R2M | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
       break;
 
     case 2: // stamp
-      dma.isrBuf++;
-      DMA2D->FGCOLR = *dma.isrBuf++; // src color
-      DMA2D->OMAR   = *dma.isrBuf;   // bgnd fb start address
-      DMA2D->BGMAR  = *dma.isrBuf++;
-      DMA2D->OOR    = *dma.isrBuf;   // bgnd stride
-      DMA2D->BGOR   = *dma.isrBuf++;
-      DMA2D->NLR    = *dma.isrBuf++; // xlen:ylen
-      DMA2D->FGMAR  = *dma.isrBuf++; // src start address
+      DMA2D->FGCOLR = *DmaIsrBuf++; // src color
+      DMA2D->OMAR   = *DmaIsrBuf;   // bgnd fb start address
+      DMA2D->BGMAR  = *DmaIsrBuf++;
+      DMA2D->OOR    = *DmaIsrBuf;   // bgnd stride
+      DMA2D->BGOR   = *DmaIsrBuf++;
+      DMA2D->NLR    = *DmaIsrBuf++; // xlen:ylen
+      DMA2D->FGMAR  = *DmaIsrBuf++; // src start address
       DMA2D->CR = DMA2D_CR_M2M_BLEND | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
       break;
 
     default: // normally 0
       // no more opCodes, disable interrupts and release semaphore to signal done
       DMA2D->CR = 0;
-      dma.isrBuf = dma.buf;
-      osSemaphoreRelease (dma.sem);
+      DmaIsrBuf = DMA_BUF;
+      osSemaphoreRelease (DmaSem);
       break;
     }
   }
@@ -291,15 +273,15 @@ void cLcd::rect (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t yle
   if (!ylen)
     return;
 
-  *dma.curBuf++ = col;                                                 // colour
-  *dma.curBuf++ = curFrameBufferAddress + ((y * getWidth()) + x) * 4;  // fb start address
-  *dma.curBuf++ = getWidth() - xlen;                                // stride
-  *dma.curBuf++ = (xlen << 16) | ylen;                                 // xlen:ylen
-  *dma.curBuf++ = 0;                                                   // terminate
-  *(dma.curBuf-6) = 1;                                                 // fill opCode
+  *mDmaCurBuf++ = col;                                                 // colour
+  *mDmaCurBuf++ = curFrameBufferAddress + ((y * getWidth()) + x) * 4;  // fb start address
+  *mDmaCurBuf++ = getWidth() - xlen;                                // stride
+  *mDmaCurBuf++ = (xlen << 16) | ylen;                                 // xlen:ylen
+  *mDmaCurBuf++ = 0;                                                   // terminate
+  *(mDmaCurBuf-6) = 1;                                                 // fill opCode
 
-  if (dma.curBuf > dma.highWater)
-    dma.highWater = dma.curBuf;
+  if (mDmaCurBuf > mDmaHighWater)
+    mDmaHighWater = mDmaCurBuf;
   }
 //}}}
 //{{{
@@ -545,11 +527,8 @@ void cLcd::endDraw() {
   if (mShowDebug) {
     std::string str = toString (ltdc.lineIrq) + ":f " +
                       toString (ltdc.lineTicks) + "ms " +
-                      toString (dma.highWater-dma.buf) + ":hi " +
-                      toString (dma.irqTcCount)  + ":irq " +
-                      toString (dma.irqTeCount) + " " +
-                      toString (dma.irqCeCount)  + " " +
-                      toString (dma.timeouts) + " " +
+                      toString (mDmaHighWater-DMA_BUF) + ":hi " +
+                      toString (mDmaTimeouts) + " " +
                       toString (ltdc.transferErrorIrq) + " " +
                       toString (ltdc.fifoUnderunIrq);
     string (LCD_WHITE, 20, str, 0, getHeight() - 2 * mLineInc, getWidth(), 24);
@@ -740,19 +719,14 @@ void cLcd::ltdcInit (uint32_t frameBufferAddress) {
   //DMA2D->AMTCR = 0x1001;
 
   osSemaphoreDef (dma2dSem);
-  dma.sem = osSemaphoreCreate (osSemaphore (dma2dSem), -1);
+  DmaSem = osSemaphoreCreate (osSemaphore (dma2dSem), -1);
 
   // zero out first opcode, point past it
-  *dma.buf = 0;
-  dma.curBuf = dma.buf+1;
-  dma.highWater = dma.curBuf;
-
-  dma.isrBuf = dma.buf;
-
-  dma.irqTeCount = 0;
-  dma.irqCeCount = 0;
-  dma.irqTcCount = 0;
-  dma.timeouts = 0;
+  mDmaCurBuf = DMA_BUF;
+  *mDmaCurBuf++ = 0;
+  mDmaHighWater = mDmaCurBuf;
+  DmaIsrBuf = DMA_BUF;
+  mDmaTimeouts = 0;
 
   HAL_NVIC_SetPriority (DMA2D_IRQn, 0x05, 0);
   HAL_NVIC_EnableIRQ (DMA2D_IRQn);
@@ -827,16 +801,16 @@ void cLcd::stamp (uint32_t col, uint8_t* src, int16_t x, int16_t y, uint16_t xle
     if (y + ylen > getHeight()) // bottom yclip
       ylen = getHeight() - y;
 
-    *dma.curBuf++ = col;                                                    // colour
-    *dma.curBuf++ = curFrameBufferAddress + ((y * getWidth()) + x) * 4;  // bgnd fb start address
-    *dma.curBuf++ = getWidth() - xlen;                                   // stride
-    *dma.curBuf++ = (xlen << 16) | ylen;                                    // xlen:ylen
-    *dma.curBuf++ = (uint32_t)src;                                          // src start address
-    *dma.curBuf++ = 0;                                                      // terminate
-    *(dma.curBuf-7) = 2;                                                    // stamp opCode
+    *mDmaCurBuf++ = col;                                                    // colour
+    *mDmaCurBuf++ = curFrameBufferAddress + ((y * getWidth()) + x) * 4;  // bgnd fb start address
+    *mDmaCurBuf++ = getWidth() - xlen;                                   // stride
+    *mDmaCurBuf++ = (xlen << 16) | ylen;                                    // xlen:ylen
+    *mDmaCurBuf++ = (uint32_t)src;                                          // src start address
+    *mDmaCurBuf++ = 0;                                                      // terminate
+    *(mDmaCurBuf-7) = 2;                                                    // stamp opCode
 
-    if (dma.curBuf > dma.highWater)
-      dma.highWater = dma.curBuf;
+    if (mDmaCurBuf > mDmaHighWater)
+      mDmaHighWater = mDmaCurBuf;
     }
   }
 //}}}
@@ -890,12 +864,12 @@ void cLcd::send() {
 //{{{
 void cLcd::wait() {
 
-  if (osSemaphoreWait (dma.sem, 500) != osOK)
-    dma.timeouts++;
+  if (osSemaphoreWait (DmaSem, 500) != osOK)
+    mDmaTimeouts++;
 
   // zero out first opcode, point past it
-  *dma.buf = 0;
-  dma.curBuf = dma.buf+1;
+  mDmaCurBuf = DMA_BUF;
+  *mDmaCurBuf++ = 0;
   }
 //}}}
 //{{{
