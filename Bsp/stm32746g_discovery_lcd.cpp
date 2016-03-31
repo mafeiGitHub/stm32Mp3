@@ -1,8 +1,16 @@
 // stm32746g_discovery_lcd.cpp
 //{{{  includes
+#include <string>
+#include <sstream>
+#include <iostream>
+#include <iomanip>
+
+#include "stm32746g_discovery.h"
 #include "stm32746g_discovery_lcd.h"
+#include "stm32746g_discovery_lcd_private.h"
 
 #include "cmsis_os.h"
+#include "../sys/cpuUsage.h"
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -105,8 +113,8 @@ static FT_Library FTlibrary;
 static FT_Face FTface;
 static FT_GlyphSlot FTglyphSlot;
 //}}}
-LTDC_HandleTypeDef hLtdc;
 
+LTDC_HandleTypeDef hLtdc;
 //{{{
 void LCD_LTDC_IRQHandler() {
 
@@ -182,8 +190,415 @@ void LCD_DMA2D_IRQHandler() {
   }
 //}}}
 
+// cLcd public
 //{{{
-void lcdInit (uint32_t frameBufferAddress) {
+cLcd::cLcd()  {
+  mStartTime = osKernelSysTick();
+  updateNumDrawLines();
+  }
+//}}}
+//{{{
+void cLcd::init (uint32_t buffer0, uint32_t buffer1) {
+
+  mBuffer[false] = buffer0;
+  mBuffer[true] = buffer1;
+
+  mDrawBuffer = !mDrawBuffer;
+  ltdcInit (mBuffer[mDrawBuffer]);
+
+  clear (LCD_BLACK);
+  sendWait();
+  displayOn();
+
+  // font init
+  setFont (freeSansBold, freeSansBold_len);
+  for (auto i = 0; i < maxChars; i++)
+    chars[i] = nullptr;
+  }
+//}}}
+
+//{{{
+int cLcd::getWidth() {
+  return 480;
+  }
+//}}}
+//{{{
+int cLcd::getHeight() {
+  return 272;
+  }
+//}}}
+
+//{{{
+void cLcd::setShowTime (bool enable) {
+  mShowTime = enable;
+  }
+//}}}
+//{{{
+void cLcd::setDebug (bool enable) {
+  mDebug = enable;
+  updateNumDrawLines();
+  }
+//}}}
+//{{{
+void cLcd::setTitle (std::string title) {
+  mTitle = title;
+  updateNumDrawLines();
+  }
+//}}}
+
+//{{{
+std::string cLcd::toString (int value) {
+
+  std::ostringstream os;
+  os << value;
+  return os.str();
+  }
+//}}}
+//{{{
+void cLcd::text (int colour, std::string str) {
+
+  bool tailing = mLastLine == (int)mFirstLine + mNumDrawLines - 1;
+
+  auto line = (mLastLine < mMaxLine-1) ? mLastLine+1 : mLastLine;
+  mLines[line].mTime = osKernelSysTick();
+  mLines[line].mColour = colour;
+  mLines[line].mString = str;
+  mLastLine = line;
+
+  if (tailing)
+    mFirstLine = mLastLine - mNumDrawLines + 1;
+  }
+//}}}
+//{{{
+void cLcd::text (std::string str) {
+  text (LCD_WHITE, str);
+  }
+//}}}
+
+//{{{
+void cLcd::rect (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
+
+  if (!xlen)
+    return;
+  if (!ylen)
+    return;
+
+  *dma.curBuf++ = col;                                                 // colour
+  *dma.curBuf++ = curFrameBufferAddress + ((y * getWidth()) + x) * 4;  // fb start address
+  *dma.curBuf++ = getWidth() - xlen;                                // stride
+  *dma.curBuf++ = (xlen << 16) | ylen;                                 // xlen:ylen
+  *dma.curBuf++ = 0;                                                   // terminate
+  *(dma.curBuf-6) = 1;                                                 // fill opCode
+
+  if (dma.curBuf > dma.highWater)
+    dma.highWater = dma.curBuf;
+  }
+//}}}
+//{{{
+void cLcd::rectClipped (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
+
+  if (x >= getWidth())
+    return;
+  if (y >= getHeight())
+    return;
+
+  int xend = x + xlen;
+  if (xend <= 0)
+    return;
+
+  int yend = y + ylen;
+  if (yend <= 0)
+    return;
+
+  if (x < 0)
+    x = 0;
+  if (xend > getWidth())
+    xend = getWidth();
+
+  if (y < 0)
+    y = 0;
+  if (yend > getHeight())
+    yend = getHeight();
+
+  rect (col, x, y, xend - x, yend - y);
+  }
+//}}}
+//{{{
+void cLcd::rectOutline (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
+
+  rectClipped (col, x, y, xlen, 1);
+  rectClipped (col, x + xlen, y, 1, ylen);
+  rectClipped (col, x, y + ylen, xlen, 1);
+  rectClipped (col, x, y, 1, ylen);
+  }
+//}}}
+//{{{
+void cLcd::clear (uint32_t col) {
+
+  rect (col, 0, 0, getWidth(), getHeight());
+  }
+//}}}
+//{{{
+void cLcd::ellipse (uint32_t col, int16_t x, int16_t y, uint16_t xradius, uint16_t yradius) {
+
+  if (!xradius)
+    return;
+  if (!yradius)
+    return;
+
+  int x1 = 0;
+  int y1 = -yradius;
+  int err = 2 - 2*xradius;
+  float k = (float)yradius / xradius;
+
+  do {
+    rectClipped (col, (x-(uint16_t)(x1 / k)), y + y1, (2*(uint16_t)(x1 / k) + 1), 1);
+    rectClipped (col, (x-(uint16_t)(x1 / k)), y - y1, (2*(uint16_t)(x1 / k) + 1), 1);
+
+    int e2 = err;
+    if (e2 <= x1) {
+      err += ++x1 * 2 + 1;
+      if (-y1 == x && e2 <= y1)
+        e2 = 0;
+      }
+    if (e2 > y1)
+      err += ++y1*2 + 1;
+    } while (y1 <= 0);
+  }
+//}}}
+//{{{
+void cLcd::ellipseOutline (uint32_t col, int16_t x, int16_t y, uint16_t xradius, uint16_t yradius) {
+
+  if (xradius && yradius) {
+    int x1 = 0;
+    int y1 = -yradius;
+    int err = 2 - 2*xradius;
+    float k = (float)yradius / xradius;
+
+    do {
+      pixelClipped (col, x - (uint16_t)(x1 / k), y + y1);
+      pixelClipped (col, x + (uint16_t)(x1 / k), y + y1);
+      pixelClipped (col, x + (uint16_t)(x1 / k), y - y1);
+      pixelClipped (col, x - (uint16_t)(x1 / k), y - y1);
+
+      int e2 = err;
+      if (e2 <= x1) {
+        err += ++x1*2 + 1;
+        if (-y1 == x1 && e2 <= y1)
+          e2 = 0;
+        }
+      if (e2 > y1)
+        err += ++y1*2 + 1;
+      } while (y1 <= 0);
+    }
+  }
+//}}}
+//{{{
+void cLcd::pixel (uint32_t col, int16_t x, int16_t y) {
+
+  *(uint32_t*)(curFrameBufferAddress + (y*getWidth() + x)*4) = col;
+  }
+//}}}
+//{{{
+void cLcd::pixelClipped (uint32_t col, int16_t x, int16_t y) {
+
+  if ((x >= 0) && (y > 0) && (x < getWidth()) && (y < getHeight()))
+    *(uint32_t*)(curFrameBufferAddress + (y*getWidth() + x)*4) = col;
+  }
+//}}}
+//{{{
+void cLcd::line (uint32_t col, int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
+
+  int16_t deltax = ABS(x2 - x1);        /* The difference between the x's */
+  int16_t deltay = ABS(y2 - y1);        /* The difference between the y's */
+  int16_t x = x1;                       /* Start x off at the first pixel */
+  int16_t y = y1;                       /* Start y off at the first pixel */
+
+  int16_t xinc1;
+  int16_t xinc2;
+  if (x2 >= x1) {               /* The x-values are increasing */
+    xinc1 = 1;
+    xinc2 = 1;
+    }
+  else {                         /* The x-values are decreasing */
+    xinc1 = -1;
+    xinc2 = -1;
+    }
+
+  int yinc1;
+  int yinc2;
+  if (y2 >= y1) {                 /* The y-values are increasing */
+    yinc1 = 1;
+    yinc2 = 1;
+    }
+  else {                         /* The y-values are decreasing */
+    yinc1 = -1;
+    yinc2 = -1;
+    }
+
+  int den = 0;
+  int num = 0;
+  int num_add = 0;
+  int num_pixels = 0;
+  if (deltax >= deltay) {        /* There is at least one x-value for every y-value */
+    xinc1 = 0;                  /* Don't change the x when numerator >= denominator */
+    yinc2 = 0;                  /* Don't change the y for every iteration */
+    den = deltax;
+    num = deltax / 2;
+    num_add = deltay;
+    num_pixels = deltax;         /* There are more x-values than y-values */
+    }
+  else {                         /* There is at least one y-value for every x-value */
+    xinc2 = 0;                  /* Don't change the x for every iteration */
+    yinc1 = 0;                  /* Don't change the y when numerator >= denominator */
+    den = deltay;
+    num = deltay / 2;
+    num_add = deltax;
+    num_pixels = deltay;         /* There are more y-values than x-values */
+  }
+
+  for (int curpixel = 0; curpixel <= num_pixels; curpixel++) {
+    pixelClipped (col, x, y);   /* Draw the current pixel */
+    num += num_add;                            /* Increase the numerator by the top of the fraction */
+    if (num >= den) {                          /* Check if numerator >= denominator */
+      num -= den;                             /* Calculate the new numerator value */
+      x += xinc1;                             /* Change the x as appropriate */
+      y += yinc1;                             /* Change the y as appropriate */
+      }
+    x += xinc2;                               /* Change the x as appropriate */
+    y += yinc2;                               /* Change the y as appropriate */
+    }
+  }
+//}}}
+
+//{{{
+void cLcd::pressed (int pressCount, int x, int y, int xinc, int yinc) {
+
+  if ((pressCount > 30) && (x <= mStringPos) && (y <= mLineInc))
+    reset();
+  else if (pressCount == 0) {
+    if (x <= mStringPos) {
+      // set displayFirstLine
+      if (y < 2 * mLineInc)
+        displayTop();
+      else if (y > getHeight() - 2 * mLineInc)
+        displayTail();
+      }
+    }
+  else {
+    // inc firstLine
+    float value = mFirstLine - (yinc / 4.0f);
+
+    if (value < 0)
+      mFirstLine = 0;
+    else if (mLastLine <= (int)mNumDrawLines-1)
+      mFirstLine = 0;
+    else if (value > mLastLine - mNumDrawLines + 1)
+      mFirstLine = mLastLine - mNumDrawLines + 1;
+    else
+      mFirstLine = value;
+    }
+  }
+//}}}
+
+//{{{
+void cLcd::startDraw() {
+
+  mDrawBuffer = !mDrawBuffer;
+  setLayer (0, mBuffer[mDrawBuffer]);
+
+  // frameSync;
+  ltdc.frameWait = 1;
+  if (osSemaphoreWait (ltdc.sem, 100) != osOK)
+    ltdc.timeouts++;
+
+  mDrawStartTime = osKernelSysTick();
+  clear (LCD_BLACK);
+  }
+//}}}
+//{{{
+void cLcd::endDraw() {
+
+  auto y = 0;
+  if (!mTitle.empty()) {
+    // draw title
+    string (LCD_WHITE, mFontHeight, mTitle, 0, y, getWidth(), mLineInc);
+    y += mLineInc;
+    }
+
+  if (mLastLine >= 0) {
+    // draw scroll bar
+    auto yorg = mLineInc + ((int)mFirstLine * mNumDrawLines * mLineInc / (mLastLine + 1));
+    auto ylen = mNumDrawLines * mNumDrawLines * mLineInc / (mLastLine + 1);
+    rectClipped (LCD_YELLOW, 0, yorg, 8, ylen);
+    }
+
+  auto lastLine = (int)mFirstLine + mNumDrawLines - 1;
+  if (lastLine > mLastLine)
+    lastLine = mLastLine;
+  for (auto lineIndex = (int)mFirstLine; lineIndex <= lastLine; lineIndex++) {
+    // draw line
+    auto x = 0;
+    if (mShowTime) {
+      string (LCD_GREEN, mFontHeight,
+              toString ((mLines[lineIndex].mTime-mStartTime)/1000) + "." +
+              toString ((mLines[lineIndex].mTime-mStartTime) % 1000), x, y, getWidth(), mLineInc);
+      x += mStringPos;
+      }
+    string (mLines[lineIndex].mColour, mFontHeight, mLines[lineIndex].mString, x, y, getWidth(), mLineInc);
+    y += mLineInc;
+    }
+
+  if (mDebug) {
+    char debugStr [80];
+    sprintf (debugStr, "%d %d %d %d %d %d %d %d %d",
+             (int)ltdc.lineIrq, (int)ltdc.lineTicks,
+             (int)(dma.highWater-dma.buf), (int)dma.irqTeCount, (int)dma.irqCeCount, (int)dma.irqTcCount, (int)dma.timeouts,
+             (int)ltdc.transferErrorIrq, (int)ltdc.fifoUnderunIrq);
+    string (LCD_WHITE, 20, debugStr, 0, getHeight() - 2 * mLineInc, getWidth(), 24);
+    }
+
+  if (mSysInfo)
+    string (LCD_YELLOW, mFontHeight,
+            toString (xPortGetFreeHeapSize()) + " " + toString (osGetCPUUsage()) + "% " + toString (mDrawTime) + "ms",
+            0, getHeight()-mLineInc, getWidth(), mLineInc);
+
+  sendWait();
+  showLayer (0, mBuffer[mDrawBuffer], 255);
+  mDrawTime = osKernelSysTick() - mDrawStartTime;
+  }
+//}}}
+
+//{{{
+void cLcd::displayOn() {
+
+  // enable LTDC
+  LTDC->GCR |= LTDC_GCR_LTDCEN;
+
+  // turn on DISP pin
+  HAL_GPIO_WritePin (LCD_DISP_GPIO_PORT, LCD_DISP_PIN, GPIO_PIN_SET);        /* Assert LCD_DISP pin */
+
+  // turn on backlight
+  HAL_GPIO_WritePin (LCD_BL_CTRL_GPIO_PORT, LCD_BL_CTRL_PIN, GPIO_PIN_SET);  /* Assert LCD_BL_CTRL pin */
+  }
+//}}}
+//{{{
+void cLcd::displayOff() {
+
+  // disable LTDC
+  LTDC->GCR &= ~LTDC_GCR_LTDCEN;
+
+  // turn off DISP pin
+  HAL_GPIO_WritePin (LCD_DISP_GPIO_PORT, LCD_DISP_PIN, GPIO_PIN_RESET);      /* De-assert LCD_DISP pin */
+
+  // turn off backlight
+  HAL_GPIO_WritePin (LCD_BL_CTRL_GPIO_PORT, LCD_BL_CTRL_PIN, GPIO_PIN_RESET);/* De-assert LCD_BL_CTRL pin */
+  }
+//}}}
+
+// private
+//{{{
+void cLcd::ltdcInit (uint32_t frameBufferAddress) {
 
   //{{{  LTDC, dma2d clock enable
   // enable the LTDC and DMA2D clocks
@@ -294,7 +709,7 @@ void lcdInit (uint32_t frameBufferAddress) {
   hLtdc.Instance = LTDC;
   HAL_LTDC_Init (&hLtdc);
 
-  lcdLayerInit (0, frameBufferAddress);
+  layerInit (0, frameBufferAddress);
   setFrameBufferAddress[1] = frameBufferAddress;
   showFrameBufferAddress[1] = frameBufferAddress;
   showAlpha[1] = 0;
@@ -345,22 +760,17 @@ void lcdInit (uint32_t frameBufferAddress) {
   HAL_NVIC_SetPriority (DMA2D_IRQn, 0x05, 0);
   HAL_NVIC_EnableIRQ (DMA2D_IRQn);
   //}}}
-
-  // font init
-  for (auto i = 0; i < maxChars; i++)
-    chars[i] = nullptr;
-  lcdSetFont (freeSansBold, freeSansBold_len);
   }
 //}}}
 //{{{
-void lcdLayerInit (uint8_t layer, uint32_t frameBufferAddress) {
+void cLcd::layerInit (uint8_t layer, uint32_t frameBufferAddress) {
 
   LTDC_LayerCfgTypeDef* curLayerCfg = &hLtdc.LayerCfg[layer];
 
   curLayerCfg->WindowX0 = 0;
-  curLayerCfg->WindowX1 = lcdGetXSize();
+  curLayerCfg->WindowX1 = getWidth();
   curLayerCfg->WindowY0 = 0;
-  curLayerCfg->WindowY1 = lcdGetYSize();
+  curLayerCfg->WindowY1 = getHeight();
 
   curLayerCfg->PixelFormat = LTDC_PIXEL_FORMAT_ARGB8888;
   curLayerCfg->FBStartAdress = (uint32_t)frameBufferAddress;
@@ -375,8 +785,8 @@ void lcdLayerInit (uint8_t layer, uint32_t frameBufferAddress) {
   curLayerCfg->BlendingFactor1 = LTDC_BLENDING_FACTOR1_PAxCA;
   curLayerCfg->BlendingFactor2 = LTDC_BLENDING_FACTOR2_PAxCA;
 
-  curLayerCfg->ImageWidth = lcdGetXSize();
-  curLayerCfg->ImageHeight = lcdGetYSize();
+  curLayerCfg->ImageWidth = getWidth();
+  curLayerCfg->ImageHeight = getHeight();
 
   HAL_LTDC_ConfigLayer (&hLtdc, curLayerCfg, layer);
 
@@ -388,69 +798,7 @@ void lcdLayerInit (uint8_t layer, uint32_t frameBufferAddress) {
   }
 //}}}
 //{{{
-void lcdDisplayOn() {
-
-  // enable LTDC
-  LTDC->GCR |= LTDC_GCR_LTDCEN;
-
-  // turn on DISP pin
-  HAL_GPIO_WritePin (LCD_DISP_GPIO_PORT, LCD_DISP_PIN, GPIO_PIN_SET);        /* Assert LCD_DISP pin */
-
-  // turn on backlight
-  HAL_GPIO_WritePin (LCD_BL_CTRL_GPIO_PORT, LCD_BL_CTRL_PIN, GPIO_PIN_SET);  /* Assert LCD_BL_CTRL pin */
-  }
-//}}}
-//{{{
-void lcdDisplayOff() {
-
-  // disable LTDC
-  LTDC->GCR &= ~LTDC_GCR_LTDCEN;
-
-  // turn off DISP pin
-  HAL_GPIO_WritePin (LCD_DISP_GPIO_PORT, LCD_DISP_PIN, GPIO_PIN_RESET);      /* De-assert LCD_DISP pin */
-
-  // turn off backlight
-  HAL_GPIO_WritePin (LCD_BL_CTRL_GPIO_PORT, LCD_BL_CTRL_PIN, GPIO_PIN_RESET);/* De-assert LCD_BL_CTRL pin */
-  }
-//}}}
-
-//{{{
-void lcdDebug (int16_t y) {
-
-  char debugStr [80];
-  sprintf (debugStr, "%d %d %d %d %d %d %d %d %d",
-           (int)ltdc.lineIrq, (int)ltdc.lineTicks,
-           (int)(dma.highWater-dma.buf), (int)dma.irqTeCount, (int)dma.irqCeCount, (int)dma.irqTcCount, (int)dma.timeouts,
-           (int)ltdc.transferErrorIrq, (int)ltdc.fifoUnderunIrq);
-  lcdString (LCD_WHITE, 20, debugStr, 0, y, lcdGetXSize(), 24);
-  }
-//}}}
-
-//{{{
-void lcdSetLayer (uint8_t layer, uint32_t frameBufferAddress) {
-
-  curFrameBufferAddress = frameBufferAddress;
-  setFrameBufferAddress[layer] = frameBufferAddress;
-  }
-//}}}
-//{{{
-void lcdShowLayer (uint8_t layer, uint32_t frameBufferAddress, uint8_t alpha) {
-
-  showFrameBufferAddress[layer] = frameBufferAddress;
-  showAlpha[layer] = alpha;
-  }
-//}}}
-//{{{
-void lcdFrameSync() {
-
-  ltdc.frameWait = 1;
-  if (osSemaphoreWait (ltdc.sem, 100) != osOK)
-    ltdc.timeouts++;
-  }
-//}}}
-
-//{{{
-void lcdSetFont (const uint8_t* font, int length) {
+void cLcd::setFont (const uint8_t* font, int length) {
 
   FT_Init_FreeType (&FTlibrary);
   FT_New_Memory_Face (FTlibrary, (FT_Byte*)font, length, 0, &FTface);
@@ -461,15 +809,30 @@ void lcdSetFont (const uint8_t* font, int length) {
 //}}}
 
 //{{{
-void lcdStamp (uint32_t col, uint8_t* src, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
+void cLcd::setLayer (uint8_t layer, uint32_t frameBufferAddress) {
+
+  curFrameBufferAddress = frameBufferAddress;
+  setFrameBufferAddress[layer] = frameBufferAddress;
+  }
+//}}}
+//{{{
+void cLcd::showLayer (uint8_t layer, uint32_t frameBufferAddress, uint8_t alpha) {
+
+  showFrameBufferAddress[layer] = frameBufferAddress;
+  showAlpha[layer] = alpha;
+  }
+//}}}
+
+//{{{
+void cLcd::stamp (uint32_t col, uint8_t* src, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
 
   if (xlen && ylen) {
-    if (y + ylen > lcdGetYSize()) // bottom yclip
-      ylen = lcdGetYSize() - y;
+    if (y + ylen > getHeight()) // bottom yclip
+      ylen = getHeight() - y;
 
     *dma.curBuf++ = col;                                                    // colour
-    *dma.curBuf++ = curFrameBufferAddress + ((y * lcdGetXSize()) + x) * 4;  // bgnd fb start address
-    *dma.curBuf++ = lcdGetXSize() - xlen;                                   // stride
+    *dma.curBuf++ = curFrameBufferAddress + ((y * getWidth()) + x) * 4;  // bgnd fb start address
+    *dma.curBuf++ = getWidth() - xlen;                                   // stride
     *dma.curBuf++ = (xlen << 16) | ylen;                                    // xlen:ylen
     *dma.curBuf++ = (uint32_t)src;                                          // src start address
     *dma.curBuf++ = 0;                                                      // terminate
@@ -481,7 +844,7 @@ void lcdStamp (uint32_t col, uint8_t* src, int16_t x, int16_t y, uint16_t xlen, 
   }
 //}}}
 //{{{
-int lcdString (uint32_t col, int fontHeight, std::string str, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
+int cLcd::string (uint32_t col, int fontHeight, std::string str, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
 
   for (unsigned int i = 0; i < str.size(); i++) {
     if ((str[i] >= 0x20) && (str[i] <= 0x7F)) {
@@ -507,10 +870,10 @@ int lcdString (uint32_t col, int fontHeight, std::string str, int16_t x, int16_t
           }
         }
 
-      if (x + fontChar->left + fontChar->pitch > lcdGetXSize())
+      if (x + fontChar->left + fontChar->pitch > getWidth())
         break;
       else if (fontChar->bitmap)
-        lcdStamp (col, fontChar->bitmap, x + fontChar->left, y + fontHeight - fontChar->top, fontChar->pitch, fontChar->rows);
+        stamp (col, fontChar->bitmap, x + fontChar->left, y + fontHeight - fontChar->top, fontChar->pitch, fontChar->rows);
       x += fontChar->advance;
       }
     }
@@ -520,211 +883,14 @@ int lcdString (uint32_t col, int fontHeight, std::string str, int16_t x, int16_t
 //}}}
 
 //{{{
-void lcdClear (uint32_t col) {
-
-  lcdRect (col, 0, 0, lcdGetXSize(), lcdGetYSize());
-  }
-//}}}
-//{{{
-void lcdRect (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
-
-  if (!xlen)
-    return;
-  if (!ylen)
-    return;
-
-  *dma.curBuf++ = col;                                                         // colour
-  *dma.curBuf++ = curFrameBufferAddress + ((y * lcdGetXSize()) + x) * 4;  // fb start address
-  *dma.curBuf++ = lcdGetXSize() - xlen;                                        // stride
-  *dma.curBuf++ = (xlen << 16) | ylen;                                         // xlen:ylen
-  *dma.curBuf++ = 0;                                                           // terminate
-  *(dma.curBuf-6) = 1;                                                         // fill opCode
-
-  if (dma.curBuf > dma.highWater)
-    dma.highWater = dma.curBuf;
-  }
-//}}}
-//{{{
-void lcdRectClipped (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
-
-  if (x >= lcdGetXSize())
-    return;
-  if (y >= lcdGetYSize())
-    return;
-
-  int xend = x + xlen;
-  if (xend <= 0)
-    return;
-
-  int yend = y + ylen;
-  if (yend <= 0)
-    return;
-
-  if (x < 0)
-    x = 0;
-  if (xend > lcdGetXSize())
-    xend = lcdGetXSize();
-
-  if (y < 0)
-    y = 0;
-  if (yend > lcdGetYSize())
-    yend = lcdGetYSize();
-
-  lcdRect (col, x, y, xend - x, yend - y);
-  }
-//}}}
-//{{{
-void lcdEllipse (uint32_t col, int16_t x, int16_t y, uint16_t xradius, uint16_t yradius) {
-
-  if (!xradius)
-    return;
-  if (!yradius)
-    return;
-
-  int x1 = 0;
-  int y1 = -yradius;
-  int err = 2 - 2*xradius;
-  float k = (float)yradius / xradius;
-
-  do {
-    lcdRectClipped (col, (x-(uint16_t)(x1 / k)), y + y1, (2*(uint16_t)(x1 / k) + 1), 1);
-    lcdRectClipped (col, (x-(uint16_t)(x1 / k)), y - y1, (2*(uint16_t)(x1 / k) + 1), 1);
-
-    int e2 = err;
-    if (e2 <= x1) {
-      err += ++x1 * 2 + 1;
-      if (-y1 == x && e2 <= y1)
-        e2 = 0;
-      }
-    if (e2 > y1)
-      err += ++y1*2 + 1;
-    } while (y1 <= 0);
-  }
-//}}}
-
-//{{{
-void lcdPixel (uint32_t col, int16_t x, int16_t y) {
-
-  *(uint32_t*)(curFrameBufferAddress + (y*lcdGetXSize() + x)*4) = col;
-  }
-//}}}
-//{{{
-void lcdPixelClipped (uint32_t col, int16_t x, int16_t y) {
-
-  if ((x >= 0) && (y > 0) && (x < lcdGetXSize()) && (y < lcdGetYSize()))
-    *(uint32_t*)(curFrameBufferAddress + (y*lcdGetXSize() + x)*4) = col;
-  }
-//}}}
-//{{{
-void lcdLine (uint32_t col, int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
-
-  int16_t deltax = ABS(x2 - x1);        /* The difference between the x's */
-  int16_t deltay = ABS(y2 - y1);        /* The difference between the y's */
-  int16_t x = x1;                       /* Start x off at the first pixel */
-  int16_t y = y1;                       /* Start y off at the first pixel */
-
-  int16_t xinc1;
-  int16_t xinc2;
-  if (x2 >= x1) {               /* The x-values are increasing */
-    xinc1 = 1;
-    xinc2 = 1;
-    }
-  else {                         /* The x-values are decreasing */
-    xinc1 = -1;
-    xinc2 = -1;
-    }
-
-  int yinc1;
-  int yinc2;
-  if (y2 >= y1) {                 /* The y-values are increasing */
-    yinc1 = 1;
-    yinc2 = 1;
-    }
-  else {                         /* The y-values are decreasing */
-    yinc1 = -1;
-    yinc2 = -1;
-    }
-
-  int den = 0;
-  int num = 0;
-  int num_add = 0;
-  int num_pixels = 0;
-  if (deltax >= deltay) {        /* There is at least one x-value for every y-value */
-    xinc1 = 0;                  /* Don't change the x when numerator >= denominator */
-    yinc2 = 0;                  /* Don't change the y for every iteration */
-    den = deltax;
-    num = deltax / 2;
-    num_add = deltay;
-    num_pixels = deltax;         /* There are more x-values than y-values */
-    }
-  else {                         /* There is at least one y-value for every x-value */
-    xinc2 = 0;                  /* Don't change the x for every iteration */
-    yinc1 = 0;                  /* Don't change the y when numerator >= denominator */
-    den = deltay;
-    num = deltay / 2;
-    num_add = deltax;
-    num_pixels = deltay;         /* There are more y-values than x-values */
-  }
-
-  for (int curpixel = 0; curpixel <= num_pixels; curpixel++) {
-    lcdPixelClipped (col, x, y);   /* Draw the current pixel */
-    num += num_add;                            /* Increase the numerator by the top of the fraction */
-    if (num >= den) {                          /* Check if numerator >= denominator */
-      num -= den;                             /* Calculate the new numerator value */
-      x += xinc1;                             /* Change the x as appropriate */
-      y += yinc1;                             /* Change the y as appropriate */
-      }
-    x += xinc2;                               /* Change the x as appropriate */
-    y += yinc2;                               /* Change the y as appropriate */
-    }
-  }
-//}}}
-//{{{
-void lcdRectOutline (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
-
-  lcdRectClipped (col, x, y, xlen, 1);
-  lcdRectClipped (col, x + xlen, y, 1, ylen);
-  lcdRectClipped (col, x, y + ylen, xlen, 1);
-  lcdRectClipped (col, x, y, 1, ylen);
-  }
-//}}}
-//{{{
-void lcdEllipseOutline (uint32_t col, int16_t x, int16_t y, uint16_t xradius, uint16_t yradius) {
-
-  if (xradius && yradius) {
-    int x1 = 0;
-    int y1 = -yradius;
-    int err = 2 - 2*xradius;
-    float k = (float)yradius / xradius;
-
-    do {
-      lcdPixelClipped (col, x - (uint16_t)(x1 / k), y + y1);
-      lcdPixelClipped (col, x + (uint16_t)(x1 / k), y + y1);
-      lcdPixelClipped (col, x + (uint16_t)(x1 / k), y - y1);
-      lcdPixelClipped (col, x - (uint16_t)(x1 / k), y - y1);
-
-      int e2 = err;
-      if (e2 <= x1) {
-        err += ++x1*2 + 1;
-        if (-y1 == x1 && e2 <= y1)
-          e2 = 0;
-        }
-      if (e2 > y1)
-        err += ++y1*2 + 1;
-      } while (y1 <= 0);
-    }
-  }
-//}}}
-
-//{{{
-void lcdSend() {
+void cLcd::send() {
 
   // send first opCode using IRQhandler
   LCD_DMA2D_IRQHandler();
   }
 //}}}
 //{{{
-void lcdWait() {
+void cLcd::wait() {
 
   if (osSemaphoreWait (dma.sem, 500) != osOK)
     dma.timeouts++;
@@ -735,9 +901,53 @@ void lcdWait() {
   }
 //}}}
 //{{{
-void lcdSendWait() {
+void cLcd::sendWait() {
 
-  lcdSend();
-  lcdWait();
+  send();
+  wait();
+  }
+//}}}
+
+//{{{
+void cLcd::reset() {
+
+  for (auto i = 0; i < mMaxLine; i++)
+    mLines[i].clear();
+
+  mStartTime = osKernelSysTick();
+  mLastLine = -1;
+  mFirstLine = 0;
+  }
+//}}}
+//{{{
+void cLcd::displayTop() {
+  mFirstLine = 0;
+  }
+//}}}
+//{{{
+void cLcd::displayTail() {
+
+  if (mLastLine > (int)mNumDrawLines-1)
+    mFirstLine = mLastLine - mNumDrawLines + 1;
+  else
+    mFirstLine = 0;
+  }
+//}}}
+//{{{
+void cLcd::updateNumDrawLines() {
+
+  auto numDrawLines = getHeight() / mLineInc;
+
+  if (!mTitle.empty())
+    numDrawLines--;
+
+  if (mDebug)
+    numDrawLines--;
+
+  if (mSysInfo)
+    numDrawLines--;
+
+  mNumDrawLines = numDrawLines;
+  mStringPos = mLineInc*3;
   }
 //}}}

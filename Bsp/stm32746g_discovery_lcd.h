@@ -1,11 +1,5 @@
 #pragma once
 #include <string>
-#include "stm32746g_discovery.h"
-//{{{
-#ifdef __cplusplus
- extern "C" {
-#endif
-//}}}
 
 //{{{  LCD colour defines
 #define LCD_BLUE          ((uint32_t)0xFF0000FF)
@@ -40,47 +34,101 @@
 
 #define LCD_TRANSPARENT   ((uint32_t)0xFF000000)
 //}}}
+class cLcd {
+public:
+  cLcd();
+  ~cLcd() {}
 
-extern LTDC_HandleTypeDef hLtdc;
-void LCD_LTDC_IRQHandler();
-void LCD_DMA2D_IRQHandler();
+  void init (uint32_t buffer0, uint32_t buffer1);
 
-void lcdInit (uint32_t frameBufferAddress);
-void lcdLayerInit (uint8_t layer, uint32_t frameBufferAddress);
-void lcdDisplayOn();
-void lcdDisplayOff();
+  int getWidth();
+  int getHeight();
 
-inline uint16_t lcdGetXSize() { return 480; }
-inline uint16_t lcdGetYSize() { return 272; }
+  void setShowTime (bool enable);
+  void setDebug (bool enable);
+  void setTitle (std::string title);
 
-void lcdDebug (int16_t y);
+  std::string toString (int value);
+  void text (int colour, std::string str);
+  void text (std::string str);
 
-void lcdSetLayer (uint8_t layer, uint32_t frameBufferAddress);
-void lcdShowLayer (uint8_t layer, uint32_t frameBufferAddress, uint8_t alpha);
-void lcdFrameSync();
+  void rect (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen);
+  void rectClipped (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen);
+  void rectOutline (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen);
+  void clear (uint32_t col);
+  void ellipse (uint32_t col, int16_t x, int16_t Ypos, uint16_t xradius, uint16_t yradius);
+  void ellipseOutline (uint32_t col, int16_t x, int16_t y, uint16_t xradius, uint16_t yradius);
+  void pixel (uint32_t col, int16_t x, int16_t y);
+  void pixelClipped (uint32_t col, int16_t x, int16_t y);
+  void line (uint32_t col, int16_t x1, int16_t y1, int16_t x2, int16_t y2);
 
-void lcdSetFont (const uint8_t* font, int length);
+  void pressed (int pressCount, int x, int y, int xinc, int yinc);
+  void startDraw();
+  void endDraw();
+  void displayOn();
+  void displayOff();
 
-void lcdStamp (uint32_t col, uint8_t* src, int16_t x, int16_t y, uint16_t xpitch, uint16_t ylen);
-int lcdString (uint32_t col, int fontHeight, std::string str, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen);
+private:
+  void ltdcInit (uint32_t frameBufferAddress);
+  void layerInit (uint8_t layer, uint32_t frameBufferAddress);
+  void setFont (const uint8_t* font, int length);
+  void setLayer (uint8_t layer, uint32_t frameBufferAddress);
+  void showLayer (uint8_t layer, uint32_t frameBufferAddress, uint8_t alpha);
 
-void lcdRect (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen);
-void lcdRectClipped (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen);
-void lcdEllipse (uint32_t col, int16_t x, int16_t Ypos, uint16_t xradius, uint16_t yradius);
-void lcdClear (uint32_t col);
+  void stamp (uint32_t col, uint8_t* src, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen);
+  int string (uint32_t col, int fontHeight, std::string str, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen);
 
-void lcdPixel (uint32_t col, int16_t x, int16_t y);
-void lcdPixelClipped (uint32_t col, int16_t x, int16_t y);
-void lcdLine (uint32_t col, int16_t x1, int16_t y1, int16_t x2, int16_t y2);
-void lcdRectOutline (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen);
-void lcdEllipseOutline (uint32_t col, int16_t x, int16_t y, uint16_t xradius, uint16_t yradius);
+  void send();
+  void wait();
+  void sendWait();
 
-void lcdSend();
-void lcdWait();
-void lcdSendWait();
+  void reset();
+  void displayTop();
+  void displayTail();
+  void updateNumDrawLines();
 
-//{{{
-#ifdef __cplusplus
-  }
-#endif
-//}}}
+  //{{{  vars
+  int mStartTime = 0;
+
+  float mFirstLine = 0;
+  int mNumDrawLines = 0;
+  int mFontHeight = 16;
+  int mLineInc = 18;
+  int mStringPos = 0;
+
+  bool mShowTime = true;
+  bool mDebug = false;
+  bool mSysInfo = true;
+
+  std::string mTitle;
+
+  int mLastLine = -1;
+  int mMaxLine = 500;
+
+  //{{{
+  class cLine {
+  public:
+    cLine() {}
+    ~cLine() {}
+
+    //{{{
+    void clear() {
+      mTime = 0;
+      mColour = LCD_WHITE;
+      mString = "";
+      }
+    //}}}
+
+    int mTime = 0;
+    int mColour = LCD_WHITE;
+    std::string mString;
+    };
+  //}}}
+  cLine mLines[500];
+
+  int mDrawStartTime = 0;
+  int mDrawTime = 0;
+  bool mDrawBuffer = false;
+  uint32_t mBuffer[2] = {0,0};
+  //}}}
+  };
