@@ -62,6 +62,12 @@ extern const uint8_t freeSansBold[64228];
 #define CM_A8              ((uint32_t)0x00000009)  // A8 color mode
 #define CM_A4              ((uint32_t)0x0000000A)  // A4 color mode
 //}}}
+//{{{  static vars
+static uint32_t curFrameBufferAddress;
+static uint32_t setFrameBufferAddress[2];
+static uint32_t showFrameBufferAddress[2];
+static uint8_t showAlpha[2];
+
 //{{{  struct tLTDC
 typedef struct {
   osSemaphoreId sem;
@@ -74,6 +80,8 @@ typedef struct {
   uint32_t frameWait;
   } tLTDC;
 //}}}
+static tLTDC ltdc;
+
 //{{{  struct tDma2d
 typedef struct {
   osSemaphoreId sem;
@@ -87,6 +95,9 @@ typedef struct {
   uint32_t timeouts;
   } tDma2d;
 //}}}
+static tDma2d dma;
+
+#define maxChars 0x60
 //{{{  struct tFontChar
 typedef struct {
   uint8_t* bitmap;
@@ -97,16 +108,6 @@ typedef struct {
   int16_t advance;
   } tFontChar;
 //}}}
-//{{{  static vars
-static uint32_t curFrameBufferAddress;
-static uint32_t setFrameBufferAddress[2];
-static uint32_t showFrameBufferAddress[2];
-static uint8_t showAlpha[2];
-
-static tLTDC ltdc;
-static tDma2d dma;
-
-#define maxChars 0x60
 static tFontChar* chars[maxChars];
 
 static FT_Library FTlibrary;
@@ -202,7 +203,6 @@ void cLcd::init (uint32_t buffer0, uint32_t buffer1) {
 
   mBuffer[false] = buffer0;
   mBuffer[true] = buffer1;
-
   mDrawBuffer = !mDrawBuffer;
   ltdcInit (mBuffer[mDrawBuffer]);
 
@@ -218,30 +218,25 @@ void cLcd::init (uint32_t buffer0, uint32_t buffer1) {
 //}}}
 
 //{{{
-int cLcd::getWidth() {
-  return 480;
+void cLcd::setTitle (std::string title) {
+  mTitle = title;
+  updateNumDrawLines();
   }
 //}}}
-//{{{
-int cLcd::getHeight() {
-  return 272;
-  }
-//}}}
-
 //{{{
 void cLcd::setShowTime (bool enable) {
   mShowTime = enable;
   }
 //}}}
 //{{{
-void cLcd::setDebug (bool enable) {
-  mDebug = enable;
+void cLcd::setShowDebug (bool enable) {
+  mShowDebug = enable;
   updateNumDrawLines();
   }
 //}}}
 //{{{
-void cLcd::setTitle (std::string title) {
-  mTitle = title;
+void cLcd::setShowFooter (bool enable) {
+  mShowFooter = enable;
   updateNumDrawLines();
   }
 //}}}
@@ -255,7 +250,7 @@ std::string cLcd::toString (int value) {
   }
 //}}}
 //{{{
-void cLcd::text (int colour, std::string str) {
+void cLcd::text (uint32_t colour, std::string str) {
 
   bool tailing = mLastLine == (int)mFirstLine + mNumDrawLines - 1;
 
@@ -275,6 +270,19 @@ void cLcd::text (std::string str) {
   }
 //}}}
 
+//{{{
+void cLcd::pixel (uint32_t col, int16_t x, int16_t y) {
+
+  *(uint32_t*)(curFrameBufferAddress + (y*getWidth() + x)*4) = col;
+  }
+//}}}
+//{{{
+void cLcd::pixelClipped (uint32_t col, int16_t x, int16_t y) {
+
+  if ((x >= 0) && (y > 0) && (x < getWidth()) && (y < getHeight()))
+    *(uint32_t*)(curFrameBufferAddress + (y*getWidth() + x)*4) = col;
+  }
+//}}}
 //{{{
 void cLcd::rect (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
 
@@ -394,19 +402,6 @@ void cLcd::ellipseOutline (uint32_t col, int16_t x, int16_t y, uint16_t xradius,
   }
 //}}}
 //{{{
-void cLcd::pixel (uint32_t col, int16_t x, int16_t y) {
-
-  *(uint32_t*)(curFrameBufferAddress + (y*getWidth() + x)*4) = col;
-  }
-//}}}
-//{{{
-void cLcd::pixelClipped (uint32_t col, int16_t x, int16_t y) {
-
-  if ((x >= 0) && (y > 0) && (x < getWidth()) && (y < getHeight()))
-    *(uint32_t*)(curFrameBufferAddress + (y*getWidth() + x)*4) = col;
-  }
-//}}}
-//{{{
 void cLcd::line (uint32_t col, int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
 
   int16_t deltax = ABS(x2 - x1);        /* The difference between the x's */
@@ -521,7 +516,6 @@ void cLcd::endDraw() {
 
   auto y = 0;
   if (!mTitle.empty()) {
-    // draw title
     string (LCD_WHITE, mFontHeight, mTitle, 0, y, getWidth(), mLineInc);
     y += mLineInc;
     }
@@ -537,7 +531,6 @@ void cLcd::endDraw() {
   if (lastLine > mLastLine)
     lastLine = mLastLine;
   for (auto lineIndex = (int)mFirstLine; lineIndex <= lastLine; lineIndex++) {
-    // draw line
     auto x = 0;
     if (mShowTime) {
       string (LCD_GREEN, mFontHeight,
@@ -549,16 +542,20 @@ void cLcd::endDraw() {
     y += mLineInc;
     }
 
-  if (mDebug) {
-    char debugStr [80];
-    sprintf (debugStr, "%d %d %d %d %d %d %d %d %d",
-             (int)ltdc.lineIrq, (int)ltdc.lineTicks,
-             (int)(dma.highWater-dma.buf), (int)dma.irqTeCount, (int)dma.irqCeCount, (int)dma.irqTcCount, (int)dma.timeouts,
-             (int)ltdc.transferErrorIrq, (int)ltdc.fifoUnderunIrq);
-    string (LCD_WHITE, 20, debugStr, 0, getHeight() - 2 * mLineInc, getWidth(), 24);
+  if (mShowDebug) {
+    std::string str = toString (ltdc.lineIrq) + ":f " +
+                      toString (ltdc.lineTicks) + "ms " +
+                      toString (dma.highWater-dma.buf) + ":hi " +
+                      toString (dma.irqTcCount)  + ":irq " +
+                      toString (dma.irqTeCount) + " " +
+                      toString (dma.irqCeCount)  + " " +
+                      toString (dma.timeouts) + " " +
+                      toString (ltdc.transferErrorIrq) + " " +
+                      toString (ltdc.fifoUnderunIrq);
+    string (LCD_WHITE, 20, str, 0, getHeight() - 2 * mLineInc, getWidth(), 24);
     }
 
-  if (mSysInfo)
+  if (mShowFooter)
     string (LCD_YELLOW, mFontHeight,
             toString (xPortGetFreeHeapSize()) + " " + toString (osGetCPUUsage()) + "% " + toString (mDrawTime) + "ms",
             0, getHeight()-mLineInc, getWidth(), mLineInc);
@@ -849,7 +846,7 @@ int cLcd::string (uint32_t col, int fontHeight, std::string str, int16_t x, int1
   for (unsigned int i = 0; i < str.size(); i++) {
     if ((str[i] >= 0x20) && (str[i] <= 0x7F)) {
       auto fontChar = chars[str[i] - 0x20];
-      if (fontChar == nullptr) {
+      if (!fontChar) {
         FT_Set_Pixel_Sizes (FTface, 0, fontHeight);
         FT_Load_Char (FTface, str[i], FT_LOAD_RENDER);
 
@@ -874,6 +871,7 @@ int cLcd::string (uint32_t col, int fontHeight, std::string str, int16_t x, int1
         break;
       else if (fontChar->bitmap)
         stamp (col, fontChar->bitmap, x + fontChar->left, y + fontHeight - fontChar->top, fontChar->pitch, fontChar->rows);
+
       x += fontChar->advance;
       }
     }
@@ -941,10 +939,10 @@ void cLcd::updateNumDrawLines() {
   if (!mTitle.empty())
     numDrawLines--;
 
-  if (mDebug)
+  if (mShowDebug)
     numDrawLines--;
 
-  if (mSysInfo)
+  if (mShowFooter)
     numDrawLines--;
 
   mNumDrawLines = numDrawLines;

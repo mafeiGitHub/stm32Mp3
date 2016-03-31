@@ -41,25 +41,26 @@ public:
 
   void init (uint32_t buffer0, uint32_t buffer1);
 
-  int getWidth();
-  int getHeight();
+  int getWidth() { return 480; }
+  int getHeight() { return 272; }
 
-  void setShowTime (bool enable);
-  void setDebug (bool enable);
   void setTitle (std::string title);
+  void setShowTime (bool enable);
+  void setShowDebug (bool enable);
+  void setShowFooter (bool enable);
 
   std::string toString (int value);
-  void text (int colour, std::string str);
+  void text (uint32_t colour, std::string str);
   void text (std::string str);
 
+  void pixel (uint32_t col, int16_t x, int16_t y);
+  void pixelClipped (uint32_t col, int16_t x, int16_t y);
   void rect (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen);
   void rectClipped (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen);
   void rectOutline (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen);
   void clear (uint32_t col);
   void ellipse (uint32_t col, int16_t x, int16_t Ypos, uint16_t xradius, uint16_t yradius);
   void ellipseOutline (uint32_t col, int16_t x, int16_t y, uint16_t xradius, uint16_t yradius);
-  void pixel (uint32_t col, int16_t x, int16_t y);
-  void pixelClipped (uint32_t col, int16_t x, int16_t y);
   void line (uint32_t col, int16_t x1, int16_t y1, int16_t x2, int16_t y2);
 
   void pressed (int pressCount, int x, int y, int xinc, int yinc);
@@ -71,6 +72,7 @@ public:
 private:
   void ltdcInit (uint32_t frameBufferAddress);
   void layerInit (uint8_t layer, uint32_t frameBufferAddress);
+
   void setFont (const uint8_t* font, int length);
   void setLayer (uint8_t layer, uint32_t frameBufferAddress);
   void showLayer (uint8_t layer, uint32_t frameBufferAddress, uint8_t alpha);
@@ -97,8 +99,8 @@ private:
   int mStringPos = 0;
 
   bool mShowTime = true;
-  bool mDebug = false;
-  bool mSysInfo = true;
+  bool mShowDebug = false;
+  bool mShowFooter = true;
 
   std::string mTitle;
 

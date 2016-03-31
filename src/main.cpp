@@ -95,13 +95,13 @@ static void uiThread (void const* argument) {
   const int kInfo = 150;
   const int kVolume = 440;
 
-  mLcd.text ("UIThread started");
-  BSP_TS_Init (mLcd.getWidth(), mLcd.getHeight());
+  mLcd.text ("UIthread started");
 
   int pressed [5] = {0, 0, 0, 0, 0};
   int lastx [5];
   int lasty [5];
 
+  BSP_TS_Init (mLcd.getWidth(), mLcd.getHeight());
   while (true) {
     TS_StateTypeDef tsState;
     BSP_TS_GetState (&tsState);
@@ -119,7 +119,7 @@ static void uiThread (void const* argument) {
           if (x < kInfo)
             mLcd.pressed (pressed[touch], x, y, pressed[touch] ? x - lastx[touch] : 0, pressed[touch] ? y - lasty[touch] : 0);
           else if (x < kVolume)
-            mLcd.text (mLcd.toString(x) + "," + mLcd.toString (y) + "," + mLcd.toString (tsState.touchWeight[touch]));
+            mLcd.text (mLcd.toString (x) + "," + mLcd.toString (y) + "," + mLcd.toString (tsState.touchWeight[touch]));
           else {
             //{{{  adjust volume
             auto volume = pressed[touch] ? mVolume + float(y - lasty[touch]) / mLcd.getHeight(): float(y) / mLcd.getHeight();
@@ -143,6 +143,7 @@ static void uiThread (void const* argument) {
       else
         pressed[touch] = 0;
       }
+
     //{{{  volume bar
     mLcd.rect (LCD_YELLOW, mLcd.getWidth()-20, 0, 20, int(mVolume * mLcd.getHeight()));
     //}}}
@@ -161,6 +162,7 @@ static void uiThread (void const* argument) {
         //}
       //}
     //}}}
+
     mLcd.endDraw();
     }
   }
