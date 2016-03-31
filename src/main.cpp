@@ -260,24 +260,30 @@ static void dhcpThread (void const* argument) {
   mLcd.text ("dhcpThread started");
   auto netif = (struct netif*)argument;
 
-  struct ip_addr ipAddrInit;
-  IP4_ADDR (&ipAddrInit, 0, 0, 0, 0);
+  struct ip_addr nullIpAddr;
+  IP4_ADDR (&nullIpAddr, 0, 0, 0, 0);
 
-  while (true) {
+  bool exit = false;
+  while (!exit) {
     switch (DHCP_state) {
       case DHCP_START:
-        netif->ip_addr = ipAddrInit;
-        netif->netmask = ipAddrInit;
-        netif->gw = ipAddrInit;
+        netif->ip_addr = nullIpAddr;
+        netif->netmask = nullIpAddr;
+        netif->gw = nullIpAddr;
         dhcp_start (netif);
         DHCP_state = DHCP_WAIT_ADDRESS;
         break;
 
       case DHCP_WAIT_ADDRESS:
         if (netif->ip_addr.addr) {
+          mLcd.text ("dhcp allocated " + mLcd.toString (netif->ip_addr.addr & 0xFF) + "." +
+                                         mLcd.toString ((netif->ip_addr.addr >> 16) & 0xFF) + "." +
+                                         mLcd.toString ((netif->ip_addr.addr >> 8) & 0xFF) + "." +
+                                         mLcd.toString (netif->ip_addr.addr >> 24));
           dhcp_stop (netif);
           DHCP_state = DHCP_ADDRESS_ASSIGNED;
           osSemaphoreRelease (dhcpSem);
+          exit = true;
           }
         else if (netif->dhcp->tries > 4) {
           //  DHCP timeout
@@ -293,6 +299,7 @@ static void dhcpThread (void const* argument) {
           IP4_ADDR (&gateway, GW_ADDR0, GW_ADDR1, GW_ADDR2, GW_ADDR3);
           netif_set_addr (netif, &ipAddr , &netmask, &gateway);
           osSemaphoreRelease (dhcpSem);
+          exit = true;
           }
         break;
 
@@ -338,13 +345,12 @@ static void startThread (void const* argument) {
     mLcd.text ("ethernet connected");
 
     DHCP_state = DHCP_START;
-    const osThreadDef_t osThreadDHCP =  { (char*)"DHCP", dhcpThread, osPriorityBelowNormal, 0, 256 };
+    const osThreadDef_t osThreadDHCP =  { (char*)"DHCP", dhcpThread, osPriorityBelowNormal, 0, 512 };
     osThreadCreate (&osThreadDHCP, &gNetif);
 
     while (osSemaphoreWait (dhcpSem, 1000) == osOK)
       osDelay (1000);
 
-    mLcd.text ("dhcp address allocated");
     httpServerInit();
     mLcd.text ("httpServer started");
     }
