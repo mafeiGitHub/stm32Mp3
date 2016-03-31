@@ -261,7 +261,7 @@ void cLcd::pixel (uint32_t col, int16_t x, int16_t y) {
 //{{{
 void cLcd::pixelClipped (uint32_t col, int16_t x, int16_t y) {
 
-  if ((x >= 0) && (y > 0) && (x < getWidth()) && (y < getHeight()))
+  if ((x >= 0) && (y >= 0) && (x < getWidth()) && (y < getHeight()))
     *(uint32_t*)(curFrameBufferAddress + (y*getWidth() + x)*4) = col;
   }
 //}}}
@@ -908,18 +908,16 @@ void cLcd::displayTail() {
 //{{{
 void cLcd::updateNumDrawLines() {
 
-  auto numDrawLines = getHeight() / mLineInc;
+  mStringPos = mLineInc*3;
 
+  auto numDrawLines = getHeight() / mLineInc;
   if (!mTitle.empty())
     numDrawLines--;
-
   if (mShowDebug)
     numDrawLines--;
-
   if (mShowFooter)
     numDrawLines--;
 
   mNumDrawLines = numDrawLines;
-  mStringPos = mLineInc*3;
   }
 //}}}

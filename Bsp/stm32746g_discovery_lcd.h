@@ -31,8 +31,6 @@
 
 #define LCD_BROWN         0xFFA52A2A
 #define LCD_ORANGE        0xFFFFA500
-
-#define LCD_TRANSPARENT   0xFF000000
 //}}}
 class cLcd {
 public:
