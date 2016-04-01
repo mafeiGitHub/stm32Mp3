@@ -30,35 +30,16 @@
 
 #include "../httpServer/httpServer.h"
 
-//#include "cMp3decoder.h"
-//}}}
-//{{{  ip defines
-// static IP address
-#define IP_ADDR0  192
-#define IP_ADDR1  168
-#define IP_ADDR2  1
-#define IP_ADDR3  67
-
-// netmask
-#define NETMASK_ADDR0  255
-#define NETMASK_ADDR1  255
-#define NETMASK_ADDR2  255
-#define NETMASK_ADDR3   0
-
-// gateway address
-#define GW_ADDR0  192
-#define GW_ADDR1  168
-#define GW_ADDR2  0
-#define GW_ADDR3  1
+#include "cMp3decoder.h"
 //}}}
 //{{{  sdram allocation
-#define SDRAM_FRAME0   0xC0000000 // frameBuffer 272*480*4 = 0x7f800 = 512k-2048b leave bit of guard for clipping errors
-#define SDRAM_FRAME1   0xC0080000
-#define SDRAM_HEAP     0xC0100000 // sdram heap
-#define SDRAM_HEAP_SIZE  0x700000 // 7m
-//}}}
+#define SDRAM_FRAME0    0xC0000000 // frameBuffer 272*480*4 = 0x7f800 = 512k-2048b leave bit of guard for clipping errors
+#define SDRAM_FRAME1    0xC0080000
 
-//{{{  vars
+#define SDRAM_HEAP      0xC0100000 // sdram heap
+#define SDRAM_HEAP_SIZE 0x00700000 // 7m
+//}}}
+//{{{  static vars
 static struct netif gNetif;
 
 static osSemaphoreId dhcpSem;
@@ -275,11 +256,11 @@ static void dhcpThread (void const* argument) {
 
       // use static address
       struct ip_addr ipAddr;
-      IP4_ADDR (&ipAddr, IP_ADDR0 ,IP_ADDR1 , IP_ADDR2 , IP_ADDR3 );
+      IP4_ADDR (&ipAddr, 192 ,168 , 1 , 67 );
       struct ip_addr netmask;
-      IP4_ADDR (&netmask, NETMASK_ADDR0, NETMASK_ADDR1, NETMASK_ADDR2, NETMASK_ADDR3);
+      IP4_ADDR (&netmask, 255, 255, 255, 0);
       struct ip_addr gateway;
-      IP4_ADDR (&gateway, GW_ADDR0, GW_ADDR1, GW_ADDR2, GW_ADDR3);
+      IP4_ADDR (&gateway, 192, 168, 0, 1);
       netif_set_addr (netif, &ipAddr , &netmask, &gateway);
       osSemaphoreRelease (dhcpSem);
       break;
@@ -309,11 +290,11 @@ static void startThread (void const* argument) {
 
   // init LwIP stack
   struct ip_addr ipAddr;
-  IP4_ADDR (&ipAddr, IP_ADDR0, IP_ADDR1, IP_ADDR2, IP_ADDR3);
+  IP4_ADDR (&ipAddr, 192, 168, 1, 67);
   struct ip_addr netmask;
-  IP4_ADDR (&netmask, NETMASK_ADDR0, NETMASK_ADDR1 , NETMASK_ADDR2, NETMASK_ADDR3);
+  IP4_ADDR (&netmask, 255, 255 , 255, 0);
   struct ip_addr gateway;
-  IP4_ADDR (&gateway, GW_ADDR0, GW_ADDR1, GW_ADDR2, GW_ADDR3);
+  IP4_ADDR (&gateway, 192, 168, 0, 1);
   netif_add (&gNetif, &ipAddr, &netmask, &gateway, NULL, &ethernetif_init, &tcpip_input);
   netif_set_default (&gNetif);
 

@@ -6,6 +6,7 @@
 #include <math.h>
 //}}}
 //{{{  defines
+#define PI 3.141592654
 #define FRAC_BITS   15
 #define WFRAC_BITS  14
 
@@ -825,7 +826,7 @@ public:
       for (auto i = 0; i < 7; i++) {
         int v;
         if (i != 6) {
-          float f = (float)tan ((double)i * M_PI / 12.0);
+          float f = (float)tan ((double)i * PI / 12.0);
           v = FIXR(f / (1.0 + f));
           }
         else
@@ -886,7 +887,7 @@ public:
 
         auto h = &mp3_huff_tables[i];
         auto xsize = h->xsize;
-        auto n = xsize * xsize;
+        //auto n = xsize * xsize;
 
         int j = 0;
         for (auto x = 0; x < xsize; x++)
@@ -919,12 +920,12 @@ public:
           if (j == 2 && i % 3 != 1)
             continue;
 
-          double d = sin (M_PI * (i + 0.5) / 36.0);
+          double d = sin (PI * (i + 0.5) / 36.0);
           if (j == 1) {
               if (i >= 30)
                 d = 0;
               else if (i >= 24)
-                d = sin (M_PI * (i - 18 + 0.5) / 12.0);
+                d = sin (PI * (i - 18 + 0.5) / 12.0);
               else if (i >= 18)
                 d = 1;
             }
@@ -932,11 +933,11 @@ public:
             if (i <  6)
               d = 0;
             else if (i < 12)
-              d = sin (M_PI * (i -  6 + 0.5) / 12.0);
+              d = sin (PI * (i -  6 + 0.5) / 12.0);
             else if (i < 18)
               d = 1;
             }
-          d *= 0.5 / cos (M_PI * (2 * i + 19) / 72);
+          d *= 0.5 / cos (PI * (2 * i + 19) / 72);
           if (j == 2)
             mdct_win[j][i/3] = FIXHR((d / (1 << 5)));
           else
@@ -1004,7 +1005,7 @@ private:
   //}}}
   //{{{
   int buildVlcTable (vlc_t* vlc, int table_nb_bits, int nb_codes, const void* bits, int bits_wrap, int bits_size,
-                  const void *codes, int codes_wrap, int codes_size, uint32_t code_prefix, int n_prefix) {
+                     const void *codes, int codes_wrap, int codes_size, uint32_t code_prefix, int n_prefix) {
 
     auto table_size = 1 << table_nb_bits;
     auto table_index = vlc->table_size;
@@ -1028,7 +1029,7 @@ private:
       if (n <= 0)
         continue;
       n -= n_prefix;
-      int code_prefix2 = code >> n;
+      uint32_t code_prefix2 = code >> n;
       if (n > 0 && code_prefix2 == code_prefix) {
         if (n <= table_nb_bits) {
           int j = (code << (table_nb_bits - n)) & (table_size - 1);
@@ -1311,7 +1312,7 @@ private:
   //}}}
 
   //{{{
-  void imdct12 (int* out, int* in) {
+  void imdct12 (int32_t* out, int32_t* in) {
 
     auto in0 = in[0*3];
     auto in1 = in[1*3] + in[0*3];
@@ -1345,7 +1346,7 @@ private:
     }
   //}}}
   //{{{
-  void imdct36 (int* out, int* buf, int* in, int* win) {
+  void imdct36 (int32_t* out, int32_t* buf, int32_t* in, int32_t* win) {
 
     for (auto i = 17; i >= 1; i--)
       in[i] += in[i-1];
@@ -2153,7 +2154,8 @@ private:
   int decodeLayer3 (int32_t* subBandSamples) {
 
     int mainDataBegin = get_bits (&mBitstream, mLsf ? 8 : 9);
-    int privateBits = get_bits (&mBitstream, mLsf ? mNumChannels : mNumChannels == 2 ? 3 : 5);
+    //int privateBits = 
+    get_bits (&mBitstream, mLsf ? mNumChannels : mNumChannels == 2 ? 3 : 5);
     int numGranules = mLsf ? 1 : 2;
 
     granule_t mGranules[2][2];
@@ -2411,8 +2413,10 @@ private:
 
     for (auto channel = 0; channel < 2; channel++) {
       float value = 0;
-      for (auto i = 0; i < 36*32; i++)
-        value += (*subBandSamples) * (*subBandSamples++);
+      for (auto i = 0; i < 36*32; i++) {
+        value += (*subBandSamples) * (*subBandSamples);
+        subBandSamples++;
+        }
       *power++ = (float)sqrt (value / (36 * 32 * 256));
       }
     }
@@ -2424,7 +2428,7 @@ private:
     dct32 (subBandSamples + (channel*36*32) + (frame*32), tmp);
 
     auto offsetSynthBuf = mSynthBuf[channel] + mSynthBufOffset[channel];
-    for (auto j = 0; j < 32; j++) // could 32bit to 16bit - could limit 
+    for (auto j = 0; j < 32; j++) // could 32bit to 16bit - could limit
       offsetSynthBuf[j] = tmp[j];
     memcpy (offsetSynthBuf + 512, offsetSynthBuf, 32 * sizeof(int16_t));
 

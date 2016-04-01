@@ -234,7 +234,7 @@ static void serverThread() {
 /*{{{*/
 void httpServerInit() {
 
-  osThreadDef (SERVER, serverThread, osPriorityNormal, 0, DEFAULT_THREAD_STACKSIZE);
-  osThreadCreate (osThread (SERVER), NULL);
+  osThreadDef (httpServer, serverThread, osPriorityNormal, 0, DEFAULT_THREAD_STACKSIZE);
+  osThreadCreate (osThread (httpServer), NULL);
   }
 /*}}}*/
