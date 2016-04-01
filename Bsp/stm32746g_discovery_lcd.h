@@ -47,8 +47,8 @@ public:
   void setShowDebug (bool enable);
   void setShowFooter (bool enable);
 
-  std::string intStr (int value);
-  std::string hexStr (int value, int width);
+  std::string intStr (int value, int width = 0, char fill = ' ');
+  std::string hexStr (int value, int width = 0);
   void text (uint32_t colour, std::string str);
   void text (std::string str);
 

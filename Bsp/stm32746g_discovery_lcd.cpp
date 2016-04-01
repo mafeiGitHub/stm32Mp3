@@ -224,10 +224,13 @@ void cLcd::setShowFooter (bool enable) {
 //}}}
 
 //{{{
-std::string cLcd::intStr (int value) {
+std::string cLcd::intStr (int value, int width, char fill) {
 
   std::ostringstream os;
-  os << value;
+  if (width)
+    os << std::setfill (fill) << std::setw (width) << value;
+  else
+    os << value;
   return os.str();
   }
 //}}}
@@ -235,7 +238,10 @@ std::string cLcd::intStr (int value) {
 std::string cLcd::hexStr (int value, int width) {
 
   std::ostringstream os;
-  os << std::hex << value;
+  if (width)
+    os << std::hex << std::setfill ('0') << std::setw (width) << value;
+  else
+    os << std::hex << value;
   return os.str();
   }
 //}}}
