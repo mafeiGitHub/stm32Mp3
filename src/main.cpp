@@ -49,8 +49,6 @@ static osSemaphoreId loadedSem;
 static cLcd mLcd;
 static float mVolume = 0.8f;
 //}}}
-static cMp3Decoder* mMp3decoder = nullptr;
-
 //{{{
 void BSP_AUDIO_OUT_HalfTransfer_CallBack() {
   osSemaphoreRelease (audioSem);
@@ -179,6 +177,12 @@ static void loadThread (void const* argument) {
     osDelay (1000);
     }
   mLcd.text ("SD card found");
+
+  mLcd.text ("Mp3 decoder size" + mLcd.intStr ((int)sizeof(cMp3Decoder)));
+  //int32_t* n = (int32_t*)malloc (8000);
+  //mLcd.text (" size" + mLcd.hexStr ((int)n, 8));
+  //cMp3Decoder* mp3Decoder = new cMp3Decoder;
+  //mLcd.text ("Mp3 decoder " + mLcd.hexStr ((int)mp3Decoder, 8));
 
   char SD_Path[4];
   if (FATFS_LinkDriver (&SD_Driver, SD_Path) != 0)
@@ -462,8 +466,6 @@ int main() {
   // init heap
   HeapRegion_t xHeapRegions[] = { {(uint8_t*)SDRAM_HEAP, SDRAM_HEAP_SIZE }, { NULL, 0 } };
   vPortDefineHeapRegions (xHeapRegions);
-
-  //mMp3decoder = new cMp3Decoder;
 
   // init semaphores
   osSemaphoreDef (dhcp);
