@@ -171,7 +171,6 @@ static void uiThread (void const* argument) {
 static void loadThread (void const* argument) {
 
   mLcd.text ("loadThread started");
-  BSP_SD_Init();
   while (BSP_SD_IsDetected() != SD_PRESENT) {
     mLcd.text (LCD_RED, "no SD card");
     osDelay (1000);
@@ -466,6 +465,8 @@ int main() {
   // init heap
   HeapRegion_t xHeapRegions[] = { {(uint8_t*)SDRAM_HEAP, SDRAM_HEAP_SIZE }, { NULL, 0 } };
   vPortDefineHeapRegions (xHeapRegions);
+
+  BSP_SD_Init();
 
   // init semaphores
   osSemaphoreDef (dhcp);
