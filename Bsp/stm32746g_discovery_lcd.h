@@ -47,7 +47,8 @@ public:
   void setShowDebug (bool enable);
   void setShowFooter (bool enable);
 
-  std::string toString (int value);
+  std::string intStr (int value);
+  std::string hexStr (int value, int width);
   void text (uint32_t colour, std::string str);
   void text (std::string str);
 
@@ -103,7 +104,7 @@ private:
   std::string mTitle;
 
   int mLastLine = -1;
-  int mMaxLine = 500;
+  int mMaxLine = 256;
 
   //{{{
   class cLine {
@@ -124,7 +125,7 @@ private:
     std::string mString;
     };
   //}}}
-  cLine mLines[500];
+  cLine mLines[256];
 
   int mDrawStartTime = 0;
   int mDrawTime = 0;

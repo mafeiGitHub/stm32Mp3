@@ -224,10 +224,18 @@ void cLcd::setShowFooter (bool enable) {
 //}}}
 
 //{{{
-std::string cLcd::toString (int value) {
+std::string cLcd::intStr (int value) {
 
   std::ostringstream os;
   os << value;
+  return os.str();
+  }
+//}}}
+//{{{
+std::string cLcd::hexStr (int value, int width) {
+
+  std::ostringstream os;
+  os << std::hex << value;
   return os.str();
   }
 //}}}
@@ -516,8 +524,8 @@ void cLcd::endDraw() {
     auto x = 0;
     if (mShowTime) {
       string (LCD_GREEN, mFontHeight,
-              toString ((mLines[lineIndex].mTime-mStartTime)/1000) + "." +
-              toString ((mLines[lineIndex].mTime-mStartTime) % 1000), x, y, getWidth(), mLineInc);
+              intStr ((mLines[lineIndex].mTime-mStartTime)/1000) + "." +
+              intStr ((mLines[lineIndex].mTime-mStartTime) % 1000), x, y, getWidth(), mLineInc);
       x += mStringPos;
       }
     string (mLines[lineIndex].mColour, mFontHeight, mLines[lineIndex].mString, x, y, getWidth(), mLineInc);
@@ -525,18 +533,18 @@ void cLcd::endDraw() {
     }
 
   if (mShowDebug) {
-    std::string str = toString (ltdc.lineIrq) + ":f " +
-                      toString (ltdc.lineTicks) + "ms " +
-                      toString (mDmaHighWater-DMA_BUF) + ":hi " +
-                      toString (mDmaTimeouts) + " " +
-                      toString (ltdc.transferErrorIrq) + " " +
-                      toString (ltdc.fifoUnderunIrq);
+    std::string str = intStr (ltdc.lineIrq) + ":f " +
+                      intStr (ltdc.lineTicks) + "ms " +
+                      intStr (mDmaHighWater-DMA_BUF) + ":hi " +
+                      intStr (mDmaTimeouts) + " " +
+                      intStr (ltdc.transferErrorIrq) + " " +
+                      intStr (ltdc.fifoUnderunIrq);
     string (LCD_WHITE, 20, str, 0, getHeight() - 2 * mLineInc, getWidth(), 24);
     }
 
   if (mShowFooter)
     string (LCD_YELLOW, mFontHeight,
-            toString (xPortGetFreeHeapSize()) + " " + toString (osGetCPUUsage()) + "% " + toString (mDrawTime) + "ms",
+            intStr (xPortGetFreeHeapSize()) + " " + intStr (osGetCPUUsage()) + "% " + intStr (mDrawTime) + "ms",
             0, getHeight()-mLineInc, getWidth(), mLineInc);
 
   sendWait();
@@ -825,7 +833,7 @@ int cLcd::string (uint32_t col, int fontHeight, std::string str, int16_t x, int1
         FT_Load_Char (FTface, str[i], FT_LOAD_RENDER);
 
         // cache char info
-        fontChar = (tFontChar*)malloc (sizeof(tFontChar));
+        fontChar = (tFontChar*)pvPortMalloc (sizeof(tFontChar));
         chars[str[i] - 0x20] = fontChar;
         fontChar->left = FTglyphSlot->bitmap_left;
         fontChar->top = FTglyphSlot->bitmap_top;
@@ -836,7 +844,7 @@ int cLcd::string (uint32_t col, int fontHeight, std::string str, int16_t x, int1
 
         if (FTglyphSlot->bitmap.buffer) {
           // cache char bitmap
-          fontChar->bitmap = (uint8_t*)malloc (FTglyphSlot->bitmap.pitch * FTglyphSlot->bitmap.rows);
+          fontChar->bitmap = (uint8_t*)pvPortMalloc (FTglyphSlot->bitmap.pitch * FTglyphSlot->bitmap.rows);
           memcpy (fontChar->bitmap, FTglyphSlot->bitmap.buffer, FTglyphSlot->bitmap.pitch * FTglyphSlot->bitmap.rows);
           }
         }

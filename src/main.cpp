@@ -49,6 +49,7 @@ static osSemaphoreId loadedSem;
 static cLcd mLcd;
 static float mVolume = 0.8f;
 //}}}
+static cMp3Decoder* mMp3decoder = nullptr;
 
 //{{{
 void BSP_AUDIO_OUT_HalfTransfer_CallBack() {
@@ -58,6 +59,34 @@ void BSP_AUDIO_OUT_HalfTransfer_CallBack() {
 //{{{
 void BSP_AUDIO_OUT_TransferComplete_CallBack() {
   osSemaphoreRelease (audioSem);
+  }
+//}}}
+
+//{{{
+static void loadFile (std::string fileName) {
+
+  mLcd.text ("loadFile opening " + fileName);
+
+  FIL file;
+  int result = f_open (&file, fileName.c_str(), FA_OPEN_EXISTING | FA_READ);
+  if (result == FR_OK) {
+    auto buffer = (unsigned char*)pvPortMalloc (4096);
+    mLcd.text ("- opened - size " + mLcd.intStr (f_size (&file)) + " " + mLcd.hexStr ((int)buffer, 8));
+    unsigned int bytes = 4096;
+    while (bytes > 0) {
+      result = f_read (&file, buffer, 4096, &bytes);
+      mLcd.text ("- read " + mLcd.intStr (result) + " " + mLcd.intStr (bytes));
+      std::string str;
+      for (auto i = 0; i < 24; i++)
+        str += mLcd.hexStr (buffer[i], 2) + " ";
+      mLcd.text (str);
+      }
+    f_close (&file);
+
+    vPortFree (buffer);
+    }
+  else
+    mLcd.text ("- open failed - result:" + mLcd.intStr (result));
   }
 //}}}
 
@@ -92,7 +121,7 @@ static void uiThread (void const* argument) {
           if (x < kInfo)
             mLcd.pressed (pressed[touch], x, y, pressed[touch] ? x - lastx[touch] : 0, pressed[touch] ? y - lasty[touch] : 0);
           else if (x < kVolume)
-            mLcd.text (mLcd.toString (x) + "," + mLcd.toString (y) + "," + mLcd.toString (tsState.touchWeight[touch]));
+            mLcd.text (mLcd.intStr (x) + "," + mLcd.intStr (y) + "," + mLcd.intStr (tsState.touchWeight[touch]));
           else {
             //{{{  adjust volume
             auto volume = pressed[touch] ? mVolume + float(y - lasty[touch]) / mLcd.getHeight(): float(y) / mLcd.getHeight();
@@ -103,7 +132,7 @@ static void uiThread (void const* argument) {
               volume = 1.0f;
 
             if (volume != mVolume) {
-              mLcd.text ("vol " + mLcd.toString(int(volume*100)) + "%");
+              mLcd.text ("vol " + mLcd.intStr(int(volume*100)) + "%");
               mVolume = volume;
               }
             }
@@ -181,9 +210,8 @@ static void loadThread (void const* argument) {
           while (filInfo.fname[i++] != '.') {;}
           if ((filInfo.fname[i] == extension[0]) &&
               (filInfo.fname[i+1] == extension[1]) &&
-              (filInfo.fname[i+2] == extension[2])) {
-            mLcd.text (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname);
-            }
+              (filInfo.fname[i+2] == extension[2]))
+            loadFile (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname);
           }
         }
       }
@@ -191,8 +219,8 @@ static void loadThread (void const* argument) {
 
   int tick = 0;
   while (true) {
-    osDelay (5000);
-    mLcd.text ("load tick" + mLcd.toString (tick++));
+    mLcd.text ("load tick" + mLcd.intStr (tick++));
+    osDelay (10000);
     //osSemaphoreWait (loadedSem, osWaitForever);
     }
   }
@@ -242,10 +270,10 @@ static void dhcpThread (void const* argument) {
 
   while (true) {
     if (netif->ip_addr.addr) {
-      mLcd.text (LCD_YELLOW, "dhcp allocated " + mLcd.toString (netif->ip_addr.addr & 0xFF) + "." +
-                                                 mLcd.toString ((netif->ip_addr.addr >> 16) & 0xFF) + "." +
-                                                 mLcd.toString ((netif->ip_addr.addr >> 8) & 0xFF) + "." +
-                                                 mLcd.toString (netif->ip_addr.addr >> 24));
+      mLcd.text (LCD_YELLOW, "dhcp allocated " + mLcd.intStr (netif->ip_addr.addr & 0xFF) + "." +
+                                                 mLcd.intStr ((netif->ip_addr.addr >> 16) & 0xFF) + "." +
+                                                 mLcd.intStr ((netif->ip_addr.addr >> 8) & 0xFF) + "." +
+                                                 mLcd.intStr (netif->ip_addr.addr >> 24));
       dhcp_stop (netif);
       osSemaphoreRelease (dhcpSem);
       break;
@@ -280,42 +308,45 @@ static void startThread (void const* argument) {
 
   const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 2000 };
   osThreadCreate (&osThreadUi, NULL);
-  const osThreadDef_t osThreadLoad =  { (char*)"Load", loadThread, osPriorityNormal, 0, 8000 };
+  const osThreadDef_t osThreadLoad =  { (char*)"Load", loadThread, osPriorityNormal, 0, 20000 };
   osThreadCreate (&osThreadLoad, NULL);
   const osThreadDef_t osThreadPlay =  { (char*)"Play", playThread, osPriorityAboveNormal, 0, 2000 };
   osThreadCreate (&osThreadPlay, NULL);
 
-  tcpip_init (NULL, NULL);
-  mLcd.text ("tcpip_init ok");
+  //if (false) {
+  if (true) {
+    tcpip_init (NULL, NULL);
+    mLcd.text ("tcpip_init ok");
 
-  // init LwIP stack
-  struct ip_addr ipAddr;
-  IP4_ADDR (&ipAddr, 192, 168, 1, 67);
-  struct ip_addr netmask;
-  IP4_ADDR (&netmask, 255, 255 , 255, 0);
-  struct ip_addr gateway;
-  IP4_ADDR (&gateway, 192, 168, 0, 1);
-  netif_add (&gNetif, &ipAddr, &netmask, &gateway, NULL, &ethernetif_init, &tcpip_input);
-  netif_set_default (&gNetif);
+    // init LwIP stack
+    struct ip_addr ipAddr;
+    IP4_ADDR (&ipAddr, 192, 168, 1, 67);
+    struct ip_addr netmask;
+    IP4_ADDR (&netmask, 255, 255 , 255, 0);
+    struct ip_addr gateway;
+    IP4_ADDR (&gateway, 192, 168, 0, 1);
+    netif_add (&gNetif, &ipAddr, &netmask, &gateway, NULL, &ethernetif_init, &tcpip_input);
+    netif_set_default (&gNetif);
 
-  if (netif_is_link_up (&gNetif)) {
-    netif_set_up (&gNetif);
-    mLcd.text ("ethernet connected");
+    if (netif_is_link_up (&gNetif)) {
+      netif_set_up (&gNetif);
+      mLcd.text ("ethernet connected");
 
-    const osThreadDef_t osThreadDHCP =  { (char*)"DHCP", dhcpThread, osPriorityBelowNormal, 0, 512 };
-    osThreadCreate (&osThreadDHCP, &gNetif);
-    while (osSemaphoreWait (dhcpSem, 1000) == osOK)
-      osDelay (1000);
+      const osThreadDef_t osThreadDHCP =  { (char*)"DHCP", dhcpThread, osPriorityBelowNormal, 0, 512 };
+      osThreadCreate (&osThreadDHCP, &gNetif);
+      while (osSemaphoreWait (dhcpSem, 1000) == osOK)
+        osDelay (1000);
 
-    httpServerInit();
-    mLcd.text ("httpServer started");
+      httpServerInit();
+      mLcd.text ("httpServer started");
+      }
+    else {
+      //{{{  no ethernet
+      netif_set_down (&gNetif);
+      mLcd.text (LCD_RED, "no ethernet");
+      }
+      //}}}
     }
-  else {
-    //{{{  no ethernet
-    netif_set_down (&gNetif);
-    mLcd.text (LCD_RED, "no ethernet");
-    }
-    //}}}
 
   for (;;)
     osThreadTerminate (NULL);
@@ -431,6 +462,8 @@ int main() {
   // init heap
   HeapRegion_t xHeapRegions[] = { {(uint8_t*)SDRAM_HEAP, SDRAM_HEAP_SIZE }, { NULL, 0 } };
   vPortDefineHeapRegions (xHeapRegions);
+
+  //mMp3decoder = new cMp3Decoder;
 
   // init semaphores
   osSemaphoreDef (dhcp);
