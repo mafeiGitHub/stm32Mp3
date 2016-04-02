@@ -1,4 +1,5 @@
 // main.cpp
+const bool kMainThreadApp = false;
 //{{{  includes
 #include <stdio.h>
 #include <stdlib.h>
@@ -172,15 +173,13 @@ static void uiThread (void const* argument) {
 static void loadThread (void const* argument) {
 
   mLcd.text ("loadThread started");
+  BSP_SD_Init();
   while (BSP_SD_IsDetected() != SD_PRESENT) {
     mLcd.text (LCD_RED, "no SD card");
     osDelay (1000);
     }
   mLcd.text ("SD card found");
 
-  mLcd.text ("Mp3 decoder size" + mLcd.intStr ((int)sizeof(cMp3Decoder)));
-  //int32_t* n = (int32_t*)malloc (8000);
-  //mLcd.text (" size" + mLcd.hexStr ((int)n, 8));
   //cMp3Decoder* mp3Decoder = new cMp3Decoder;
   //mLcd.text ("Mp3 decoder " + mLcd.hexStr ((int)mp3Decoder, 8));
 
@@ -357,6 +356,64 @@ static void startThread (void const* argument) {
   }
 //}}}
 
+//{{{
+void mainThreadApp() {
+
+  mLcd.init (SDRAM_FRAME0, SDRAM_FRAME1, false);
+  mLcd.setTitle (__TIME__ __DATE__);
+  mLcd.text ("mainThreadApp started");
+
+  BSP_SD_Init();
+  while (BSP_SD_IsDetected() != SD_PRESENT) {
+    mLcd.text (LCD_RED, "no SD card");
+    }
+  mLcd.text ("SD card found");
+
+  //cMp3Decoder* mp3Decoder = new cMp3Decoder;
+  //mLcd.text ("Mp3 decoder allocated" + mLcd.hexStr ((int)mp3Decoder, 8));
+
+  char SD_Path[4];
+  if (FATFS_LinkDriver (&SD_Driver, SD_Path) != 0) {
+    mLcd.text (LCD_RED, "SD driver error");
+    }
+  else {
+    mLcd.text ("SD driver found");
+
+    FATFS fatFs;
+    f_mount (&fatFs, "", 0);
+    mLcd.text ("FAT fileSystem mounted");
+
+    DIR dir;
+    if (f_opendir (&dir, "/") != FR_OK) {
+      mLcd.text (LCD_RED, "directory open error");
+      }
+    else {
+      mLcd.text ("directory opened");
+
+      FILINFO filInfo;
+      filInfo.lfname = (char*)malloc (_MAX_LFN + 1);
+      filInfo.lfsize = _MAX_LFN + 1;
+      auto extension = "MP3";
+      while (true) {
+        if ((f_readdir (&dir, &filInfo) != FR_OK) || filInfo.fname[0] == 0) {
+          break;
+          }
+        if (filInfo.fname[0] == '.')
+          continue;
+        if (!(filInfo.fattrib & AM_DIR)) {
+          auto i = 0;
+          while (filInfo.fname[i++] != '.') {;}
+          if ((filInfo.fname[i] == extension[0]) &&
+              (filInfo.fname[i+1] == extension[1]) &&
+              (filInfo.fname[i+2] == extension[2]))
+            loadFile (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname);
+          }
+        }
+      }
+    }
+  }
+//}}}
+
 // init
 //{{{
 static void MPUconfigSRAM() {
@@ -467,20 +524,23 @@ int main() {
   HeapRegion_t xHeapRegions[] = { {(uint8_t*)SDRAM_HEAP, SDRAM_HEAP_SIZE }, { NULL, 0 } };
   vPortDefineHeapRegions (xHeapRegions);
 
-  BSP_SD_Init();
+  if (kMainThreadApp)
+    mainThreadApp();
+  else {
+    // init semaphores
+    osSemaphoreDef (dhcp);
+    dhcpSem = osSemaphoreCreate (osSemaphore (dhcp), -1);
+    osSemaphoreDef (Loaded);
+    loadedSem = osSemaphoreCreate (osSemaphore (Loaded), -1);
+    osSemaphoreDef (aud);
+    audioSem = osSemaphoreCreate (osSemaphore (aud), -1);
 
-  // init semaphores
-  osSemaphoreDef (dhcp);
-  dhcpSem = osSemaphoreCreate (osSemaphore (dhcp), -1);
-  osSemaphoreDef (Loaded);
-  loadedSem = osSemaphoreCreate (osSemaphore (Loaded), -1);
-  osSemaphoreDef (aud);
-  audioSem = osSemaphoreCreate (osSemaphore (aud), -1);
+    const osThreadDef_t osThreadStart = { (char*)"Start", startThread, osPriorityNormal, 0, 4000 };
+    osThreadCreate (&osThreadStart, NULL);
 
-  const osThreadDef_t osThreadStart = { (char*)"Start", startThread, osPriorityNormal, 0, 4000 };
-  osThreadCreate (&osThreadStart, NULL);
+    osKernelStart();
+    }
 
-  osKernelStart();
   return 0;
   }
 //}}}
