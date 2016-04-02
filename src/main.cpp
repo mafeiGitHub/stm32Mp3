@@ -20,9 +20,10 @@
 
 #include "../Bsp/ethernetif.h"
 #include "../Bsp/stm32746g_discovery.h"
-#include "../Bsp/stm32746g_discovery_lcd.h"
 #include "../Bsp/stm32746g_discovery_audio.h"
 #include "../Bsp/stm32746g_discovery_ts.h"
+
+#include "../Bsp/cLcd.h"
 
 #include "../fatfs/ff.h"
 #include "../fatfs/ff_gen_drv.h"
@@ -305,7 +306,7 @@ static void dhcpThread (void const* argument) {
 //{{{
 static void startThread (void const* argument) {
 
-  mLcd.init (SDRAM_FRAME0, SDRAM_FRAME1);
+  mLcd.init (SDRAM_FRAME0, SDRAM_FRAME1, true);
   mLcd.setTitle (__TIME__ __DATE__);
   mLcd.text ("startThread started");
 

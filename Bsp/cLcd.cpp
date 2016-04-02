@@ -1,4 +1,4 @@
-// stm32746g_discovery_lcd.cpp
+// cLcd.cpp
 //{{{  includes
 #include <string>
 #include <sstream>
@@ -6,8 +6,8 @@
 #include <iomanip>
 
 #include "stm32746g_discovery.h"
-#include "stm32746g_discovery_lcd.h"
-#include "stm32746g_discovery_lcd_private.h"
+#include "cLcd.h"
+#include "cLcdPrivate.h"
 
 #include "cmsis_os.h"
 #include "../sys/cpuUsage.h"
@@ -181,7 +181,9 @@ cLcd::cLcd()  {
   }
 //}}}
 //{{{
-void cLcd::init (uint32_t buffer0, uint32_t buffer1) {
+void cLcd::init (uint32_t buffer0, uint32_t buffer1, bool interupts) {
+
+  mInterupts = interupts;
 
   mBuffer[false] = buffer0;
   mBuffer[true] = buffer1;
@@ -258,6 +260,11 @@ void cLcd::text (uint32_t colour, std::string str) {
 
   if (tailing)
     mFirstLine = mLastLine - mNumDrawLines + 1;
+
+  if (!mInterupts) {
+    startDraw();
+    endDraw();
+    }
   }
 //}}}
 //{{{
@@ -495,13 +502,15 @@ void cLcd::pressed (int pressCount, int x, int y, int xinc, int yinc) {
 //{{{
 void cLcd::startDraw() {
 
-  mDrawBuffer = !mDrawBuffer;
-  setLayer (0, mBuffer[mDrawBuffer]);
+  if (mInterupts) {
+    mDrawBuffer = !mDrawBuffer;
+    setLayer (0, mBuffer[mDrawBuffer]);
 
-  // frameSync;
-  ltdc.frameWait = 1;
-  if (osSemaphoreWait (ltdc.sem, 100) != osOK)
-    ltdc.timeouts++;
+    // frameSync;
+    ltdc.frameWait = 1;
+    if (osSemaphoreWait (ltdc.sem, 100) != osOK)
+      ltdc.timeouts++;
+    }
 
   mDrawStartTime = osKernelSysTick();
   clear (LCD_BLACK);
@@ -530,8 +539,8 @@ void cLcd::endDraw() {
     auto x = 0;
     if (mShowTime) {
       string (LCD_GREEN, mFontHeight,
-              intStr ((mLines[lineIndex].mTime-mStartTime)/1000) + "." +
-              intStr ((mLines[lineIndex].mTime-mStartTime) % 1000), x, y, getWidth(), mLineInc);
+              intStr ((mLines[lineIndex].mTime-mStartTime) / 1000) + "." +
+              intStr ((mLines[lineIndex].mTime-mStartTime) % 1000, 3, '0'), x, y, getWidth(), mLineInc);
       x += mStringPos;
       }
     string (mLines[lineIndex].mColour, mFontHeight, mLines[lineIndex].mString, x, y, getWidth(), mLineInc);
@@ -554,7 +563,9 @@ void cLcd::endDraw() {
             0, getHeight()-mLineInc, getWidth(), mLineInc);
 
   sendWait();
-  showLayer (0, mBuffer[mDrawBuffer], 255);
+  if (mInterupts)
+    showLayer (0, mBuffer[mDrawBuffer], 255);
+
   mDrawTime = osKernelSysTick() - mDrawStartTime;
   }
 //}}}
@@ -648,7 +659,6 @@ void cLcd::ltdcInit (uint32_t frameBufferAddress) {
   gpio_init_structure.Mode      = GPIO_MODE_OUTPUT_PP;
   HAL_GPIO_Init (LCD_BL_CTRL_GPIO_PORT, &gpio_init_structure);
   //}}}
-
   //{{{  LTDC timing config
   #define RK043FN48H_WIDTH   480 // LCD PIXEL WIDTH
   #define RK043FN48H_HSYNC   41  // Horizontal synchronization
@@ -704,27 +714,7 @@ void cLcd::ltdcInit (uint32_t frameBufferAddress) {
   showFrameBufferAddress[1] = frameBufferAddress;
   showAlpha[1] = 0;
 
-  //{{{  LTDC IRQ init
-  osSemaphoreDef (ltdcSem);
-  ltdc.sem = osSemaphoreCreate (osSemaphore (ltdcSem), -1);
-  ltdc.timeouts = 0;
-  ltdc.lineIrq = 0;
-  ltdc.fifoUnderunIrq = 0;
-  ltdc.transferErrorIrq = 0;
-  ltdc.lastTicks = 0;
-  ltdc.lineTicks = 0;
-  ltdc.frameWait = 0;
-
-  HAL_NVIC_SetPriority (LTDC_IRQn, 0xE, 0);
-  HAL_NVIC_EnableIRQ (LTDC_IRQn);
-
-  // set line interupt line number
-  LTDC->LIPCR = 0;
-
-  // enable line interrupt
-  LTDC->IER |= LTDC_IT_LI;
-  //}}}
-  //{{{  dma2d IRQ init
+  //{{{  dma2d init
   // unchanging dma2d regs
   DMA2D->OPFCCR  = DMA2D_ARGB8888; // bgnd fb ARGB
   DMA2D->BGPFCCR = DMA2D_ARGB8888;
@@ -732,19 +722,43 @@ void cLcd::ltdcInit (uint32_t frameBufferAddress) {
   DMA2D->FGOR    = 0;              // src stride
   //DMA2D->AMTCR = 0x1001;
 
-  osSemaphoreDef (dma2dSem);
-  DmaSem = osSemaphoreCreate (osSemaphore (dma2dSem), -1);
-
   // zero out first opcode, point past it
   mDmaCurBuf = DMA_BUF;
   *mDmaCurBuf++ = 0;
   mDmaHighWater = mDmaCurBuf;
   DmaIsrBuf = DMA_BUF;
   mDmaTimeouts = 0;
-
-  HAL_NVIC_SetPriority (DMA2D_IRQn, 0x05, 0);
-  HAL_NVIC_EnableIRQ (DMA2D_IRQn);
   //}}}
+  if (mInterupts) {
+    //{{{  dma2d IRQ init
+    osSemaphoreDef (dma2dSem);
+    DmaSem = osSemaphoreCreate (osSemaphore (dma2dSem), -1);
+
+    HAL_NVIC_SetPriority (DMA2D_IRQn, 0x05, 0);
+    HAL_NVIC_EnableIRQ (DMA2D_IRQn);
+    //}}}
+    //{{{  LTDC IRQ init
+    osSemaphoreDef (ltdcSem);
+    ltdc.sem = osSemaphoreCreate (osSemaphore (ltdcSem), -1);
+
+    ltdc.timeouts = 0;
+    ltdc.lineIrq = 0;
+    ltdc.fifoUnderunIrq = 0;
+    ltdc.transferErrorIrq = 0;
+    ltdc.lastTicks = 0;
+    ltdc.lineTicks = 0;
+    ltdc.frameWait = 0;
+
+    HAL_NVIC_SetPriority (LTDC_IRQn, 0xE, 0);
+    HAL_NVIC_EnableIRQ (LTDC_IRQn);
+
+    // set line interupt line number
+    LTDC->LIPCR = 0;
+
+    // enable line interrupt
+    LTDC->IER |= LTDC_IT_LI;
+    //}}}
+    }
   }
 //}}}
 //{{{
@@ -889,8 +903,48 @@ void cLcd::wait() {
 //{{{
 void cLcd::sendWait() {
 
-  send();
-  wait();
+  if (mInterupts) {
+    send();
+    wait();
+    }
+  else {
+     DMA2D->IFCR |= DMA2D_IFSR_CTEIF | DMA2D_IFSR_CTCIF | DMA2D_IFSR_CTWIF|
+                     DMA2D_IFSR_CCAEIF | DMA2D_IFSR_CCTCIF | DMA2D_IFSR_CCEIF;
+
+    while (true) {
+      auto opCode = *DmaIsrBuf++;
+      if (opCode == 1) { // fill
+        DMA2D->OCOLR = *DmaIsrBuf++;  // colour
+        DMA2D->OMAR  = *DmaIsrBuf++;  // fb start address
+        DMA2D->OOR   = *DmaIsrBuf++;  // stride
+        DMA2D->NLR   = *DmaIsrBuf++;  // xlen:ylen
+        DMA2D->CR = DMA2D_CR_R2M | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
+        while (!(DMA2D->ISR & DMA2D_ISR_TCIF)) {}
+        DMA2D->IFCR |= DMA2D_IFSR_CTEIF | DMA2D_IFSR_CTCIF | DMA2D_IFSR_CTWIF|
+                       DMA2D_IFSR_CCAEIF | DMA2D_IFSR_CCTCIF | DMA2D_IFSR_CCEIF;
+        }
+      else if (opCode == 2) { // stamp
+        DMA2D->FGCOLR = *DmaIsrBuf++; // src color
+        DMA2D->OMAR   = *DmaIsrBuf;   // bgnd fb start address
+        DMA2D->BGMAR  = *DmaIsrBuf++;
+        DMA2D->OOR    = *DmaIsrBuf;   // bgnd stride
+        DMA2D->BGOR   = *DmaIsrBuf++;
+        DMA2D->NLR    = *DmaIsrBuf++; // xlen:ylen
+        DMA2D->FGMAR  = *DmaIsrBuf++; // src start address
+        DMA2D->CR = DMA2D_CR_M2M_BLEND | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
+        while (!(DMA2D->ISR & DMA2D_ISR_TCIF)) {}
+        DMA2D->IFCR |= DMA2D_IFSR_CTEIF | DMA2D_IFSR_CTCIF | DMA2D_IFSR_CTWIF|
+                       DMA2D_IFSR_CCAEIF | DMA2D_IFSR_CCTCIF | DMA2D_IFSR_CCEIF;
+        }
+      else { // normally 0
+        DMA2D->CR = 0;
+        DmaIsrBuf = DMA_BUF;
+        mDmaCurBuf = DMA_BUF;
+        *mDmaCurBuf++ = 0;
+        break;
+        }
+      }
+    }
   }
 //}}}
 

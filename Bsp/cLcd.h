@@ -37,7 +37,7 @@ public:
   cLcd();
   ~cLcd() {}
 
-  void init (uint32_t buffer0, uint32_t buffer1);
+  void init (uint32_t buffer0, uint32_t buffer1, bool interrupts);
 
   int getWidth() { return 480; }
   int getHeight() { return 272; }
@@ -89,6 +89,7 @@ private:
   void updateNumDrawLines();
 
   //{{{  vars
+  bool mInterupts = false;
   int mStartTime = 0;
 
   float mFirstLine = 0;

@@ -6,7 +6,7 @@
 #include "ethernetif.h"
 
 #include "stm32746g_discovery_sd.h"
-#include "stm32746g_discovery_lcd_private.h"
+#include "cLcdPrivate.h"
 #include "stm32746g_discovery_audio.h"
 extern SAI_HandleTypeDef haudio_in_sai;
 extern SAI_HandleTypeDef haudio_out_sai;
