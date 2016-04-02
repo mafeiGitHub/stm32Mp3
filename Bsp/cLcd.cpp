@@ -248,15 +248,16 @@ std::string cLcd::hexStr (int value, int width) {
   }
 //}}}
 //{{{
-void cLcd::text (uint32_t colour, std::string str) {
+void cLcd::text (uint32_t colour, std::string str, bool newLine) {
 
   bool tailing = mLastLine == (int)mFirstLine + mNumDrawLines - 1;
 
-  auto line = (mLastLine < mMaxLine-1) ? mLastLine+1 : mLastLine;
+  auto line = (newLine && (mLastLine < mMaxLine-1)) ? mLastLine+1 : mLastLine;
   mLines[line].mTime = osKernelSysTick();
   mLines[line].mColour = colour;
   mLines[line].mString = str;
-  mLastLine = line;
+  if (newLine)
+    mLastLine = line;
 
   if (tailing)
     mFirstLine = mLastLine - mNumDrawLines + 1;
@@ -268,8 +269,8 @@ void cLcd::text (uint32_t colour, std::string str) {
   }
 //}}}
 //{{{
-void cLcd::text (std::string str) {
-  text (LCD_WHITE, str);
+void cLcd::text (std::string str, bool newLine) {
+  text (LCD_WHITE, str, newLine);
   }
 //}}}
 
@@ -734,7 +735,7 @@ void cLcd::ltdcInit (uint32_t frameBufferAddress) {
     osSemaphoreDef (dma2dSem);
     DmaSem = osSemaphoreCreate (osSemaphore (dma2dSem), -1);
 
-    HAL_NVIC_SetPriority (DMA2D_IRQn, 0x05, 0);
+    HAL_NVIC_SetPriority (DMA2D_IRQn, 0x0F, 0);
     HAL_NVIC_EnableIRQ (DMA2D_IRQn);
     //}}}
     //{{{  LTDC IRQ init

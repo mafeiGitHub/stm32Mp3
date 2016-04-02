@@ -1293,7 +1293,6 @@ private:
     mSampleRate = mp3_freq_tab[mSampleRateIndex] >> (mLsf + mpeg25);
     mSampleRateIndex += 3 * (mLsf + mpeg25);
     mErrorProtection = ((header >> 16) & 1) ^ 1;
-    mSampleRate = mSampleRate;
 
     auto bitrate_index = (header >> 12) & 0xf;
     auto padding = (header >> 9) & 1;
@@ -2154,7 +2153,7 @@ private:
   int decodeLayer3 (int32_t* subBandSamples) {
 
     int mainDataBegin = get_bits (&mBitstream, mLsf ? 8 : 9);
-    //int privateBits = 
+    //int privateBits =
     get_bits (&mBitstream, mLsf ? mNumChannels : mNumChannels == 2 ? 3 : 5);
     int numGranules = mLsf ? 1 : 2;
 

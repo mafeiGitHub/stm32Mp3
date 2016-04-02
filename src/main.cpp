@@ -1,5 +1,4 @@
 // main.cpp
-const bool kMainThreadApp = false;
 //{{{  includes
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,7 +45,6 @@ static struct netif gNetif;
 
 static osSemaphoreId dhcpSem;
 static osSemaphoreId audioSem;
-static osSemaphoreId loadedSem;
 
 static cLcd mLcd;
 static float mVolume = 0.8f;
@@ -66,27 +64,28 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 static void loadFile (std::string fileName) {
 
   mLcd.text ("loadFile opening " + fileName);
+  auto buffer = (unsigned char*)pvPortMalloc (4096);
+  if ((((uint32_t)buffer) & 0x3) != 0)
+    mLcd.text ("alignment");
 
   FIL file;
   int result = f_open (&file, fileName.c_str(), FA_OPEN_EXISTING | FA_READ);
   if (result == FR_OK) {
-    auto buffer = (unsigned char*)pvPortMalloc (4096);
     mLcd.text ("- opened - size " + mLcd.intStr (f_size (&file)) + " " + mLcd.hexStr ((int)buffer, 8));
+    unsigned int bytesRead = 0;
     unsigned int bytes = 4096;
     while (bytes > 0) {
       result = f_read (&file, buffer, 4096, &bytes);
-      mLcd.text ("- read " + mLcd.intStr (result) + " " + mLcd.intStr (bytes));
-      std::string str;
-      for (auto i = 0; i < 24; i++)
-        str += mLcd.hexStr (buffer[i], 2) + " ";
-      mLcd.text (str);
+      bytesRead += bytes;
+      mLcd.text ("- read " + mLcd.intStr (bytesRead) + " " +  mLcd.intStr (bytes), false);
       }
+    mLcd.text ("- read " + mLcd.intStr (bytesRead));
     f_close (&file);
-
-    vPortFree (buffer);
     }
   else
     mLcd.text ("- open failed - result:" + mLcd.intStr (result));
+
+  vPortFree (buffer);
   }
 //}}}
 
@@ -214,7 +213,8 @@ static void loadThread (void const* argument) {
           if ((filInfo.fname[i] == extension[0]) &&
               (filInfo.fname[i+1] == extension[1]) &&
               (filInfo.fname[i+2] == extension[2]))
-            loadFile (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname);
+            mLcd.text (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname);
+            //loadFile (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname);
           }
         }
       }
@@ -224,7 +224,6 @@ static void loadThread (void const* argument) {
   while (true) {
     mLcd.text ("load tick" + mLcd.intStr (tick++));
     osDelay (10000);
-    //osSemaphoreWait (loadedSem, osWaitForever);
     }
   }
 //}}}
@@ -273,10 +272,10 @@ static void dhcpThread (void const* argument) {
 
   while (true) {
     if (netif->ip_addr.addr) {
-      mLcd.text (LCD_YELLOW, "dhcp allocated " + mLcd.intStr (netif->ip_addr.addr & 0xFF) + "." +
-                                                 mLcd.intStr ((netif->ip_addr.addr >> 16) & 0xFF) + "." +
-                                                 mLcd.intStr ((netif->ip_addr.addr >> 8) & 0xFF) + "." +
-                                                 mLcd.intStr (netif->ip_addr.addr >> 24));
+      mLcd.text (LCD_YELLOW, "dhcp allocated " + mLcd.intStr ((int)(netif->ip_addr.addr & 0xFF)) + "." +
+                                                 mLcd.intStr ((int)((netif->ip_addr.addr >> 16) & 0xFF)) + "." +
+                                                 mLcd.intStr ((int)((netif->ip_addr.addr >> 8) & 0xFF)) + "." +
+                                                 mLcd.intStr ((int)(netif->ip_addr.addr >> 24)));
       dhcp_stop (netif);
       osSemaphoreRelease (dhcpSem);
       break;
@@ -353,64 +352,6 @@ static void startThread (void const* argument) {
 
   for (;;)
     osThreadTerminate (NULL);
-  }
-//}}}
-
-//{{{
-void mainThreadApp() {
-
-  mLcd.init (SDRAM_FRAME0, SDRAM_FRAME1, false);
-  mLcd.setTitle (__TIME__ __DATE__);
-  mLcd.text ("mainThreadApp started");
-
-  BSP_SD_Init();
-  while (BSP_SD_IsDetected() != SD_PRESENT) {
-    mLcd.text (LCD_RED, "no SD card");
-    }
-  mLcd.text ("SD card found");
-
-  //cMp3Decoder* mp3Decoder = new cMp3Decoder;
-  //mLcd.text ("Mp3 decoder allocated" + mLcd.hexStr ((int)mp3Decoder, 8));
-
-  char SD_Path[4];
-  if (FATFS_LinkDriver (&SD_Driver, SD_Path) != 0) {
-    mLcd.text (LCD_RED, "SD driver error");
-    }
-  else {
-    mLcd.text ("SD driver found");
-
-    FATFS fatFs;
-    f_mount (&fatFs, "", 0);
-    mLcd.text ("FAT fileSystem mounted");
-
-    DIR dir;
-    if (f_opendir (&dir, "/") != FR_OK) {
-      mLcd.text (LCD_RED, "directory open error");
-      }
-    else {
-      mLcd.text ("directory opened");
-
-      FILINFO filInfo;
-      filInfo.lfname = (char*)malloc (_MAX_LFN + 1);
-      filInfo.lfsize = _MAX_LFN + 1;
-      auto extension = "MP3";
-      while (true) {
-        if ((f_readdir (&dir, &filInfo) != FR_OK) || filInfo.fname[0] == 0) {
-          break;
-          }
-        if (filInfo.fname[0] == '.')
-          continue;
-        if (!(filInfo.fattrib & AM_DIR)) {
-          auto i = 0;
-          while (filInfo.fname[i++] != '.') {;}
-          if ((filInfo.fname[i] == extension[0]) &&
-              (filInfo.fname[i+1] == extension[1]) &&
-              (filInfo.fname[i+2] == extension[2]))
-            loadFile (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname);
-          }
-        }
-      }
-    }
   }
 //}}}
 
@@ -524,22 +465,16 @@ int main() {
   HeapRegion_t xHeapRegions[] = { {(uint8_t*)SDRAM_HEAP, SDRAM_HEAP_SIZE }, { NULL, 0 } };
   vPortDefineHeapRegions (xHeapRegions);
 
-  if (kMainThreadApp)
-    mainThreadApp();
-  else {
-    // init semaphores
-    osSemaphoreDef (dhcp);
-    dhcpSem = osSemaphoreCreate (osSemaphore (dhcp), -1);
-    osSemaphoreDef (Loaded);
-    loadedSem = osSemaphoreCreate (osSemaphore (Loaded), -1);
-    osSemaphoreDef (aud);
-    audioSem = osSemaphoreCreate (osSemaphore (aud), -1);
+  // init semaphores
+  osSemaphoreDef (dhcp);
+  dhcpSem = osSemaphoreCreate (osSemaphore (dhcp), -1);
+  osSemaphoreDef (aud);
+  audioSem = osSemaphoreCreate (osSemaphore (aud), -1);
 
-    const osThreadDef_t osThreadStart = { (char*)"Start", startThread, osPriorityNormal, 0, 4000 };
-    osThreadCreate (&osThreadStart, NULL);
+  const osThreadDef_t osThreadStart = { (char*)"Start", startThread, osPriorityNormal, 0, 4000 };
+  osThreadCreate (&osThreadStart, NULL);
 
-    osKernelStart();
-    }
+  osKernelStart();
 
   return 0;
   }

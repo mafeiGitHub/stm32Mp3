@@ -1,4 +1,4 @@
-//{{{
+/*{{{*/
 /**
   ******************************************************************************
   * @file    stm32746g_discovery_sd.c
@@ -34,15 +34,23 @@
           the number of blocks to erase.
         o The SD runtime status is returned when calling the function BSP_SD_GetStatus().
 */
-//}}}
+/*}}}*/
 #include "stm32746g_discovery_sd.h"
 
+static SD_CardInfo uSdCardInfo;
 static SD_HandleTypeDef uSdHandle;
-static SD_CardInfo      uSdCardInfo;
+static DMA_HandleTypeDef dma_rx_handle;
+static DMA_HandleTypeDef dma_tx_handle;
 
-//{{{
-uint8_t BSP_SD_Init()
-{
+void BSP_SD_IRQHandler() { HAL_SD_IRQHandler (&uSdHandle); }
+void BSP_SD_DMA_Tx_IRQHandler() { HAL_DMA_IRQHandler (uSdHandle.hdmatx); }
+void BSP_SD_DMA_Rx_IRQHandler() { HAL_DMA_IRQHandler (uSdHandle.hdmarx); }
+HAL_SD_TransferStateTypedef BSP_SD_GetStatus() { return(HAL_SD_GetStatus(&uSdHandle)); }
+void BSP_SD_GetCardInfo (HAL_SD_CardInfoTypedef *CardInfo) { HAL_SD_Get_CardInfo(&uSdHandle, CardInfo); }
+
+/*{{{*/
+uint8_t BSP_SD_Init() {
+
   uint8_t sd_state = MSD_OK;
 
   /* uSD device interface configuration */
@@ -56,60 +64,48 @@ uint8_t BSP_SD_Init()
   uSdHandle.Init.ClockDiv            = SDMMC_TRANSFER_CLK_DIV;
 
   /* Msp SD Detect pin initialization */
-  BSP_SD_Detect_MspInit(&uSdHandle, NULL);
+  BSP_SD_Detect_MspInit (&uSdHandle, NULL);
   if(BSP_SD_IsDetected() != SD_PRESENT)   /* Check if SD card is present */
-  {
     return MSD_ERROR_SD_NOT_PRESENT;
-  }
 
   /* Msp SD initialization */
-  BSP_SD_MspInit(&uSdHandle, NULL);
+  BSP_SD_MspInit (&uSdHandle, NULL);
 
   /* HAL SD initialization */
-  if(HAL_SD_Init(&uSdHandle, &uSdCardInfo) != SD_OK)
-  {
+  if (HAL_SD_Init(&uSdHandle, &uSdCardInfo) != SD_OK)
     sd_state = MSD_ERROR;
-  }
 
   /* Configure SD Bus width */
-  if(sd_state == MSD_OK)
-  {
+  if (sd_state == MSD_OK) {
     /* Enable wide operation */
-    if(HAL_SD_WideBusOperation_Config(&uSdHandle, SDMMC_BUS_WIDE_4B) != SD_OK)
-    {
+    if (HAL_SD_WideBusOperation_Config(&uSdHandle, SDMMC_BUS_WIDE_4B) != SD_OK)
       sd_state = MSD_ERROR;
-    }
     else
-    {
       sd_state = MSD_OK;
     }
-  }
 
   return  sd_state;
-}
-//}}}
-//{{{
-uint8_t BSP_SD_DeInit()
-{
+  }
+/*}}}*/
+/*{{{*/
+uint8_t BSP_SD_DeInit() {
+
   uint8_t sd_state = MSD_OK;
 
   uSdHandle.Instance = SDMMC1;
 
   /* HAL SD deinitialization */
   if(HAL_SD_DeInit(&uSdHandle) != HAL_OK)
-  {
     sd_state = MSD_ERROR;
-  }
 
   /* Msp SD deinitialization */
   uSdHandle.Instance = SDMMC1;
   BSP_SD_MspDeInit(&uSdHandle, NULL);
-
   return  sd_state;
-}
-//}}}
+  }
+/*}}}*/
 
-//{{{
+/*{{{*/
 uint8_t BSP_SD_ITConfig()
 {
   GPIO_InitTypeDef gpio_init_structure;
@@ -119,130 +115,64 @@ uint8_t BSP_SD_ITConfig()
   gpio_init_structure.Pull = GPIO_PULLUP;
   gpio_init_structure.Speed = GPIO_SPEED_FAST;
   gpio_init_structure.Mode = GPIO_MODE_IT_RISING_FALLING;
-  HAL_GPIO_Init(SD_DETECT_GPIO_PORT, &gpio_init_structure);
+  HAL_GPIO_Init (SD_DETECT_GPIO_PORT, &gpio_init_structure);
 
   /* Enable and set SD detect EXTI Interrupt to the lowest priority */
-  HAL_NVIC_SetPriority((IRQn_Type)(SD_DETECT_EXTI_IRQn), 0x0F, 0x00);
-  HAL_NVIC_EnableIRQ((IRQn_Type)(SD_DETECT_EXTI_IRQn));
+  HAL_NVIC_SetPriority ((IRQn_Type)(SD_DETECT_EXTI_IRQn), 0x0F, 0x00);
+  HAL_NVIC_EnableIRQ ((IRQn_Type)(SD_DETECT_EXTI_IRQn));
 
   return MSD_OK;
 }
-//}}}
-//{{{
-uint8_t BSP_SD_IsDetected()
-{
-  __IO uint8_t      status = SD_PRESENT;
+/*}}}*/
+/*{{{*/
+uint8_t BSP_SD_IsDetected() {
 
   /* Check SD card detect pin */
-  if (HAL_GPIO_ReadPin(SD_DETECT_GPIO_PORT, SD_DETECT_PIN) == GPIO_PIN_SET)
-  {
-    status = SD_NOT_PRESENT;
+  return HAL_GPIO_ReadPin(SD_DETECT_GPIO_PORT, SD_DETECT_PIN) == GPIO_PIN_SET ? SD_NOT_PRESENT : SD_PRESENT;
   }
+/*}}}*/
 
-  return status;
-}
-//}}}
+/*{{{*/
+uint8_t BSP_SD_ReadBlocks (uint32_t* pData, uint64_t ReadAddr, uint32_t BlockSize, uint32_t NumOfBlocks) {
 
-//{{{
-uint8_t BSP_SD_ReadBlocks (uint32_t *pData, uint64_t ReadAddr, uint32_t BlockSize, uint32_t NumOfBlocks)
-{
-  if(HAL_SD_ReadBlocks(&uSdHandle, pData, ReadAddr, BlockSize, NumOfBlocks) != SD_OK)
-  {
+  return HAL_SD_ReadBlocks (&uSdHandle, pData, ReadAddr, BlockSize, NumOfBlocks) == SD_OK ? MSD_OK : MSD_ERROR;
+  }
+/*}}}*/
+/*{{{*/
+uint8_t BSP_SD_WriteBlocks (uint32_t* pData, uint64_t WriteAddr, uint32_t BlockSize, uint32_t NumOfBlocks) {
+
+  return HAL_SD_WriteBlocks(&uSdHandle, pData, WriteAddr, BlockSize, NumOfBlocks) != SD_OK ? MSD_ERROR : MSD_OK;
+  }
+/*}}}*/
+/*{{{*/
+uint8_t BSP_SD_ReadBlocks_DMA (uint32_t* pData, uint64_t ReadAddr, uint32_t BlockSize, uint32_t NumOfBlocks) {
+
+  if (HAL_SD_ReadBlocks_DMA (&uSdHandle, pData, ReadAddr, BlockSize, NumOfBlocks) != SD_OK)
     return MSD_ERROR;
-  }
   else
-  {
-    return MSD_OK;
+    return HAL_SD_CheckReadOperation (&uSdHandle, (uint32_t)SD_DATATIMEOUT) == SD_OK ? MSD_OK : MSD_ERROR;
   }
-}
-//}}}
-//{{{
-uint8_t BSP_SD_WriteBlocks (uint32_t *pData, uint64_t WriteAddr, uint32_t BlockSize, uint32_t NumOfBlocks)
-{
-  if(HAL_SD_WriteBlocks(&uSdHandle, pData, WriteAddr, BlockSize, NumOfBlocks) != SD_OK)
-  {
+/*}}}*/
+/*{{{*/
+uint8_t BSP_SD_WriteBlocks_DMA (uint32_t* pData, uint64_t WriteAddr, uint32_t BlockSize, uint32_t NumOfBlocks) {
+
+  if (HAL_SD_WriteBlocks_DMA(&uSdHandle, pData, WriteAddr, BlockSize, NumOfBlocks) != SD_OK)
     return MSD_ERROR;
-  }
   else
-  {
-    return MSD_OK;
+    return HAL_SD_CheckWriteOperation(&uSdHandle, (uint32_t)SD_DATATIMEOUT) == SD_OK ? MSD_OK : MSD_ERROR;
   }
-}
-//}}}
-//{{{
-uint8_t BSP_SD_ReadBlocks_DMA (uint32_t *pData, uint64_t ReadAddr, uint32_t BlockSize, uint32_t NumOfBlocks)
-{
-  uint8_t sd_state = MSD_OK;
+/*}}}*/
 
-  /* Read block(s) in DMA transfer mode */
-  if(HAL_SD_ReadBlocks_DMA(&uSdHandle, pData, ReadAddr, BlockSize, NumOfBlocks) != SD_OK)
-  {
-    sd_state = MSD_ERROR;
+/*{{{*/
+uint8_t BSP_SD_Erase (uint64_t StartAddr, uint64_t EndAddr) {
+
+  return HAL_SD_Erase(&uSdHandle, StartAddr, EndAddr) == SD_OK ? MSD_OK : MSD_ERROR;
   }
+/*}}}*/
 
-  /* Wait until transfer is complete */
-  if(sd_state == MSD_OK)
-  {
-    if(HAL_SD_CheckReadOperation(&uSdHandle, (uint32_t)SD_DATATIMEOUT) != SD_OK)
-    {
-      sd_state = MSD_ERROR;
-    }
-    else
-    {
-      sd_state = MSD_OK;
-    }
-  }
+/*{{{*/
+__weak void BSP_SD_MspInit (SD_HandleTypeDef* hsd, void* Params) {
 
-  return sd_state;
-}
-//}}}
-//{{{
-uint8_t BSP_SD_WriteBlocks_DMA (uint32_t *pData, uint64_t WriteAddr, uint32_t BlockSize, uint32_t NumOfBlocks)
-{
-  uint8_t sd_state = MSD_OK;
-
-  /* Write block(s) in DMA transfer mode */
-  if(HAL_SD_WriteBlocks_DMA(&uSdHandle, pData, WriteAddr, BlockSize, NumOfBlocks) != SD_OK)
-  {
-    sd_state = MSD_ERROR;
-  }
-
-  /* Wait until transfer is complete */
-  if(sd_state == MSD_OK)
-  {
-    if(HAL_SD_CheckWriteOperation(&uSdHandle, (uint32_t)SD_DATATIMEOUT) != SD_OK)
-    {
-      sd_state = MSD_ERROR;
-    }
-    else
-    {
-      sd_state = MSD_OK;
-    }
-  }
-
-  return sd_state;
-}
-//}}}
-
-//{{{
-uint8_t BSP_SD_Erase (uint64_t StartAddr, uint64_t EndAddr)
-{
-  if(HAL_SD_Erase(&uSdHandle, StartAddr, EndAddr) != SD_OK)
-  {
-    return MSD_ERROR;
-  }
-  else
-  {
-    return MSD_OK;
-  }
-}
-//}}}
-
-//{{{
-__weak void BSP_SD_MspInit (SD_HandleTypeDef *hsd, void *Params)
-{
-  static DMA_HandleTypeDef dma_rx_handle;
-  static DMA_HandleTypeDef dma_tx_handle;
   GPIO_InitTypeDef gpio_init_structure;
 
   /* Enable SDIO clock */
@@ -331,10 +261,10 @@ __weak void BSP_SD_MspInit (SD_HandleTypeDef *hsd, void *Params)
   HAL_NVIC_SetPriority(SD_DMAx_Tx_IRQn, 6, 0);
   HAL_NVIC_EnableIRQ(SD_DMAx_Tx_IRQn);
 }
-//}}}
-//{{{
-__weak void BSP_SD_Detect_MspInit (SD_HandleTypeDef *hsd, void *Params)
-{
+/*}}}*/
+/*{{{*/
+__weak void BSP_SD_Detect_MspInit (SD_HandleTypeDef* hsd, void* Params) {
+
   GPIO_InitTypeDef  gpio_init_structure;
 
   SD_DETECT_GPIO_CLK_ENABLE();
@@ -345,13 +275,10 @@ __weak void BSP_SD_Detect_MspInit (SD_HandleTypeDef *hsd, void *Params)
   gpio_init_structure.Pull      = GPIO_PULLUP;
   gpio_init_structure.Speed     = GPIO_SPEED_HIGH;
   HAL_GPIO_Init(SD_DETECT_GPIO_PORT, &gpio_init_structure);
-}
-//}}}
-//{{{
-__weak void BSP_SD_MspDeInit (SD_HandleTypeDef *hsd, void *Params)
-{
-  static DMA_HandleTypeDef dma_rx_handle;
-  static DMA_HandleTypeDef dma_tx_handle;
+  }
+/*}}}*/
+/*{{{*/
+__weak void BSP_SD_MspDeInit (SD_HandleTypeDef* hsd, void* Params) {
 
   /* Disable NVIC for DMA transfer complete interrupts */
   HAL_NVIC_DisableIRQ(SD_DMAx_Rx_IRQn);
@@ -377,38 +304,4 @@ __weak void BSP_SD_MspDeInit (SD_HandleTypeDef *hsd, void *Params)
   /* GPIO pins clock and DMA clocks can be shut down in the application
      by surcharging this __weak function */
 }
-//}}}
-
-//{{{
-void BSP_SD_IRQHandler()
-{
-  HAL_SD_IRQHandler(&uSdHandle);
-}
-//}}}
-//{{{
-void BSP_SD_DMA_Tx_IRQHandler()
-{
-  HAL_DMA_IRQHandler(uSdHandle.hdmatx);
-}
-//}}}
-//{{{
-void BSP_SD_DMA_Rx_IRQHandler()
-{
-  HAL_DMA_IRQHandler(uSdHandle.hdmarx);
-}
-//}}}
-
-//{{{
-HAL_SD_TransferStateTypedef BSP_SD_GetStatus()
-{
-  return(HAL_SD_GetStatus(&uSdHandle));
-}
-//}}}
-
-//{{{
-void BSP_SD_GetCardInfo (HAL_SD_CardInfoTypedef *CardInfo)
-{
-  /* Get SD card Information */
-  HAL_SD_Get_CardInfo(&uSdHandle, CardInfo);
-}
-//}}}
+/*}}}*/

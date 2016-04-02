@@ -1,3 +1,4 @@
+// cLcdPrivate.h - private interface between cLcd and HAL drivers
 #pragma once
 
 #ifdef __cplusplus

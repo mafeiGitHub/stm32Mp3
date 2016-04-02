@@ -101,7 +101,7 @@ void* ff_memalloc ( /* Returns pointer to the allocated memory block */
 	UINT msize    /* Number of bytes to allocate */
 )
 {
-	return pvPortmalloc (msize); /* Allocate a new memory block with POSIX API */
+	return malloc (msize); /* Allocate a new memory block with POSIX API */
 }
 
 
@@ -113,7 +113,7 @@ void ff_memfree (
 	void* mblock  /* Pointer to the memory block to free */
 )
 {
-	vPortFree (mblock); /* Discard the memory block with POSIX API */
+	free (mblock); /* Discard the memory block with POSIX API */
 }
 
 #endif
