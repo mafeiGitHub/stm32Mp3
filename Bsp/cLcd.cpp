@@ -261,11 +261,6 @@ void cLcd::text (uint32_t colour, std::string str, bool newLine) {
 
   if (tailing)
     mFirstLine = mLastLine - mNumDrawLines + 1;
-
-  if (!mInterupts) {
-    startDraw();
-    endDraw();
-    }
   }
 //}}}
 //{{{
@@ -295,15 +290,29 @@ void cLcd::rect (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t yle
   if (!ylen)
     return;
 
-  *mDmaCurBuf++ = col;                                                 // colour
-  *mDmaCurBuf++ = curFrameBufferAddress + ((y * getWidth()) + x) * 4;  // fb start address
-  *mDmaCurBuf++ = getWidth() - xlen;                                // stride
-  *mDmaCurBuf++ = (xlen << 16) | ylen;                                 // xlen:ylen
-  *mDmaCurBuf++ = 0;                                                   // terminate
-  *(mDmaCurBuf-6) = 1;                                                 // fill opCode
+  if (mInterupts) {
+    *mDmaCurBuf++ = col;                                                // colour
+    *mDmaCurBuf++ = curFrameBufferAddress + ((y * getWidth()) + x) * 4; // fb start address
+    *mDmaCurBuf++ = getWidth() - xlen;                                  // stride
+    *mDmaCurBuf++ = (xlen << 16) | ylen;                                // xlen:ylen
+    *mDmaCurBuf++ = 0;                                                  // terminate
+    *(mDmaCurBuf-6) = 1;                                                // fill opCode
 
-  if (mDmaCurBuf > mDmaHighWater)
-    mDmaHighWater = mDmaCurBuf;
+    if (mDmaCurBuf > mDmaHighWater)
+      mDmaHighWater = mDmaCurBuf;
+    }
+
+  else {
+    DMA2D->OCOLR = col;
+    DMA2D->OMAR  = curFrameBufferAddress + ((y * getWidth()) + x) * 4;
+    DMA2D->OOR   = getWidth() - xlen;
+    DMA2D->NLR   = (xlen << 16) | ylen;
+    DMA2D->CR = DMA2D_CR_R2M | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
+    while (!(DMA2D->ISR & DMA2D_ISR_TCIF)) {}
+    DMA2D->IFCR |= DMA2D_IFSR_CTEIF | DMA2D_IFSR_CTCIF | DMA2D_IFSR_CTWIF|
+                   DMA2D_IFSR_CCAEIF | DMA2D_IFSR_CCTCIF | DMA2D_IFSR_CCEIF;
+    }
+
   }
 //}}}
 //{{{
@@ -564,10 +573,17 @@ void cLcd::endDraw() {
             0, getHeight()-mLineInc, getWidth(), mLineInc);
 
   sendWait();
-  if (mInterupts)
-    showLayer (0, mBuffer[mDrawBuffer], 255);
+  showLayer (0, mBuffer[mDrawBuffer], 255);
 
   mDrawTime = osKernelSysTick() - mDrawStartTime;
+  }
+//}}}
+//{{{
+void cLcd::drawText() {
+
+  mDrawStartTime = osKernelSysTick();
+  clear (LCD_BLACK);
+  endDraw();
   }
 //}}}
 
@@ -830,16 +846,32 @@ void cLcd::stamp (uint32_t col, uint8_t* src, int16_t x, int16_t y, uint16_t xle
     if (y + ylen > getHeight()) // bottom yclip
       ylen = getHeight() - y;
 
-    *mDmaCurBuf++ = col;                                                    // colour
-    *mDmaCurBuf++ = curFrameBufferAddress + ((y * getWidth()) + x) * 4;  // bgnd fb start address
-    *mDmaCurBuf++ = getWidth() - xlen;                                   // stride
-    *mDmaCurBuf++ = (xlen << 16) | ylen;                                    // xlen:ylen
-    *mDmaCurBuf++ = (uint32_t)src;                                          // src start address
-    *mDmaCurBuf++ = 0;                                                      // terminate
-    *(mDmaCurBuf-7) = 2;                                                    // stamp opCode
+    if (mInterupts) {
+      *mDmaCurBuf++ = col;                                                    // colour
+      *mDmaCurBuf++ = curFrameBufferAddress + ((y * getWidth()) + x) * 4;  // bgnd fb start address
+      *mDmaCurBuf++ = getWidth() - xlen;                                   // stride
+      *mDmaCurBuf++ = (xlen << 16) | ylen;                                    // xlen:ylen
+      *mDmaCurBuf++ = (uint32_t)src;                                          // src start address
+      *mDmaCurBuf++ = 0;                                                      // terminate
+      *(mDmaCurBuf-7) = 2;                                                    // stamp opCode
 
-    if (mDmaCurBuf > mDmaHighWater)
-      mDmaHighWater = mDmaCurBuf;
+      if (mDmaCurBuf > mDmaHighWater)
+        mDmaHighWater = mDmaCurBuf;
+      }
+
+    else {
+      DMA2D->FGCOLR = col;
+      DMA2D->OMAR   = curFrameBufferAddress + ((y * getWidth()) + x) * 4;
+      DMA2D->BGMAR  =curFrameBufferAddress + ((y * getWidth()) + x) * 4;
+      DMA2D->OOR    = getWidth() - xlen;
+      DMA2D->BGOR   = getWidth() - xlen;
+      DMA2D->NLR    = (xlen << 16) | ylen;
+      DMA2D->FGMAR  = (uint32_t)src;
+      DMA2D->CR = DMA2D_CR_M2M_BLEND | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
+      while (!(DMA2D->ISR & DMA2D_ISR_TCIF)) {}
+      DMA2D->IFCR |= DMA2D_IFSR_CTEIF | DMA2D_IFSR_CTCIF | DMA2D_IFSR_CTWIF|
+                     DMA2D_IFSR_CCAEIF | DMA2D_IFSR_CCTCIF | DMA2D_IFSR_CCEIF;
+      }
     }
   }
 //}}}
@@ -887,65 +919,28 @@ int cLcd::string (uint32_t col, int fontHeight, std::string str, int16_t x, int1
 void cLcd::send() {
 
   // send first opCode using IRQhandler
-  LCD_DMA2D_IRQHandler();
+  if (mInterupts)
+    LCD_DMA2D_IRQHandler();
   }
 //}}}
 //{{{
 void cLcd::wait() {
 
-  if (osSemaphoreWait (DmaSem, 500) != osOK)
-    mDmaTimeouts++;
+  if (mInterupts) {
+    if (osSemaphoreWait (DmaSem, 500) != osOK)
+      mDmaTimeouts++;
 
-  // zero out first opcode, point past it
-  mDmaCurBuf = DMA_BUF;
-  *mDmaCurBuf++ = 0;
+    // zero out first opcode, point past it
+    mDmaCurBuf = DMA_BUF;
+    *mDmaCurBuf++ = 0;
+    }
   }
 //}}}
 //{{{
 void cLcd::sendWait() {
 
-  if (mInterupts) {
-    send();
-    wait();
-    }
-  else {
-     DMA2D->IFCR |= DMA2D_IFSR_CTEIF | DMA2D_IFSR_CTCIF | DMA2D_IFSR_CTWIF|
-                     DMA2D_IFSR_CCAEIF | DMA2D_IFSR_CCTCIF | DMA2D_IFSR_CCEIF;
-
-    while (true) {
-      auto opCode = *DmaIsrBuf++;
-      if (opCode == 1) { // fill
-        DMA2D->OCOLR = *DmaIsrBuf++;  // colour
-        DMA2D->OMAR  = *DmaIsrBuf++;  // fb start address
-        DMA2D->OOR   = *DmaIsrBuf++;  // stride
-        DMA2D->NLR   = *DmaIsrBuf++;  // xlen:ylen
-        DMA2D->CR = DMA2D_CR_R2M | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
-        while (!(DMA2D->ISR & DMA2D_ISR_TCIF)) {}
-        DMA2D->IFCR |= DMA2D_IFSR_CTEIF | DMA2D_IFSR_CTCIF | DMA2D_IFSR_CTWIF|
-                       DMA2D_IFSR_CCAEIF | DMA2D_IFSR_CCTCIF | DMA2D_IFSR_CCEIF;
-        }
-      else if (opCode == 2) { // stamp
-        DMA2D->FGCOLR = *DmaIsrBuf++; // src color
-        DMA2D->OMAR   = *DmaIsrBuf;   // bgnd fb start address
-        DMA2D->BGMAR  = *DmaIsrBuf++;
-        DMA2D->OOR    = *DmaIsrBuf;   // bgnd stride
-        DMA2D->BGOR   = *DmaIsrBuf++;
-        DMA2D->NLR    = *DmaIsrBuf++; // xlen:ylen
-        DMA2D->FGMAR  = *DmaIsrBuf++; // src start address
-        DMA2D->CR = DMA2D_CR_M2M_BLEND | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
-        while (!(DMA2D->ISR & DMA2D_ISR_TCIF)) {}
-        DMA2D->IFCR |= DMA2D_IFSR_CTEIF | DMA2D_IFSR_CTCIF | DMA2D_IFSR_CTWIF|
-                       DMA2D_IFSR_CCAEIF | DMA2D_IFSR_CCTCIF | DMA2D_IFSR_CCEIF;
-        }
-      else { // normally 0
-        DMA2D->CR = 0;
-        DmaIsrBuf = DMA_BUF;
-        mDmaCurBuf = DMA_BUF;
-        *mDmaCurBuf++ = 0;
-        break;
-        }
-      }
-    }
+  send();
+  wait();
   }
 //}}}
 

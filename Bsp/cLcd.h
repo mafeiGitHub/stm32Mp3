@@ -63,8 +63,11 @@ public:
   void line (uint32_t col, int16_t x1, int16_t y1, int16_t x2, int16_t y2);
 
   void pressed (int pressCount, int x, int y, int xinc, int yinc);
+
   void startDraw();
   void endDraw();
+  void drawText();
+
   void displayOn();
   void displayOff();
 

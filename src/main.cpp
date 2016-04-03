@@ -49,6 +49,10 @@ static osSemaphoreId audioSem;
 static cLcd mLcd;
 static float mVolume = 0.8f;
 //}}}
+const bool kLcdInterrupts = false;
+FATFS fatFs;
+char SD_Path[4];
+
 //{{{
 void BSP_AUDIO_OUT_HalfTransfer_CallBack() {
   osSemaphoreRelease (audioSem);
@@ -165,38 +169,48 @@ static void uiThread (void const* argument) {
     //}}}
 
     mLcd.endDraw();
+    if (!kLcdInterrupts)
+      osDelay (100);
     }
   }
 //}}}
 //{{{
 static void loadThread (void const* argument) {
 
-  mLcd.text ("loadThread started");
+  mLcd.text ("sd started");
+  mLcd.drawText();
   BSP_SD_Init();
   while (BSP_SD_IsDetected() != SD_PRESENT) {
     mLcd.text (LCD_RED, "no SD card");
+    mLcd.drawText();
     osDelay (1000);
     }
   mLcd.text ("SD card found");
+  mLcd.drawText();
 
   //cMp3Decoder* mp3Decoder = new cMp3Decoder;
   //mLcd.text ("Mp3 decoder " + mLcd.hexStr ((int)mp3Decoder, 8));
 
-  char SD_Path[4];
-  if (FATFS_LinkDriver (&SD_Driver, SD_Path) != 0)
+  if (FATFS_LinkDriver (&SD_Driver, SD_Path) != 0) {
     mLcd.text (LCD_RED, "SD driver error");
+    mLcd.drawText();
+    }
   else {
     mLcd.text ("SD driver found");
+    mLcd.drawText();
 
-    FATFS fatFs;
     f_mount (&fatFs, "", 0);
     mLcd.text ("FAT fileSystem mounted");
+    mLcd.drawText();
 
     DIR dir;
-    if (f_opendir (&dir, "/") != FR_OK)
+    if (f_opendir (&dir, "/") != FR_OK) {
       mLcd.text (LCD_RED, "directory open error");
+      mLcd.drawText();
+      }
     else {
       mLcd.text ("directory opened");
+      mLcd.drawText();
 
       FILINFO filInfo;
       filInfo.lfname = (char*)malloc (_MAX_LFN + 1);
@@ -212,18 +226,24 @@ static void loadThread (void const* argument) {
           while (filInfo.fname[i++] != '.') {;}
           if ((filInfo.fname[i] == extension[0]) &&
               (filInfo.fname[i+1] == extension[1]) &&
-              (filInfo.fname[i+2] == extension[2]))
+              (filInfo.fname[i+2] == extension[2])) {
             mLcd.text (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname);
+            mLcd.drawText();
             //loadFile (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname);
+            }
           }
         }
       }
     }
 
+  mLcd.text ("loadThread started");
+  mLcd.drawText();
+
   int tick = 0;
   while (true) {
     mLcd.text ("load tick" + mLcd.intStr (tick++));
-    osDelay (10000);
+    mLcd.drawText();
+    osDelay (2000);
     }
   }
 //}}}
@@ -304,19 +324,20 @@ static void dhcpThread (void const* argument) {
 //{{{
 static void startThread (void const* argument) {
 
-  mLcd.init (SDRAM_FRAME0, SDRAM_FRAME1, true);
+  mLcd.init (SDRAM_FRAME0, SDRAM_FRAME1, kLcdInterrupts);
   mLcd.setTitle (__TIME__ __DATE__);
   mLcd.text ("startThread started");
+  mLcd.drawText();
 
-  const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 2000 };
-  osThreadCreate (&osThreadUi, NULL);
+  //const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 2000 };
+  //osThreadCreate (&osThreadUi, NULL);
   const osThreadDef_t osThreadLoad =  { (char*)"Load", loadThread, osPriorityNormal, 0, 20000 };
   osThreadCreate (&osThreadLoad, NULL);
-  const osThreadDef_t osThreadPlay =  { (char*)"Play", playThread, osPriorityAboveNormal, 0, 2000 };
-  osThreadCreate (&osThreadPlay, NULL);
+  //const osThreadDef_t osThreadPlay =  { (char*)"Play", playThread, osPriorityNormal, 0, 2000 };
+  //osThreadCreate (&osThreadPlay, NULL);
 
-  //if (false) {
-  if (true) {
+  if (false) {
+  //if (true) {
     tcpip_init (NULL, NULL);
     mLcd.text ("tcpip_init ok");
 
@@ -334,7 +355,7 @@ static void startThread (void const* argument) {
       netif_set_up (&gNetif);
       mLcd.text ("ethernet connected");
 
-      const osThreadDef_t osThreadDHCP =  { (char*)"DHCP", dhcpThread, osPriorityBelowNormal, 0, 512 };
+      const osThreadDef_t osThreadDHCP =  { (char*)"DHCP", dhcpThread, osPriorityBelowNormal, 0, 1024 };
       osThreadCreate (&osThreadDHCP, &gNetif);
       while (osSemaphoreWait (dhcpSem, 1000) == osOK)
         osDelay (1000);
