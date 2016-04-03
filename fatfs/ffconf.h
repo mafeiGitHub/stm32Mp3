@@ -10,6 +10,7 @@
 
 #define _FS_TINY             0      /* 0:Normal or 1:Tiny */
 #define _FS_READONLY         0      /* 0:Read/Write or 1:Read only */
+
 #define _FS_MINIMIZE         0      /* 0 to 3 */
 /* The _FS_MINIMIZE option defines minimization level to remove some functions.
 /   0: Full function.
@@ -36,17 +37,6 @@
 #define _USE_FORWARD         0      /* 0:Disable or 1:Enable */
 /* To enable f_forward function, set _USE_FORWARD to 1 and set _FS_TINY to 1. */
 
-#define _USE_BUFF_WO_ALIGNMENT  0
-/* This option is available only for usbh diskio interface and allow to disable
-/  the management of the unaligned buffer.
-/  When STM32 USB OTG HS or FS IP is used with internal DMA enabled, this define
-/  must be set to 0 to align data into 32bits through an internal scratch buffer
-/  before being processed by the DMA . Otherwise (DMA not used), this define must
-/  be set to 1 to avoid Data alignment and improve the performance.
-/  Please note that if _USE_BUFF_WO_ALIGNMENT is set to 1 and an unaligned 32bits
-/  buffer is forwarded to the FatFs Write/Read functions, an error will be returned.
-/  (0: default value or 1: unaligned buffer return an error). */
-
 #define _CODE_PAGE         1252
 
 #define _USE_LFN     3  /* 0 to 3 */
@@ -56,7 +46,6 @@
 /   1: Enable LFN with static working buffer on the BSS. Always NOT reentrant.
 /   2: Enable LFN with dynamic working buffer on the STACK.
 /   3: Enable LFN with dynamic working buffer on the HEAP.
-/
 /  To enable LFN feature, Unicode handling functions ff_convert() and ff_wtoupper()
 /  function must be added to the project.
 /  The LFN working buffer occupies (_MAX_LFN + 1) * 2 bytes. When use stack for the
@@ -107,8 +96,7 @@
 /  option to 1 and f_getfree() function at first time after volume mount will
 /  force a full FAT scan.
 /  0: Load all informations in the FSINFO if available.
-/  1: Do not trust free cluster count in the FSINFO.
-*/
+/  1: Do not trust free cluster count in the FSINFO. */
 
 #define _FS_NORTC 0
 #define _NORTC_MON  2
@@ -131,11 +119,8 @@
 /  * Byte order on the memory is little-endian.
 /  * Address miss-aligned word access is always allowed for all instructions.
 /  If it is the case, _WORD_ACCESS can also be set to 1 to improve performance
-/  and reduce code size.
-*/
+/  and reduce code size */
 
-/* A header file that defines sync object types on the O/S, such as
-/  windows.h, ucos_ii.h and semphr.h, must be included prior to ff.h. */
 #define _FS_REENTRANT    1  /* 0:Disable or 1:Enable */
 #define _FS_TIMEOUT      1000 /* Timeout period in unit of time ticks */
 #define _SYNC_t          osSemaphoreId /* O/S dependent type of sync object. e.g. HANDLE, OS_EVENT*, ID and etc.. */

@@ -1,42 +1,84 @@
 #include "diskio.h"
-#include "ff_gen_drv.h"
+#include "ff.h"
 
-extern Disk_drvTypeDef disk;
+#define BLOCK_SIZE 512
+
+static volatile DSTATUS Stat = STA_NOINIT;
+
 /*{{{*/
-__weak DWORD get_fattime (void) {
+__weak DWORD get_fattime() {
   return 0;
   }
 /*}}}*/
 
 /*{{{*/
-DSTATUS disk_status ( BYTE pdrv ) {
-  return disk.drv[pdrv]->disk_status (disk.lun[pdrv]);
+DSTATUS disk_status (BYTE pdrv) {
+
+  Stat = STA_NOINIT;
+  if (BSP_SD_GetStatus() == MSD_OK)
+    Stat &= ~STA_NOINIT;
+  return Stat;
   }
 /*}}}*/
 /*{{{*/
 DSTATUS disk_initialize (BYTE pdrv) {
-  DSTATUS stat = RES_OK;
-  if (disk.is_initialized[pdrv] == 0) {
-    disk.is_initialized[pdrv] = 1;
-    stat = disk.drv[pdrv]->disk_initialize (disk.lun[pdrv]);
+
+  Stat = STA_NOINIT;
+  if (BSP_SD_Init() == MSD_OK)
+    Stat &= ~STA_NOINIT;
+  return Stat;
+  }
+/*}}}*/
+/*{{{*/
+DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff) {
+
+  DRESULT res = RES_ERROR;
+  if (Stat & STA_NOINIT)
+    return RES_NOTRDY;
+
+  switch (cmd) {
+    // Make sure that no pending write process
+    case CTRL_SYNC :
+      res = RES_OK;
+      break;
+
+    // Get number of sectors on the disk (DWORD)
+    case GET_SECTOR_COUNT : {
+      SD_CardInfo CardInfo;
+      BSP_SD_GetCardInfo (&CardInfo);
+      *(DWORD*)buff = CardInfo.CardCapacity / BLOCK_SIZE;
+      res = RES_OK;
+      break;
+      }
+
+    // Get R/W sector size (WORD)
+    case GET_SECTOR_SIZE :
+      *(WORD*)buff = BLOCK_SIZE;
+      res = RES_OK;
+      break;
+
+    // Get erase block size in unit of sector (DWORD)
+    case GET_BLOCK_SIZE :
+      *(DWORD*)buff = BLOCK_SIZE;
+      res = RES_OK;
+      break;
+
+    default:
+      res = RES_PARERR;
     }
-  return stat;
-  }
-/*}}}*/
-/*{{{*/
-DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void *buff) {
-  return disk.drv[pdrv]->disk_ioctl (disk.lun[pdrv], cmd, buff);
+
+  return res;
   }
 /*}}}*/
 
 /*{{{*/
-DRESULT disk_read (BYTE pdrv, BYTE *buff, DWORD sector, UINT count ) {
-  return disk.drv[pdrv]->disk_read (disk.lun[pdrv], buff, sector, count);
+DRESULT disk_read (BYTE pdrv, BYTE* buff, DWORD sector, UINT count) {
+  return BSP_SD_ReadBlocks ((uint32_t*)buff, (uint64_t)(sector * BLOCK_SIZE), BLOCK_SIZE, count) == MSD_OK ? RES_OK : RES_ERROR;
+  //return BSP_SD_ReadBlocks_DMA ((uint32_t*)buff, (uint64_t)(sector*BLOCK_SIZE), BLOCK_SIZE, count) == MSD_OK ? RES_OK : RES_ERROR;
   }
-
 /*}}}*/
 /*{{{*/
-DRESULT disk_write (BYTE pdrv, const BYTE *buff, DWORD sector, UINT count ) {
-  return disk.drv[pdrv]->disk_write (disk.lun[pdrv], buff, sector, count);
+DRESULT disk_write (BYTE pdrv, const BYTE* buff, DWORD sector, UINT count) {
+  return BSP_SD_WriteBlocks ((uint32_t*)buff, (uint64_t)(sector * BLOCK_SIZE), BLOCK_SIZE, count) == MSD_OK ? RES_OK : RES_ERROR;
   }
 /*}}}*/

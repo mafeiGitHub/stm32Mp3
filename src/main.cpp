@@ -26,8 +26,6 @@
 #include "../Bsp/cLcd.h"
 
 #include "../fatfs/ff.h"
-#include "../fatfs/ff_gen_drv.h"
-#include "../fatfs/sd_diskio.h"
 
 #include "../httpServer/httpServer.h"
 
@@ -197,46 +195,37 @@ static void loadThread (void const* argument) {
   //cMp3Decoder* mp3Decoder = new cMp3Decoder;
   //mLcd.text ("Mp3 decoder " + mLcd.hexStr ((int)mp3Decoder, 8));
 
-  if (FATFS_LinkDriver (&SD_Driver, SD_Path) != 0) {
-    mLcd.text (LCD_RED, "SD driver error");
+  f_mount (&fatFs, "", 0);
+  mLcd.text ("FAT fileSystem mounted");
+  mLcd.drawText();
+
+  DIR dir;
+  if (f_opendir (&dir, "/") != FR_OK) {
+    mLcd.text (LCD_RED, "directory open error");
     mLcd.drawText();
     }
   else {
-    mLcd.text ("SD driver found");
+    mLcd.text ("directory opened");
     mLcd.drawText();
 
-    f_mount (&fatFs, "", 0);
-    mLcd.text ("FAT fileSystem mounted");
-    mLcd.drawText();
-
-    DIR dir;
-    if (f_opendir (&dir, "/") != FR_OK) {
-      mLcd.text (LCD_RED, "directory open error");
-      mLcd.drawText();
-      }
-    else {
-      mLcd.text ("directory opened");
-      mLcd.drawText();
-
-      FILINFO filInfo;
-      filInfo.lfname = (char*)malloc (_MAX_LFN + 1);
-      filInfo.lfsize = _MAX_LFN + 1;
-      auto extension = "MP3";
-      while (true) {
-        if ((f_readdir (&dir, &filInfo) != FR_OK) || filInfo.fname[0] == 0)
-          break;
-        if (filInfo.fname[0] == '.')
-          continue;
-        if (!(filInfo.fattrib & AM_DIR)) {
-          auto i = 0;
-          while (filInfo.fname[i++] != '.') {;}
-          if ((filInfo.fname[i] == extension[0]) &&
-              (filInfo.fname[i+1] == extension[1]) &&
-              (filInfo.fname[i+2] == extension[2])) {
-            mLcd.text (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname);
-            mLcd.drawText();
-            loadFile (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname);
-            }
+    FILINFO filInfo;
+    filInfo.lfname = (char*)malloc (_MAX_LFN + 1);
+    filInfo.lfsize = _MAX_LFN + 1;
+    auto extension = "MP3";
+    while (true) {
+      if ((f_readdir (&dir, &filInfo) != FR_OK) || filInfo.fname[0] == 0)
+        break;
+      if (filInfo.fname[0] == '.')
+        continue;
+      if (!(filInfo.fattrib & AM_DIR)) {
+        auto i = 0;
+        while (filInfo.fname[i++] != '.') {;}
+        if ((filInfo.fname[i] == extension[0]) &&
+            (filInfo.fname[i+1] == extension[1]) &&
+            (filInfo.fname[i+2] == extension[2])) {
+          mLcd.text (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname);
+          mLcd.drawText();
+          loadFile (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname);
           }
         }
       }

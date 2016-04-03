@@ -1,3 +1,4 @@
+//{{{  description
  /*---------------------------------------------------------------------------/
 /  FatFs - FAT file system module include R0.11     (C)ChaN, 2015
 /----------------------------------------------------------------------------/
@@ -14,12 +15,14 @@
 / The copyright owner or contributors be NOT LIABLE for any damages caused
 / by use of this software.
 /---------------------------------------------------------------------------*/
+//}}}
 #pragma once
 #define _FATFS  32020 /* Revision ID */
-
+//{{{
 #ifdef __cplusplus
   extern "C" {
 #endif
+//}}}
 
 #include "integer.h"  /* Basic integer types */
 #include "ffconf.h"   /* FatFs configuration options */
@@ -337,6 +340,8 @@ int ff_del_syncobj (_SYNC_t sobj);        /* Delete a sync object */
 #define ST_DWORD(ptr,val) *(BYTE*)(ptr)=(BYTE)(val); *((BYTE*)(ptr)+1)=(BYTE)((WORD)(val)>>8); *((BYTE*)(ptr)+2)=(BYTE)((DWORD)(val)>>16); *((BYTE*)(ptr)+3)=(BYTE)((DWORD)(val)>>24)
 #endif
 
+//{{{
 #ifdef __cplusplus
-}
+  }
 #endif
+//}}}
