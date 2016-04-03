@@ -25,6 +25,7 @@
 
 #include "../Bsp/cLcd.h"
 
+#include "../Bsp/stm32746g_discovery_sd.h"
 #include "../fatfs/ff.h"
 
 #include "../httpServer/httpServer.h"
@@ -75,7 +76,9 @@ static void loadFile (std::string fileName) {
       result = f_read (&file, buffer, 4096, &bytes);
       if (bytesRead == 0) {
         for (auto j = 0; j < 11; j++) {
-          std::string str = mLcd.hexStr ((int)buffer - 0x20007000, 4);
+          std::string str;
+          str.resize(102);
+          str = mLcd.hexStr ((int)buffer - 0x20007000, 4);
           for (auto i = 0; i < 32; i++)
             str += " " + mLcd.hexStr (*buffer++, 2);
           mLcd.text (str);

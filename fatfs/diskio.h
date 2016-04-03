@@ -7,7 +7,6 @@
 //}}}
 #include "integer.h"
 
-// Results of Disk Functions
 typedef BYTE DSTATUS;
 typedef enum {
 	RES_OK = 0,   /* 0: Successful */

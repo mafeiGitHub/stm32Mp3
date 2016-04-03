@@ -24,13 +24,62 @@
 #endif
 //}}}
 
-#include "integer.h"  /* Basic integer types */
-#include "ffconf.h"   /* FatFs configuration options */
+//{{{  integer typedefs
+// 8 bit
+typedef unsigned char   BYTE;
 
-#if _FATFS != _FFCONF
-#error Wrong configuration file (ffconf.h).
+// 16 bit
+typedef short           SHORT;
+typedef unsigned short  WORD;
+typedef unsigned short  WCHAR;
+
+// 16 bit or 32 bit
+typedef int             INT;
+typedef unsigned int    UINT;
+
+// 32 bit
+typedef long            LONG;
+typedef unsigned long   DWORD;
+//}}}
+#include "ffconf.h"
+
+//{{{  Definitions of volume management
+#if _MULTI_PARTITION    /* Multiple partition configuration */
+  //{{{  struct partition
+  typedef struct {
+    BYTE pd;  /* Physical drive number */
+    BYTE pt;  /* Partition: 0:Auto detect, 1-4:Forced partition) */
+    } PARTITION;
+  //}}}
+  extern PARTITION VolToPart[]; /* Volume - Partition resolution table */
+  #define LD2PD(vol) (VolToPart[vol].pd)  /* Get physical drive number */
+  #define LD2PT(vol) (VolToPart[vol].pt)  /* Get partition index */
+
+#else             /* Single partition configuration */
+  #define LD2PD(vol) (BYTE)(vol)  /* Each logical drive is bound to the same physical drive number */
+  #define LD2PT(vol) 0      /* Find first valid partition or in SFD */
 #endif
+//}}}
+//{{{  Type of path name strings on FatFs API
+#if _LFN_UNICODE /* Unicode string */
+  #if !_USE_LFN
+    #error _LFN_UNICODE must be 0 at non-LFN cfg.
+  #endif
+  #ifndef _INC_TCHAR
+    typedef WCHAR TCHAR;
+    #define _T(x) L ## x
+    #define _TEXT(x) L ## x
+  #endif
+#else           /* ANSI/OEM string */
+  #ifndef _INC_TCHAR
+    typedef char TCHAR;
+    #define _T(x) x
+    #define _TEXT(x) x
+  #endif
+#endif
+//}}}
 
+//{{{  enum FRESULT
 /* File function return code (FRESULT) */
 typedef enum {
   FR_OK = 0,              /* (0) Succeeded */
@@ -54,43 +103,8 @@ typedef enum {
   FR_TOO_MANY_OPEN_FILES, /* (18) Number of open files > _FS_SHARE */
   FR_INVALID_PARAMETER    /* (19) Given parameter is invalid */
   } FRESULT;
-
-/* Definitions of volume management */
-#if _MULTI_PARTITION    /* Multiple partition configuration */
-  typedef struct {
-    BYTE pd;  /* Physical drive number */
-    BYTE pt;  /* Partition: 0:Auto detect, 1-4:Forced partition) */
-   } PARTITION;
-
-  extern PARTITION VolToPart[]; /* Volume - Partition resolution table */
-  #define LD2PD(vol) (VolToPart[vol].pd)  /* Get physical drive number */
-  #define LD2PT(vol) (VolToPart[vol].pt)  /* Get partition index */
-
-#else             /* Single partition configuration */
-  #define LD2PD(vol) (BYTE)(vol)  /* Each logical drive is bound to the same physical drive number */
-  #define LD2PT(vol) 0      /* Find first valid partition or in SFD */
-#endif
-
-/* Type of path name strings on FatFs API */
-#if _LFN_UNICODE      /* Unicode string */
-  #if !_USE_LFN
-    #error _LFN_UNICODE must be 0 at non-LFN cfg.
-  #endif
-#ifndef _INC_TCHAR
-  typedef WCHAR TCHAR;
-  #define _T(x) L ## x
-  #define _TEXT(x) L ## x
-#endif
-
-#else           /* ANSI/OEM string */
-  #ifndef _INC_TCHAR
-    typedef char TCHAR;
-    #define _T(x) x
-    #define _TEXT(x) x
-  #endif
-#endif
-
-/* File system object structure (FATFS) */
+//}}}
+//{{{  struct FATFS File system object structure
 typedef struct {
   union{
   UINT  d32[_MAX_SS/4]; /* Force 32bits alignement */
@@ -126,20 +140,20 @@ typedef struct {
   DWORD database;   /* Data start sector */
   DWORD winsect;    /* Current sector appearing in the win[] */
   } FATFS;
-
-/* File object structure (FIL) */
+//}}}
+//{{{  struct FIL File object structure
 typedef struct {
 #if !_FS_TINY
-  union{
-  UINT  d32[_MAX_SS/4]; /* Force 32bits alignement */
-  BYTE  d8[_MAX_SS];  /* File data read/write buffer */
-  }buf;
+  union {
+    UINT  d32[_MAX_SS/4]; /* Force 32bits alignement */
+    BYTE  d8[_MAX_SS];  /* File data read/write buffer */
+    } buf;
 #endif
   FATFS*  fs;       /* Pointer to the related file system object (**do not change order**) */
-  WORD  id;       /* Owner file system mount ID (**do not change order**) */
-  BYTE  flag;     /* Status flags */
-  BYTE  err;      /* Abort flag (error code) */
-  DWORD fptr;     /* File read/write pointer (Zeroed on file open) */
+  WORD  id;         /* Owner file system mount ID (**do not change order**) */
+  BYTE  flag;       /* Status flags */
+  BYTE  err;        /* Abort flag (error code) */
+  DWORD fptr;       /* File read/write pointer (Zeroed on file open) */
   DWORD fsize;      /* File size */
   DWORD sclust;     /* File start cluster (0:no cluster chain, always 0 when fsize is 0) */
   DWORD clust;      /* Current cluster of fpter (not valid when fprt is 0) */
@@ -149,28 +163,24 @@ typedef struct {
   BYTE* dir_ptr;    /* Pointer to the directory entry in the win[] */
 #endif
 #if _USE_FASTSEEK
-  DWORD*  cltbl;      /* Pointer to the cluster link map table (Nulled on file open) */
+  DWORD*  cltbl;    /* Pointer to the cluster link map table (Nulled on file open) */
 #endif
 #if _FS_LOCK
   UINT  lockid;     /* File lock ID origin from 1 (index of file semaphore table Files[]) */
 #endif
-
-} FIL;
-
-
-
-/* Directory object structure (DIR) */
-
+  } FIL;
+//}}}
+//{{{  struct DIR Directory object structure
 typedef struct {
 #if !_FS_TINY
-  union{
-            UINT     d32[_MAX_SS/4];  /* Force 32bits alignement */
-            BYTE   d8[_MAX_SS];  /* File data read/write buffer */
-  }buf;
+  union {
+    UINT     d32[_MAX_SS/4];  /* Force 32bits alignement */
+    BYTE   d8[_MAX_SS];  /* File data read/write buffer */
+    } buf;
 #endif
-  FATFS*  fs;       /* Pointer to the owner file system object (**do not change order**) */
-  WORD  id;       /* Owner file system mount ID (**do not change order**) */
-  WORD  index;      /* Current read/write index number */
+  FATFS* fs;       /* Pointer to the owner file system object (**do not change order**) */
+  WORD id;       /* Owner file system mount ID (**do not change order**) */
+  WORD index;      /* Current read/write index number */
   DWORD sclust;     /* Table start cluster (0:Root dir) */
   DWORD clust;      /* Current cluster */
   DWORD sect;     /* Current sector */
@@ -186,12 +196,9 @@ typedef struct {
 #if _USE_FIND
   const TCHAR*  pat;  /* Pointer to the name matching pattern */
 #endif
-} DIR;
-
-
-
-/* File information structure (FILINFO) */
-
+  } DIR;
+//}}}
+//{{{  struct FILINFO File information structure
 typedef struct {
   DWORD fsize;      /* File size */
   WORD  fdate;      /* Last modified date */
@@ -202,10 +209,9 @@ typedef struct {
   TCHAR*  lfname;     /* Pointer to the LFN buffer */
   UINT  lfsize;     /* Size of LFN buffer in TCHAR */
 #endif
-} FILINFO;
+  } FILINFO;
+//}}}
 
-/*--------------------------------------------------------------*/
-/* FatFs module application interface                           */
 FRESULT f_open (FIL* fp, const TCHAR* path, BYTE mode);       /* Open or create a file */
 FRESULT f_close (FIL* fp);                      /* Close an open file object */
 FRESULT f_read (FIL* fp, void* buff, UINT btr, UINT* br);     /* Read data from a file */
@@ -247,65 +253,51 @@ TCHAR* f_gets (TCHAR* buff, int len, FIL* fp);            /* Get a string from t
 #define f_rewinddir(dp) f_readdir((dp), 0)
 
 #ifndef EOF
-#define EOF (-1)
+  #define EOF (-1)
 #endif
 
-
-
-
-/*--------------------------------------------------------------*/
-/* Additional user defined functions                            */
-
-/* RTC function */
+//{{{  RTC function
 #if !_FS_READONLY && !_FS_NORTC
-DWORD get_fattime (void);
+  DWORD get_fattime (void);
 #endif
-
-/* Unicode support functions */
+//}}}
+//{{{  Unicode support functions
 #if _USE_LFN              /* Unicode - OEM code conversion */
-WCHAR ff_convert (WCHAR chr, UINT dir); /* OEM-Unicode bidirectional conversion */
-WCHAR ff_wtoupper (WCHAR chr);      /* Unicode upper-case conversion */
-#if _USE_LFN == 3           /* Memory functions */
-void* ff_memalloc (UINT msize);     /* Allocate memory block */
-void ff_memfree (void* mblock);     /* Free memory block */
+  WCHAR ff_convert (WCHAR chr, UINT dir); /* OEM-Unicode bidirectional conversion */
+  WCHAR ff_wtoupper (WCHAR chr);      /* Unicode upper-case conversion */
+  #if _USE_LFN == 3           /* Memory functions */
+    void* ff_memalloc (UINT msize);     /* Allocate memory block */
+    void ff_memfree (void* mblock);     /* Free memory block */
+  #endif
 #endif
-#endif
-
-/* Sync functions */
+//}}}
+//{{{  Sync functions
 #if _FS_REENTRANT
-int ff_cre_syncobj (BYTE vol, _SYNC_t* sobj); /* Create a sync object */
-int ff_req_grant (_SYNC_t sobj);        /* Lock sync object */
-void ff_rel_grant (_SYNC_t sobj);       /* Unlock sync object */
-int ff_del_syncobj (_SYNC_t sobj);        /* Delete a sync object */
+  int ff_cre_syncobj (BYTE vol, _SYNC_t* sobj); /* Create a sync object */
+  int ff_req_grant (_SYNC_t sobj);        /* Lock sync object */
+  void ff_rel_grant (_SYNC_t sobj);       /* Unlock sync object */
+  int ff_del_syncobj (_SYNC_t sobj);        /* Delete a sync object */
 #endif
-
-
-
-
-/*--------------------------------------------------------------*/
-/* Flags and offset address                                     */
-
-
-/* File access control and file status flags (FIL.flag) */
-
+//}}}
+//{{{  File access control and file status flags (FIL.flag)
 #define FA_READ       0x01
 #define FA_OPEN_EXISTING  0x00
 
 #if !_FS_READONLY
-#define FA_WRITE      0x02
-#define FA_CREATE_NEW   0x04
-#define FA_CREATE_ALWAYS  0x08
-#define FA_OPEN_ALWAYS    0x10
-#define FA__WRITTEN     0x20
-#define FA__DIRTY     0x40
+  #define FA_WRITE      0x02
+  #define FA_CREATE_NEW   0x04
+  #define FA_CREATE_ALWAYS  0x08
+  #define FA_OPEN_ALWAYS    0x10
+  #define FA__WRITTEN     0x20
+  #define FA__DIRTY     0x40
 #endif
-
-/* FAT sub type (FATFS.fs_type) */
+//}}}
+//{{{  FAT sub type (FATFS.fs_type)
 #define FS_FAT12  1
 #define FS_FAT16  2
 #define FS_FAT32  3
-
-/* File attribute bits for directory entry */
+//}}}
+//{{{  File attribute bits for directory entry
 #define AM_RDO  0x01  /* Read only */
 #define AM_HID  0x02  /* Hidden */
 #define AM_SYS  0x04  /* System */
@@ -314,24 +306,23 @@ int ff_del_syncobj (_SYNC_t sobj);        /* Delete a sync object */
 #define AM_DIR  0x10  /* Directory */
 #define AM_ARC  0x20  /* Archive */
 #define AM_MASK 0x3F  /* Mask of defined bits */
-
-
-/* Fast seek feature */
+//}}}
+//{{{  Fast seek feature
 #define CREATE_LINKMAP  0xFFFFFFFF
-
-/*--------------------------------*/
-/* Multi-byte word access macros  */
+//}}}
+//{{{  Multi-byte word access macros
 #if     _WORD_ACCESS == 1 /* Enable word access to the FAT structure */
-#define LD_WORD(ptr)    (WORD)(*(WORD*)(BYTE*)(ptr))
-#define LD_DWORD(ptr)   (DWORD)(*(DWORD*)(BYTE*)(ptr))
-#define ST_WORD(ptr,val)  *(WORD*)(BYTE*)(ptr)=(WORD)(val)
-#define ST_DWORD(ptr,val) *(DWORD*)(BYTE*)(ptr)=(DWORD)(val)
+  #define LD_WORD(ptr)    (WORD)(*(WORD*)(BYTE*)(ptr))
+  #define LD_DWORD(ptr)   (DWORD)(*(DWORD*)(BYTE*)(ptr))
+  #define ST_WORD(ptr,val)  *(WORD*)(BYTE*)(ptr)=(WORD)(val)
+  #define ST_DWORD(ptr,val) *(DWORD*)(BYTE*)(ptr)=(DWORD)(val)
 #else   /* Use byte-by-byte access to the FAT structure */
-#define LD_WORD(ptr)    (WORD)(((WORD)*((BYTE*)(ptr)+1)<<8)|(WORD)*(BYTE*)(ptr))
-#define LD_DWORD(ptr)   (DWORD)(((DWORD)*((BYTE*)(ptr)+3)<<24)|((DWORD)*((BYTE*)(ptr)+2)<<16)|((WORD)*((BYTE*)(ptr)+1)<<8)|*(BYTE*)(ptr))
-#define ST_WORD(ptr,val)  *(BYTE*)(ptr)=(BYTE)(val); *((BYTE*)(ptr)+1)=(BYTE)((WORD)(val)>>8)
-#define ST_DWORD(ptr,val) *(BYTE*)(ptr)=(BYTE)(val); *((BYTE*)(ptr)+1)=(BYTE)((WORD)(val)>>8); *((BYTE*)(ptr)+2)=(BYTE)((DWORD)(val)>>16); *((BYTE*)(ptr)+3)=(BYTE)((DWORD)(val)>>24)
+  #define LD_WORD(ptr)    (WORD)(((WORD)*((BYTE*)(ptr)+1)<<8)|(WORD)*(BYTE*)(ptr))
+  #define LD_DWORD(ptr)   (DWORD)(((DWORD)*((BYTE*)(ptr)+3)<<24)|((DWORD)*((BYTE*)(ptr)+2)<<16)|((WORD)*((BYTE*)(ptr)+1)<<8)|*(BYTE*)(ptr))
+  #define ST_WORD(ptr,val)  *(BYTE*)(ptr)=(BYTE)(val); *((BYTE*)(ptr)+1)=(BYTE)((WORD)(val)>>8)
+  #define ST_DWORD(ptr,val) *(BYTE*)(ptr)=(BYTE)(val); *((BYTE*)(ptr)+1)=(BYTE)((WORD)(val)>>8); *((BYTE*)(ptr)+2)=(BYTE)((DWORD)(val)>>16); *((BYTE*)(ptr)+3)=(BYTE)((DWORD)(val)>>24)
 #endif
+//}}}
 
 //{{{
 #ifdef __cplusplus

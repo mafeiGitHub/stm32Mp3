@@ -1,12 +1,8 @@
-/*---------------------------------------------------------------------------/
-/  FatFs - FAT file system module configuration file  R0.11 (C)ChaN, 2015
-/----------------------------------------------------------------------------*/
+// FatFs - FAT file system module configuration file  R0.11 (C)ChaN, 2015
 #pragma once
 #define _FFCONF 32020 /* Revision ID */
-
 #include "cmsis_os.h"
 #include "stm32f7xx_hal.h"
-#include "../Bsp/stm32746g_discovery_sd.h"
 
 #define _FS_TINY             0      /* 0:Normal or 1:Tiny */
 #define _FS_READONLY         0      /* 0:Read/Write or 1:Read only */
@@ -18,25 +14,12 @@
 /   2: f_opendir and f_readdir are removed in addition to 1.
 /   3: f_lseek is removed in addition to 2. */
 
-#define _USE_STRFUNC         2      /* 0:Disable or 1-2:Enable */
-/* To enable string functions, set _USE_STRFUNC to 1 or 2. */
-
-#define _USE_FIND               0
-/* This option switches filtered directory read feature and related functions,
-/  f_findfirst() and f_findnext(). (0:Disable or 1:Enable) */
-
-#define _USE_MKFS            1      /* 0:Disable or 1:Enable */
-/* To enable f_mkfs function, set _USE_MKFS to 1 and set _FS_READONLY to 0 */
-
-#define _USE_FASTSEEK        1      /* 0:Disable or 1:Enable */
-/* To enable fast seek feature, set _USE_FASTSEEK to 1. */
-
-#define _USE_LABEL           0      /* 0:Disable or 1:Enable */
-/* To enable volume label functions, set _USE_LAVEL to 1 */
-
-#define _USE_FORWARD         0      /* 0:Disable or 1:Enable */
-/* To enable f_forward function, set _USE_FORWARD to 1 and set _FS_TINY to 1. */
-
+#define _USE_STRFUNC         2      // 0:Disable or 1-2:Enable - To enable string functions, set _USE_STRFUNC to 1 or 2
+#define _USE_FIND            0      // f_findfirst() and f_findnext(). (0:Disable or 1:Enable)
+#define _USE_MKFS            1      // 0:Disable or 1:Enable and _FS_READONLY to 0
+#define _USE_FASTSEEK        1      // 0:Disable or 1:Enable fast seek feature
+#define _USE_LABEL           0      // 0:Disable or 1:Enable volume label functions, set _USE_LAVEL to 1
+#define _USE_FORWARD         0      // 0:Disable or 1:Enable f_forward function, set _USE_FORWARD to 1 and set _FS_TINY to 1
 #define _CODE_PAGE         1252
 
 #define _USE_LFN     3  /* 0 to 3 */
@@ -54,26 +37,17 @@
 /  to the project. */
 
 #define _LFN_UNICODE    0 /* 0:ANSI/OEM or 1:Unicode */
-/* To switch the character encoding on the FatFs API to Unicode, enable LFN feature
-/  and set _LFN_UNICODE to 1. */
-
 #define _STRF_ENCODE    3 /* 0:ANSI/OEM, 1:UTF-16LE, 2:UTF-16BE, 3:UTF-8 */
-/* When Unicode API is enabled, character encoding on the all FatFs API is switched
-/  to Unicode. This option selects the character encoding on the file to be read/written
-/  via string functions, f_gets(), f_putc(), f_puts and f_printf().
-/  This option has no effect when _LFN_UNICODE is 0. */
 
 #define _FS_RPATH       0 /* 0 to 2 */
-/* The _FS_RPATH option configures relative path feature.
-/   0: Disable relative path feature and remove related functions.
-/   1: Enable relative path. f_chdrive() and f_chdir() function are available.
-/   2: f_getcwd() function is available in addition to 1.
-/  Note that output of the f_readdir() fnction is affected by this option. */
+//   0: Disable relative path feature and remove related functions.
+//   1: Enable relative path. f_chdrive() and f_chdir() function are available.
+//   2: f_getcwd() function is available in addition to 1.
+//  Note that output of the f_readdir() fnction is affected by this option
 
-#define _VOLUMES    1
-/* Number of volumes (logical drives) to be used. */
+#define _VOLUMES        1    // Number of volumes (logical drives) to be used
 
-#define _MULTI_PARTITION     0 /* 0:Single partition, 1:Enable multiple partition */
+#define _MULTI_PARTITION  0 /* 0:Single partition, 1:Enable multiple partition */
 /* When set to 0, each volume is bound to the same physical drive number and
 / it can mount only first primaly partition. When it is set to 1, each volume
 / is tied to the partitions listed in VolToPart[]. */
@@ -88,15 +62,13 @@
 
 #define _USE_TRIM                0
 /* This option switches ATA-TRIM feature. (0:Disable or 1:Enable)
-/  To enable Trim feature, also CTRL_TRIM command should be implemented to the
-/  disk_ioctl() function. */
+/  To enable Trim feature, also CTRL_TRIM command should be implemented to the disk_ioctl() function. */
 
 #define _FS_NOFSINFO    0 /* 0 or 1 */
-/* If you need to know the correct free space on the FAT32 volume, set this
-/  option to 1 and f_getfree() function at first time after volume mount will
-/  force a full FAT scan.
-/  0: Load all informations in the FSINFO if available.
-/  1: Do not trust free cluster count in the FSINFO. */
+// If you need to know the correct free space on the FAT32 volume, set this
+// option to 1 and f_getfree() function at first time after volume mount will force a full FAT scan.
+// 0: Load all informations in the FSINFO if available.
+// 1: Do not trust free cluster count in the FSINFO
 
 #define _FS_NORTC 0
 #define _NORTC_MON  2
