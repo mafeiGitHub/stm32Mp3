@@ -69,16 +69,16 @@ static void loadFile (std::string fileName) {
   int result = f_open (&file, fileName.c_str(), FA_OPEN_EXISTING | FA_READ);
   if (result == FR_OK) {
     mLcd.text ("- size:" + mLcd.intStr (f_size (&file)));
-    unsigned int bytes = 4096;
+    unsigned int bytes = 16384;
     unsigned int bytesRead = 0;
     while (bytes > 0) {
-      auto buffer = (unsigned char*)0x20007000;
-      result = f_read (&file, buffer, 4096, &bytes);
+      auto buffer = (unsigned char*)0x20001000;
+      result = f_read (&file, buffer, 16384, &bytes);
       if (bytesRead == 0) {
         for (auto j = 0; j < 11; j++) {
           std::string str;
           str.resize(102);
-          str = mLcd.hexStr ((int)buffer - 0x20007000, 4);
+          str = mLcd.hexStr ((int)buffer - 0x20001000, 4);
           for (auto i = 0; i < 32; i++)
             str += " " + mLcd.hexStr (*buffer++, 2);
           mLcd.text (str);
@@ -186,7 +186,7 @@ static void loadThread (void const* argument) {
   mLcd.text ("SD card found");
 
 
-  FRESULT result = f_mount ((FATFS*)0x20006000, "", 0);
+  FRESULT result = f_mount ((FATFS*)0x20000000, "", 0);
   if (result != FR_OK)
     mLcd.text ("FAT fileSystem mount error:" + mLcd.intStr (result));
   else {
