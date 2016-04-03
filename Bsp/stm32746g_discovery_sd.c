@@ -1,42 +1,40 @@
 /*{{{*/
-/**
-  ******************************************************************************
-  * @file    stm32746g_discovery_sd.c
-      - This driver is used to drive the micro SD external card mounted on STM32746G-Discovery
-        board.
-      - This driver does not need a specific component driver for the micro SD device
-        to be included with.
-     + Initialization steps:
-        o Initialize the micro SD card using the BSP_SD_Init() function. This
-          function includes the MSP layer hardware resources initialization and the
-          SDIO interface configuration to interface with the external micro SD. It
-          also includes the micro SD initialization sequence.
-        o To check the SD card presence you can use the function BSP_SD_IsDetected() which
-          returns the detection status
-        o If SD presence detection interrupt mode is desired, you must configure the
-          SD detection interrupt mode by calling the function BSP_SD_ITConfig(). The interrupt
-          is generated as an external interrupt whenever the micro SD card is
-          plugged/unplugged in/from the board.
-        o The function BSP_SD_GetCardInfo() is used to get the micro SD card information
-          which is stored in the structure "HAL_SD_CardInfoTypedef".
+/* stm32746g_discovery_sd.c
+ - This driver is used to drive the micro SD external card mounted on STM32746G-Discovery
+   board.
+ - This driver does not need a specific component driver for the micro SD device
+   to be included with.
++ Initialization steps:
+   o Initialize the micro SD card using the BSP_SD_Init() function. This
+     function includes the MSP layer hardware resources initialization and the
+     SDIO interface configuration to interface with the external micro SD. It
+     also includes the micro SD initialization sequence.
+   o To check the SD card presence you can use the function BSP_SD_IsDetected() which
+     returns the detection status
+   o If SD presence detection interrupt mode is desired, you must configure the
+     SD detection interrupt mode by calling the function BSP_SD_ITConfig(). The interrupt
+     is generated as an external interrupt whenever the micro SD card is
+     plugged/unplugged in/from the board.
+   o The function BSP_SD_GetCardInfo() is used to get the micro SD card information
+     which is stored in the structure "HAL_SD_CardInfoTypedef".
 
-     + Micro SD card operations
-        o The micro SD card can be accessed with read/write block(s) operations once
-          it is ready for access. The access can be performed whether using the polling
-          mode by calling the functions BSP_SD_ReadBlocks()/BSP_SD_WriteBlocks(), or by DMA
-          transfer using the functions BSP_SD_ReadBlocks_DMA()/BSP_SD_WriteBlocks_DMA()
-        o The DMA transfer complete is used with interrupt mode. Once the SD transfer
-          is complete, the SD interrupt is handled using the function BSP_SD_IRQHandler(),
-          the DMA Tx/Rx transfer complete are handled using the functions
-          BSP_SD_DMA_Tx_IRQHandler()/BSP_SD_DMA_Rx_IRQHandler(). The corresponding user callbacks
-          are implemented by the user at application level.
-        o The SD erase block(s) is performed using the function BSP_SD_Erase() with specifying
-          the number of blocks to erase.
-        o The SD runtime status is returned when calling the function BSP_SD_GetStatus().
-*/
++ Micro SD card operations
+   o The micro SD card can be accessed with read/write block(s) operations once
+     it is ready for access. The access can be performed whether using the polling
+     mode by calling the functions BSP_SD_ReadBlocks()/BSP_SD_WriteBlocks(), or by DMA
+     transfer using the functions BSP_SD_ReadBlocks_DMA()/BSP_SD_WriteBlocks_DMA()
+   o The DMA transfer complete is used with interrupt mode. Once the SD transfer
+     is complete, the SD interrupt is handled using the function BSP_SD_IRQHandler(),
+     the DMA Tx/Rx transfer complete are handled using the functions
+     BSP_SD_DMA_Tx_IRQHandler()/BSP_SD_DMA_Rx_IRQHandler(). The corresponding user callbacks
+     are implemented by the user at application level.
+   o The SD erase block(s) is performed using the function BSP_SD_Erase() with specifying
+     the number of blocks to erase.
+   o The SD runtime status is returned when calling the function BSP_SD_GetStatus(). */
 /*}}}*/
-#define USE_DMA
 #include "stm32746g_discovery_sd.h"
+
+#define USE_DMA
 
 static SD_CardInfo uSdCardInfo;
 static SD_HandleTypeDef uSdHandle;
@@ -48,63 +46,6 @@ void BSP_SD_DMA_Tx_IRQHandler() { HAL_DMA_IRQHandler (uSdHandle.hdmatx); }
 void BSP_SD_DMA_Rx_IRQHandler() { HAL_DMA_IRQHandler (uSdHandle.hdmarx); }
 HAL_SD_TransferStateTypedef BSP_SD_GetStatus() { return(HAL_SD_GetStatus(&uSdHandle)); }
 void BSP_SD_GetCardInfo (HAL_SD_CardInfoTypedef *CardInfo) { HAL_SD_Get_CardInfo(&uSdHandle, CardInfo); }
-
-/*{{{*/
-uint8_t BSP_SD_Init() {
-
-  uint8_t sd_state = MSD_OK;
-
-  /* uSD device interface configuration */
-  uSdHandle.Instance = SDMMC1;
-
-  uSdHandle.Init.ClockEdge           = SDMMC_CLOCK_EDGE_RISING;
-  uSdHandle.Init.ClockBypass         = SDMMC_CLOCK_BYPASS_DISABLE;
-  uSdHandle.Init.ClockPowerSave      = SDMMC_CLOCK_POWER_SAVE_DISABLE;
-  uSdHandle.Init.BusWide             = SDMMC_BUS_WIDE_1B;
-  uSdHandle.Init.HardwareFlowControl = SDMMC_HARDWARE_FLOW_CONTROL_DISABLE;
-  uSdHandle.Init.ClockDiv            = SDMMC_TRANSFER_CLK_DIV;
-
-  /* Msp SD Detect pin initialization */
-  BSP_SD_Detect_MspInit (&uSdHandle, NULL);
-  if(BSP_SD_IsDetected() != SD_PRESENT)   /* Check if SD card is present */
-    return MSD_ERROR_SD_NOT_PRESENT;
-
-  /* Msp SD initialization */
-  BSP_SD_MspInit (&uSdHandle, NULL);
-
-  /* HAL SD initialization */
-  if (HAL_SD_Init(&uSdHandle, &uSdCardInfo) != SD_OK)
-    sd_state = MSD_ERROR;
-
-  /* Configure SD Bus width */
-  if (sd_state == MSD_OK) {
-    /* Enable wide operation */
-    if (HAL_SD_WideBusOperation_Config(&uSdHandle, SDMMC_BUS_WIDE_4B) != SD_OK)
-      sd_state = MSD_ERROR;
-    else
-      sd_state = MSD_OK;
-    }
-
-  return  sd_state;
-  }
-/*}}}*/
-/*{{{*/
-uint8_t BSP_SD_DeInit() {
-
-  uint8_t sd_state = MSD_OK;
-
-  uSdHandle.Instance = SDMMC1;
-
-  /* HAL SD deinitialization */
-  if(HAL_SD_DeInit(&uSdHandle) != HAL_OK)
-    sd_state = MSD_ERROR;
-
-  /* Msp SD deinitialization */
-  uSdHandle.Instance = SDMMC1;
-  BSP_SD_MspDeInit(&uSdHandle, NULL);
-  return  sd_state;
-  }
-/*}}}*/
 
 /*{{{*/
 uint8_t BSP_SD_ITConfig()
@@ -167,6 +108,60 @@ uint8_t BSP_SD_Erase (uint64_t StartAddr, uint64_t EndAddr) {
 /*}}}*/
 
 /*{{{*/
+uint8_t BSP_SD_Init() {
+// uSD device interface configuration
+
+  uint8_t sd_state = MSD_OK;
+  uSdHandle.Instance = SDMMC1;
+
+  uSdHandle.Init.ClockEdge           = SDMMC_CLOCK_EDGE_RISING;
+  uSdHandle.Init.ClockBypass         = SDMMC_CLOCK_BYPASS_DISABLE;
+  uSdHandle.Init.ClockPowerSave      = SDMMC_CLOCK_POWER_SAVE_DISABLE;
+  uSdHandle.Init.BusWide             = SDMMC_BUS_WIDE_1B;
+  uSdHandle.Init.HardwareFlowControl = SDMMC_HARDWARE_FLOW_CONTROL_DISABLE;
+  uSdHandle.Init.ClockDiv            = SDMMC_TRANSFER_CLK_DIV;
+
+  // Msp SD Detect pin initialization
+  BSP_SD_Detect_MspInit (&uSdHandle, NULL);
+  if (BSP_SD_IsDetected() != SD_PRESENT)   /* Check if SD card is present */
+    return MSD_ERROR_SD_NOT_PRESENT;
+
+  // Msp SD initialization
+  BSP_SD_MspInit (&uSdHandle, NULL);
+
+  // HAL SD initialization
+  if (HAL_SD_Init (&uSdHandle, &uSdCardInfo) != SD_OK)
+    sd_state = MSD_ERROR;
+
+  // Configure SD Bus width
+  if (sd_state == MSD_OK) {
+    // Enable wide operation
+    if (HAL_SD_WideBusOperation_Config (&uSdHandle, SDMMC_BUS_WIDE_4B) != SD_OK)
+      sd_state = MSD_ERROR;
+    else
+      sd_state = MSD_OK;
+    }
+  return  sd_state;
+  }
+/*}}}*/
+/*{{{*/
+uint8_t BSP_SD_DeInit() {
+// HAL SD deinitialization
+
+  uint8_t sd_state = MSD_OK;
+
+  uSdHandle.Instance = SDMMC1;
+  if (HAL_SD_DeInit  (&uSdHandle) != HAL_OK)
+    sd_state = MSD_ERROR;
+
+  // Msp SD deinitialization
+  uSdHandle.Instance = SDMMC1;
+  BSP_SD_MspDeInit (&uSdHandle, NULL);
+  return  sd_state;
+  }
+/*}}}*/
+
+/*{{{*/
 __weak void BSP_SD_MspInit (SD_HandleTypeDef* hsd, void* Params) {
 
   GPIO_InitTypeDef gpio_init_structure;
@@ -212,7 +207,6 @@ __weak void BSP_SD_MspInit (SD_HandleTypeDef* hsd, void* Params) {
   dma_rx_handle.Init.FIFOThreshold       = DMA_FIFO_THRESHOLD_FULL;
   dma_rx_handle.Init.MemBurst            = DMA_MBURST_INC4;
   dma_rx_handle.Init.PeriphBurst         = DMA_PBURST_INC4;
-
   dma_rx_handle.Instance = SD_DMAx_Rx_STREAM;
 
   /* Associate the DMA handle */

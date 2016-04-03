@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <math.h>
+#include "cmsis_os.h"
 //}}}
 //{{{  defines
 #define PI 3.141592654
@@ -803,8 +804,8 @@ public:
 
     if (!table_4_3_exp) {
       //{{{  compute n ^ (4/3) and store it in mantissa/exp format
-      table_4_3_exp = (int8_t*)malloc ((8191 + 16)*4 * sizeof(table_4_3_exp[0]));
-      table_4_3_value = (uint32_t*)malloc ((8191 + 16)*4 * sizeof(table_4_3_value[0]));
+      table_4_3_exp = (int8_t*)pvPortMalloc ((8191 + 16)*4 * sizeof(table_4_3_exp[0]));
+      table_4_3_value = (uint32_t*)pvPortMalloc ((8191 + 16)*4 * sizeof(table_4_3_value[0]));
       for (auto i = 1; i < (8191 + 16) * 4; i++) {
         int e;
         auto f = pow ((double)(i/4), 4.0 / 3.0) * pow(2, (i&3)*0.25);

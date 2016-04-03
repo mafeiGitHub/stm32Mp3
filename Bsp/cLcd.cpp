@@ -82,8 +82,9 @@ typedef struct {
 //}}}
 static tLTDC ltdc;
 
-static osSemaphoreId DmaSem;
-static uint32_t* DmaIsrBuf;
+static uint32_t* mDma2dBuf = nullptr;
+static uint32_t* mDma2dIsrBuf = nullptr;
+static osSemaphoreId mDma2dSem;
 
 #define maxChars 0x60
 //{{{  struct tFontChar
@@ -102,7 +103,6 @@ static FT_Library FTlibrary;
 static FT_Face FTface;
 static FT_GlyphSlot FTglyphSlot;
 //}}}
-#define DMA_BUF (uint32_t*)0x20000000
 
 LTDC_HandleTypeDef hLtdc;
 //{{{
@@ -143,32 +143,34 @@ void LCD_DMA2D_IRQHandler() {
   // clear interrupt flags
   DMA2D->IFCR = DMA2D_ISR_TCIF | DMA2D_ISR_TEIF | DMA2D_ISR_CEIF;
 
-  switch (*DmaIsrBuf++) {
-    case 1: // fill
-      DMA2D->OCOLR = *DmaIsrBuf++;  // colour
-      DMA2D->OMAR  = *DmaIsrBuf++;  // fb start address
-      DMA2D->OOR   = *DmaIsrBuf++;  // stride
-      DMA2D->NLR   = *DmaIsrBuf++;  // xlen:ylen
-      DMA2D->CR = DMA2D_CR_R2M | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
-      break;
+  while (true) {
+    switch (*mDma2dIsrBuf++) {
+      case 1: // fill
+        DMA2D->OCOLR = *mDma2dIsrBuf++;  // colour
+        DMA2D->OMAR  = *mDma2dIsrBuf++;  // fb start address
+        DMA2D->OOR   = *mDma2dIsrBuf++;  // stride
+        DMA2D->NLR   = *mDma2dIsrBuf++;  // xlen:ylen
+        DMA2D->CR = DMA2D_CR_R2M | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
+        return;
 
-    case 2: // stamp
-      DMA2D->FGCOLR = *DmaIsrBuf++; // src color
-      DMA2D->OMAR   = *DmaIsrBuf;   // bgnd fb start address
-      DMA2D->BGMAR  = *DmaIsrBuf++;
-      DMA2D->OOR    = *DmaIsrBuf;   // bgnd stride
-      DMA2D->BGOR   = *DmaIsrBuf++;
-      DMA2D->NLR    = *DmaIsrBuf++; // xlen:ylen
-      DMA2D->FGMAR  = *DmaIsrBuf++; // src start address
-      DMA2D->CR = DMA2D_CR_M2M_BLEND | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
-      break;
+      case 2: // stamp
+        DMA2D->FGCOLR = *mDma2dIsrBuf++; // src color
+        DMA2D->OMAR   = *mDma2dIsrBuf;   // bgnd fb start address
+        DMA2D->BGMAR  = *mDma2dIsrBuf++;
+        DMA2D->OOR    = *mDma2dIsrBuf;   // bgnd stride
+        DMA2D->BGOR   = *mDma2dIsrBuf++;
+        DMA2D->NLR    = *mDma2dIsrBuf++; // xlen:ylen
+        DMA2D->FGMAR  = *mDma2dIsrBuf++; // src start address
+        DMA2D->CR = DMA2D_CR_M2M_BLEND | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
+        return;
 
-    default: // normally 0
-      // no more opCodes, disable interrupts and release semaphore to signal done
-      DMA2D->CR = 0;
-      DmaIsrBuf = DMA_BUF;
-      osSemaphoreRelease (DmaSem);
-      break;
+      default: // normally 0
+        // no more opCodes, disable interrupts and release semaphore to signal done
+        DMA2D->CR = 0;
+        mDma2dIsrBuf = mDma2dBuf;
+        osSemaphoreRelease (mDma2dSem);
+        return;
+      }
     }
   }
 //}}}
@@ -181,14 +183,40 @@ cLcd::cLcd()  {
   }
 //}}}
 //{{{
-void cLcd::init (uint32_t buffer0, uint32_t buffer1, bool interupts) {
+void cLcd::init (uint32_t buffer0, uint32_t buffer1, bool buffered) {
 
-  mInterupts = interupts;
+  mBuffered = buffered;
 
   mBuffer[false] = buffer0;
   mBuffer[true] = buffer1;
   mDrawBuffer = !mDrawBuffer;
   ltdcInit (mBuffer[mDrawBuffer]);
+
+  //  dma2d init
+  // unchanging dma2d regs
+  DMA2D->OPFCCR  = DMA2D_ARGB8888; // bgnd fb ARGB
+  DMA2D->BGPFCCR = DMA2D_ARGB8888;
+  DMA2D->FGPFCCR = CM_A8;          // src alpha
+  DMA2D->FGOR    = 0;              // src stride
+  //DMA2D->AMTCR = 0x1001;
+
+  // zero out first opcode, point past it
+  mDma2dBuf = (uint32_t*)pvPortMalloc (8192 * 4);
+  mDma2dCurBuf = mDma2dBuf;
+  *mDma2dCurBuf++ = 0;
+  mDma2dHighWater = mDma2dCurBuf;
+  mDma2dIsrBuf = mDma2dBuf;
+  mDma2dTimeouts = 0;
+
+  if (mBuffered) {
+    //{{{  dma2d IRQ init
+    osSemaphoreDef (dma2dSem);
+    mDma2dSem = osSemaphoreCreate (osSemaphore (dma2dSem), -1);
+
+    HAL_NVIC_SetPriority (DMA2D_IRQn, 0x0F, 0);
+    HAL_NVIC_EnableIRQ (DMA2D_IRQn);
+    }
+    //}}}
 
   clear (LCD_BLACK);
   sendWait();
@@ -272,14 +300,16 @@ void cLcd::text (std::string str, bool newLine) {
 //{{{
 void cLcd::pixel (uint32_t col, int16_t x, int16_t y) {
 
-  *(uint32_t*)(curFrameBufferAddress + (y*getWidth() + x)*4) = col;
+  if (mBuffered)
+    rect (col, x, y, 1, 1);
+  else
+    *(uint32_t*)(curFrameBufferAddress + (y*getWidth() + x)*4) = col;
   }
 //}}}
 //{{{
 void cLcd::pixelClipped (uint32_t col, int16_t x, int16_t y) {
 
-  if ((x >= 0) && (y >= 0) && (x < getWidth()) && (y < getHeight()))
-    *(uint32_t*)(curFrameBufferAddress + (y*getWidth() + x)*4) = col;
+    rectClipped (col, x, y, 1, 1);
   }
 //}}}
 //{{{
@@ -290,16 +320,16 @@ void cLcd::rect (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t yle
   if (!ylen)
     return;
 
-  if (mInterupts) {
-    *mDmaCurBuf++ = col;                                                // colour
-    *mDmaCurBuf++ = curFrameBufferAddress + ((y * getWidth()) + x) * 4; // fb start address
-    *mDmaCurBuf++ = getWidth() - xlen;                                  // stride
-    *mDmaCurBuf++ = (xlen << 16) | ylen;                                // xlen:ylen
-    *mDmaCurBuf++ = 0;                                                  // terminate
-    *(mDmaCurBuf-6) = 1;                                                // fill opCode
+  if (mBuffered) {
+    *mDma2dCurBuf++ = col;                                                // colour
+    *mDma2dCurBuf++ = curFrameBufferAddress + ((y * getWidth()) + x) * 4; // fb start address
+    *mDma2dCurBuf++ = getWidth() - xlen;                                  // stride
+    *mDma2dCurBuf++ = (xlen << 16) | ylen;                                // xlen:ylen
+    *mDma2dCurBuf++ = 0;                                                  // terminate
+    *(mDma2dCurBuf-6) = 1;                                                // fill opCode
 
-    if (mDmaCurBuf > mDmaHighWater)
-      mDmaHighWater = mDmaCurBuf;
+    if (mDma2dCurBuf > mDma2dHighWater)
+      mDma2dHighWater = mDma2dCurBuf;
     }
 
   else {
@@ -397,10 +427,10 @@ void cLcd::ellipseOutline (uint32_t col, int16_t x, int16_t y, uint16_t xradius,
     float k = (float)yradius / xradius;
 
     do {
-      pixelClipped (col, x - (uint16_t)(x1 / k), y + y1);
-      pixelClipped (col, x + (uint16_t)(x1 / k), y + y1);
-      pixelClipped (col, x + (uint16_t)(x1 / k), y - y1);
-      pixelClipped (col, x - (uint16_t)(x1 / k), y - y1);
+      rectClipped (col, x - (uint16_t)(x1 / k), y + y1, 1, 1);
+      rectClipped (col, x + (uint16_t)(x1 / k), y + y1, 1, 1);
+      rectClipped (col, x + (uint16_t)(x1 / k), y - y1, 1, 1);
+      rectClipped (col, x - (uint16_t)(x1 / k), y - y1, 1, 1);
 
       int e2 = err;
       if (e2 <= x1) {
@@ -466,7 +496,7 @@ void cLcd::line (uint32_t col, int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
   }
 
   for (int curpixel = 0; curpixel <= num_pixels; curpixel++) {
-    pixelClipped (col, x, y);   /* Draw the current pixel */
+    rectClipped (col, x, y, 1, 1);   /* Draw the current pixel */
     num += num_add;                            /* Increase the numerator by the top of the fraction */
     if (num >= den) {                          /* Check if numerator >= denominator */
       num -= den;                             /* Calculate the new numerator value */
@@ -512,7 +542,7 @@ void cLcd::pressed (int pressCount, int x, int y, int xinc, int yinc) {
 //{{{
 void cLcd::startDraw() {
 
-  if (mInterupts) {
+  if (mBuffered) {
     mDrawBuffer = !mDrawBuffer;
     setLayer (0, mBuffer[mDrawBuffer]);
 
@@ -560,8 +590,8 @@ void cLcd::endDraw() {
   if (mShowDebug) {
     std::string str = intStr (ltdc.lineIrq) + ":f " +
                       intStr (ltdc.lineTicks) + "ms " +
-                      intStr (mDmaHighWater-DMA_BUF) + ":hi " +
-                      intStr (mDmaTimeouts) + " " +
+                      intStr (mDma2dHighWater-mDma2dBuf) + ":hi " +
+                      intStr (mDma2dTimeouts) + " " +
                       intStr (ltdc.transferErrorIrq) + " " +
                       intStr (ltdc.fifoUnderunIrq);
     string (LCD_WHITE, 20, str, 0, getHeight() - 2 * mLineInc, getWidth(), 24);
@@ -581,9 +611,11 @@ void cLcd::endDraw() {
 //{{{
 void cLcd::drawText() {
 
-  mDrawStartTime = osKernelSysTick();
-  clear (LCD_BLACK);
-  endDraw();
+  if (!mBuffered) {
+    mDrawStartTime = osKernelSysTick();
+    clear (LCD_BLACK);
+    endDraw();
+    }
   }
 //}}}
 
@@ -731,29 +763,7 @@ void cLcd::ltdcInit (uint32_t frameBufferAddress) {
   showFrameBufferAddress[1] = frameBufferAddress;
   showAlpha[1] = 0;
 
-  //{{{  dma2d init
-  // unchanging dma2d regs
-  DMA2D->OPFCCR  = DMA2D_ARGB8888; // bgnd fb ARGB
-  DMA2D->BGPFCCR = DMA2D_ARGB8888;
-  DMA2D->FGPFCCR = CM_A8;          // src alpha
-  DMA2D->FGOR    = 0;              // src stride
-  //DMA2D->AMTCR = 0x1001;
-
-  // zero out first opcode, point past it
-  mDmaCurBuf = DMA_BUF;
-  *mDmaCurBuf++ = 0;
-  mDmaHighWater = mDmaCurBuf;
-  DmaIsrBuf = DMA_BUF;
-  mDmaTimeouts = 0;
-  //}}}
-  if (mInterupts) {
-    //{{{  dma2d IRQ init
-    osSemaphoreDef (dma2dSem);
-    DmaSem = osSemaphoreCreate (osSemaphore (dma2dSem), -1);
-
-    HAL_NVIC_SetPriority (DMA2D_IRQn, 0x0F, 0);
-    HAL_NVIC_EnableIRQ (DMA2D_IRQn);
-    //}}}
+  if (mBuffered) {
     //{{{  LTDC IRQ init
     osSemaphoreDef (ltdcSem);
     ltdc.sem = osSemaphoreCreate (osSemaphore (ltdcSem), -1);
@@ -774,8 +784,8 @@ void cLcd::ltdcInit (uint32_t frameBufferAddress) {
 
     // enable line interrupt
     LTDC->IER |= LTDC_IT_LI;
-    //}}}
     }
+    //}}}
   }
 //}}}
 //{{{
@@ -846,23 +856,23 @@ void cLcd::stamp (uint32_t col, uint8_t* src, int16_t x, int16_t y, uint16_t xle
     if (y + ylen > getHeight()) // bottom yclip
       ylen = getHeight() - y;
 
-    if (mInterupts) {
-      *mDmaCurBuf++ = col;                                                    // colour
-      *mDmaCurBuf++ = curFrameBufferAddress + ((y * getWidth()) + x) * 4;  // bgnd fb start address
-      *mDmaCurBuf++ = getWidth() - xlen;                                   // stride
-      *mDmaCurBuf++ = (xlen << 16) | ylen;                                    // xlen:ylen
-      *mDmaCurBuf++ = (uint32_t)src;                                          // src start address
-      *mDmaCurBuf++ = 0;                                                      // terminate
-      *(mDmaCurBuf-7) = 2;                                                    // stamp opCode
+    if (mBuffered) {
+      *mDma2dCurBuf++ = col;                                                    // colour
+      *mDma2dCurBuf++ = curFrameBufferAddress + ((y * getWidth()) + x) * 4;  // bgnd fb start address
+      *mDma2dCurBuf++ = getWidth() - xlen;                                   // stride
+      *mDma2dCurBuf++ = (xlen << 16) | ylen;                                    // xlen:ylen
+      *mDma2dCurBuf++ = (uint32_t)src;                                          // src start address
+      *mDma2dCurBuf++ = 0;                                                      // terminate
+      *(mDma2dCurBuf-7) = 2;                                                    // stamp opCode
 
-      if (mDmaCurBuf > mDmaHighWater)
-        mDmaHighWater = mDmaCurBuf;
+      if (mDma2dCurBuf > mDma2dHighWater)
+        mDma2dHighWater = mDma2dCurBuf;
       }
 
     else {
       DMA2D->FGCOLR = col;
       DMA2D->OMAR   = curFrameBufferAddress + ((y * getWidth()) + x) * 4;
-      DMA2D->BGMAR  =curFrameBufferAddress + ((y * getWidth()) + x) * 4;
+      DMA2D->BGMAR  = curFrameBufferAddress + ((y * getWidth()) + x) * 4;
       DMA2D->OOR    = getWidth() - xlen;
       DMA2D->BGOR   = getWidth() - xlen;
       DMA2D->NLR    = (xlen << 16) | ylen;
@@ -919,20 +929,20 @@ int cLcd::string (uint32_t col, int fontHeight, std::string str, int16_t x, int1
 void cLcd::send() {
 
   // send first opCode using IRQhandler
-  if (mInterupts)
+  if (mBuffered)
     LCD_DMA2D_IRQHandler();
   }
 //}}}
 //{{{
 void cLcd::wait() {
 
-  if (mInterupts) {
-    if (osSemaphoreWait (DmaSem, 500) != osOK)
-      mDmaTimeouts++;
+  if (mBuffered) {
+    if (osSemaphoreWait (mDma2dSem, 500) != osOK)
+      mDma2dTimeouts++;
 
     // zero out first opcode, point past it
-    mDmaCurBuf = DMA_BUF;
-    *mDmaCurBuf++ = 0;
+    mDma2dCurBuf = mDma2dBuf;
+    *mDma2dCurBuf++ = 0;
     }
   }
 //}}}

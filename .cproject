@@ -71,8 +71,6 @@
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/HAL_Driver/Inc"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/system"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/src/include"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/agg/include"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/agg/font_freetype"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/src/include/ipv4"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/sys"/>
 								</option>
@@ -198,19 +196,17 @@
 								<option id="fr.ac6.managedbuild.gnu.cpp.compiler.option.optimization.level.480385965" name="Optimization Level" superClass="fr.ac6.managedbuild.gnu.cpp.compiler.option.optimization.level" useByScannerDiscovery="false" value="fr.ac6.managedbuild.gnu.cpp.optimization.level.most" valueType="enumerated"/>
 								<option id="gnu.cpp.compiler.option.debugging.level.1419643524" name="Debug Level" superClass="gnu.cpp.compiler.option.debugging.level" useByScannerDiscovery="false" value="gnu.cpp.compiler.debugging.level.none" valueType="enumerated"/>
 								<option id="gnu.cpp.compiler.option.include.paths.776735981" name="Include paths (-I)" superClass="gnu.cpp.compiler.option.include.paths" useByScannerDiscovery="false" valueType="includePath">
-									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}/agg/include&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}/agg/font_freetype&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}/CMSIS/core&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}/CMSIS/device&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}/freetype/include&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}/FreeRTOS/CMSIS_RTOS&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}/FreeRTOS/include&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}/FreeRTOS/portable/GCC/ARM_CM7/r0p1&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}/HAL_Driver/Inc&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}/LwIP/system&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}/LwIP/src/include&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}/LwIP/src/include/ipv4&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}/sys&quot;"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/CMSIS/core"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/CMSIS/device"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/freetype/include"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/CMSIS_RTOS"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/include"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/portable/GCC/ARM_CM7/r0p1"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/HAL_Driver/Inc"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/system"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/src/include"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/src/include/ipv4"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/sys"/>
 								</option>
 								<option id="gnu.cpp.compiler.option.preprocessor.def.2133132316" name="Defined symbols (-D)" superClass="gnu.cpp.compiler.option.preprocessor.def" useByScannerDiscovery="false" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="STM32F7"/>

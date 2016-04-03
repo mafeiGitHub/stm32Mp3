@@ -37,7 +37,7 @@ public:
   cLcd();
   ~cLcd() {}
 
-  void init (uint32_t buffer0, uint32_t buffer1, bool interrupts);
+  void init (uint32_t buffer0, uint32_t buffer1, bool buffered = true);
 
   int getWidth() { return 480; }
   int getHeight() { return 272; }
@@ -92,7 +92,7 @@ private:
   void updateNumDrawLines();
 
   //{{{  vars
-  bool mInterupts = false;
+  bool mBuffered = true;
   int mStartTime = 0;
 
   float mFirstLine = 0;
@@ -136,8 +136,8 @@ private:
   bool mDrawBuffer = false;
   uint32_t mBuffer[2] = {0,0};
 
-  uint32_t* mDmaCurBuf = 0;
-  uint32_t* mDmaHighWater = 0;
-  uint32_t mDmaTimeouts= 0;
+  uint32_t* mDma2dCurBuf = nullptr;
+  uint32_t* mDma2dHighWater = nullptr;
+  uint32_t mDma2dTimeouts= 0;
   //}}}
   };

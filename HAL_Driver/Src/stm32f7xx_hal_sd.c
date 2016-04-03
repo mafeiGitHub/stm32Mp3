@@ -960,142 +960,89 @@ HAL_SD_ErrorTypedef HAL_SD_WriteBlocks_DMA(SD_HandleTypeDef *hsd, uint32_t *pWri
 /*}}}*/
 
 /*{{{*/
-/**
-  * @brief  This function waits until the SD DMA data read transfer is finished.
-  *         This API should be called after HAL_SD_ReadBlocks_DMA() function
-  *         to insure that all data sent by the card is already transferred by the
-  *         DMA controller.
-  * @param  hsd: SD handle
-  * @param  Timeout: Timeout duration
-  * @retval SD Card error state
-  */
-HAL_SD_ErrorTypedef HAL_SD_CheckReadOperation(SD_HandleTypeDef *hsd, uint32_t Timeout)
-{
+HAL_SD_ErrorTypedef HAL_SD_CheckReadOperation(SD_HandleTypeDef *hsd, uint32_t Timeout) {
+
   HAL_SD_ErrorTypedef errorstate = SD_OK;
-  uint32_t timeout = Timeout;
-  uint32_t tmp1, tmp2;
-  HAL_SD_ErrorTypedef tmp3;
 
   /* Wait for DMA/SD transfer end or SD error variables to be in SD handle */
-  tmp1 = hsd->DmaTransferCplt;
-  tmp2 = hsd->SdTransferCplt;
-  tmp3 = (HAL_SD_ErrorTypedef)hsd->SdTransferErr;
-
-  while (((tmp1 & tmp2) == 0) && (tmp3 == SD_OK) && (timeout > 0))
-  {
+  uint32_t tmp1 = hsd->DmaTransferCplt;
+  uint32_t tmp2 = hsd->SdTransferCplt;
+  HAL_SD_ErrorTypedef tmp3 = (HAL_SD_ErrorTypedef)hsd->SdTransferErr;
+  uint32_t timeout = Timeout;
+  while (((tmp1 & tmp2) == 0) && (tmp3 == SD_OK) && (timeout > 0)) {
     tmp1 = hsd->DmaTransferCplt;
     tmp2 = hsd->SdTransferCplt;
     tmp3 = (HAL_SD_ErrorTypedef)hsd->SdTransferErr;
     timeout--;
-  }
-
-  timeout = Timeout;
+    }
 
   /* Wait until the Rx transfer is no longer active */
-  while((__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_RXACT)) && (timeout > 0))
-  {
+  timeout = Timeout;
+  while ((__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_RXACT)) && (timeout > 0))
     timeout--;
-  }
 
   /* Send stop command in multiblock read */
   if (hsd->SdOperation == SD_READ_MULTIPLE_BLOCK)
-  {
     errorstate = HAL_SD_StopTransfer(hsd);
-  }
 
   if ((timeout == 0) && (errorstate == SD_OK))
-  {
     errorstate = SD_DATA_TIMEOUT;
-  }
 
   /* Clear all the static flags */
   __HAL_SD_SDMMC_CLEAR_FLAG(hsd, SDMMC_STATIC_FLAGS);
 
   /* Return error state */
   if (hsd->SdTransferErr != SD_OK)
-  {
     return (HAL_SD_ErrorTypedef)(hsd->SdTransferErr);
-  }
 
   return errorstate;
 }
 /*}}}*/
 /*{{{*/
-/**
-  * @brief  This function waits until the SD DMA data write transfer is finished.
-  *         This API should be called after HAL_SD_WriteBlocks_DMA() function
-  *         to insure that all data sent by the card is already transferred by the
-  *         DMA controller.
-  * @param  hsd: SD handle
-  * @param  Timeout: Timeout duration
-  * @retval SD Card error state
-  */
-HAL_SD_ErrorTypedef HAL_SD_CheckWriteOperation(SD_HandleTypeDef *hsd, uint32_t Timeout)
-{
+HAL_SD_ErrorTypedef HAL_SD_CheckWriteOperation(SD_HandleTypeDef *hsd, uint32_t Timeout) {
+
   HAL_SD_ErrorTypedef errorstate = SD_OK;
-  uint32_t timeout = Timeout;
-  uint32_t tmp1, tmp2;
-  HAL_SD_ErrorTypedef tmp3;
 
   /* Wait for DMA/SD transfer end or SD error variables to be in SD handle */
-  tmp1 = hsd->DmaTransferCplt;
-  tmp2 = hsd->SdTransferCplt;
-  tmp3 = (HAL_SD_ErrorTypedef)hsd->SdTransferErr;
-
-  while (((tmp1 & tmp2) == 0) && (tmp3 == SD_OK) && (timeout > 0))
-  {
+  uint32_t tmp1 = hsd->DmaTransferCplt;
+  uint32_t tmp2 = hsd->SdTransferCplt;
+  HAL_SD_ErrorTypedef tmp3 = (HAL_SD_ErrorTypedef)hsd->SdTransferErr;
+  uint32_t timeout = Timeout;
+  while (((tmp1 & tmp2) == 0) && (tmp3 == SD_OK) && (timeout > 0)) {
     tmp1 = hsd->DmaTransferCplt;
     tmp2 = hsd->SdTransferCplt;
     tmp3 = (HAL_SD_ErrorTypedef)hsd->SdTransferErr;
     timeout--;
-  }
-
-  timeout = Timeout;
+    }
 
   /* Wait until the Tx transfer is no longer active */
-  while((__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_TXACT))  && (timeout > 0))
-  {
+  timeout = Timeout;
+  while ((__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_TXACT))  && (timeout > 0))
     timeout--;
-  }
 
   /* Send stop command in multiblock write */
   if (hsd->SdOperation == SD_WRITE_MULTIPLE_BLOCK)
-  {
     errorstate = HAL_SD_StopTransfer(hsd);
-  }
 
   if ((timeout == 0) && (errorstate == SD_OK))
-  {
     errorstate = SD_DATA_TIMEOUT;
-  }
 
   /* Clear all the static flags */
   __HAL_SD_SDMMC_CLEAR_FLAG(hsd, SDMMC_STATIC_FLAGS);
 
   /* Return error state */
   if (hsd->SdTransferErr != SD_OK)
-  {
     return (HAL_SD_ErrorTypedef)(hsd->SdTransferErr);
-  }
 
   /* Wait until write is complete */
-  while(HAL_SD_GetStatus(hsd) != SD_TRANSFER_OK)
-  {
-  }
+  while (HAL_SD_GetStatus(hsd) != SD_TRANSFER_OK) {}
 
   return errorstate;
-}
+  }
 /*}}}*/
 /*{{{*/
-/**
-  * @brief  Erases the specified memory area of the given SD card.
-  * @param  hsd: SD handle
-  * @param  startaddr: Start byte address
-  * @param  endaddr: End byte address
-  * @retval SD Card error state
-  */
-HAL_SD_ErrorTypedef HAL_SD_Erase(SD_HandleTypeDef *hsd, uint64_t startaddr, uint64_t endaddr)
-{
+HAL_SD_ErrorTypedef HAL_SD_Erase(SD_HandleTypeDef *hsd, uint64_t startaddr, uint64_t endaddr) {
+
   HAL_SD_ErrorTypedef errorstate = SD_OK;
   SDMMC_CmdInitTypeDef sdmmc_cmdinitstructure;
 
@@ -1104,34 +1051,29 @@ HAL_SD_ErrorTypedef HAL_SD_Erase(SD_HandleTypeDef *hsd, uint64_t startaddr, uint
   uint8_t cardstate      = 0;
 
   /* Check if the card command class supports erase command */
-  if (((hsd->CSD[1] >> 20) & SD_CCCC_ERASE) == 0)
-  {
+  if (((hsd->CSD[1] >> 20) & SD_CCCC_ERASE) == 0) {
     errorstate = SD_REQUEST_NOT_APPLICABLE;
-
     return errorstate;
-  }
+    }
 
   /* Get max delay value */
   maxdelay = 120000 / (((hsd->Instance->CLKCR) & 0xFF) + 2);
 
-  if((SDMMC_GetResponse(hsd->Instance, SDMMC_RESP1) & SD_CARD_LOCKED) == SD_CARD_LOCKED)
-  {
+  if((SDMMC_GetResponse(hsd->Instance, SDMMC_RESP1) & SD_CARD_LOCKED) == SD_CARD_LOCKED) {
     errorstate = SD_LOCK_UNLOCK_FAILED;
-
     return errorstate;
-  }
+    }
 
   /* Get start and end block for high capacity cards */
-  if (hsd->CardType == HIGH_CAPACITY_SD_CARD)
-  {
+  if (hsd->CardType == HIGH_CAPACITY_SD_CARD) {
     startaddr /= 512;
     endaddr   /= 512;
-  }
+    }
 
   /* According to sd-card spec 1.0 ERASE_GROUP_START (CMD32) and erase_group_end(CMD33) */
-  if ((hsd->CardType == STD_CAPACITY_SD_CARD_V1_1) || (hsd->CardType == STD_CAPACITY_SD_CARD_V2_0) ||\
-    (hsd->CardType == HIGH_CAPACITY_SD_CARD))
-  {
+  if ((hsd->CardType == STD_CAPACITY_SD_CARD_V1_1) ||
+      (hsd->CardType == STD_CAPACITY_SD_CARD_V2_0) ||
+      (hsd->CardType == HIGH_CAPACITY_SD_CARD)) {
     /* Send CMD32 SD_ERASE_GRP_START with argument as addr  */
     sdmmc_cmdinitstructure.Argument         =(uint32_t)startaddr;
     sdmmc_cmdinitstructure.CmdIndex         = SD_CMD_SD_ERASE_GRP_START;
@@ -1142,11 +1084,8 @@ HAL_SD_ErrorTypedef HAL_SD_Erase(SD_HandleTypeDef *hsd, uint64_t startaddr, uint
 
     /* Check for error conditions */
     errorstate = SD_CmdResp1Error(hsd, SD_CMD_SD_ERASE_GRP_START);
-
     if (errorstate != SD_OK)
-    {
       return errorstate;
-    }
 
     /* Send CMD33 SD_ERASE_GRP_END with argument as addr  */
     sdmmc_cmdinitstructure.Argument         = (uint32_t)endaddr;
@@ -1155,12 +1094,9 @@ HAL_SD_ErrorTypedef HAL_SD_Erase(SD_HandleTypeDef *hsd, uint64_t startaddr, uint
 
     /* Check for error conditions */
     errorstate = SD_CmdResp1Error(hsd, SD_CMD_SD_ERASE_GRP_END);
-
     if (errorstate != SD_OK)
-    {
       return errorstate;
     }
-  }
 
   /* Send CMD38 ERASE */
   sdmmc_cmdinitstructure.Argument         = 0;
@@ -1169,29 +1105,23 @@ HAL_SD_ErrorTypedef HAL_SD_Erase(SD_HandleTypeDef *hsd, uint64_t startaddr, uint
 
   /* Check for error conditions */
   errorstate = SD_CmdResp1Error(hsd, SD_CMD_ERASE);
-
   if (errorstate != SD_OK)
-  {
     return errorstate;
-  }
 
-  for (; delay < maxdelay; delay++)
-  {
-  }
+  for (; delay < maxdelay; delay++) { }
 
   /* Wait until the card is in programming state */
   errorstate = SD_IsCardProgramming(hsd, &cardstate);
 
   delay = SD_DATATIMEOUT;
 
-  while ((delay > 0) && (errorstate == SD_OK) && ((cardstate == SD_CARD_PROGRAMMING) || (cardstate == SD_CARD_RECEIVING)))
-  {
+  while ((delay > 0) && (errorstate == SD_OK) && ((cardstate == SD_CARD_PROGRAMMING) || (cardstate == SD_CARD_RECEIVING))) {
     errorstate = SD_IsCardProgramming(hsd, &cardstate);
     delay--;
-  }
+    }
 
   return errorstate;
-}
+  }
 /*}}}*/
 
 /*{{{*/

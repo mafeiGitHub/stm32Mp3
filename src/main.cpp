@@ -47,7 +47,6 @@ static osSemaphoreId audioSem;
 static cLcd mLcd;
 static float mVolume = 0.8f;
 //}}}
-const bool kLcdInterrupts = false;
 
 //{{{
 void BSP_AUDIO_OUT_HalfTransfer_CallBack() {
@@ -63,35 +62,32 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 //{{{
 static void loadFile (std::string fileName) {
 
-  mLcd.text ("loadFile opening " + fileName);
-  auto buffer = (unsigned char*)pvPortMalloc (4096);
-  if ((((uint32_t)buffer) & 0x3) != 0) {
-    mLcd.text ("alignment");
-    mLcd.drawText();
-    }
+  mLcd.text ("loading " + fileName);
 
   FIL file;
   int result = f_open (&file, fileName.c_str(), FA_OPEN_EXISTING | FA_READ);
   if (result == FR_OK) {
-    mLcd.text ("- opened - size " + mLcd.intStr (f_size (&file)) + " " + mLcd.hexStr ((int)buffer, 8));
-    unsigned int bytesRead = 0;
+    mLcd.text ("- size:" + mLcd.intStr (f_size (&file)));
     unsigned int bytes = 4096;
+    unsigned int bytesRead = 0;
     while (bytes > 0) {
+      auto buffer = (unsigned char*)0x20007000;
       result = f_read (&file, buffer, 4096, &bytes);
+      if (bytesRead == 0) {
+        for (auto j = 0; j < 11; j++) {
+          std::string str = mLcd.hexStr ((int)buffer - 0x20007000, 4);
+          for (auto i = 0; i < 32; i++)
+            str += " " + mLcd.hexStr (*buffer++, 2);
+          mLcd.text (str);
+          }
+        }
       bytesRead += bytes;
-      //mLcd.text ("- read " + mLcd.intStr (bytesRead) + " " +  mLcd.intStr (bytes), false);
-      //mLcd.drawText();
       }
-    mLcd.text ("- read " + mLcd.intStr (bytesRead));
-    mLcd.drawText();
+    mLcd.text ("- read:" + mLcd.intStr (bytesRead));
     f_close (&file);
     }
-  else {
+  else
     mLcd.text ("- open failed - result:" + mLcd.intStr (result));
-    mLcd.drawText();
-    }
-
-  vPortFree (buffer);
   }
 //}}}
 
@@ -120,7 +116,7 @@ static void uiThread (void const* argument) {
       if ((touch < tsState.touchDetected) && tsState.touchWeight[touch]) {
         auto x = tsState.touchX[touch];
         auto y = tsState.touchY[touch];
-        mLcd.ellipse (touch > 0 ? LCD_LIGHTGREY : x < kInfo ? LCD_GREEN : x < kVolume ? LCD_MAGENTA : LCD_YELLOW,
+        mLcd.ellipseOutline (touch > 0 ? LCD_LIGHTGREY : x < kInfo ? LCD_GREEN : x < kVolume ? LCD_MAGENTA : LCD_YELLOW,
                       x, y, tsState.touchWeight[touch], tsState.touchWeight[touch]);
         if (touch == 0) {
           if (x < kInfo)
@@ -171,8 +167,6 @@ static void uiThread (void const* argument) {
     //}}}
 
     mLcd.endDraw();
-    if (!kLcdInterrupts)
-      osDelay (100);
     }
   }
 //}}}
@@ -180,36 +174,27 @@ static void uiThread (void const* argument) {
 static void loadThread (void const* argument) {
 
   mLcd.text ("loadThread started");
-  mLcd.drawText();
 
   BSP_SD_Init();
   while (BSP_SD_IsDetected() != SD_PRESENT) {
     mLcd.text (LCD_RED, "no SD card");
-    mLcd.drawText();
     osDelay (1000);
     }
   mLcd.text ("SD card found");
-  mLcd.drawText();
 
-  //FATFS fatFs;
-  //FRESULT result = f_mount (&fatFs, "", 0);
-  FRESULT result = f_mount ((FATFS*)0x20007000, "", 0);
-  if (result != FR_OK) {
+
+  FRESULT result = f_mount ((FATFS*)0x20006000, "", 0);
+  if (result != FR_OK)
     mLcd.text ("FAT fileSystem mount error:" + mLcd.intStr (result));
-    mLcd.drawText();
-    }
   else {
     mLcd.text ("FAT fileSystem mounted");
-    mLcd.drawText();
+
     DIR dir;
     result = f_opendir (&dir, "/");
-    if (result != FR_OK) {
+    if (result != FR_OK)
       mLcd.text (LCD_RED, "directory open error:"  + mLcd.intStr (result));
-      mLcd.drawText();
-      }
     else {
-      mLcd.text ("directory opened");
-      mLcd.drawText();
+      mLcd.text ("directory opened - looking for mp3");
 
       FILINFO filInfo;
       filInfo.lfname = (char*)malloc (_MAX_LFN + 1);
@@ -225,30 +210,21 @@ static void loadThread (void const* argument) {
           while (filInfo.fname[i++] != '.') {;}
           if ((filInfo.fname[i] == extension[0]) &&
               (filInfo.fname[i+1] == extension[1]) &&
-              (filInfo.fname[i+2] == extension[2])) {
-            mLcd.text (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname);
-            mLcd.drawText();
+              (filInfo.fname[i+2] == extension[2]))
             loadFile (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname);
-            }
           }
         }
       }
     }
 
   mLcd.text ("allocating Mp3 decoder");
-  mLcd.drawText();
   cMp3Decoder* mp3Decoder = new cMp3Decoder;
   mLcd.text ("Mp3 decoder " + mLcd.hexStr ((int)mp3Decoder, 8));
-  mLcd.drawText();
-
-  mLcd.text ("loadThread loop started");
-  mLcd.drawText();
 
   int tick = 0;
   while (true) {
     mLcd.text ("load tick" + mLcd.intStr (tick++));
-    mLcd.drawText();
-    osDelay (2000);
+    osDelay (10000);
     }
   }
 //}}}
@@ -262,7 +238,7 @@ static void playThread (void const* argument) {
   BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
 
   bool audioBufferFull = false;
-  int16_t* audioBuf = (int16_t*)malloc (8192);
+  int16_t* audioBuf = (int16_t*)pvPortMalloc (8192);
   memset (audioBuf, 0, 8192);
   BSP_AUDIO_OUT_Play ((uint16_t*)audioBuf, 8192);
 
@@ -329,22 +305,22 @@ static void dhcpThread (void const* argument) {
 //{{{
 static void startThread (void const* argument) {
 
-  mLcd.init (SDRAM_FRAME0, SDRAM_FRAME1, kLcdInterrupts);
+  mLcd.init (SDRAM_FRAME0, SDRAM_FRAME1);
   mLcd.setTitle (__TIME__ __DATE__);
   mLcd.text ("startThread started");
-  mLcd.drawText();
 
-  //const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 2000 };
-  //osThreadCreate (&osThreadUi, NULL);
-  const osThreadDef_t osThreadLoad =  { (char*)"Load", loadThread, osPriorityNormal, 0, 20000 };
+  const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 2000 };
+  osThreadCreate (&osThreadUi, NULL);
+
+  const osThreadDef_t osThreadLoad =  { (char*)"Load", loadThread, osPriorityNormal, 0, 2000 };
   osThreadCreate (&osThreadLoad, NULL);
-  //const osThreadDef_t osThreadPlay =  { (char*)"Play", playThread, osPriorityNormal, 0, 2000 };
-  //osThreadCreate (&osThreadPlay, NULL);
 
-  if (false) {
-  //if (true) {
+  const osThreadDef_t osThreadPlay =  { (char*)"Play", playThread, osPriorityNormal, 0, 2000 };
+  osThreadCreate (&osThreadPlay, NULL);
+
+  if (true) {
     tcpip_init (NULL, NULL);
-    mLcd.text ("tcpip_init ok");
+    mLcd.text ("configuring ethernet");
 
     // init LwIP stack
     struct ip_addr ipAddr;
@@ -385,8 +361,7 @@ static void startThread (void const* argument) {
 //{{{
 static void MPUconfigSRAM() {
 // config MPU attributes as WriteThrough for SRAM
-// base Address is 0x20010000 since this memory interface is the AXI.
-// region Size is 256KB, it is related to SRAM1 and SRAM2 memory size
+// base Address is 0x20010000, memory interface is the AXI region, size 256KB related to SRAM1 and SRAM2 memory size
 
   HAL_MPU_Disable();
 
@@ -432,6 +407,7 @@ static void MPUconfigSDRAM() {
 //}}}
 //{{{
 static void initSystemClock216() {
+// Enable HSE Oscillator and activate PLL with HSE as source
 //  System Clock source            = PLL (HSE)
 //  SYSCLK(Hz)                     = 216000000
 //  HCLK(Hz)                       = 216000000
@@ -447,7 +423,6 @@ static void initSystemClock216() {
 //  APB2 Prescaler                 = 2
 //  Flash Latency(WS)              = 7
 
-  // Enable HSE Oscillator and activate PLL with HSE as source
   RCC_OscInitTypeDef RCC_OscInitStruct;
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;

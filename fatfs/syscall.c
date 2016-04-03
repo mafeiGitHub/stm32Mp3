@@ -26,9 +26,9 @@
 #endif
 
 void* ff_memalloc (UINT msize) {
-	return malloc (msize);
+	return pvPortMalloc (msize);
 	}
 
 void ff_memfree (void* mblock) {
-	free (mblock);
+	vPortFree (mblock);
 	}
