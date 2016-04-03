@@ -35,6 +35,7 @@
         o The SD runtime status is returned when calling the function BSP_SD_GetStatus().
 */
 /*}}}*/
+#define USE_DMA
 #include "stm32746g_discovery_sd.h"
 
 static SD_CardInfo uSdCardInfo;
@@ -135,34 +136,29 @@ uint8_t BSP_SD_IsDetected() {
 /*{{{*/
 uint8_t BSP_SD_ReadBlocks (uint32_t* pData, uint64_t ReadAddr, uint32_t BlockSize, uint32_t NumOfBlocks) {
 
+#ifdef USE_DMA
+  if (HAL_SD_ReadBlocks_DMA (&uSdHandle, pData, ReadAddr, BlockSize, NumOfBlocks) != SD_OK)
+    return MSD_ERROR;
+  else
+    return HAL_SD_CheckReadOperation (&uSdHandle, (uint32_t)SD_DATATIMEOUT) == SD_OK ? MSD_OK : MSD_ERROR;
+#else
   return HAL_SD_ReadBlocks (&uSdHandle, pData, ReadAddr, BlockSize, NumOfBlocks) == SD_OK ? MSD_OK : MSD_ERROR;
+#endif
   }
 /*}}}*/
 /*{{{*/
 uint8_t BSP_SD_WriteBlocks (uint32_t* pData, uint64_t WriteAddr, uint32_t BlockSize, uint32_t NumOfBlocks) {
 
-  return HAL_SD_WriteBlocks(&uSdHandle, pData, WriteAddr, BlockSize, NumOfBlocks) != SD_OK ? MSD_ERROR : MSD_OK;
-  }
-/*}}}*/
-/*{{{*/
-uint8_t BSP_SD_ReadBlocks_DMA (uint32_t* pData, uint64_t ReadAddr, uint32_t BlockSize, uint32_t NumOfBlocks) {
-
-  if (HAL_SD_ReadBlocks_DMA (&uSdHandle, pData, ReadAddr, BlockSize, NumOfBlocks) != SD_OK)
-    return MSD_ERROR;
-  else
-    return HAL_SD_CheckReadOperation (&uSdHandle, (uint32_t)SD_DATATIMEOUT) == SD_OK ? MSD_OK : MSD_ERROR;
-  }
-/*}}}*/
-/*{{{*/
-uint8_t BSP_SD_WriteBlocks_DMA (uint32_t* pData, uint64_t WriteAddr, uint32_t BlockSize, uint32_t NumOfBlocks) {
-
+#ifdef USE_DMA
   if (HAL_SD_WriteBlocks_DMA(&uSdHandle, pData, WriteAddr, BlockSize, NumOfBlocks) != SD_OK)
     return MSD_ERROR;
   else
     return HAL_SD_CheckWriteOperation(&uSdHandle, (uint32_t)SD_DATATIMEOUT) == SD_OK ? MSD_OK : MSD_ERROR;
+#else
+  return HAL_SD_WriteBlocks(&uSdHandle, pData, WriteAddr, BlockSize, NumOfBlocks) != SD_OK ? MSD_ERROR : MSD_OK;
+#endif
   }
 /*}}}*/
-
 /*{{{*/
 uint8_t BSP_SD_Erase (uint64_t StartAddr, uint64_t EndAddr) {
 
@@ -220,13 +216,13 @@ __weak void BSP_SD_MspInit (SD_HandleTypeDef* hsd, void* Params) {
   dma_rx_handle.Instance = SD_DMAx_Rx_STREAM;
 
   /* Associate the DMA handle */
-  __HAL_LINKDMA(hsd, hdmarx, dma_rx_handle);
+  __HAL_LINKDMA (hsd, hdmarx, dma_rx_handle);
 
   /* Deinitialize the stream for new transfer */
-  HAL_DMA_DeInit(&dma_rx_handle);
+  HAL_DMA_DeInit (&dma_rx_handle);
 
   /* Configure the DMA stream */
-  HAL_DMA_Init(&dma_rx_handle);
+  HAL_DMA_Init (&dma_rx_handle);
 
   /* Configure DMA Tx parameters */
   dma_tx_handle.Init.Channel             = SD_DMAx_Tx_CHANNEL;
@@ -245,22 +241,22 @@ __weak void BSP_SD_MspInit (SD_HandleTypeDef* hsd, void* Params) {
   dma_tx_handle.Instance = SD_DMAx_Tx_STREAM;
 
   /* Associate the DMA handle */
-  __HAL_LINKDMA(hsd, hdmatx, dma_tx_handle);
+  __HAL_LINKDMA (hsd, hdmatx, dma_tx_handle);
 
   /* Deinitialize the stream for new transfer */
-  HAL_DMA_DeInit(&dma_tx_handle);
+  HAL_DMA_DeInit (&dma_tx_handle);
 
   /* Configure the DMA stream */
-  HAL_DMA_Init(&dma_tx_handle);
+  HAL_DMA_Init (&dma_tx_handle);
 
   /* NVIC configuration for DMA transfer complete interrupt */
-  HAL_NVIC_SetPriority(SD_DMAx_Rx_IRQn, 6, 0);
-  HAL_NVIC_EnableIRQ(SD_DMAx_Rx_IRQn);
+  HAL_NVIC_SetPriority (SD_DMAx_Rx_IRQn, 6, 0);
+  HAL_NVIC_EnableIRQ (SD_DMAx_Rx_IRQn);
 
   /* NVIC configuration for DMA transfer complete interrupt */
-  HAL_NVIC_SetPriority(SD_DMAx_Tx_IRQn, 6, 0);
-  HAL_NVIC_EnableIRQ(SD_DMAx_Tx_IRQn);
-}
+  HAL_NVIC_SetPriority (SD_DMAx_Tx_IRQn, 6, 0);
+  HAL_NVIC_EnableIRQ (SD_DMAx_Tx_IRQn);
+  }
 /*}}}*/
 /*{{{*/
 __weak void BSP_SD_Detect_MspInit (SD_HandleTypeDef* hsd, void* Params) {
@@ -281,19 +277,19 @@ __weak void BSP_SD_Detect_MspInit (SD_HandleTypeDef* hsd, void* Params) {
 __weak void BSP_SD_MspDeInit (SD_HandleTypeDef* hsd, void* Params) {
 
   /* Disable NVIC for DMA transfer complete interrupts */
-  HAL_NVIC_DisableIRQ(SD_DMAx_Rx_IRQn);
-  HAL_NVIC_DisableIRQ(SD_DMAx_Tx_IRQn);
+  HAL_NVIC_DisableIRQ (SD_DMAx_Rx_IRQn);
+  HAL_NVIC_DisableIRQ (SD_DMAx_Tx_IRQn);
 
   /* Deinitialize the stream for new transfer */
   dma_rx_handle.Instance = SD_DMAx_Rx_STREAM;
-  HAL_DMA_DeInit(&dma_rx_handle);
+  HAL_DMA_DeInit (&dma_rx_handle);
 
   /* Deinitialize the stream for new transfer */
   dma_tx_handle.Instance = SD_DMAx_Tx_STREAM;
   HAL_DMA_DeInit(&dma_tx_handle);
 
   /* Disable NVIC for SDIO interrupts */
-  HAL_NVIC_DisableIRQ(SDMMC1_IRQn);
+  HAL_NVIC_DisableIRQ (SDMMC1_IRQn);
 
   /* DeInit GPIO pins can be done in the application
      (by surcharging this __weak function) */
@@ -303,5 +299,5 @@ __weak void BSP_SD_MspDeInit (SD_HandleTypeDef* hsd, void* Params) {
 
   /* GPIO pins clock and DMA clocks can be shut down in the application
      by surcharging this __weak function */
-}
+  }
 /*}}}*/

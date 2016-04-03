@@ -48,8 +48,6 @@ static cLcd mLcd;
 static float mVolume = 0.8f;
 //}}}
 const bool kLcdInterrupts = false;
-FATFS fatFs;
-char SD_Path[4];
 
 //{{{
 void BSP_AUDIO_OUT_HalfTransfer_CallBack() {
@@ -193,9 +191,11 @@ static void loadThread (void const* argument) {
   mLcd.text ("SD card found");
   mLcd.drawText();
 
-  FRESULT result = f_mount (&fatFs, "", 0);
+  //FATFS fatFs;
+  //FRESULT result = f_mount (&fatFs, "", 0);
+  FRESULT result = f_mount ((FATFS*)0x20007000, "", 0);
   if (result != FR_OK) {
-    mLcd.text ("FAT fileSystem mount error" + mLcd.intStr (result));
+    mLcd.text ("FAT fileSystem mount error:" + mLcd.intStr (result));
     mLcd.drawText();
     }
   else {
@@ -204,7 +204,7 @@ static void loadThread (void const* argument) {
     DIR dir;
     result = f_opendir (&dir, "/");
     if (result != FR_OK) {
-      mLcd.text (LCD_RED, "directory open error"  + mLcd.intStr (result));
+      mLcd.text (LCD_RED, "directory open error:"  + mLcd.intStr (result));
       mLcd.drawText();
       }
     else {

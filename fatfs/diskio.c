@@ -74,7 +74,6 @@ DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff) {
 /*{{{*/
 DRESULT disk_read (BYTE pdrv, BYTE* buff, DWORD sector, UINT count) {
   return BSP_SD_ReadBlocks ((uint32_t*)buff, (uint64_t)(sector * BLOCK_SIZE), BLOCK_SIZE, count) == MSD_OK ? RES_OK : RES_ERROR;
-  //return BSP_SD_ReadBlocks_DMA ((uint32_t*)buff, (uint64_t)(sector*BLOCK_SIZE), BLOCK_SIZE, count) == MSD_OK ? RES_OK : RES_ERROR;
   }
 /*}}}*/
 /*{{{*/
