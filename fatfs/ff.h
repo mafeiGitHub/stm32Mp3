@@ -70,16 +70,17 @@
 typedef struct {
   union{
   UINT  d32[_MAX_SS/4]; /* Force 32bits alignement */
-  BYTE  d8[_MAX_SS];  /* Disk access window for Directory, FAT (and file data at tiny cfg) */
+  BYTE  d8[_MAX_SS];    /* Disk access window for Directory, FAT (and file data at tiny cfg) */
   }win;
+
   BYTE  fs_type;    /* FAT sub-type (0:Not mounted) */
-  BYTE  drv;      /* Physical drive number */
+  BYTE  drv;        /* Physical drive number */
   BYTE  csize;      /* Sectors per cluster (1,2,4...128) */
   BYTE  n_fats;     /* Number of FAT copies (1 or 2) */
   BYTE  wflag;      /* win[] flag (b0:dirty) */
   BYTE  fsi_flag;   /* FSINFO flags (b7:disabled, b0:dirty) */
-  WORD  id;       /* File system mount ID */
-  WORD  n_rootdir;    /* Number of root directory entries (FAT12/16) */
+  WORD  id;         /* File system mount ID */
+  WORD  n_rootdir;  /* Number of root directory entries (FAT12/16) */
 #if _MAX_SS != _MIN_SS
   WORD  ssize;      /* Bytes per sector (512, 1024, 2048 or 4096) */
 #endif
@@ -101,8 +102,6 @@ typedef struct {
   DWORD database;   /* Data start sector */
   DWORD winsect;    /* Current sector appearing in the win[] */
   } FATFS;
-
-
 
 /* File object structure (FIL) */
 typedef struct {
