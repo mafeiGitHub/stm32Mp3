@@ -27,7 +27,7 @@
 
 #include "../fatfs/ff.h"
 #include "../fatfs/ff_gen_drv.h"
-#include "../fatfs/drivers/sd_diskio.h"
+#include "../fatfs/sd_diskio.h"
 
 #include "../httpServer/httpServer.h"
 
@@ -69,8 +69,10 @@ static void loadFile (std::string fileName) {
 
   mLcd.text ("loadFile opening " + fileName);
   auto buffer = (unsigned char*)pvPortMalloc (4096);
-  if ((((uint32_t)buffer) & 0x3) != 0)
+  if ((((uint32_t)buffer) & 0x3) != 0) {
     mLcd.text ("alignment");
+    mLcd.drawText();
+    }
 
   FIL file;
   int result = f_open (&file, fileName.c_str(), FA_OPEN_EXISTING | FA_READ);
@@ -81,13 +83,17 @@ static void loadFile (std::string fileName) {
     while (bytes > 0) {
       result = f_read (&file, buffer, 4096, &bytes);
       bytesRead += bytes;
-      mLcd.text ("- read " + mLcd.intStr (bytesRead) + " " +  mLcd.intStr (bytes), false);
+      //mLcd.text ("- read " + mLcd.intStr (bytesRead) + " " +  mLcd.intStr (bytes), false);
+      //mLcd.drawText();
       }
     mLcd.text ("- read " + mLcd.intStr (bytesRead));
+    mLcd.drawText();
     f_close (&file);
     }
-  else
+  else {
     mLcd.text ("- open failed - result:" + mLcd.intStr (result));
+    mLcd.drawText();
+    }
 
   vPortFree (buffer);
   }
@@ -229,7 +235,7 @@ static void loadThread (void const* argument) {
               (filInfo.fname[i+2] == extension[2])) {
             mLcd.text (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname);
             mLcd.drawText();
-            //loadFile (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname);
+            loadFile (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname);
             }
           }
         }

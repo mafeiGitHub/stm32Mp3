@@ -1,5 +1,5 @@
 // sd_diskio.c
-#include "../ff_gen_drv.h"
+#include "ff_gen_drv.h"
 
 #define BLOCK_SIZE 512
 static volatile DSTATUS Stat = STA_NOINIT;
