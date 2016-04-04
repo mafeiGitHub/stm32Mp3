@@ -49,17 +49,20 @@ static cLcd mLcd;
 static float mVolume = 0.8f;
 //}}}
 static int16_t* audioBuf = nullptr;
+static int16_t* audioPtr = nullptr;
 static cMp3Decoder* mp3Decoder = nullptr;
 static int loadFrame = 0;
 static float power [480*2];
 
 //{{{
 void BSP_AUDIO_OUT_HalfTransfer_CallBack() {
+  audioPtr = audioBuf;
   osSemaphoreRelease (audioSem);
   }
 //}}}
 //{{{
 void BSP_AUDIO_OUT_TransferComplete_CallBack() {
+  audioPtr = audioBuf + (1152*2);
   osSemaphoreRelease (audioSem);
   }
 //}}}
@@ -67,46 +70,46 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 //{{{
 static void loadFile (std::string fileName) {
 
+  mLcd.setTitle (fileName);
   for (auto i = 0; i < 480*2; i++)
     power[i] = 0;
 
   FIL file;
   auto result = f_open (&file, fileName.c_str(), FA_OPEN_EXISTING | FA_READ);
-  if (result == FR_OK) {
-    // load file into fileBuffer, limit to 5m for now
-    int size = f_size (&file);
-    if (size > 0x00500000) // 5m
-      size = 0x00500000;
-    auto fileBuffer = (unsigned char*)pvPortMalloc (size);
-    unsigned int bytesRead = 0;
-    result = f_read (&file, fileBuffer, size, &bytesRead);
-    f_close (&file);
-
-    mLcd.text ("play " + mLcd.intStr (bytesRead) + " " + fileName);
-
-    // play file from fileBuffer
-    auto audioPtr = audioBuf;
-    BSP_AUDIO_OUT_Play ((uint16_t*)audioPtr, 1152*8);
-    auto ptr = fileBuffer;
-
-    loadFrame = 0;
-    while (size > 0) {
-      if (osSemaphoreWait (audioSem, 50) == osOK) {
-        auto bytesUsed = mp3Decoder->decodeFrame (ptr, size, &power[(loadFrame % 480) * 2], audioPtr);
-        audioPtr = (audioPtr == audioBuf) ? audioBuf + 1152*2 : audioBuf;
-        loadFrame++;
-        if (bytesUsed > 0) {
-          ptr += bytesUsed;
-          size -= bytesUsed;
-          }
-        //mLcd.text (mLcd.intStr (bytesUsed) + " " + mLcd.intStr (size));
-        }
-      }
-    vPortFree (fileBuffer);
-    BSP_AUDIO_OUT_Stop (CODEC_PDWN_SW);
-    }
-  else
+  if (result != FR_OK) {
     mLcd.text ("load failed " + fileName + " " + mLcd.intStr (result));
+    return;
+    }
+
+  // load file into fileBuffer, limit to 5m for now
+  int size = f_size (&file);
+  if (size > 0x00500000) // 5m
+    size = 0x00500000;
+  auto fileBuffer = (unsigned char*)pvPortMalloc (size);
+  unsigned int bytesRead = 0;
+  result = f_read (&file, fileBuffer, size, &bytesRead);
+  f_close (&file);
+
+  // play file from fileBuffer
+  mLcd.text ("playing " + mLcd.intStr (bytesRead));
+  audioPtr = audioBuf;
+  BSP_AUDIO_OUT_Play ((uint16_t*)audioPtr, 1152*8);
+
+  auto ptr = fileBuffer;
+  loadFrame = 0;
+  while (size > 0) {
+    if (osSemaphoreWait (audioSem, 50) == osOK) {
+      auto bytesUsed = mp3Decoder->decodeFrame (ptr, size, &power[(loadFrame % 480) * 2], audioPtr);
+      loadFrame++;
+      if (bytesUsed > 0) {
+        ptr += bytesUsed;
+        size -= bytesUsed;
+        }
+      //mLcd.text (mLcd.intStr (bytesUsed) + " " + mLcd.intStr (size));
+      }
+    }
+  vPortFree (fileBuffer);
+  BSP_AUDIO_OUT_Stop (CODEC_PDWN_SW);
   }
 //}}}
 
@@ -152,7 +155,6 @@ static void uiThread (void const* argument) {
               volume = 1.0f;
 
             if (volume != mVolume) {
-              mLcd.text ("vol " + mLcd.intStr(int(volume*100)) + "%");
               mVolume = volume;
               BSP_AUDIO_OUT_SetVolume (int(mVolume * 100));
               }
