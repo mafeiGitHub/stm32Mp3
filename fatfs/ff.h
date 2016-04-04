@@ -85,6 +85,48 @@ typedef unsigned long   DWORD;
 
 #endif
 //}}}
+//{{{  File access control and file status flags (FIL.flag)
+#define FA_READ       0x01
+#define FA_OPEN_EXISTING  0x00
+
+#define FA_WRITE      0x02
+#define FA_CREATE_NEW   0x04
+#define FA_CREATE_ALWAYS  0x08
+#define FA_OPEN_ALWAYS    0x10
+#define FA__WRITTEN     0x20
+#define FA__DIRTY     0x40
+//}}}
+//{{{  FAT sub type (FATFS.fs_type)
+#define FS_FAT12  1
+#define FS_FAT16  2
+#define FS_FAT32  3
+//}}}
+//{{{  File attribute bits for directory entry
+#define AM_RDO  0x01  /* Read only */
+#define AM_HID  0x02  /* Hidden */
+#define AM_SYS  0x04  /* System */
+#define AM_VOL  0x08  /* Volume label */
+#define AM_LFN  0x0F  /* LFN entry */
+#define AM_DIR  0x10  /* Directory */
+#define AM_ARC  0x20  /* Archive */
+#define AM_MASK 0x3F  /* Mask of defined bits */
+//}}}
+//{{{  Fast seek feature
+#define CREATE_LINKMAP  0xFFFFFFFF
+//}}}
+//{{{  Multi-byte word access macros
+#if     _WORD_ACCESS == 1 /* Enable word access to the FAT structure */
+  #define LD_WORD(ptr)    (WORD)(*(WORD*)(BYTE*)(ptr))
+  #define LD_DWORD(ptr)   (DWORD)(*(DWORD*)(BYTE*)(ptr))
+  #define ST_WORD(ptr,val)  *(WORD*)(BYTE*)(ptr)=(WORD)(val)
+  #define ST_DWORD(ptr,val) *(DWORD*)(BYTE*)(ptr)=(DWORD)(val)
+#else   /* Use byte-by-byte access to the FAT structure */
+  #define LD_WORD(ptr)    (WORD)(((WORD)*((BYTE*)(ptr)+1)<<8)|(WORD)*(BYTE*)(ptr))
+  #define LD_DWORD(ptr)   (DWORD)(((DWORD)*((BYTE*)(ptr)+3)<<24)|((DWORD)*((BYTE*)(ptr)+2)<<16)|((WORD)*((BYTE*)(ptr)+1)<<8)|*(BYTE*)(ptr))
+  #define ST_WORD(ptr,val)  *(BYTE*)(ptr)=(BYTE)(val); *((BYTE*)(ptr)+1)=(BYTE)((WORD)(val)>>8)
+  #define ST_DWORD(ptr,val) *(BYTE*)(ptr)=(BYTE)(val); *((BYTE*)(ptr)+1)=(BYTE)((WORD)(val)>>8); *((BYTE*)(ptr)+2)=(BYTE)((DWORD)(val)>>16); *((BYTE*)(ptr)+3)=(BYTE)((DWORD)(val)>>24)
+#endif
+//}}}
 
 //{{{  enum FRESULT
 /* File function return code (FRESULT) */
@@ -131,14 +173,10 @@ typedef struct {
   WORD  ssize;      /* Bytes per sector (512, 1024, 2048 or 4096) */
 #endif
 
-#if _FS_REENTRANT
   _SYNC_t sobj;     /* Identifier of sync object */
-#endif
 
-#if !_FS_READONLY
   DWORD last_clust; /* Last allocated cluster */
   DWORD free_clust; /* Number of free clusters */
-#endif
 
 #if _FS_RPATH
   DWORD cdir;       /* Current directory start cluster (0:root) */
@@ -155,12 +193,10 @@ typedef struct {
 //}}}
 //{{{  struct FIL file
 typedef struct {
-#if !_FS_TINY
   union {
     UINT  d32[_MAX_SS/4]; /* Force 32bits alignement */
     BYTE   d8[_MAX_SS];   /* File data read/write buffer */
     } buf;
-#endif
 
   FATFS*  fs;       /* Pointer to the related file system object (**do not change order**) */
   WORD  id;         /* Owner file system mount ID (**do not change order**) */
@@ -172,29 +208,19 @@ typedef struct {
   DWORD clust;      /* Current cluster of fpter (not valid when fprt is 0) */
   DWORD dsect;      /* Sector number appearing in buf[] (0:invalid) */
 
-#if !_FS_READONLY
   DWORD dir_sect;   /* Sector number containing the directory entry */
   BYTE* dir_ptr;    /* Pointer to the directory entry in the win[] */
-#endif
 
-#if _USE_FASTSEEK
   DWORD*  cltbl;    /* Pointer to the cluster link map table (Nulled on file open) */
-#endif
-
-#if _FS_LOCK
   UINT  lockid;     /* File lock ID origin from 1 (index of file semaphore table Files[]) */
-#endif
-
   } FIL;
 //}}}
 //{{{  struct DIR directory
 typedef struct {
-#if !_FS_TINY
   union {
     UINT d32[_MAX_SS/4];  /* Force 32bits alignement */
     BYTE  d8[_MAX_SS];    /* File data read/write buffer */
     } buf;
-#endif
 
   FATFS* fs;     /* Pointer to the owner file system object (**do not change order**) */
   WORD id;       /* Owner file system mount ID (**do not change order**) */
@@ -205,19 +231,12 @@ typedef struct {
   BYTE* dir;     /* Pointer to the current SFN entry in the win[] */
   BYTE* fn;      /* Pointer to the SFN (in/out) {file[8],ext[3],status[1]} */
 
-#if _FS_LOCK
   UINT  lockid;  /* File lock ID (index of file semaphore table Files[]) */
-#endif
 
-#if _USE_LFN
   WCHAR* lfn;    /* Pointer to the LFN working buffer */
   WORD lfn_idx;  /* Last matched LFN index number (0xFFFF:No LFN) */
-#endif
 
-#if _USE_FIND
   const TCHAR* pat;  /* Pointer to the name matching pattern */
-#endif
-
   } DIR;
 //}}}
 //{{{  struct FILINFO fileInformation
@@ -227,12 +246,8 @@ typedef struct {
   WORD  ftime;      /* Last modified time */
   BYTE  fattrib;    /* Attribute */
   TCHAR fname[13];  /* Short file name (8.3 format) */
-
-#if _USE_LFN
   TCHAR* lfname;    /* Pointer to the LFN buffer */
   UINT  lfsize;     /* Size of LFN buffer in TCHAR */
-#endif
-
   } FILINFO;
 //}}}
 
@@ -280,74 +295,15 @@ TCHAR* f_gets (TCHAR* buff, int len, FIL* fp);            /* Get a string from t
   #define EOF (-1)
 #endif
 
-//{{{  RTC function
-#if !_FS_READONLY && !_FS_NORTC
-  DWORD get_fattime (void);
-#endif
-//}}}
-//{{{  Unicode support functions
-#if _USE_LFN              /* Unicode - OEM code conversion */
-  WCHAR ff_convert (WCHAR chr, UINT dir); /* OEM-Unicode bidirectional conversion */
-  WCHAR ff_wtoupper (WCHAR chr);      /* Unicode upper-case conversion */
-  #if _USE_LFN == 3           /* Memory functions */
-    void* ff_memalloc (UINT msize);     /* Allocate memory block */
-    void ff_memfree (void* mblock);     /* Free memory block */
-  #endif
-#endif
-//}}}
-//{{{  Sync functions
-#if _FS_REENTRANT
-  int ff_cre_syncobj (BYTE vol, _SYNC_t* sobj); /* Create a sync object */
-  int ff_req_grant (_SYNC_t sobj);        /* Lock sync object */
-  void ff_rel_grant (_SYNC_t sobj);       /* Unlock sync object */
-  int ff_del_syncobj (_SYNC_t sobj);        /* Delete a sync object */
-#endif
-//}}}
-//{{{  File access control and file status flags (FIL.flag)
-#define FA_READ       0x01
-#define FA_OPEN_EXISTING  0x00
-
-#if !_FS_READONLY
-  #define FA_WRITE      0x02
-  #define FA_CREATE_NEW   0x04
-  #define FA_CREATE_ALWAYS  0x08
-  #define FA_OPEN_ALWAYS    0x10
-  #define FA__WRITTEN     0x20
-  #define FA__DIRTY     0x40
-#endif
-//}}}
-//{{{  FAT sub type (FATFS.fs_type)
-#define FS_FAT12  1
-#define FS_FAT16  2
-#define FS_FAT32  3
-//}}}
-//{{{  File attribute bits for directory entry
-#define AM_RDO  0x01  /* Read only */
-#define AM_HID  0x02  /* Hidden */
-#define AM_SYS  0x04  /* System */
-#define AM_VOL  0x08  /* Volume label */
-#define AM_LFN  0x0F  /* LFN entry */
-#define AM_DIR  0x10  /* Directory */
-#define AM_ARC  0x20  /* Archive */
-#define AM_MASK 0x3F  /* Mask of defined bits */
-//}}}
-//{{{  Fast seek feature
-#define CREATE_LINKMAP  0xFFFFFFFF
-//}}}
-//{{{  Multi-byte word access macros
-#if     _WORD_ACCESS == 1 /* Enable word access to the FAT structure */
-  #define LD_WORD(ptr)    (WORD)(*(WORD*)(BYTE*)(ptr))
-  #define LD_DWORD(ptr)   (DWORD)(*(DWORD*)(BYTE*)(ptr))
-  #define ST_WORD(ptr,val)  *(WORD*)(BYTE*)(ptr)=(WORD)(val)
-  #define ST_DWORD(ptr,val) *(DWORD*)(BYTE*)(ptr)=(DWORD)(val)
-#else   /* Use byte-by-byte access to the FAT structure */
-  #define LD_WORD(ptr)    (WORD)(((WORD)*((BYTE*)(ptr)+1)<<8)|(WORD)*(BYTE*)(ptr))
-  #define LD_DWORD(ptr)   (DWORD)(((DWORD)*((BYTE*)(ptr)+3)<<24)|((DWORD)*((BYTE*)(ptr)+2)<<16)|((WORD)*((BYTE*)(ptr)+1)<<8)|*(BYTE*)(ptr))
-  #define ST_WORD(ptr,val)  *(BYTE*)(ptr)=(BYTE)(val); *((BYTE*)(ptr)+1)=(BYTE)((WORD)(val)>>8)
-  #define ST_DWORD(ptr,val) *(BYTE*)(ptr)=(BYTE)(val); *((BYTE*)(ptr)+1)=(BYTE)((WORD)(val)>>8); *((BYTE*)(ptr)+2)=(BYTE)((DWORD)(val)>>16); *((BYTE*)(ptr)+3)=(BYTE)((DWORD)(val)>>24)
-#endif
-//}}}
-
+DWORD get_fattime (void);
+WCHAR ff_convert (WCHAR chr, UINT dir); /* OEM-Unicode bidirectional conversion */
+WCHAR ff_wtoupper (WCHAR chr);      /* Unicode upper-case conversion */
+void* ff_memalloc (UINT msize);     /* Allocate memory block */
+void ff_memfree (void* mblock);     /* Free memory block */
+int ff_cre_syncobj (BYTE vol, _SYNC_t* sobj); /* Create a sync object */
+int ff_req_grant (_SYNC_t sobj);        /* Lock sync object */
+void ff_rel_grant (_SYNC_t sobj);       /* Unlock sync object */
+int ff_del_syncobj (_SYNC_t sobj);        /* Delete a sync object */
 //{{{
 #ifdef __cplusplus
   }

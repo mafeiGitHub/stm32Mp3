@@ -4,9 +4,7 @@
 #include "cmsis_os.h"
 #include "stm32f7xx_hal.h"
 
-#define _FS_TINY             0      /* 0:Normal or 1:Tiny */
 #define _FS_READONLY         0      /* 0:Read/Write or 1:Read only */
-
 #define _FS_MINIMIZE         0      /* 0 to 3 */
 /* The _FS_MINIMIZE option defines minimization level to remove some functions.
 /   0: Full function.
@@ -15,11 +13,7 @@
 /   3: f_lseek is removed in addition to 2. */
 
 #define _USE_STRFUNC         2      // 0:Disable or 1-2:Enable - To enable string functions, set _USE_STRFUNC to 1 or 2
-#define _USE_FIND            0      // f_findfirst() and f_findnext(). (0:Disable or 1:Enable)
-#define _USE_MKFS            1      // 0:Disable or 1:Enable and _FS_READONLY to 0
-#define _USE_FASTSEEK        1      // 0:Disable or 1:Enable fast seek feature
-#define _USE_LABEL           0      // 0:Disable or 1:Enable volume label functions, set _USE_LAVEL to 1
-#define _USE_FORWARD         0      // 0:Disable or 1:Enable f_forward function, set _USE_FORWARD to 1 and set _FS_TINY to 1
+#define _USE_LABEL           0      // 0:Disable or 1:Enable volume label functions, set _USE_LABEL to 1
 #define _CODE_PAGE         1252
 
 #define _USE_LFN     3  /* 0 to 3 */

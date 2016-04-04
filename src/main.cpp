@@ -187,8 +187,8 @@ static void uiThread (void const* argument) {
       int frame = mPlayFrame - mLcd.getWidth() + x;
       if (frame > 0) {
         auto index = (frame % 480) * 2;
-        uint8_t top = (mLcd.getHeight()/2) - (int)power[index];
-        uint8_t ylen = (mLcd.getHeight()/2) + (int)power[index+1] - top;
+        uint8_t top = (mLcd.getHeight()/2) - (int)power[index]/2;
+        uint8_t ylen = (mLcd.getHeight()/2) + (int)power[index+1]/2 - top;
         mLcd.rectClipped (LCD_BLUE, x, top, 1, ylen);
         }
       }
