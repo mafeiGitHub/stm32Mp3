@@ -47,14 +47,12 @@
 #endif
 /*}}}*/
 /*{{{  File access control feature*/
-#if _FS_LOCK
-  typedef struct {
-    FATFS *fs;  /* Object ID 1, volume (NULL:blank entry) */
-    DWORD clu;  /* Object ID 2, directory (0:root) */
-    WORD idx;   /* Object ID 3, directory index */
-    WORD ctr;   /* Object open counter, 0:none, 0x01..0xFF:read mode open count, 0x100:write mode */
+typedef struct {
+  FATFS *fs;  /* Object ID 1, volume (NULL:blank entry) */
+  DWORD clu;  /* Object ID 2, directory (0:root) */
+  WORD idx;   /* Object ID 3, directory index */
+  WORD ctr;   /* Object open counter, 0:none, 0x01..0xFF:read mode open count, 0x100:write mode */
   } FILESEM;
-#endif
 /*}}}*/
 /*{{{  code pages*/
 /* DBCS code ranges and SBCS extend character conversion table */
@@ -359,9 +357,7 @@ static WORD Fsid;              /* File system mount ID */
   static BYTE CurrVol;      /* Current drive */
 #endif
 
-#if _FS_LOCK
-  static FILESEM Files[_FS_LOCK]; /* Open object lock semaphores */
-#endif
+static FILESEM Files[_FS_LOCK]; /* Open object lock semaphores */
 /*}}}*/
 /*{{{  LFN defines*/
 #if _USE_LFN == 0
@@ -1926,18 +1922,14 @@ static FRESULT validate (  /* FR_OK(0): The object is valid, !=0: Invalid */
 /*}}}*/
 
 /*{{{*/
-FRESULT f_mount (
-  FATFS* fs,      /* Pointer to the file system object (NULL:unmount)*/
-  const TCHAR* path,  /* Logical drive number to be mounted/unmounted */
-  BYTE opt      /* 0:Do not mount (delayed mount), 1:Mount immediately */
-)
-{
+FRESULT f_mount (FATFS* fs,      /* Pointer to the file system object (NULL:unmount)*/
+                 const TCHAR* path,  /* Logical drive number to be mounted/unmounted */
+                 BYTE opt      /* 0:Do not mount (delayed mount), 1:Mount immediately */) {
+
   FATFS *cfs;
   int vol;
   FRESULT res;
   const TCHAR *rp = path;
-
-
   vol = get_ldnumber(&rp);
   if (vol < 0) return FR_INVALID_DRIVE;
   cfs = FatFs[vol];         /* Pointer to fs object */
@@ -1961,12 +1953,10 @@ FRESULT f_mount (
 }
 /*}}}*/
 /*{{{*/
-FRESULT f_open (
-  FIL* fp,      /* Pointer to the blank file object */
-  const TCHAR* path,  /* Pointer to the file name */
-  BYTE mode     /* Access mode and file open mode flags */
-)
-{
+FRESULT f_open (FIL* fp,      /* Pointer to the blank file object */
+                const TCHAR* path,  /* Pointer to the file name */
+                BYTE mode     /* Access mode and file open mode flags */) {
+
   FRESULT res;
   DIR dj;
   BYTE *dir;
@@ -3608,14 +3598,10 @@ typedef struct {
   BYTE buf[64];
   } putbuff;
 /*{{{*/
-static void putc_bfd (
-  putbuff* pb,
-  TCHAR c
-)
-{
+static void putc_bfd (putbuff* pb, TCHAR c) {
+
   UINT bw;
   int i;
-
 
   if (_USE_STRFUNC == 2 && c == '\n')  /* LF -> CRLF conversion */
     putc_bfd(pb, '\r');
@@ -3623,7 +3609,7 @@ static void putc_bfd (
   i = pb->idx;  /* Buffer write index (-1:error) */
   if (i < 0) return;
 
-#if _USE_LFN && _LFN_UNICODE
+#if _LFN_UNICODE
 #if _STRF_ENCODE == 3     /* Write a character in UTF-8 */
   if (c < 0x80) {       /* 7-bit */
     pb->buf[i++] = (BYTE)c;
@@ -3662,19 +3648,15 @@ static void putc_bfd (
 }
 /*}}}*/
 /*{{{*/
-int f_putc (
-  TCHAR c,  /* A character to be output */
-  FIL* fp   /* Pointer to the file object */
-)
-{
+int f_putc (TCHAR c, FIL* fp) {
+
   putbuff pb;
   UINT nw;
-
 
   pb.fp = fp;     /* Initialize output buffer */
   pb.nchr = pb.idx = 0;
 
-  putc_bfd(&pb, c); /* Put a character */
+  putc_bfd (&pb, c); /* Put a character */
 
   if (   pb.idx >= 0  /* Flush buffered characters to the file */
     && f_write(pb.fp, pb.buf, (UINT)pb.idx, &nw) == FR_OK
@@ -3683,18 +3665,10 @@ int f_putc (
 }
 /*}}}*/
 /*{{{*/
-/*-----------------------------------------------------------------------*/
-/* Put a string to the file                                              */
-/*-----------------------------------------------------------------------*/
+int f_puts (const TCHAR* str, FIL* fp) {
 
-int f_puts (
-  const TCHAR* str, /* Pointer to the string to be output */
-  FIL* fp       /* Pointer to the file object */
-)
-{
   putbuff pb;
   UINT nw;
-
 
   pb.fp = fp;       /* Initialize output buffer */
   pb.nchr = pb.idx = 0;
@@ -3709,24 +3683,14 @@ int f_puts (
 }
 /*}}}*/
 /*{{{*/
+int f_printf (FIL* fp, const TCHAR* fmt, ...) {
 
-/*-----------------------------------------------------------------------*/
-/* Put a formatted string to the file                                    */
-/*-----------------------------------------------------------------------*/
-
-int f_printf (
-  FIL* fp,      /* Pointer to the file object */
-  const TCHAR* fmt, /* Pointer to the format string */
-  ...         /* Optional arguments... */
-)
-{
   va_list arp;
   BYTE f, r;
   UINT nw, i, j, w;
   DWORD v;
   TCHAR c, d, s[16], *p;
   putbuff pb;
-
 
   pb.fp = fp;       /* Initialize output buffer */
   pb.nchr = pb.idx = 0;
