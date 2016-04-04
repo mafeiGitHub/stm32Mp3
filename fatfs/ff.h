@@ -23,8 +23,7 @@
   extern "C" {
 #endif
 //}}}
-
-//{{{  integer typedefs
+//{{{  integer.h typedefs
 // 8 bit
 typedef unsigned char   BYTE;
 
@@ -44,38 +43,46 @@ typedef unsigned long   DWORD;
 #include "ffconf.h"
 
 //{{{  Definitions of volume management
-#if _MULTI_PARTITION    /* Multiple partition configuration */
+#if _MULTI_PARTITION
+  /* Multiple partition configuration */
   //{{{  struct partition
   typedef struct {
     BYTE pd;  /* Physical drive number */
     BYTE pt;  /* Partition: 0:Auto detect, 1-4:Forced partition) */
     } PARTITION;
   //}}}
+
   extern PARTITION VolToPart[]; /* Volume - Partition resolution table */
   #define LD2PD(vol) (VolToPart[vol].pd)  /* Get physical drive number */
   #define LD2PT(vol) (VolToPart[vol].pt)  /* Get partition index */
 
-#else             /* Single partition configuration */
+#else
+  /* Single partition configuration */
   #define LD2PD(vol) (BYTE)(vol)  /* Each logical drive is bound to the same physical drive number */
   #define LD2PT(vol) 0      /* Find first valid partition or in SFD */
 #endif
 //}}}
 //{{{  Type of path name strings on FatFs API
-#if _LFN_UNICODE /* Unicode string */
+#if _LFN_UNICODE
+  /* Unicode string */
   #if !_USE_LFN
     #error _LFN_UNICODE must be 0 at non-LFN cfg.
   #endif
+
   #ifndef _INC_TCHAR
     typedef WCHAR TCHAR;
     #define _T(x) L ## x
     #define _TEXT(x) L ## x
   #endif
-#else           /* ANSI/OEM string */
+
+#else
+  /* ANSI/OEM string */
   #ifndef _INC_TCHAR
     typedef char TCHAR;
     #define _T(x) x
     #define _TEXT(x) x
   #endif
+
 #endif
 //}}}
 
@@ -104,12 +111,12 @@ typedef enum {
   FR_INVALID_PARAMETER    /* (19) Given parameter is invalid */
   } FRESULT;
 //}}}
-//{{{  struct FATFS File system object structure
+//{{{  struct FATFS fileSystem
 typedef struct {
   union{
-  UINT  d32[_MAX_SS/4]; /* Force 32bits alignement */
-  BYTE  d8[_MAX_SS];    /* Disk access window for Directory, FAT (and file data at tiny cfg) */
-  }win;
+    UINT  d32[_MAX_SS/4]; /* Force 32bits alignement */
+    BYTE   d8[_MAX_SS];   /* Disk access window for Directory, FAT (and file data at tiny cfg) */
+    } win;
 
   BYTE  fs_type;    /* FAT sub-type (0:Not mounted) */
   BYTE  drv;        /* Physical drive number */
@@ -119,19 +126,24 @@ typedef struct {
   BYTE  fsi_flag;   /* FSINFO flags (b7:disabled, b0:dirty) */
   WORD  id;         /* File system mount ID */
   WORD  n_rootdir;  /* Number of root directory entries (FAT12/16) */
+
 #if _MAX_SS != _MIN_SS
   WORD  ssize;      /* Bytes per sector (512, 1024, 2048 or 4096) */
 #endif
+
 #if _FS_REENTRANT
   _SYNC_t sobj;     /* Identifier of sync object */
 #endif
+
 #if !_FS_READONLY
-  DWORD last_clust;   /* Last allocated cluster */
-  DWORD free_clust;   /* Number of free clusters */
+  DWORD last_clust; /* Last allocated cluster */
+  DWORD free_clust; /* Number of free clusters */
 #endif
+
 #if _FS_RPATH
-  DWORD cdir;     /* Current directory start cluster (0:root) */
+  DWORD cdir;       /* Current directory start cluster (0:root) */
 #endif
+
   DWORD n_fatent;   /* Number of FAT entries, = number of clusters + 2 */
   DWORD fsize;      /* Sectors per FAT */
   DWORD volbase;    /* Volume start sector */
@@ -141,14 +153,15 @@ typedef struct {
   DWORD winsect;    /* Current sector appearing in the win[] */
   } FATFS;
 //}}}
-//{{{  struct FIL File object structure
+//{{{  struct FIL file
 typedef struct {
 #if !_FS_TINY
   union {
     UINT  d32[_MAX_SS/4]; /* Force 32bits alignement */
-    BYTE  d8[_MAX_SS];  /* File data read/write buffer */
+    BYTE   d8[_MAX_SS];   /* File data read/write buffer */
     } buf;
 #endif
+
   FATFS*  fs;       /* Pointer to the related file system object (**do not change order**) */
   WORD  id;         /* Owner file system mount ID (**do not change order**) */
   BYTE  flag;       /* Status flags */
@@ -158,57 +171,68 @@ typedef struct {
   DWORD sclust;     /* File start cluster (0:no cluster chain, always 0 when fsize is 0) */
   DWORD clust;      /* Current cluster of fpter (not valid when fprt is 0) */
   DWORD dsect;      /* Sector number appearing in buf[] (0:invalid) */
+
 #if !_FS_READONLY
   DWORD dir_sect;   /* Sector number containing the directory entry */
   BYTE* dir_ptr;    /* Pointer to the directory entry in the win[] */
 #endif
+
 #if _USE_FASTSEEK
   DWORD*  cltbl;    /* Pointer to the cluster link map table (Nulled on file open) */
 #endif
+
 #if _FS_LOCK
   UINT  lockid;     /* File lock ID origin from 1 (index of file semaphore table Files[]) */
 #endif
+
   } FIL;
 //}}}
-//{{{  struct DIR Directory object structure
+//{{{  struct DIR directory
 typedef struct {
 #if !_FS_TINY
   union {
-    UINT     d32[_MAX_SS/4];  /* Force 32bits alignement */
-    BYTE   d8[_MAX_SS];  /* File data read/write buffer */
+    UINT d32[_MAX_SS/4];  /* Force 32bits alignement */
+    BYTE  d8[_MAX_SS];    /* File data read/write buffer */
     } buf;
 #endif
-  FATFS* fs;       /* Pointer to the owner file system object (**do not change order**) */
+
+  FATFS* fs;     /* Pointer to the owner file system object (**do not change order**) */
   WORD id;       /* Owner file system mount ID (**do not change order**) */
-  WORD index;      /* Current read/write index number */
-  DWORD sclust;     /* Table start cluster (0:Root dir) */
-  DWORD clust;      /* Current cluster */
-  DWORD sect;     /* Current sector */
-  BYTE* dir;      /* Pointer to the current SFN entry in the win[] */
-  BYTE* fn;       /* Pointer to the SFN (in/out) {file[8],ext[3],status[1]} */
+  WORD index;    /* Current read/write index number */
+  DWORD sclust;  /* Table start cluster (0:Root dir) */
+  DWORD clust;   /* Current cluster */
+  DWORD sect;    /* Current sector */
+  BYTE* dir;     /* Pointer to the current SFN entry in the win[] */
+  BYTE* fn;      /* Pointer to the SFN (in/out) {file[8],ext[3],status[1]} */
+
 #if _FS_LOCK
-  UINT  lockid;     /* File lock ID (index of file semaphore table Files[]) */
+  UINT  lockid;  /* File lock ID (index of file semaphore table Files[]) */
 #endif
+
 #if _USE_LFN
-  WCHAR*  lfn;      /* Pointer to the LFN working buffer */
-  WORD  lfn_idx;    /* Last matched LFN index number (0xFFFF:No LFN) */
+  WCHAR* lfn;    /* Pointer to the LFN working buffer */
+  WORD lfn_idx;  /* Last matched LFN index number (0xFFFF:No LFN) */
 #endif
+
 #if _USE_FIND
-  const TCHAR*  pat;  /* Pointer to the name matching pattern */
+  const TCHAR* pat;  /* Pointer to the name matching pattern */
 #endif
+
   } DIR;
 //}}}
-//{{{  struct FILINFO File information structure
+//{{{  struct FILINFO fileInformation
 typedef struct {
   DWORD fsize;      /* File size */
   WORD  fdate;      /* Last modified date */
   WORD  ftime;      /* Last modified time */
   BYTE  fattrib;    /* Attribute */
-  TCHAR fname[13];    /* Short file name (8.3 format) */
+  TCHAR fname[13];  /* Short file name (8.3 format) */
+
 #if _USE_LFN
-  TCHAR*  lfname;     /* Pointer to the LFN buffer */
+  TCHAR* lfname;    /* Pointer to the LFN buffer */
   UINT  lfsize;     /* Size of LFN buffer in TCHAR */
 #endif
+
   } FILINFO;
 //}}}
 

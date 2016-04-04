@@ -5,7 +5,6 @@
 	extern "C" {
 #endif
 //}}}
-#include "integer.h"
 
 typedef BYTE DSTATUS;
 typedef enum {
