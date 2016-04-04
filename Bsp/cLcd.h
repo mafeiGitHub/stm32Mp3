@@ -50,7 +50,7 @@ public:
   std::string intStr (int value, int width = 0, char fill = ' ');
   std::string hexStr (int value, int width = 0);
   void text (uint32_t colour, std::string str, bool newLine = true);
-  void text (std::string str, bool newwLine = true);
+  void text (std::string str, bool newLine = true);
 
   void pixel (uint32_t col, int16_t x, int16_t y);
   void pixelClipped (uint32_t col, int16_t x, int16_t y);

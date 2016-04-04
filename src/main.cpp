@@ -48,6 +48,10 @@ static osSemaphoreId audioSem;
 static cLcd mLcd;
 static float mVolume = 0.8f;
 //}}}
+static int16_t* audioBuf = nullptr;
+static cMp3Decoder* mp3Decoder = nullptr;
+static int loadFrame = 0;
+static float power [480*2];
 
 //{{{
 void BSP_AUDIO_OUT_HalfTransfer_CallBack() {
@@ -63,34 +67,46 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 //{{{
 static void loadFile (std::string fileName) {
 
-  mLcd.text ("loading " + fileName);
+  for (auto i = 0; i < 480*2; i++)
+    power[i] = 0;
 
   FIL file;
-  int result = f_open (&file, fileName.c_str(), FA_OPEN_EXISTING | FA_READ);
+  auto result = f_open (&file, fileName.c_str(), FA_OPEN_EXISTING | FA_READ);
   if (result == FR_OK) {
-    mLcd.text ("- size:" + mLcd.intStr (f_size (&file)));
-    unsigned int bytes = 16384;
+    // load file into fileBuffer, limit to 5m for now
+    int size = f_size (&file);
+    if (size > 0x00500000) // 5m
+      size = 0x00500000;
+    auto fileBuffer = (unsigned char*)pvPortMalloc (size);
     unsigned int bytesRead = 0;
-    while (bytes > 0) {
-      auto buffer = (unsigned char*)0x20001000;
-      result = f_read (&file, buffer, 16384, &bytes);
-      if (bytesRead == 0) {
-        for (auto j = 0; j < 11; j++) {
-          std::string str;
-          str.resize(102);
-          str = mLcd.hexStr ((int)buffer - 0x20001000, 4);
-          for (auto i = 0; i < 32; i++)
-            str += " " + mLcd.hexStr (*buffer++, 2);
-          mLcd.text (str);
-          }
-        }
-      bytesRead += bytes;
-      }
-    mLcd.text ("- read:" + mLcd.intStr (bytesRead));
+    result = f_read (&file, fileBuffer, size, &bytesRead);
     f_close (&file);
+
+    mLcd.text ("play " + mLcd.intStr (bytesRead) + " " + fileName);
+
+    // play file from fileBuffer
+    auto audioPtr = audioBuf;
+    BSP_AUDIO_OUT_Play ((uint16_t*)audioPtr, 1152*8);
+    auto ptr = fileBuffer;
+
+    loadFrame = 0;
+    while (size > 0) {
+      if (osSemaphoreWait (audioSem, 50) == osOK) {
+        auto bytesUsed = mp3Decoder->decodeFrame (ptr, size, &power[(loadFrame % 480) * 2], audioPtr);
+        audioPtr = (audioPtr == audioBuf) ? audioBuf + 1152*2 : audioBuf;
+        loadFrame++;
+        if (bytesUsed > 0) {
+          ptr += bytesUsed;
+          size -= bytesUsed;
+          }
+        //mLcd.text (mLcd.intStr (bytesUsed) + " " + mLcd.intStr (size));
+        }
+      }
+    vPortFree (fileBuffer);
+    BSP_AUDIO_OUT_Stop (CODEC_PDWN_SW);
     }
   else
-    mLcd.text ("- open failed - result:" + mLcd.intStr (result));
+    mLcd.text ("load failed " + fileName + " " + mLcd.intStr (result));
   }
 //}}}
 
@@ -138,6 +154,7 @@ static void uiThread (void const* argument) {
             if (volume != mVolume) {
               mLcd.text ("vol " + mLcd.intStr(int(volume*100)) + "%");
               mVolume = volume;
+              BSP_AUDIO_OUT_SetVolume (int(mVolume * 100));
               }
             }
             //}}}
@@ -154,19 +171,15 @@ static void uiThread (void const* argument) {
     mLcd.rect (LCD_YELLOW, mLcd.getWidth()-20, 0, 20, int(mVolume * mLcd.getHeight()));
     //}}}
     //{{{  waveform
-    //int frames = 0;
-    //uint8_t* power = nullptr;
-    //int frame = 0 - lcdGetXSize()/2;
-    //for (auto x = 0; x < lcdGetXSize(); x++, frame++) {
-      //if (frames <= 0)
-        //power = nullptr;
-      //if (power) {
-        //uint8_t top = *power++;
-        //uint8_t ylen = *power++;
-        //lcdRect (LCD_BLUE, x, top, 1, ylen);
-        //frames--;
-        //}
-      //}
+    for (auto x = 0; x < mLcd.getWidth(); x++) {
+      int frame = loadFrame - mLcd.getWidth() + x;
+      if (frame > 0) {
+        auto index = (frame % 480) * 2;
+        uint8_t top = (mLcd.getHeight()/2) - (int)power[index];
+        uint8_t ylen = (int)power[index] + (int)power[index+1];
+        mLcd.rect (LCD_BLUE, x, top, 1, ylen);
+        }
+      }
     //}}}
 
     mLcd.endDraw();
@@ -178,13 +191,22 @@ static void loadThread (void const* argument) {
 
   mLcd.text ("loadThread started");
 
+  audioBuf = (int16_t*)malloc (1152*8);
+  memset (audioBuf, 0, 1152*8);
+  mLcd.text ("audioBuf:" + mLcd.hexStr ((int)audioBuf));
+
+  BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_BOTH, int(mVolume * 100), 44100);
+  BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
+
+  mp3Decoder = new cMp3Decoder;
+  mLcd.text ("Mp3 decoder allocated:" + mLcd.hexStr ((int)mp3Decoder, 8));
+
   BSP_SD_Init();
   while (BSP_SD_IsDetected() != SD_PRESENT) {
     mLcd.text (LCD_RED, "no SD card");
     osDelay (1000);
     }
   mLcd.text ("SD card found");
-
 
   FRESULT result = f_mount ((FATFS*)0x20000000, "", 0);
   if (result != FR_OK)
@@ -220,44 +242,10 @@ static void loadThread (void const* argument) {
       }
     }
 
-  mLcd.text ("allocating Mp3 decoder");
-  cMp3Decoder* mp3Decoder = new cMp3Decoder;
-  mLcd.text ("Mp3 decoder " + mLcd.hexStr ((int)mp3Decoder, 8));
-
   int tick = 0;
   while (true) {
     mLcd.text ("load tick" + mLcd.intStr (tick++));
     osDelay (10000);
-    }
-  }
-//}}}
-//{{{
-static void playThread (void const* argument) {
-
-  mLcd.text ("playThread started");
-
-  int curVol = 80;
-  BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_BOTH, curVol, 48000);
-  BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
-
-  bool audioBufferFull = false;
-  int16_t* audioBuf = (int16_t*)pvPortMalloc (8192);
-  memset (audioBuf, 0, 8192);
-  BSP_AUDIO_OUT_Play ((uint16_t*)audioBuf, 8192);
-
-  mLcd.text ("playThread loop");
-  while (true) {
-    if (osSemaphoreWait (audioSem, 50) == osOK) {
-      //int16_t* audioPtr = audioBuf + (audioBufferFull * 2048);
-      //int16_t* audioSamples = hlsRadio->getAudioSamples (hlsRadio->mPlayFrame, seqNum);
-      //if (hlsRadio->mPlaying && audioSamples) {
-      //  memcpy (audioPtr, audioSamples, 4096);
-      //  hlsRadio->mPlayFrame++;
-      //  }
-      //else
-      //  memset (audioPtr, 0, 4096);
-      audioBufferFull = !audioBufferFull;
-      }
     }
   }
 //}}}
@@ -315,11 +303,8 @@ static void startThread (void const* argument) {
   const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 2000 };
   osThreadCreate (&osThreadUi, NULL);
 
-  const osThreadDef_t osThreadLoad =  { (char*)"Load", loadThread, osPriorityNormal, 0, 2000 };
+  const osThreadDef_t osThreadLoad =  { (char*)"Load", loadThread, osPriorityNormal, 0, 10000 };
   osThreadCreate (&osThreadLoad, NULL);
-
-  const osThreadDef_t osThreadPlay =  { (char*)"Play", playThread, osPriorityNormal, 0, 2000 };
-  osThreadCreate (&osThreadPlay, NULL);
 
   if (true) {
     tcpip_init (NULL, NULL);
@@ -453,6 +438,7 @@ static void initSystemClock216() {
     while (true) {;}
   }
 //}}}
+
 //{{{
 int main() {
 
@@ -472,6 +458,7 @@ int main() {
   // init semaphores
   osSemaphoreDef (dhcp);
   dhcpSem = osSemaphoreCreate (osSemaphore (dhcp), -1);
+
   osSemaphoreDef (aud);
   audioSem = osSemaphoreCreate (osSemaphore (aud), -1);
 
