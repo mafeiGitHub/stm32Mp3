@@ -189,7 +189,7 @@ static void uiThread (void const* argument) {
         auto index = (frame % 480) * 2;
         uint8_t top = (mLcd.getHeight()/2) - (int)power[index];
         uint8_t ylen = (mLcd.getHeight()/2) + (int)power[index+1] - top;
-        mLcd.rect (LCD_BLUE, x, top, 1, ylen);
+        mLcd.rectClipped (LCD_BLUE, x, top, 1, ylen);
         }
       }
     //}}}
