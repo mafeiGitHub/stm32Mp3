@@ -43,32 +43,33 @@
 static struct netif gNetif;
 
 static osSemaphoreId dhcpSem;
-static osSemaphoreId audioSem;
+static osSemaphoreId audSem;
 
 static cLcd mLcd;
 static float mVolume = 0.8f;
 //}}}
-static int16_t* audioBuf = nullptr;
-static int16_t* audioPtr = nullptr;
+static bool mSkip = false;
+static int mPlayFrame = 0;
 static cMp3Decoder* mp3Decoder = nullptr;
-static int loadFrame = 0;
+static int16_t* audBuf = nullptr;
+static int16_t* audPtr = nullptr;
 static float power [480*2];
 
 //{{{
 void BSP_AUDIO_OUT_HalfTransfer_CallBack() {
-  audioPtr = audioBuf;
-  osSemaphoreRelease (audioSem);
+  audPtr = audBuf;
+  osSemaphoreRelease (audSem);
   }
 //}}}
 //{{{
 void BSP_AUDIO_OUT_TransferComplete_CallBack() {
-  audioPtr = audioBuf + (1152*2);
-  osSemaphoreRelease (audioSem);
+  audPtr = audBuf + (1152*2);
+  osSemaphoreRelease (audSem);
   }
 //}}}
 
 //{{{
-static void loadFile (std::string fileName) {
+static void playFile (std::string fileName) {
 
   mLcd.setTitle (fileName);
   for (auto i = 0; i < 480*2; i++)
@@ -77,7 +78,7 @@ static void loadFile (std::string fileName) {
   FIL file;
   auto result = f_open (&file, fileName.c_str(), FA_OPEN_EXISTING | FA_READ);
   if (result != FR_OK) {
-    mLcd.text ("load failed " + fileName + " " + mLcd.intStr (result));
+    mLcd.text ("load failed " + mLcd.intStr (result));
     return;
     }
 
@@ -88,19 +89,23 @@ static void loadFile (std::string fileName) {
   auto fileBuffer = (unsigned char*)pvPortMalloc (size);
   unsigned int bytesRead = 0;
   result = f_read (&file, fileBuffer, size, &bytesRead);
+  if (result != FR_OK) {
+    mLcd.text ("read failed " + mLcd.intStr (result));
+    return;
+    }
   f_close (&file);
 
   // play file from fileBuffer
   mLcd.text ("playing " + mLcd.intStr (bytesRead));
-  audioPtr = audioBuf;
-  BSP_AUDIO_OUT_Play ((uint16_t*)audioPtr, 1152*8);
+  audPtr = audBuf;
+  BSP_AUDIO_OUT_Play ((uint16_t*)audPtr, 1152*8);
 
   auto ptr = fileBuffer;
-  loadFrame = 0;
-  while (size > 0) {
-    if (osSemaphoreWait (audioSem, 50) == osOK) {
-      auto bytesUsed = mp3Decoder->decodeFrame (ptr, size, &power[(loadFrame % 480) * 2], audioPtr);
-      loadFrame++;
+  mPlayFrame = 0;
+  while (size > 0 && !mSkip) {
+    if (osSemaphoreWait (audSem, 50) == osOK) {
+      auto bytesUsed = mp3Decoder->decodeFrame (ptr, size, &power[(mPlayFrame % 480) * 2], audPtr);
+      mPlayFrame++;
       if (bytesUsed > 0) {
         ptr += bytesUsed;
         size -= bytesUsed;
@@ -108,8 +113,11 @@ static void loadFile (std::string fileName) {
       //mLcd.text (mLcd.intStr (bytesUsed) + " " + mLcd.intStr (size));
       }
     }
-  vPortFree (fileBuffer);
+  if (mSkip)
+    mSkip = false;
+
   BSP_AUDIO_OUT_Stop (CODEC_PDWN_SW);
+  vPortFree (fileBuffer);
   }
 //}}}
 
@@ -138,13 +146,15 @@ static void uiThread (void const* argument) {
       if ((touch < tsState.touchDetected) && tsState.touchWeight[touch]) {
         auto x = tsState.touchX[touch];
         auto y = tsState.touchY[touch];
-        mLcd.ellipseOutline (touch > 0 ? LCD_LIGHTGREY : x < kInfo ? LCD_GREEN : x < kVolume ? LCD_MAGENTA : LCD_YELLOW,
+        mLcd.ellipse (touch > 0 ? LCD_LIGHTGREY : x < kInfo ? LCD_GREEN : x < kVolume ? LCD_MAGENTA : LCD_YELLOW,
                       x, y, tsState.touchWeight[touch], tsState.touchWeight[touch]);
         if (touch == 0) {
           if (x < kInfo)
             mLcd.pressed (pressed[touch], x, y, pressed[touch] ? x - lastx[touch] : 0, pressed[touch] ? y - lasty[touch] : 0);
-          else if (x < kVolume)
+          else if (x < kVolume) {
             mLcd.text (mLcd.intStr (x) + "," + mLcd.intStr (y) + "," + mLcd.intStr (tsState.touchWeight[touch]));
+            mSkip = y < 20;
+            }
           else {
             //{{{  adjust volume
             auto volume = pressed[touch] ? mVolume + float(y - lasty[touch]) / mLcd.getHeight(): float(y) / mLcd.getHeight();
@@ -174,11 +184,11 @@ static void uiThread (void const* argument) {
     //}}}
     //{{{  waveform
     for (auto x = 0; x < mLcd.getWidth(); x++) {
-      int frame = loadFrame - mLcd.getWidth() + x;
+      int frame = mPlayFrame - mLcd.getWidth() + x;
       if (frame > 0) {
         auto index = (frame % 480) * 2;
         uint8_t top = (mLcd.getHeight()/2) - (int)power[index];
-        uint8_t ylen = (int)power[index] + (int)power[index+1];
+        uint8_t ylen = (mLcd.getHeight()/2) + (int)power[index+1] - top;
         mLcd.rect (LCD_BLUE, x, top, 1, ylen);
         }
       }
@@ -193,9 +203,10 @@ static void loadThread (void const* argument) {
 
   mLcd.text ("loadThread started");
 
-  audioBuf = (int16_t*)malloc (1152*8);
-  memset (audioBuf, 0, 1152*8);
-  mLcd.text ("audioBuf:" + mLcd.hexStr ((int)audioBuf));
+  audBuf = (int16_t*)malloc (1152*8);
+  memset (audBuf, 0, 1152*8);
+  audPtr = audBuf;
+  mLcd.text ("audioBuf allocated " + mLcd.hexStr ((int)audBuf));
 
   BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_BOTH, int(mVolume * 100), 44100);
   BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
@@ -238,7 +249,7 @@ static void loadThread (void const* argument) {
           if ((filInfo.fname[i] == extension[0]) &&
               (filInfo.fname[i+1] == extension[1]) &&
               (filInfo.fname[i+2] == extension[2]))
-            loadFile (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname);
+            playFile (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname);
           }
         }
       }
@@ -462,7 +473,7 @@ int main() {
   dhcpSem = osSemaphoreCreate (osSemaphore (dhcp), -1);
 
   osSemaphoreDef (aud);
-  audioSem = osSemaphoreCreate (osSemaphore (aud), -1);
+  audSem = osSemaphoreCreate (osSemaphore (aud), -1);
 
   const osThreadDef_t osThreadStart = { (char*)"Start", startThread, osPriorityNormal, 0, 4000 };
   osThreadCreate (&osThreadStart, NULL);
