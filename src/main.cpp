@@ -46,24 +46,28 @@ static osSemaphoreId dhcpSem;
 static osSemaphoreId audSem;
 
 static cLcd mLcd;
-static float mVolume = 0.8f;
-//}}}
+static float mVolume = 0.7f;
+
 static bool mSkip = false;
 static int mPlayFrame = 0;
+
 static cMp3Decoder* mp3Decoder = nullptr;
-static int16_t* audBuf = nullptr;
-static int16_t* audPtr = nullptr;
+
 static float power [480*2];
+
+static int16_t* audBuf = nullptr;
+static bool audBufHalf = false;
+//}}}
 
 //{{{
 void BSP_AUDIO_OUT_HalfTransfer_CallBack() {
-  audPtr = audBuf;
+  audBufHalf = true;
   osSemaphoreRelease (audSem);
   }
 //}}}
 //{{{
 void BSP_AUDIO_OUT_TransferComplete_CallBack() {
-  audPtr = audBuf + (1152*2);
+  audBufHalf = false;
   osSemaphoreRelease (audSem);
   }
 //}}}
@@ -72,13 +76,15 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 static void playFile (std::string fileName) {
 
   mLcd.setTitle (fileName);
+  mLcd.text ("playing " + fileName);
+
   for (auto i = 0; i < 480*2; i++)
     power[i] = 0;
 
   FIL file;
   auto result = f_open (&file, fileName.c_str(), FA_OPEN_EXISTING | FA_READ);
   if (result != FR_OK) {
-    mLcd.text ("load failed " + mLcd.intStr (result));
+    mLcd.text ("- load failed " + mLcd.intStr (result));
     return;
     }
 
@@ -90,34 +96,34 @@ static void playFile (std::string fileName) {
   unsigned int bytesRead = 0;
   result = f_read (&file, fileBuffer, size, &bytesRead);
   if (result != FR_OK) {
-    mLcd.text ("read failed " + mLcd.intStr (result));
+    mLcd.text ("- read failed " + mLcd.intStr (result));
     return;
     }
   f_close (&file);
 
   // play file from fileBuffer
-  mLcd.text ("playing " + mLcd.intStr (bytesRead));
-  audPtr = audBuf;
-  BSP_AUDIO_OUT_Play ((uint16_t*)audPtr, 1152*8);
+  mLcd.text ("- size " + mLcd.intStr (bytesRead));
+  BSP_AUDIO_OUT_Play ((uint16_t*)audBuf, 1152*8);
 
   auto ptr = fileBuffer;
   mPlayFrame = 0;
   while (size > 0 && !mSkip) {
     if (osSemaphoreWait (audSem, 50) == osOK) {
-      auto bytesUsed = mp3Decoder->decodeFrame (ptr, size, &power[(mPlayFrame % 480) * 2], audPtr);
-      mPlayFrame++;
+      auto bytesUsed = mp3Decoder->decodeFrame (ptr, size, &power[(mPlayFrame % 480) * 2], audBufHalf ? audBuf : audBuf + (1152*2));
       if (bytesUsed > 0) {
         ptr += bytesUsed;
         size -= bytesUsed;
         }
-      //mLcd.text (mLcd.intStr (bytesUsed) + " " + mLcd.intStr (size));
+      else
+        break;
+      mPlayFrame++;
       }
     }
   if (mSkip)
     mSkip = false;
+  vPortFree (fileBuffer);
 
   BSP_AUDIO_OUT_Stop (CODEC_PDWN_SW);
-  vPortFree (fileBuffer);
   }
 //}}}
 
@@ -205,7 +211,6 @@ static void loadThread (void const* argument) {
 
   audBuf = (int16_t*)malloc (1152*8);
   memset (audBuf, 0, 1152*8);
-  audPtr = audBuf;
   mLcd.text ("audioBuf allocated " + mLcd.hexStr ((int)audBuf));
 
   BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_BOTH, int(mVolume * 100), 44100);
@@ -249,6 +254,7 @@ static void loadThread (void const* argument) {
           if ((filInfo.fname[i] == extension[0]) &&
               (filInfo.fname[i+1] == extension[1]) &&
               (filInfo.fname[i+2] == extension[2]))
+            //doFile (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname);
             playFile (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname);
           }
         }
