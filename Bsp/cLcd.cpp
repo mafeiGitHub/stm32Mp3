@@ -276,7 +276,7 @@ std::string cLcd::hexStr (int value, int width) {
   }
 //}}}
 //{{{
-void cLcd::text (uint32_t colour, std::string str, bool newLine) {
+void cLcd::info (uint32_t colour, std::string str, bool newLine) {
 
   bool tailing = mLastLine == (int)mFirstLine + mNumDrawLines - 1;
 
@@ -292,8 +292,8 @@ void cLcd::text (uint32_t colour, std::string str, bool newLine) {
   }
 //}}}
 //{{{
-void cLcd::text (std::string str, bool newLine) {
-  text (LCD_WHITE, str, newLine);
+void cLcd::info (std::string str, bool newLine) {
+  info (LCD_WHITE, str, newLine);
   }
 //}}}
 
@@ -609,7 +609,7 @@ void cLcd::endDraw() {
   }
 //}}}
 //{{{
-void cLcd::drawText() {
+void cLcd::draw() {
 
   if (!mBuffered) {
     mDrawStartTime = osKernelSysTick();

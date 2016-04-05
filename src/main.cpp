@@ -76,7 +76,7 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 static void playFile (std::string fileName) {
 
   mLcd.setTitle (fileName);
-  mLcd.text ("playing " + fileName);
+  mLcd.info ("playing " + fileName);
 
   mPlayBytes = 0;
   mPlaySize = 0;
@@ -86,7 +86,7 @@ static void playFile (std::string fileName) {
   FIL file;
   auto result = f_open (&file, fileName.c_str(), FA_OPEN_EXISTING | FA_READ);
   if (result != FR_OK) {
-    mLcd.text ("- load failed " + mLcd.intStr (result));
+    mLcd.info ("- load failed " + mLcd.intStr (result));
     return;
     }
   mPlaySize = f_size (&file);
@@ -99,14 +99,14 @@ static void playFile (std::string fileName) {
   unsigned int bytesRead = 0;
   result = f_read (&file, fileBuffer, size, &bytesRead);
   if (result != FR_OK) {
-    mLcd.text ("- read failed " + mLcd.intStr (result));
+    mLcd.info ("- read failed " + mLcd.intStr (result));
     f_close (&file);
     return;
     }
   f_close (&file);
 
   // play file from fileBuffer
-  mLcd.text ("- loaded " + mLcd.intStr (bytesRead) + " of " +  mLcd.intStr (mPlaySize));
+  mLcd.info ("- loaded " + mLcd.intStr (bytesRead) + " of " +  mLcd.intStr (mPlaySize));
 
   memset (audBuf, 0, 1152*8);
   BSP_AUDIO_OUT_Play ((uint16_t*)audBuf, 1152*8);
@@ -127,7 +127,7 @@ static void playFile (std::string fileName) {
       }
     }
   if (mSkip) {
-    mLcd.text ("- skipped at " + mLcd.intStr (mPlayBytes) + " of " +  mLcd.intStr (mPlaySize));
+    mLcd.info ("- skipped at " + mLcd.intStr (mPlayBytes) + " of " +  mLcd.intStr (mPlaySize));
     mSkip = false;
     }
 
@@ -141,7 +141,7 @@ static void playFile (std::string fileName) {
 //{{{
 static void uiThread (void const* argument) {
 
-  mLcd.text ("uiThread started");
+  mLcd.info ("uiThread started");
 
   const int kInfo = 150;
   const int kVolume = 440;
@@ -173,7 +173,7 @@ static void uiThread (void const* argument) {
             //}}}
           else if (x < kVolume) {
             //{{{  pressed middle
-            //mLcd.text (mLcd.intStr (x) + "," + mLcd.intStr (y) + "," + mLcd.intStr (tsState.touchWeight[touch]));
+            //mLcd.info (mLcd.intStr (x) + "," + mLcd.intStr (y) + "," + mLcd.intStr (tsState.touchWeight[touch]));
             if (y < 20)
               mSkip = true;
             }
@@ -239,37 +239,37 @@ static void uiThread (void const* argument) {
 //{{{
 static void loadThread (void const* argument) {
 
-  mLcd.text ("loadThread started");
+  mLcd.info ("loadThread started");
 
   audBuf = (int16_t*)malloc (1152*8);
   memset (audBuf, 0, 1152*8);
-  mLcd.text ("audioBuf allocated " + mLcd.hexStr ((int)audBuf));
+  mLcd.info ("audioBuf allocated " + mLcd.hexStr ((int)audBuf));
 
   BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_BOTH, int(mVolume * 100), 44100);
   BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
 
   mp3Decoder = new cMp3Decoder;
-  mLcd.text ("Mp3 decoder allocated:" + mLcd.hexStr ((int)mp3Decoder, 8));
+  mLcd.info ("Mp3 decoder allocated:" + mLcd.hexStr ((int)mp3Decoder, 8));
 
   BSP_SD_Init();
   while (BSP_SD_IsDetected() != SD_PRESENT) {
-    mLcd.text (LCD_RED, "no SD card");
+    mLcd.info (LCD_RED, "no SD card");
     osDelay (1000);
     }
-  mLcd.text ("SD card found");
+  mLcd.info ("SD card found");
 
   FRESULT result = f_mount ((FATFS*)0x20000000, "", 0);
   if (result != FR_OK)
-    mLcd.text ("FAT fileSystem mount error:" + mLcd.intStr (result));
+    mLcd.info ("FAT fileSystem mount error:" + mLcd.intStr (result));
   else {
-    mLcd.text ("FAT fileSystem mounted");
+    mLcd.info ("FAT fileSystem mounted");
 
     DIR dir;
     result = f_opendir (&dir, "/");
     if (result != FR_OK)
-      mLcd.text (LCD_RED, "directory open error:"  + mLcd.intStr (result));
+      mLcd.info (LCD_RED, "directory open error:"  + mLcd.intStr (result));
     else {
-      mLcd.text ("directory opened - looking for mp3");
+      mLcd.info ("directory opened - looking for mp3");
 
       FILINFO filInfo;
       filInfo.lfname = (char*)malloc (_MAX_LFN + 1);
@@ -292,7 +292,7 @@ static void loadThread (void const* argument) {
 
   int tick = 0;
   while (true) {
-    mLcd.text ("load tick" + mLcd.intStr (tick++));
+    mLcd.info ("load tick" + mLcd.intStr (tick++));
     osDelay (10000);
     }
   }
@@ -300,7 +300,7 @@ static void loadThread (void const* argument) {
 //{{{
 static void dhcpThread (void const* argument) {
 
-  mLcd.text ("dhcpThread started");
+  mLcd.info ("dhcpThread started");
   auto netif = (struct netif*)argument;
 
   struct ip_addr nullIpAddr;
@@ -312,7 +312,7 @@ static void dhcpThread (void const* argument) {
 
   while (true) {
     if (netif->ip_addr.addr) {
-      mLcd.text (LCD_YELLOW, "dhcp allocated " + mLcd.intStr ((int)(netif->ip_addr.addr & 0xFF)) + "." +
+      mLcd.info (LCD_YELLOW, "dhcp allocated " + mLcd.intStr ((int)(netif->ip_addr.addr & 0xFF)) + "." +
                                                  mLcd.intStr ((int)((netif->ip_addr.addr >> 16) & 0xFF)) + "." +
                                                  mLcd.intStr ((int)((netif->ip_addr.addr >> 8) & 0xFF)) + "." +
                                                  mLcd.intStr ((int)(netif->ip_addr.addr >> 24)));
@@ -321,7 +321,7 @@ static void dhcpThread (void const* argument) {
       break;
       }
     else if (netif->dhcp->tries > 4) {
-      mLcd.text (LCD_RED, "dhcp timeout");
+      mLcd.info (LCD_RED, "dhcp timeout");
       dhcp_stop (netif);
 
       // use static address
@@ -346,7 +346,7 @@ static void startThread (void const* argument) {
 
   mLcd.init (SDRAM_FRAME0, SDRAM_FRAME1);
   mLcd.setTitle (__TIME__ __DATE__);
-  mLcd.text ("startThread started");
+  mLcd.info ("startThread started");
 
   const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 2000 };
   osThreadCreate (&osThreadUi, NULL);
@@ -356,7 +356,7 @@ static void startThread (void const* argument) {
 
   if (true) {
     tcpip_init (NULL, NULL);
-    mLcd.text ("configuring ethernet");
+    mLcd.info ("configuring ethernet");
 
     // init LwIP stack
     struct ip_addr ipAddr;
@@ -370,7 +370,7 @@ static void startThread (void const* argument) {
 
     if (netif_is_link_up (&gNetif)) {
       netif_set_up (&gNetif);
-      mLcd.text ("ethernet connected");
+      mLcd.info ("ethernet connected");
 
       const osThreadDef_t osThreadDHCP =  { (char*)"DHCP", dhcpThread, osPriorityBelowNormal, 0, 1024 };
       osThreadCreate (&osThreadDHCP, &gNetif);
@@ -378,12 +378,12 @@ static void startThread (void const* argument) {
         osDelay (1000);
 
       httpServerInit();
-      mLcd.text ("httpServer started");
+      mLcd.info ("httpServer started");
       }
     else {
       //{{{  no ethernet
       netif_set_down (&gNetif);
-      mLcd.text (LCD_RED, "no ethernet");
+      mLcd.info (LCD_RED, "no ethernet");
       }
       //}}}
     }
