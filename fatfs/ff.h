@@ -1,23 +1,7 @@
-//{{{  description
- /*---------------------------------------------------------------------------/
-/  FatFs - FAT file system module include R0.11     (C)ChaN, 2015
-/----------------------------------------------------------------------------/
-/ FatFs module is a free software that opened under license policy of
-/ following conditions.
-/
-/ Copyright (C) 2015, ChaN, all right reserved.
-/
-/ 1. Redistributions of source code must retain the above copyright notice,
-/    this condition and the following disclaimer.
-/
-/ This software is provided by the copyright holder and contributors "AS IS"
-/ and any warranties related to this software are DISCLAIMED.
-/ The copyright owner or contributors be NOT LIABLE for any damages caused
-/ by use of this software.
-/---------------------------------------------------------------------------*/
-//}}}
+// ff.h
 #pragma once
 #define _FATFS  32020 /* Revision ID */
+#include "cmsis_os.h"
 //{{{
 #ifdef __cplusplus
   extern "C" {
@@ -40,7 +24,31 @@ typedef unsigned int    UINT;
 typedef long            LONG;
 typedef unsigned long   DWORD;
 //}}}
-#include "ffconf.h"
+//{{{  ff_conf
+#define _MIN_SS      512
+#define _MAX_SS      512
+
+#define _MAX_LFN     255  /* Maximum LFN length to handle (12 to 255) */
+#define _CODE_PAGE   1252
+#define _LFN_UNICODE 0   /* 0:ANSI/OEM or 1:Unicode */
+#define _STRF_ENCODE 3   /* 0:ANSI/OEM, 1:UTF-16LE, 2:UTF-16BE, 3:UTF-8 */
+
+#define _VOLUMES     1   // Number of volumes (logical drives) to be used
+#define _MULTI_PARTITION 0 /* 0:Single partition, 1:Enable multiple partition */
+
+#define _USE_TRIM    0
+
+#define _FS_NOFSINFO 0   /* 0 or 1 */
+
+#define _FS_NORTC    0
+#define _NORTC_MON   2
+#define _NORTC_MDAY  1
+#define _NORTC_YEAR  2015
+#define _WORD_ACCESS 0    /* 0 or 1 */
+
+#define _FS_TIMEOUT  1000 /* Timeout period in unit of time ticks */
+#define _FS_LOCK     2    /* 0:Disable or >=1:Enable */
+//}}}
 
 //{{{  Definitions of volume management
 #if _MULTI_PARTITION
@@ -65,10 +73,6 @@ typedef unsigned long   DWORD;
 //{{{  Type of path name strings on FatFs API
 #if _LFN_UNICODE
   /* Unicode string */
-  #if !_USE_LFN
-    #error _LFN_UNICODE must be 0 at non-LFN cfg.
-  #endif
-
   #ifndef _INC_TCHAR
     typedef WCHAR TCHAR;
     #define _T(x) L ## x
@@ -173,15 +177,11 @@ typedef struct {
   WORD  ssize;      /* Bytes per sector (512, 1024, 2048 or 4096) */
 #endif
 
-  _SYNC_t sobj;     /* Identifier of sync object */
+  osSemaphoreId sobj;     /* Identifier of sync object */
 
   DWORD last_clust; /* Last allocated cluster */
   DWORD free_clust; /* Number of free clusters */
-
-#if _FS_RPATH
   DWORD cdir;       /* Current directory start cluster (0:root) */
-#endif
-
   DWORD n_fatent;   /* Number of FAT entries, = number of clusters + 2 */
   DWORD fsize;      /* Sectors per FAT */
   DWORD volbase;    /* Volume start sector */
@@ -296,18 +296,10 @@ TCHAR* f_gets (TCHAR* buff, int len, FIL* fp);    /* Get a string from the file 
   #define EOF (-1)
 #endif
 
-// driver interfaces
-DWORD get_fattime (void);
+// ccsbcs interfaces
 WCHAR ff_convert (WCHAR chr, UINT dir);       /* OEM-Unicode bidirectional conversion */
 WCHAR ff_wtoupper (WCHAR chr);                /* Unicode upper-case conversion */
 
-void* ff_memalloc (UINT msize);               /* Allocate memory block */
-void ff_memfree (void* mblock);               /* Free memory block */
-
-int ff_cre_syncobj (BYTE vol, _SYNC_t* sobj); /* Create a sync object */
-int ff_req_grant (_SYNC_t sobj);              /* Lock sync object */
-void ff_rel_grant (_SYNC_t sobj);             /* Unlock sync object */
-int ff_del_syncobj (_SYNC_t sobj);            /* Delete a sync object */
 //{{{
 #ifdef __cplusplus
   }

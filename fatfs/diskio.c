@@ -9,12 +9,6 @@
 static volatile DSTATUS Stat = STA_NOINIT;
 
 /*{{{*/
-__weak DWORD get_fattime() {
-  return 0;
-  }
-/*}}}*/
-
-/*{{{*/
 DSTATUS disk_status (BYTE pdrv) {
 
   Stat = STA_NOINIT;
@@ -82,46 +76,5 @@ DRESULT disk_read (BYTE pdrv, BYTE* buff, DWORD sector, UINT count) {
 /*{{{*/
 DRESULT disk_write (BYTE pdrv, const BYTE* buff, DWORD sector, UINT count) {
   return BSP_SD_WriteBlocks ((uint32_t*)buff, (uint64_t)(sector * BLOCK_SIZE), BLOCK_SIZE, count) == MSD_OK ? RES_OK : RES_ERROR;
-  }
-/*}}}*/
-
-#if _FS_REENTRANT
-  /*{{{*/
-  int ff_cre_syncobj (BYTE vol, _SYNC_t *sobj) {
-    osSemaphoreDef (SEM);
-    *sobj = osSemaphoreCreate (osSemaphore(SEM), 1);
-    return *sobj != NULL;
-    }
-  /*}}}*/
-  /*{{{*/
-
-  int ff_del_syncobj (_SYNC_t sobj) {
-    osSemaphoreDelete (sobj);
-    return 1;
-    }
-  /*}}}*/
-  /*{{{*/
-  int ff_req_grant (_SYNC_t sobj) {
-    int ret = 0;
-    if (osSemaphoreWait(sobj, _FS_TIMEOUT) == osOK)
-      ret = 1;
-    return ret;
-    }
-  /*}}}*/
-  /*{{{*/
-  void ff_rel_grant (_SYNC_t sobj) {
-    osSemaphoreRelease(sobj);
-    }
-  /*}}}*/
-#endif
-
-/*{{{*/
-void* ff_memalloc (UINT msize) {
-  return pvPortMalloc (msize);
-  }
-/*}}}*/
-/*{{{*/
-void ff_memfree (void* mblock) {
-  vPortFree (mblock);
   }
 /*}}}*/
