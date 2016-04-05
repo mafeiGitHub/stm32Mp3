@@ -512,8 +512,9 @@ static void clear_lock (FATFS* fs) {
 /*}}}*/
 /*}}}*/
 /*{{{*/
-/* Compare memory to memory */
 static int mem_cmp (const void* dst, const void* src, UINT cnt) {
+/* Compare memory to memory */
+
   const BYTE *d = (const BYTE *)dst, *s = (const BYTE *)src;
   int r = 0;
 
@@ -522,11 +523,13 @@ static int mem_cmp (const void* dst, const void* src, UINT cnt) {
 }
 /*}}}*/
 /*{{{*/
-/* Check if chr is contained in the string */
 static int chk_chr (const char* str, int chr) {
-  while (*str && *str != chr) str++;
+/* Check if chr is contained in the string */
+
+  while (*str && *str != chr) 
+    str++;
   return *str;
-}
+  }
 /*}}}*/
 
 /*{{{*/
@@ -1034,7 +1037,7 @@ static void gen_numname (BYTE* dst, const BYTE* src, const WCHAR* lfn, UINT seq)
 
   memcpy (dst, src, 11);
 
-  if (seq > 5) { 
+  if (seq > 5) {
     /* On many collisions, generate a hash number instead of sequential number */
     sr = seq;
     while (*lfn) {  /* Create a CRC */
@@ -1152,9 +1155,9 @@ static FRESULT dir_read (DIR* dp, int vol) {
     if (res != FR_OK) break;
     dir = dp->dir;          /* Ptr to the directory entry of current index */
     c = dir[DIR_Name];
-    if (c == 0) { 
-      res = FR_NO_FILE; 
-      break; 
+    if (c == 0) {
+      res = FR_NO_FILE;
+      break;
       }  /* Reached to end of table */
 
     a = dir[DIR_Attr] & AM_MASK;
@@ -1326,9 +1329,9 @@ static void get_fileinfo (DIR* dp, FILINFO* fno) {
           p[i++] = (TCHAR)(w >> 8);
 #endif
 
-        if (i >= fno->lfsize - 1) { 
-          i = 0; 
-          break; 
+        if (i >= fno->lfsize - 1) {
+          i = 0;
+          break;
           } /* No LFN if buffer overflow */
         p[i++] = (TCHAR)w;
       }
@@ -1344,13 +1347,13 @@ static WCHAR get_achar (const TCHAR** ptr ) {
 
 #if !_LFN_UNICODE
   chr = (BYTE)*(*ptr)++;          /* Get a byte */
-  if (IsLower(chr)) 
+  if (IsLower(chr))
     chr -= 0x20;      /* To upper ASCII char */
   if (IsDBCS1(chr) && IsDBCS2(**ptr))   /* Get DBC 2nd byte if needed */
     chr = chr << 8 | (BYTE)*(*ptr)++;
 
   #ifdef _EXCVT
-    if (chr >= 0x80) 
+    if (chr >= 0x80)
       chr = ExCvt[chr - 0x80]; /* To upper SBCS extended char */
   #endif
 
@@ -1547,7 +1550,7 @@ static FRESULT follow_path (DIR* dp, const TCHAR* path) {
 
   if (*path == '/' || *path == '\\') {  /* There is a heading separator */
     path++; dp->sclust = 0;       /* Strip it and start from the root directory */
-    } 
+    }
   else {                /* No heading separator */
     dp->sclust = dp->fs->cdir;      /* Start from the current directory */
     }
@@ -1555,7 +1558,7 @@ static FRESULT follow_path (DIR* dp, const TCHAR* path) {
   if ((UINT)*path < ' ') {        /* Null path name is the origin directory itself */
     res = dir_sdi(dp, 0);
     dp->dir = 0;
-    } 
+    }
 
   else {                /* Follow path */
     for (;;) {
@@ -1569,7 +1572,7 @@ static FRESULT follow_path (DIR* dp, const TCHAR* path) {
             dp->sclust = 0; dp->dir = 0;  /* it is the root directory and stay there */
             if (!(ns & NS_LAST)) continue;  /* Continue to follow if not last segment */
             res = FR_OK;          /* Ended at the root directroy. Function completed. */
-            } 
+            }
           else {              /* Could not find the object */
             if (!(ns & NS_LAST)) res = FR_NO_PATH;  /* Adjust error code if not last segment */
             }
@@ -1577,7 +1580,7 @@ static FRESULT follow_path (DIR* dp, const TCHAR* path) {
         break;
         }
 
-      if (ns & NS_LAST) 
+      if (ns & NS_LAST)
         break;      /* Last segment matched. Function completed. */
       dir = dp->dir;            /* Follow the sub-directory */
       if (!(dir[DIR_Attr] & AM_DIR)) {  /* It is not a sub-directory and cannot follow */

@@ -41,22 +41,22 @@
 //}}}
 //{{{  static vars
 static struct netif gNetif;
-
 static osSemaphoreId dhcpSem;
-static osSemaphoreId audSem;
 
 static cLcd mLcd;
 static float mVolume = 0.7f;
 
-static bool mSkip = false;
 static int mPlayFrame = 0;
+static int mPlayBytes = 0;
+static int mPlaySize = 0;
+static bool mSkip = false;
 
 static cMp3Decoder* mp3Decoder = nullptr;
+static float mPower [480*2];
 
-static float power [480*2];
-
-static int16_t* audBuf = nullptr;
+static osSemaphoreId audSem;
 static bool audBufHalf = false;
+static int16_t* audBuf = nullptr;
 //}}}
 
 //{{{
@@ -78,8 +78,10 @@ static void playFile (std::string fileName) {
   mLcd.setTitle (fileName);
   mLcd.text ("playing " + fileName);
 
+  mPlayBytes = 0;
+  mPlaySize = 0;
   for (auto i = 0; i < 480*2; i++)
-    power[i] = 0;
+    mPower[i] = 0;
 
   FIL file;
   auto result = f_open (&file, fileName.c_str(), FA_OPEN_EXISTING | FA_READ);
@@ -87,9 +89,10 @@ static void playFile (std::string fileName) {
     mLcd.text ("- load failed " + mLcd.intStr (result));
     return;
     }
+  mPlaySize = f_size (&file);
 
   // load file into fileBuffer, limit to 5m for now
-  int size = f_size (&file);
+  int size = mPlaySize;
   if (size > 0x00500000) // 5m
     size = 0x00500000;
   auto fileBuffer = (unsigned char*)pvPortMalloc (size);
@@ -102,16 +105,17 @@ static void playFile (std::string fileName) {
   f_close (&file);
 
   // play file from fileBuffer
-  mLcd.text ("- size " + mLcd.intStr (bytesRead));
+  mLcd.text ("- loaded " + mLcd.intStr (bytesRead) + " of " +  mLcd.intStr (mPlaySize));
   BSP_AUDIO_OUT_Play ((uint16_t*)audBuf, 1152*8);
 
   auto ptr = fileBuffer;
   mPlayFrame = 0;
   while (size > 0 && !mSkip) {
     if (osSemaphoreWait (audSem, 50) == osOK) {
-      auto bytesUsed = mp3Decoder->decodeFrame (ptr, size, &power[(mPlayFrame % 480) * 2], audBufHalf ? audBuf : audBuf + (1152*2));
+      auto bytesUsed = mp3Decoder->decodeFrame (ptr, size, &mPower[(mPlayFrame % 480) * 2], audBufHalf ? audBuf : audBuf + (1152*2));
       if (bytesUsed > 0) {
         ptr += bytesUsed;
+        mPlayBytes = int(ptr - fileBuffer);
         size -= bytesUsed;
         }
       else
@@ -119,8 +123,11 @@ static void playFile (std::string fileName) {
       mPlayFrame++;
       }
     }
-  if (mSkip)
+  if (mSkip) {
+    mLcd.text ("- skipped at " + mLcd.intStr (mPlayBytes) + " of " +  mLcd.intStr (mPlaySize));
     mSkip = false;
+    }
+
   vPortFree (fileBuffer);
 
   BSP_AUDIO_OUT_Stop (CODEC_PDWN_SW);
@@ -131,77 +138,99 @@ static void playFile (std::string fileName) {
 //{{{
 static void uiThread (void const* argument) {
 
+  mLcd.text ("uiThread started");
+
   const int kInfo = 150;
   const int kVolume = 440;
 
-  mLcd.text ("uiThread started");
-
+  // init touch
+  BSP_TS_Init (mLcd.getWidth(), mLcd.getHeight());
   int pressed [5] = {0, 0, 0, 0, 0};
   int lastx [5];
   int lasty [5];
+  int lastz [5];
 
-  BSP_TS_Init (mLcd.getWidth(), mLcd.getHeight());
   while (true) {
+    //{{{  touch
     TS_StateTypeDef tsState;
     BSP_TS_GetState (&tsState);
 
-    mLcd.startDraw();
+    mSkip = false;
 
-    //  touchscreen
     for (auto touch = 0; touch < 5; touch++) {
       if ((touch < tsState.touchDetected) && tsState.touchWeight[touch]) {
         auto x = tsState.touchX[touch];
         auto y = tsState.touchY[touch];
-        mLcd.ellipse (touch > 0 ? LCD_LIGHTGREY : x < kInfo ? LCD_GREEN : x < kVolume ? LCD_MAGENTA : LCD_YELLOW,
-                      x, y, tsState.touchWeight[touch], tsState.touchWeight[touch]);
+        auto z = tsState.touchWeight[touch];
+
         if (touch == 0) {
           if (x < kInfo)
+            //{{{  pressed mLcd info
             mLcd.pressed (pressed[touch], x, y, pressed[touch] ? x - lastx[touch] : 0, pressed[touch] ? y - lasty[touch] : 0);
+            //}}}
           else if (x < kVolume) {
-            mLcd.text (mLcd.intStr (x) + "," + mLcd.intStr (y) + "," + mLcd.intStr (tsState.touchWeight[touch]));
-            mSkip = y < 20;
-            }
-          else {
-            //{{{  adjust volume
-            auto volume = pressed[touch] ? mVolume + float(y - lasty[touch]) / mLcd.getHeight(): float(y) / mLcd.getHeight();
-
-            if (volume < 0)
-              volume = 0;
-            else if (volume > 1.0f)
-              volume = 1.0f;
-
-            if (volume != mVolume) {
-              mVolume = volume;
-              BSP_AUDIO_OUT_SetVolume (int(mVolume * 100));
-              }
+            //{{{  pressed middle
+            //mLcd.text (mLcd.intStr (x) + "," + mLcd.intStr (y) + "," + mLcd.intStr (tsState.touchWeight[touch]));
+            if (y < 20)
+              mSkip = true;
             }
             //}}}
+          else {
+             //{{{  pressed volume
+             auto volume = pressed[touch] ? mVolume + float(y - lasty[touch]) / mLcd.getHeight(): float(y) / mLcd.getHeight();
+
+             if (volume < 0)
+               volume = 0;
+             else if (volume > 1.0f)
+               volume = 1.0f;
+
+             if (volume != mVolume) {
+               mVolume = volume;
+               BSP_AUDIO_OUT_SetVolume (int(mVolume * 100));
+               }
+             }
+             //}}}
           }
+
         lastx[touch] = x;
         lasty[touch] = y;
+        lastz[touch] = z;
         pressed[touch]++;
         }
       else
         pressed[touch] = 0;
       }
+    //}}}
 
-    //{{{  volume bar
+    mLcd.startDraw();
+    //{{{  draw cursors
+    auto drawTouch = 0;
+    while ((drawTouch < 5) && pressed[drawTouch]) {
+      mLcd.ellipse (drawTouch > 0 ? LCD_LIGHTGREY : lastx[0] < kInfo ? LCD_GREEN : lastx[0] < kVolume ? LCD_MAGENTA : LCD_YELLOW,
+                    lastx[drawTouch], lasty[drawTouch], lastz[drawTouch], lastz[drawTouch]);
+      drawTouch++;
+      }
+    //}}}
+    //{{{  draw yellow volume
     mLcd.rect (LCD_YELLOW, mLcd.getWidth()-20, 0, 20, int(mVolume * mLcd.getHeight()));
     //}}}
-    //{{{  waveform
+    //{{{  draw blue play progress
+    mLcd.rect (LCD_BLUE, 0, 0, (mPlayBytes * mLcd.getWidth()) / mPlaySize, 2);
+    //}}}
+    //{{{  draw blue waveform
     for (auto x = 0; x < mLcd.getWidth(); x++) {
       int frame = mPlayFrame - mLcd.getWidth() + x;
       if (frame > 0) {
         auto index = (frame % 480) * 2;
-        uint8_t top = (mLcd.getHeight()/2) - (int)power[index]/2;
-        uint8_t ylen = (mLcd.getHeight()/2) + (int)power[index+1]/2 - top;
+        uint8_t top = (mLcd.getHeight()/2) - (int)mPower[index]/2;
+        uint8_t ylen = (mLcd.getHeight()/2) + (int)mPower[index+1]/2 - top;
         mLcd.rectClipped (LCD_BLUE, x, top, 1, ylen);
         }
       }
     //}}}
-
     mLcd.endDraw();
     }
+
   }
 //}}}
 //{{{
@@ -250,11 +279,8 @@ static void loadThread (void const* argument) {
           continue;
         if (!(filInfo.fattrib & AM_DIR)) {
           auto i = 0;
-          while (filInfo.fname[i++] != '.') {;}
-          if ((filInfo.fname[i] == extension[0]) &&
-              (filInfo.fname[i+1] == extension[1]) &&
-              (filInfo.fname[i+2] == extension[2]))
-            //doFile (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname);
+          while (filInfo.fname[i++] != '.') {}
+          if ((filInfo.fname[i] == extension[0]) && (filInfo.fname[i+1] == extension[1]) && (filInfo.fname[i+2] == extension[2]))
             playFile (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname);
           }
         }
