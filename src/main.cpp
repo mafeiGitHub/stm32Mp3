@@ -100,12 +100,15 @@ static void playFile (std::string fileName) {
   result = f_read (&file, fileBuffer, size, &bytesRead);
   if (result != FR_OK) {
     mLcd.text ("- read failed " + mLcd.intStr (result));
+    f_close (&file);
     return;
     }
   f_close (&file);
 
   // play file from fileBuffer
   mLcd.text ("- loaded " + mLcd.intStr (bytesRead) + " of " +  mLcd.intStr (mPlaySize));
+
+  memset (audBuf, 0, 1152*8);
   BSP_AUDIO_OUT_Play ((uint16_t*)audBuf, 1152*8);
 
   auto ptr = fileBuffer;
