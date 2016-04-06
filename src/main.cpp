@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <math.h>
 
+#include "memory.h"
 #include "cmsis_os.h"
 
 #include "lwip/netif.h"
@@ -31,18 +32,10 @@
 
 using namespace std;
 //}}}
-//{{{  sdram allocation
-#define SDRAM_FRAME0    0xC0000000 // frameBuffer 272*480*4 = 0x7f800 = 512k-2048b leave bit of guard for clipping errors
-#define SDRAM_FRAME1    0xC0080000
-
-#define SDRAM_HEAP      0xC0100000 // sdram heap
-#define SDRAM_HEAP_SIZE 0x00700000 // 7m
-//}}}
 //{{{  static vars
 static struct netif gNetif;
 static osSemaphoreId dhcpSem;
 
-static cLcd* mLcd;
 static float mVolume = 0.7f;
 
 static int mPlayFrame = 0;
@@ -55,7 +48,6 @@ static float mPower [480*2];
 
 static osSemaphoreId audSem;
 static bool audBufHalf = false;
-static int16_t* audBuf = nullptr;
 //}}}
 
 //{{{
@@ -74,8 +66,9 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 //{{{
 static void playFile (string fileName) {
 
-  mLcd->setTitle (fileName);
-  mLcd->info ("playing " + fileName);
+  auto lcd = cLcd::instance();
+  lcd->setTitle (fileName);
+  lcd->info ("playing " + fileName);
 
   mPlayBytes = 0;
   mPlaySize = 0;
@@ -85,7 +78,7 @@ static void playFile (string fileName) {
   FIL file;
   auto result = f_open (&file, fileName.c_str(), FA_OPEN_EXISTING | FA_READ);
   if (result != FR_OK) {
-    mLcd->info ("- load failed " + cLcd::intStr (result));
+    lcd->info ("- load failed " + cLcd::intStr (result));
     return;
     }
   mPlaySize = f_size (&file);
@@ -100,21 +93,22 @@ static void playFile (string fileName) {
   f_close (&file);
 
   if (result != FR_OK) {
-    mLcd->info ("- read failed " + cLcd::intStr (result));
+    lcd->info ("- read failed " + cLcd::intStr (result));
     return;
     }
 
   // play file from fileBuffer
-  mLcd->info ("- loaded " + cLcd::intStr (bytesRead) + " of " +  cLcd::intStr (mPlaySize));
+  lcd->info ("- loaded " + cLcd::intStr (bytesRead) + " of " +  cLcd::intStr (mPlaySize));
 
-  memset (audBuf, 0, 1152*8);
-  BSP_AUDIO_OUT_Play ((uint16_t*)audBuf, 1152*8);
+  memset ((void*)AUDIO_BUFFER, 0, AUDIO_BUFFER_SIZE);
+  BSP_AUDIO_OUT_Play ((uint16_t*)AUDIO_BUFFER, AUDIO_BUFFER_SIZE);
 
   auto ptr = fileBuffer;
   mPlayFrame = 0;
   while ((size > 0) && !mSkip) {
     if (osSemaphoreWait (audSem, 50) == osOK) {
-      auto bytesUsed = mp3Decoder->decodeFrame (ptr, size, &mPower[(mPlayFrame % 480) * 2], audBufHalf ? audBuf : audBuf + (1152*2));
+      auto bytesUsed = mp3Decoder->decodeFrame (ptr, size, &mPower[(mPlayFrame % 480) * 2],
+                                                (int16_t*)(audBufHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
       if (bytesUsed > 0) {
         ptr += bytesUsed;
         mPlayBytes = int(ptr - fileBuffer);
@@ -127,7 +121,7 @@ static void playFile (string fileName) {
     }
 
   if (mSkip) {
-    mLcd->info ("- skipped at " + cLcd::intStr (mPlayBytes) + " of " +  cLcd::intStr (mPlaySize));
+    lcd->info ("- skipped at " + cLcd::intStr (mPlayBytes) + " of " +  cLcd::intStr (mPlaySize));
     mSkip = false;
     }
 
@@ -141,7 +135,8 @@ static void playFile (string fileName) {
 //{{{
 static void uiThread (void const* argument) {
 
-  mLcd->info ("uiThread started");
+  auto lcd = cLcd::instance();
+  lcd->info ("uiThread started");
 
   const int kInfo = 150;
   const int kVolume = 440;
@@ -167,19 +162,19 @@ static void uiThread (void const* argument) {
 
         if (touch == 0) {
           if (x < kInfo)
-            //{{{  pressed mLcd info
-            mLcd->pressed (pressed[touch], x, y, pressed[touch] ? x - lastx[touch] : 0, pressed[touch] ? y - lasty[touch] : 0);
+            //{{{  pressed lcd info
+            lcd->pressed (pressed[touch], x, y, pressed[touch] ? x - lastx[touch] : 0, pressed[touch] ? y - lasty[touch] : 0);
             //}}}
           else if (x < kVolume) {
             //{{{  pressed middle
-            //mLcd->info (cLcd::intStr (x) + "," + cLcd::intStr (y) + "," + cLcd::intStr (tsState.touchWeight[touch]));
+            //lcd->info (cLcd::intStr (x) + "," + cLcd::intStr (y) + "," + cLcd::intStr (tsState.touchWeight[touch]));
             if (y < 20)
               mSkip = true;
             }
             //}}}
           else {
             //{{{  pressed volume
-            auto volume = pressed[touch] ? mVolume + float(y - lasty[touch]) / mLcd->getHeight(): float(y) / mLcd->getHeight();
+            auto volume = pressed[touch] ? mVolume + float(y - lasty[touch]) / lcd->getHeight(): float(y) / lcd->getHeight();
 
             if (volume < 0)
               volume = 0;
@@ -204,30 +199,30 @@ static void uiThread (void const* argument) {
       }
     //}}}
 
-    mLcd->startDraw();
+    lcd->startDraw();
     //{{{  draw touch
     for (auto touch = 0; (touch < 5) && pressed[touch]; touch++)
-      mLcd->ellipse (touch > 0 ? LCD_LIGHTGREY : lastx[0] < kInfo ? LCD_GREEN : lastx[0] < kVolume ? LCD_MAGENTA : LCD_YELLOW,
+      lcd->ellipse (touch > 0 ? LCD_LIGHTGREY : lastx[0] < kInfo ? LCD_GREEN : lastx[0] < kVolume ? LCD_MAGENTA : LCD_YELLOW,
                     lastx[touch], lasty[touch], lastz[touch], lastz[touch]);
     //}}}
     //{{{  draw yellow volume
-    mLcd->rect (LCD_YELLOW, cLcd::getWidth()-20, 0, 20, int(mVolume * cLcd::getHeight()));
+    lcd->rect (LCD_YELLOW, cLcd::getWidth()-20, 0, 20, int(mVolume * cLcd::getHeight()));
     //}}}
     //{{{  draw blue play progress
-    mLcd->rect (LCD_BLUE, 0, 0, (mPlayBytes * cLcd::getWidth()) / mPlaySize, 2);
+    lcd->rect (LCD_BLUE, 0, 0, (mPlayBytes * cLcd::getWidth()) / mPlaySize, 2);
     //}}}
     //{{{  draw blue waveform
     for (auto x = 0; x < cLcd::getWidth(); x++) {
       int frame = mPlayFrame - cLcd::getWidth() + x;
       if (frame > 0) {
         auto index = (frame % 480) * 2;
-        uint8_t top = (mLcd->getHeight()/2) - (int)mPower[index]/2;
-        uint8_t ylen = (mLcd->getHeight()/2) + (int)mPower[index+1]/2 - top;
-        mLcd->rectClipped (LCD_BLUE, x, top, 1, ylen);
+        uint8_t top = (lcd->getHeight()/2) - (int)mPower[index]/2;
+        uint8_t ylen = (lcd->getHeight()/2) + (int)mPower[index+1]/2 - top;
+        lcd->rectClipped (LCD_BLUE, x, top, 1, ylen);
         }
       }
     //}}}
-    mLcd->endDraw();
+    lcd->endDraw();
     }
 
   }
@@ -235,38 +230,32 @@ static void uiThread (void const* argument) {
 //{{{
 static void loadThread (void const* argument) {
 
-  mLcd->info ("loadThread started");
-
-  audBuf = (int16_t*)malloc (1152*8);
-  memset (audBuf, 0, 1152*8);
-  mLcd->info (cLcd::hexStr ((int)audBuf) + " audioBuf allocated");
+  auto lcd = cLcd::instance();
+  lcd->info ("loadThread started");
 
   BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_BOTH, int(mVolume * 100), 44100);
   BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
 
-  mp3Decoder = new cMp3Decoder;
-  mLcd->info (cLcd::hexStr ((int)mp3Decoder, 8) + " mp3Decoder allocated");
-
   BSP_SD_Init();
   while (BSP_SD_IsDetected() != SD_PRESENT) {
-    mLcd->info (LCD_RED, "no SD card");
+    lcd->info (LCD_RED, "no SD card");
     osDelay (1000);
     }
-  mLcd->info ("SD card found");
+  lcd->info ("SD card found");
 
-  auto fatFs = (FATFS*)0x20000000;
+  auto fatFs = (FATFS*)FATFS_BUFFER;
   FRESULT result = f_mount (fatFs, "", 0);
   if (result != FR_OK)
-    mLcd->info ("fatFs mount error:" + cLcd::intStr (result));
+    lcd->info ("fatFs mount error:" + cLcd::intStr (result));
   else {
-    mLcd->info ("fatFs mounted");
+    lcd->info ("fatFs mounted");
 
     DIR dir;
     result = f_opendir (&dir, "/");
     if (result != FR_OK)
-      mLcd->info (LCD_RED, "directory open error:"  + cLcd::intStr (result));
+      lcd->info (LCD_RED, "directory open error:"  + cLcd::intStr (result));
     else {
-      mLcd->info ("directory opened - matching .mp3");
+      lcd->info ("directory opened - matching .mp3");
 
       FILINFO filInfo;
       filInfo.lfname = (char*)pvPortMalloc (_MAX_LFN + 1);
@@ -290,7 +279,7 @@ static void loadThread (void const* argument) {
 
   int tick = 0;
   while (true) {
-    mLcd->info ("load tick" + cLcd::intStr (tick++));
+    lcd->info ("load tick" + cLcd::intStr (tick++));
     osDelay (10000);
     }
   }
@@ -298,7 +287,7 @@ static void loadThread (void const* argument) {
 //{{{
 static void dhcpThread (void const* argument) {
 
-  mLcd->info ("dhcpThread started");
+  cLcd::debug  ("dhcpThread started");
   auto netif = (struct netif*)argument;
 
   struct ip_addr nullIpAddr;
@@ -310,17 +299,17 @@ static void dhcpThread (void const* argument) {
 
   while (true) {
     if (netif->ip_addr.addr) {
-      mLcd->info (LCD_YELLOW, "dhcp allocated " + cLcd::intStr ((int)(netif->ip_addr.addr & 0xFF)) + "." +
-                                                  cLcd::intStr ((int)((netif->ip_addr.addr >> 16) & 0xFF)) + "." +
-                                                  cLcd::intStr ((int)((netif->ip_addr.addr >> 8) & 0xFF)) + "." +
-                                                  cLcd::intStr ((int)(netif->ip_addr.addr >> 24)));
+      cLcd::debug (LCD_YELLOW, "dhcp allocated " + cLcd::intStr ((int)(netif->ip_addr.addr & 0xFF)) + "." +
+                                                   cLcd::intStr ((int)((netif->ip_addr.addr >> 16) & 0xFF)) + "." +
+                                                   cLcd::intStr ((int)((netif->ip_addr.addr >> 8) & 0xFF)) + "." +
+                                                   cLcd::intStr ((int)(netif->ip_addr.addr >> 24)));
       dhcp_stop (netif);
       osSemaphoreRelease (dhcpSem);
       break;
       }
 
     else if (netif->dhcp->tries > 4) {
-      mLcd->info (LCD_RED, "dhcp timeout");
+      cLcd::debug (LCD_RED, "dhcp timeout");
       dhcp_stop (netif);
 
       // use static address
@@ -344,9 +333,8 @@ static void dhcpThread (void const* argument) {
 //{{{
 static void startThread (void const* argument) {
 
-  mLcd->init();
-  mLcd->setTitle (__TIME__ __DATE__);
-  mLcd->info ("startThread started");
+  auto lcd = cLcd::instance();
+  lcd->init (__TIME__ __DATE__);
 
   const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 2000 };
   osThreadCreate (&osThreadUi, NULL);
@@ -354,9 +342,13 @@ static void startThread (void const* argument) {
   const osThreadDef_t osThreadLoad =  { (char*)"Load", loadThread, osPriorityNormal, 0, 10000 };
   osThreadCreate (&osThreadLoad, NULL);
 
+  lcd->info ("mp3Decoder create");
+  mp3Decoder = new cMp3Decoder;
+  lcd->info ("mp3Decoder created");
+
   if (true) {
     tcpip_init (NULL, NULL);
-    mLcd->info ("configuring ethernet");
+    cLcd::debug ("configuring ethernet");
 
     // init LwIP stack
     struct ip_addr ipAddr;
@@ -370,7 +362,7 @@ static void startThread (void const* argument) {
 
     if (netif_is_link_up (&gNetif)) {
       netif_set_up (&gNetif);
-      mLcd->info ("ethernet connected");
+      cLcd::debug ("ethernet connected");
 
       const osThreadDef_t osThreadDHCP =  { (char*)"DHCP", dhcpThread, osPriorityBelowNormal, 0, 1024 };
       osThreadCreate (&osThreadDHCP, &gNetif);
@@ -378,14 +370,13 @@ static void startThread (void const* argument) {
         osDelay (1000);
 
       httpServerInit();
-      mLcd->info ("httpServer started");
+      cLcd::debug ("httpServer started");
       }
     else {
-      //{{{  no ethernet
+      // no ethernet
       netif_set_down (&gNetif);
-      mLcd->info (LCD_RED, "no ethernet");
+      cLcd::debug (LCD_RED, "no ethernet");
       }
-      //}}}
     }
 
   for (;;)
@@ -393,8 +384,8 @@ static void startThread (void const* argument) {
   }
 //}}}
 
-// init
-static void initStm32f7() {
+//{{{
+static void initCpu() {
 // init cpu caches, MPU regions, clocks
 
   SCB_EnableICache();
@@ -470,17 +461,16 @@ static void initStm32f7() {
     while (true) {;}
   //}}}
   }
+//}}}
 
 //{{{
 int main() {
 
-  initStm32f7();
+  initCpu();
 
   // init freeRTOS heap_5c
   HeapRegion_t xHeapRegions[] = { {(uint8_t*)SDRAM_HEAP, SDRAM_HEAP_SIZE }, { nullptr, 0 } };
   vPortDefineHeapRegions (xHeapRegions);
-
-  mLcd = cLcd::instance();
 
   // init semaphores
   osSemaphoreDef (dhcp);

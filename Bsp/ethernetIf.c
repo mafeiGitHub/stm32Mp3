@@ -1,25 +1,9 @@
 // ethernetif.c
-/*{{{  dodgy ram sections info*/
-// match linker ram sections, somehow linked into .elf, made .bin enormous and failed download verify
-// - just pass address explicitly, mirroring linker def
-//
-// Memory_B1(xrw) : ORIGIN = 0x20008000, LENGTH = 0xA0   RxDescripSection
-// Memory_B2(xrw) : ORIGIN = 0x200080A0, LENGTH = 0xA0   TxDescripSection
-// Memory_B3(xrw) : ORIGIN = 0x20008140, LENGTH = 0x1dc4 RxBUF
-// Memory_B4(xrw) : ORIGIN = 0x20009F04, LENGTH = 0x1dc4 TxBUF
-//
-// ETH_DMADescTypeDef DMARxDscrTab[ETH_RXBUFNB] __attribute__((section(".RxDescripSection"))); // Ethernet Rx MA Descriptor
-// ETH_DMADescTypeDef DMATxDscrTab[ETH_TXBUFNB] __attribute__((section(".TxDescripSection"))); // Ethernet Tx DMA Descriptor
-// uint8_t Rx_Buff[ETH_RXBUFNB][ETH_RX_BUF_SIZE] __attribute__((section(".RxBUF"))); // Ethernet Receive Buffer
-// uint8_t Tx_Buff[ETH_TXBUFNB][ETH_TX_BUF_SIZE] __attribute__((section(".TxBUF"))); // Ethernet Transmit Buffer
-//
-// HAL_ETH_DMATxDescListInit (&EthHandle, DMATxDscrTab, &Tx_Buff[0][0], ETH_TXBUFNB);
-// HAL_ETH_DMARxDescListInit (&EthHandle, DMARxDscrTab, &Rx_Buff[0][0], ETH_RXBUFNB);
-/*}}}*/
 /*{{{  includes*/
+#include <string.h>
 #include "ethernetif.h"
 
-#include <string.h>
+#include "memory.h"
 #include "cmsis_os.h"
 
 #include "stm32f7xx_hal.h"
@@ -251,10 +235,10 @@ static void low_level_init (struct netif* netif) {
     netif->flags |= NETIF_FLAG_LINK_UP;
 
   // Initialize Rx Descriptors list: Chain Mode
-  HAL_ETH_DMARxDescListInit (&EthHandle, (ETH_DMADescTypeDef*)0x20008000, (uint8_t*)0x20008140, ETH_RXBUFNB);
+  HAL_ETH_DMARxDescListInit (&EthHandle, (ETH_DMADescTypeDef*)EthRxDescripSection, (uint8_t*)EthRxBUF, ETH_RXBUFNB);
 
   // Initialize Tx Descriptors list: Chain Mode
-  HAL_ETH_DMATxDescListInit (&EthHandle, (ETH_DMADescTypeDef*)0x200080A0, (uint8_t*)0x20009F04, ETH_TXBUFNB);
+  HAL_ETH_DMATxDescListInit (&EthHandle, (ETH_DMADescTypeDef*)EthTxDescripSection, (uint8_t*)EthTxBUF, ETH_TXBUFNB);
 
   // set netif MAC hardware address length
   netif->hwaddr_len = ETHARP_HWADDR_LEN;

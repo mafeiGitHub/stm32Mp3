@@ -17,12 +17,8 @@ _Min_Stack_Size = 0x400; /* required amount of stack */
 MEMORY
 {
 FLASH (rx)   : ORIGIN = 0x08000000, LENGTH =    1024K
-RAM_B0(xrw)  : ORIGIN = 0x20000000, LENGTH =  0x8000   /* lcd dma buffer */
-RAM_B1(xrw)  : ORIGIN = 0x20008000, LENGTH =    0xA0   /* ethernet rx desc buf */
-RAM_B2(xrw)  : ORIGIN = 0x200080A0, LENGTH =    0xA0   /* ethernet tx desc buf */
-RAM_B3(xrw)  : ORIGIN = 0x20008140, LENGTH =  0x1dc4   /* ethernet rx buf */
-RAM_B4(xrw)  : ORIGIN = 0x20009F04, LENGTH =  0x1dc4   /* ethernet tx buf */
-RAM (xrw)    : ORIGIN = 0x20010000, LENGTH = 0x40000   /* malloc heap, startup stack - 256k - TCM, SRAM1, SRAM2 */
+DTCM_RAM(rw) : ORIGIN = 0x20000000, LENGTH = 0x10000  /* dma buffers */
+RAM (rw)     : ORIGIN = 0x20010000, LENGTH = 0x40000  /* malloc heap, startup stack - 256k SRAM1, SRAM2 */
 }
 
 /* Define output sections */
@@ -139,10 +135,4 @@ SECTIONS
     libm.a ( * )
     libgcc.a ( * )
   }
-
-  .ARM.attributes 0 : { *(.ARM.attributes) }
-  .RxDescripSection : { *(.RxDescripSection) } >RAM_B1
-  .TxDescripSection : { *(.TxDescripSection) } >RAM_B2
-  .RxBUF : { *(.RxBUF) } >RAM_B3
-  .TxBUF : { *(.TxBUF) } >RAM_B4
 }

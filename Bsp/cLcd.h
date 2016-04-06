@@ -43,9 +43,10 @@ public:
   static int getHeight() { return 272; }
   static std::string hexStr (int value, int width = 0);
   static std::string intStr (int value, int width = 0, char fill = ' ');
+  static void debug (uint32_t colour, std::string str, bool newLine = true) { instance()->info (colour, str, newLine); }
   static void debug (std::string str) { instance()->info (str); }
 
-  void init (bool buffered = true);
+  void init (std::string title, bool buffered = true);
   void setTitle (std::string title);
   void setShowTime (bool enable);
   void setShowDebug (bool enable);

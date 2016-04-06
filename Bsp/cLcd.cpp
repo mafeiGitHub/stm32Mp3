@@ -178,7 +178,7 @@ void LCD_DMA2D_IRQHandler() {
   }
 //}}}
 
-// cLcd 
+// cLcd
 //{{{
 cLcd::cLcd (uint32_t buffer0, uint32_t buffer1)  {
 
@@ -198,7 +198,7 @@ cLcd* cLcd::instance() {
   }
 //}}}
 //{{{
-void cLcd::init (bool buffered) {
+void cLcd::init (std::string title, bool buffered) {
 
   mBuffered = buffered;
   mDrawBuffer = !mDrawBuffer;
@@ -213,7 +213,7 @@ void cLcd::init (bool buffered) {
   //DMA2D->AMTCR = 0x1001;
 
   // zero out first opcode, point past it
-  mDma2dBuf = (uint32_t*)pvPortMalloc (8192 * 4);
+  mDma2dBuf = (uint32_t*)DMA2D_BUFFER; // pvPortMalloc (8192 * 4);
   mDma2dCurBuf = mDma2dBuf;
   *mDma2dCurBuf++ = 0;
   mDma2dHighWater = mDma2dCurBuf;
@@ -238,6 +238,8 @@ void cLcd::init (bool buffered) {
   setFont (freeSansBold, freeSansBold_len);
   for (auto i = 0; i < maxChars; i++)
     chars[i] = nullptr;
+
+  setTitle (title);
   }
 //}}}
 //{{{

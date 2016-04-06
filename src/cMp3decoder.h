@@ -807,8 +807,8 @@ public:
 
     if (!table_4_3_exp) {
       //{{{  compute n ^ (4/3) and store it in mantissa/exp format
-      table_4_3_exp = (int8_t*)pvPortMalloc ((8191 + 16)*4 * sizeof(table_4_3_exp[0]));
-      table_4_3_value = (uint32_t*)pvPortMalloc ((8191 + 16)*4 * sizeof(table_4_3_value[0]));
+      table_4_3_exp = (int8_t*)pvPortMalloc ((8191 + 16)*4 * sizeof (table_4_3_exp[0]));
+      table_4_3_value = (uint32_t*)pvPortMalloc ((8191 + 16)*4 * sizeof (table_4_3_value[0]));
 
       for (auto i = 1; i < (8191 + 16) * 4; i++) {
         int e;
@@ -819,7 +819,7 @@ public:
 
       for (auto i = 0; i < 512*16; i++){
         auto exponent = i >> 4;
-        float f = powf (i & 15, 4.0 / 3.0) * powf (2, (exponent - 400) * 0.25 + FRAC_BITS + 5);
+        float f = powf (i & 15, 4.0 / 3.0) * powf (2, (exponent - 400) * 0.25f + FRAC_BITS + 5);
         expval_table[exponent][i & 15] = (uint32_t)f;
         if ((i & 15) == 1)
           exp_table[exponent]= (uint32_t)f;
@@ -843,10 +843,10 @@ public:
       for (auto i = 0; i < 16; i++)
         for (auto j = 0; j < 2; j++) {
           auto e = -(j + 1) * ((i + 1) >> 1);
-          auto f = pow(2.0, e / 4.0);
+          float f = powf (2.0f, e / 4.0f);
           auto k = i & 1;
           is_table_lsf[j][k ^ 1][i] = FIXR(f);
-          is_table_lsf[j][k][i] = FIXR(1.0);
+          is_table_lsf[j][k][i] = FIXR(1.0f);
           }
 
       for (auto i = 0; i < 8; i++) {
@@ -922,12 +922,12 @@ public:
           if (j == 2 && i % 3 != 1)
             continue;
 
-          float d = sinf (PI * (i + 0.5) / 36.0);
+          float d = sinf (PI * (i + 0.5f) / 36.0f);
           if (j == 1) {
               if (i >= 30)
                 d = 0;
               else if (i >= 24)
-                d = sin (PI * (i - 18 + 0.5) / 12.0);
+                d = sinf (PI * (i - 18 + 0.5f) / 12.0f);
               else if (i >= 18)
                 d = 1;
             }
@@ -935,11 +935,11 @@ public:
             if (i <  6)
               d = 0;
             else if (i < 12)
-              d = sin (PI * (i -  6 + 0.5) / 12.0);
+              d = sinf (PI * (i -  6 + 0.5f) / 12.0f);
             else if (i < 18)
               d = 1;
             }
-          d *= 0.5 / cos (PI * (2 * i + 19) / 72);
+          d *= 0.5 / cosf (PI * (2 * i + 19) / 72);
           if (j == 2)
             mdct_win[j][i/3] = FIXHR((d / (1 << 5)));
           else
