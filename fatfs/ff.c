@@ -534,19 +534,16 @@ static int chk_chr (const char* str, int chr) {
 /*{{{*/
 static FRESULT sync_window (FATFS* fs) {
 
-  DWORD wsect;
-  UINT nf;
   FRESULT res = FR_OK;
 
   if (fs->wflag) {  /* Write back the sector if it is dirty */
-    wsect = fs->winsect;  /* Current sector number */
-    if (disk_write(fs->drv, fs->win.d8, wsect, 1) != RES_OK) {
+    DWORD wsect = fs->winsect;  /* Current sector number */
+    if (disk_write (fs->drv, fs->win.d8, wsect, 1) != RES_OK)
       res = FR_DISK_ERR;
-      }
     else {
       fs->wflag = 0;
       if (wsect - fs->fatbase < fs->fsize) {    /* Is it in the FAT area? */
-        for (nf = fs->n_fats; nf >= 2; nf--) {  /* Reflect the change to all FAT copies */
+        for (UINT nf = fs->n_fats; nf >= 2; nf--) {  /* Reflect the change to all FAT copies */
           wsect += fs->fsize;
           disk_write(fs->drv, fs->win.d8, wsect, 1);
           }
@@ -566,7 +563,7 @@ static FRESULT move_window (FATFS* fs, DWORD sector) {
     res = sync_window(fs);
     if (res == FR_OK) {
       /* Fill sector window with new data */
-      if (disk_read(fs->drv, fs->win.d8, sector, 1) != RES_OK) {
+      if (disk_read (fs->drv, fs->win.d8, sector, 1) != RES_OK) {
         /* Invalidate window if data is not reliable */
         sector = 0xFFFFFFFF;
         res = FR_DISK_ERR;
@@ -586,7 +583,7 @@ static FRESULT sync_fs (FATFS* fs) {
     /* Update FSINFO sector if needed */
     if (fs->fs_type == FS_FAT32 && fs->fsi_flag == 1) {
       /* Create FSINFO structure */
-      memset(fs->win.d8, 0, SS(fs));
+      memset (fs->win.d8, 0, SS(fs));
       ST_WORD(fs->win.d8 + BS_55AA, 0xAA55);
       ST_DWORD(fs->win.d8 + FSI_LeadSig, 0x41615252);
       ST_DWORD(fs->win.d8 + FSI_StrucSig, 0x61417272);
@@ -594,7 +591,7 @@ static FRESULT sync_fs (FATFS* fs) {
       ST_DWORD(fs->win.d8 + FSI_Nxt_Free, fs->last_clust);
       /* Write it into the FSINFO sector */
       fs->winsect = fs->volbase + 1;
-      disk_write(fs->drv, fs->win.d8, fs->winsect, 1);
+      disk_write (fs->drv, fs->win.d8, fs->winsect, 1);
       fs->fsi_flag = 0;
       }
 
@@ -611,10 +608,8 @@ static FRESULT sync_fs (FATFS* fs) {
 static DWORD clust2sect (FATFS* fs, DWORD clst) {
 
   clst -= 2;
-  if (clst >= fs->n_fatent - 2)
-    return 0;   /* Invalid cluster# */
-  return clst * fs->csize + fs->database;
-}
+  return (clst >= fs->n_fatent - 2) ? 0 : clst * fs->csize + fs->database;
+  }
 /*}}}*/
 /*{{{*/
 static DWORD clmt_clust (FIL* fp, DWORD ofs) {
@@ -623,9 +618,12 @@ static DWORD clmt_clust (FIL* fp, DWORD ofs) {
   DWORD cl = ofs / SS(fp->fs) / fp->fs->csize;  /* Cluster order from top of the file */
   for (;;) {
     DWORD ncl = *tbl++;   /* Number of cluters in the fragment */
-    if (!ncl) return 0;   /* End of table? (error) */
-    if (cl < ncl) break;  /* In this fragment? */
-    cl -= ncl; tbl++;     /* Next fragment */
+    if (!ncl)
+      return 0;   /* End of table? (error) */
+    if (cl < ncl)
+      break;  /* In this fragment? */
+    cl -= ncl;
+    tbl++;     /* Next fragment */
     }
 
   return cl + *tbl; /* Return the cluster number */
@@ -656,41 +654,46 @@ static DWORD get_fat (FATFS* fs, DWORD clst) {
   BYTE *p;
   DWORD val;
 
-  if (clst < 2 || clst >= fs->n_fatent) { /* Check range */
+  if (clst < 2 || clst >= fs->n_fatent)  /* Check range */
     val = 1;  /* Internal error */
-
-  } else {
+  else {
     val = 0xFFFFFFFF; /* Default value falls on disk error */
 
     switch (fs->fs_type) {
     case FS_FAT12 :
       bc = (UINT)clst; bc += bc / 2;
-      if (move_window(fs, fs->fatbase + (bc / SS(fs))) != FR_OK) break;
+      if (move_window (fs, fs->fatbase + (bc / SS(fs))) != FR_OK)
+        break;
+
       wc = fs->win.d8[bc++ % SS(fs)];
-      if (move_window(fs, fs->fatbase + (bc / SS(fs))) != FR_OK) break;
+      if (move_window(fs, fs->fatbase + (bc / SS(fs))) != FR_OK)
+        break;
+
       wc |= fs->win.d8[bc % SS(fs)] << 8;
       val = clst & 1 ? wc >> 4 : (wc & 0xFFF);
       break;
 
     case FS_FAT16 :
-      if (move_window(fs, fs->fatbase + (clst / (SS(fs) / 2))) != FR_OK) break;
+      if (move_window(fs, fs->fatbase + (clst / (SS(fs) / 2))) != FR_OK)
+        break;
       p = &fs->win.d8[clst * 2 % SS(fs)];
       val = LD_WORD(p);
       break;
 
     case FS_FAT32 :
-      if (move_window(fs, fs->fatbase + (clst / (SS(fs) / 4))) != FR_OK) break;
+      if (move_window(fs, fs->fatbase + (clst / (SS(fs) / 4))) != FR_OK)
+        break;
       p = &fs->win.d8[clst * 4 % SS(fs)];
       val = LD_DWORD(p) & 0x0FFFFFFF;
       break;
 
     default:
       val = 1;  /* Internal error */
+      }
     }
-  }
 
   return val;
-}
+  }
 /*}}}*/
 /*{{{*/
 static FRESULT put_fat (FATFS* fs, DWORD clst, DWORD val) {
@@ -699,36 +702,39 @@ static FRESULT put_fat (FATFS* fs, DWORD clst, DWORD val) {
   BYTE *p;
   FRESULT res;
 
-  if (clst < 2 || clst >= fs->n_fatent) { /* Check range */
+  if (clst < 2 || clst >= fs->n_fatent)  /* Check range */
     res = FR_INT_ERR;
-
-  } else {
+  else {
     switch (fs->fs_type) {
     case FS_FAT12 :
       bc = (UINT)clst; bc += bc / 2;
-      res = move_window(fs, fs->fatbase + (bc / SS(fs)));
-      if (res != FR_OK) break;
+      res = move_window (fs, fs->fatbase + (bc / SS(fs)));
+      if (res != FR_OK)
+        break;
       p = &fs->win.d8[bc++ % SS(fs)];
       *p = (clst & 1) ? ((*p & 0x0F) | ((BYTE)val << 4)) : (BYTE)val;
       fs->wflag = 1;
       res = move_window(fs, fs->fatbase + (bc / SS(fs)));
-      if (res != FR_OK) break;
+      if (res != FR_OK)
+        break;
       p = &fs->win.d8[bc % SS(fs)];
       *p = (clst & 1) ? (BYTE)(val >> 4) : ((*p & 0xF0) | ((BYTE)(val >> 8) & 0x0F));
       fs->wflag = 1;
       break;
 
     case FS_FAT16 :
-      res = move_window(fs, fs->fatbase + (clst / (SS(fs) / 2)));
-      if (res != FR_OK) break;
+      res = move_window (fs, fs->fatbase + (clst / (SS(fs) / 2)));
+      if (res != FR_OK)
+        break;
       p = &fs->win.d8[clst * 2 % SS(fs)];
       ST_WORD(p, (WORD)val);
       fs->wflag = 1;
       break;
 
     case FS_FAT32 :
-      res = move_window(fs, fs->fatbase + (clst / (SS(fs) / 4)));
-      if (res != FR_OK) break;
+      res = move_window (fs, fs->fatbase + (clst / (SS(fs) / 4)));
+      if (res != FR_OK)
+        break;
       p = &fs->win.d8[clst * 4 % SS(fs)];
       val |= LD_DWORD(p) & 0xF0000000;
       ST_DWORD(p, val);
@@ -737,11 +743,11 @@ static FRESULT put_fat (FATFS* fs, DWORD clst, DWORD val) {
 
     default :
       res = FR_INT_ERR;
+      }
     }
-  }
 
   return res;
-}
+  }
 /*}}}*/
 /*{{{*/
 static DWORD create_chain (FATFS* fs, DWORD clst) {
@@ -803,10 +809,9 @@ static FRESULT remove_chain (FATFS* fs, DWORD clst) {
 #endif
 
   FRESULT res;
-  if (clst < 2 || clst >= fs->n_fatent) {
+  if (clst < 2 || clst >= fs->n_fatent)
     /* Check range */
     res = FR_INT_ERR;
-    }
   else {
     res = FR_OK;
     while (clst < fs->n_fatent) {     /* Not a last link? */
@@ -860,35 +865,42 @@ static FRESULT dir_sdi (DIR* dp, UINT idx ) {
   UINT ic;
 
   dp->index = (WORD)idx;  /* Current index */
+
   clst = dp->sclust;    /* Table start cluster (0:root) */
   if (clst == 1 || clst >= dp->fs->n_fatent)  /* Check start cluster range */
     return FR_INT_ERR;
   if (!clst && dp->fs->fs_type == FS_FAT32) /* Replace cluster# 0 with root cluster# if in FAT32 */
     clst = dp->fs->dirbase;
 
-  if (clst == 0) {  /* Static table (root-directory in FAT12/16) */
+  if (clst == 0) {
+    /* Static table (root-directory in FAT12/16) */
     if (idx >= dp->fs->n_rootdir) /* Is index out of range? */
       return FR_INT_ERR;
     sect = dp->fs->dirbase;
-  }
-  else {        /* Dynamic table (root-directory in FAT32 or sub-directory) */
+    }
+  else {
+    /* Dynamic table (root-directory in FAT32 or sub-directory) */
     ic = SS(dp->fs) / SZ_DIRE * dp->fs->csize;  /* Entries per cluster */
     while (idx >= ic) { /* Follow cluster chain */
       clst = get_fat(dp->fs, clst);       /* Get next cluster */
-      if (clst == 0xFFFFFFFF) return FR_DISK_ERR; /* Disk error */
+      if (clst == 0xFFFFFFFF)
+        return FR_DISK_ERR; /* Disk error */
       if (clst < 2 || clst >= dp->fs->n_fatent) /* Reached to end of table or internal error */
         return FR_INT_ERR;
       idx -= ic;
-    }
+      }
     sect = clust2sect(dp->fs, clst);
-  }
+    }
+
   dp->clust = clst; /* Current cluster# */
-  if (!sect) return FR_INT_ERR;
+  if (!sect)
+    return FR_INT_ERR;
+
   dp->sect = sect + idx / (SS(dp->fs) / SZ_DIRE);         /* Sector# of the directory entry */
   dp->dir = dp->fs->win.d8 + (idx % (SS(dp->fs) / SZ_DIRE)) * SZ_DIRE;  /* Ptr to the entry in the sector */
 
   return FR_OK;
-}
+  }
 /*}}}*/
 /*{{{*/
 static FRESULT dir_next (DIR* dp, int stretch) {
@@ -897,49 +909,49 @@ static FRESULT dir_next (DIR* dp, int stretch) {
   if (!(i & 0xFFFF) || !dp->sect) /* Report EOT when index has reached 65535 */
     return FR_NO_FILE;
 
-  if (!(i % (SS(dp->fs) / SZ_DIRE))) {  
+  if (!(i % (SS(dp->fs) / SZ_DIRE))) {
     dp->sect++;
-    if (!dp->clust) {  
+    if (!dp->clust) {
       /* Static table */
       if (i >= dp->fs->n_rootdir) /* Report EOT if it reached end of static table */
         return FR_NO_FILE;
       }
-    else {   
+    else {
       /* Dynamic table */
       if (((i / (SS(dp->fs) / SZ_DIRE)) & (dp->fs->csize - 1)) == 0) {
         /* Cluster changed? */
         DWORD clst = get_fat(dp->fs, dp->clust);        /* Get next cluster */
-        if (clst <= 1) 
+        if (clst <= 1)
           return FR_INT_ERR;
-        if (clst == 0xFFFFFFFF) 
+        if (clst == 0xFFFFFFFF)
           return FR_DISK_ERR;
-        if (clst >= dp->fs->n_fatent) { 
+        if (clst >= dp->fs->n_fatent) {
           /* If it reached end of dynamic table, */
-          if (!stretch) 
+          if (!stretch)
             return FR_NO_FILE;      /* If do not stretch, report EOT */
           clst = create_chain(dp->fs, dp->clust);   /* Stretch cluster chain */
-          if (clst == 0) 
+          if (clst == 0)
             return FR_DENIED;      /* No free cluster */
-          if (clst == 1) 
+          if (clst == 1)
             return FR_INT_ERR;
-          if (clst == 0xFFFFFFFF) 
+          if (clst == 0xFFFFFFFF)
             return FR_DISK_ERR;
 
           /* Clean-up stretched table */
-          if (sync_window(dp->fs)) 
+          if (sync_window(dp->fs))
             return FR_DISK_ERR;/* Flush disk access window */
 
           /* Clear window buffer */
-          memset (dp->fs->win.d8, 0, SS(dp->fs));   
+          memset (dp->fs->win.d8, 0, SS(dp->fs));
 
           /* Cluster start sector */
-          dp->fs->winsect = clust2sect(dp->fs, clst); 
+          dp->fs->winsect = clust2sect(dp->fs, clst);
 
           UINT c;
-          for (c = 0; c < dp->fs->csize; c++) {   
+          for (c = 0; c < dp->fs->csize; c++) {
             /* Fill the new cluster with 0 */
             dp->fs->wflag = 1;
-            if (sync_window(dp->fs)) 
+            if (sync_window(dp->fs))
               return FR_DISK_ERR;
             dp->fs->winsect++;
             }
@@ -947,17 +959,17 @@ static FRESULT dir_next (DIR* dp, int stretch) {
           }
 
         /* Initialize data for new cluster */
-        dp->clust = clst; 
+        dp->clust = clst;
         dp->sect = clust2sect(dp->fs, clst);
         }
       }
     }
 
   /* Current index */
-  dp->index = (WORD)i;  
+  dp->index = (WORD)i;
 
   /* Current entry in the window */
-  dp->dir = dp->fs->win.d8 + (i % (SS(dp->fs) / SZ_DIRE)) * SZ_DIRE;  
+  dp->dir = dp->fs->win.d8 + (i % (SS(dp->fs) / SZ_DIRE)) * SZ_DIRE;
 
   return FR_OK;
   }
@@ -1083,10 +1095,10 @@ static void gen_numname (BYTE* dst, const BYTE* src, const WCHAR* lfn, UINT seq)
         sr = (sr << 1) + (wc & 1);
         wc >>= 1;
         if (sr & 0x10000) sr ^= 0x11021;
+        }
       }
-    }
     seq = (UINT)sr;
-  }
+    }
 
   /* itoa (hexdecimal) */
   i = 7;
@@ -1095,7 +1107,7 @@ static void gen_numname (BYTE* dst, const BYTE* src, const WCHAR* lfn, UINT seq)
     if (c > '9') c += 7;
     ns[i--] = c;
     seq /= 16;
-  } while (seq);
+    } while (seq);
   ns[i] = '~';
 
   /* Append the number */
@@ -1103,12 +1115,13 @@ static void gen_numname (BYTE* dst, const BYTE* src, const WCHAR* lfn, UINT seq)
     if (IsDBCS1(dst[j])) {
       if (j == i - 1) break;
       j++;
-    }
-  }
-  do {
+      }
+     }
+
+   do {
     dst[j++] = (i < 8) ? ns[i++] : ' ';
-  } while (j < 8);
-}
+     } while (j < 8);
+ }
 /*}}}*/
 /*{{{*/
 static BYTE sum_sfn (const BYTE* dir ) {
@@ -1126,13 +1139,13 @@ static BYTE sum_sfn (const BYTE* dir ) {
 static FRESULT dir_find (DIR* dp ) {
 
   BYTE c, *dir;
-  BYTE a, ord, sum;
+  BYTE a, sum;
 
   FRESULT res = dir_sdi(dp, 0);     /* Rewind directory object */
   if (res != FR_OK)
     return res;
 
-  ord = sum = 0xFF;
+  BYTE ord = sum = 0xFF;
   dp->lfn_idx = 0xFFFF; /* Reset LFN sequence */
   do {
     res = move_window (dp->fs, dp->sect);
@@ -1545,15 +1558,15 @@ static FRESULT create_name (DIR* dp, const TCHAR** path ) {
         cf |= NS_LOSS | NS_LFN; i = ni; continue;
         }
       dp->fn[i++] = (BYTE)(w >> 8);
-      } 
+      }
     else {            /* SBC */
       if (!w || chk_chr("+,;=[]", w)) { /* Replace illegal characters for SFN */
         w = '_'; cf |= NS_LOSS | NS_LFN;/* Lossy conversion */
-        } 
+        }
       else {
         if (IsUpper(w)) {   /* ASCII large capital */
           b |= 2;
-          } 
+          }
         else {
           if (IsLower(w)) { /* ASCII small capital */
             b |= 1; w -= 0x20;
@@ -1781,7 +1794,7 @@ static FRESULT find_volume (FATFS** rfs, const TCHAR** path, BYTE wmode) {
     return FR_NO_FILESYSTEM;
 
   fasize = LD_WORD(fs->win.d8 + BPB_FATSz16);     /* Number of sectors per FAT */
-  if (!fasize) 
+  if (!fasize)
     fasize = LD_DWORD(fs->win.d8 + BPB_FATSz32);
   fs->fsize = fasize;
 
@@ -1799,7 +1812,7 @@ static FRESULT find_volume (FATFS** rfs, const TCHAR** path, BYTE wmode) {
     return FR_NO_FILESYSTEM;
 
   tsect = LD_WORD(fs->win.d8 + BPB_TotSec16);     /* Number of sectors on the volume */
-  if (!tsect) 
+  if (!tsect)
     tsect = LD_DWORD(fs->win.d8 + BPB_TotSec32);
 
   nrsv = LD_WORD(fs->win.d8 + BPB_RsvdSecCnt);      /* Number of reserved sectors */
@@ -1829,9 +1842,9 @@ static FRESULT find_volume (FATFS** rfs, const TCHAR** path, BYTE wmode) {
     if (fs->n_rootdir) return FR_NO_FILESYSTEM;   /* (BPB_RootEntCnt must be 0) */
     fs->dirbase = LD_DWORD(fs->win.d8 + BPB_RootClus);  /* Root directory start cluster */
     szbfat = fs->n_fatent * 4;            /* (Needed FAT size) */
-    } 
+    }
   else {
-    if (!fs->n_rootdir) 
+    if (!fs->n_rootdir)
       return FR_NO_FILESYSTEM;  /* (BPB_RootEntCnt must not be 0) */
     fs->dirbase = fs->fatbase + fasize;       /* Root directory start sector */
     szbfat = (fmt == FS_FAT16) ? fs->n_fatent * 2 : fs->n_fatent * 3 / 2 + (fs->n_fatent & 1);  /* (Needed FAT size) */
@@ -1846,8 +1859,8 @@ static FRESULT find_volume (FATFS** rfs, const TCHAR** path, BYTE wmode) {
   fs->fsi_flag = 0x80;
   if (fmt == FS_FAT32 && LD_WORD(fs->win.d8 + BPB_FSInfo) == 1 && move_window(fs, bsect + 1) == FR_OK) {
     fs->fsi_flag = 0;
-    if (LD_WORD(fs->win.d8 + BS_55AA) == 0xAA55 && 
-        LD_DWORD(fs->win.d8 + FSI_LeadSig) == 0x41615252 && 
+    if (LD_WORD(fs->win.d8 + BS_55AA) == 0xAA55 &&
+        LD_DWORD(fs->win.d8 + FSI_LeadSig) == 0x41615252 &&
         LD_DWORD(fs->win.d8 + FSI_StrucSig) == 0x61417272) {
       fs->free_clust = LD_DWORD(fs->win.d8 + FSI_Free_Count);
       fs->last_clust = LD_DWORD(fs->win.d8 + FSI_Nxt_Free);
@@ -1867,10 +1880,10 @@ static FRESULT validate (void* obj) {
 
   FIL *fil = (FIL*)obj; /* Assuming offset of .fs and .id in the FIL/DIR structure is identical */
 
-  if (!fil || 
-      !fil->fs || 
-      !fil->fs->fs_type || 
-      fil->fs->id != fil->id || 
+  if (!fil ||
+      !fil->fs ||
+      !fil->fs->fs_type ||
+      fil->fs->id != fil->id ||
       (disk_status(fil->fs->drv) & STA_NOINIT))
     return FR_INVALID_OBJECT;
 

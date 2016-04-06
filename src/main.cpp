@@ -299,10 +299,10 @@ static void dhcpThread (void const* argument) {
 
   while (true) {
     if (netif->ip_addr.addr) {
-      cLcd::debug (LCD_YELLOW, "dhcp allocated " + cLcd::intStr ((int)(netif->ip_addr.addr & 0xFF)) + "." +
+      cLcd::debug (LCD_YELLOW, "dhcp allocated " + cLcd::intStr ( (int)(netif->ip_addr.addr & 0xFF)) + "." +
                                                    cLcd::intStr ((int)((netif->ip_addr.addr >> 16) & 0xFF)) + "." +
                                                    cLcd::intStr ((int)((netif->ip_addr.addr >> 8) & 0xFF)) + "." +
-                                                   cLcd::intStr ((int)(netif->ip_addr.addr >> 24)));
+                                                   cLcd::intStr ( (int)(netif->ip_addr.addr >> 24)));
       dhcp_stop (netif);
       osSemaphoreRelease (dhcpSem);
       break;
@@ -403,18 +403,18 @@ static void initCpu() {
   MPU_InitStruct.IsCacheable = MPU_ACCESS_CACHEABLE;
   MPU_InitStruct.IsShareable = MPU_ACCESS_NOT_SHAREABLE;
   MPU_InitStruct.TypeExtField = MPU_TEX_LEVEL0;
-  MPU_InitStruct.DisableExec = MPU_INSTRUCTION_ACCESS_ENABLE;
+  MPU_InitStruct.DisableExec = MPU_INSTRUCTION_ACCESS_DISABLE;
 
-  // config writeThrough for SDRAM 0xC0000000, 8m - region0
+  // config writeThrough for SRAM1,SRAM2 0x20010000, 256k, AXI - region0
   MPU_InitStruct.Number = MPU_REGION_NUMBER0;
-  MPU_InitStruct.BaseAddress = 0xC0000000;
-  MPU_InitStruct.Size = MPU_REGION_SIZE_8MB;
-  HAL_MPU_ConfigRegion (&MPU_InitStruct);
-
-  // config writeThrough for SRAM1 SRAM2 0x20010000, 256k, AXI - region1
-  MPU_InitStruct.Number = MPU_REGION_NUMBER1;
   MPU_InitStruct.BaseAddress = 0x20010000;
   MPU_InitStruct.Size = MPU_REGION_SIZE_256KB;
+  HAL_MPU_ConfigRegion (&MPU_InitStruct);
+
+  // config writeThrough for SDRAM 0xC0000000, 8m - region1
+  MPU_InitStruct.Number = MPU_REGION_NUMBER1;
+  MPU_InitStruct.BaseAddress = 0xC0000000;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_8MB;
   HAL_MPU_ConfigRegion (&MPU_InitStruct);
 
   HAL_MPU_Enable (MPU_PRIVILEGED_DEFAULT);
@@ -479,6 +479,7 @@ int main() {
   osSemaphoreDef (aud);
   audSem = osSemaphoreCreate (osSemaphore (aud), -1);
 
+  // launch startThread
   const osThreadDef_t osThreadStart = { (char*)"Start", startThread, osPriorityNormal, 0, 4000 };
   osThreadCreate (&osThreadStart, NULL);
 
