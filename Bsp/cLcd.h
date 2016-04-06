@@ -34,21 +34,21 @@
 //}}}
 class cLcd {
 public:
-  cLcd();
+  cLcd (uint32_t buffer0, uint32_t buffer1);
   ~cLcd() {}
 
-  void init (uint32_t buffer0, uint32_t buffer1, bool buffered = true);
+  static cLcd* instance();
+  static int getWidth() { return 480; }
+  static int getHeight() { return 272; }
+  static std::string intStr (int value, int width = 0, char fill = ' ');
+  static std::string hexStr (int value, int width = 0);
 
-  int getWidth() { return 480; }
-  int getHeight() { return 272; }
-
+  void init (bool buffered = true);
   void setTitle (std::string title);
   void setShowTime (bool enable);
   void setShowDebug (bool enable);
   void setShowFooter (bool enable);
 
-  std::string intStr (int value, int width = 0, char fill = ' ');
-  std::string hexStr (int value, int width = 0);
   void info (uint32_t colour, std::string str, bool newLine = true);
   void info (std::string str, bool newLine = true);
 

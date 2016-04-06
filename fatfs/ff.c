@@ -263,13 +263,12 @@
 #define NS_EXT   0x10  /* Lower case flag (ext) */
 #define NS_DOT   0x20  /* Dot entry */
 /*}}}*/
-/*{{{  fat sub-type boundaries (Differ from specs but correct for real DOS/Windows) defines*/
-#define MIN_FAT16  4086U /* Minimum number of clusters as FAT16 */
-#define MIN_FAT32  65526U  /* Minimum number of clusters as FAT32 */
-/*}}}*/
-/*{{{  fatFs  defines*/
-#define BS_jmpBoot      0     /* x86 jump instruction (3) */
-#define BS_OEMName      3     /* OEM name (8) */
+/*{{{  fatFs defines*/
+#define MIN_FAT16    4086U    /* Minimum number of clusters as FAT16 */
+#define MIN_FAT32   65526U    /* Minimum number of clusters as FAT32 */
+
+#define BS_jmpBoot       0    /* x86 jump instruction (3) */
+#define BS_OEMName       3    /* OEM name (8) */
 #define BPB_BytsPerSec  11    /* Sector size [byte] (2) */
 #define BPB_SecPerClus  13    /* Cluster size [sector] (1) */
 #define BPB_RsvdSecCnt  14    /* Size of reserved area [sector] (2) */
@@ -526,7 +525,7 @@ static int mem_cmp (const void* dst, const void* src, UINT cnt) {
 static int chk_chr (const char* str, int chr) {
 /* Check if chr is contained in the string */
 
-  while (*str && *str != chr) 
+  while (*str && *str != chr)
     str++;
   return *str;
   }
@@ -715,44 +714,59 @@ static FRESULT put_fat (FATFS* fs, DWORD clst, DWORD val) {
 /*{{{*/
 static FRESULT remove_chain (FATFS* fs, DWORD clst) {
 
-  FRESULT res;
-  DWORD nxt;
 #if _USE_TRIM
   DWORD scl = clst, ecl = clst, rt[2];
 #endif
 
-  if (clst < 2 || clst >= fs->n_fatent) { /* Check range */
+  FRESULT res;
+  if (clst < 2 || clst >= fs->n_fatent) {
+    /* Check range */
     res = FR_INT_ERR;
-
-  } else {
+    }
+  else {
     res = FR_OK;
     while (clst < fs->n_fatent) {     /* Not a last link? */
-      nxt = get_fat(fs, clst);      /* Get cluster status */
-      if (nxt == 0) break;        /* Empty cluster? */
-      if (nxt == 1) { res = FR_INT_ERR; break; }  /* Internal error? */
-      if (nxt == 0xFFFFFFFF) { res = FR_DISK_ERR; break; }  /* Disk error? */
+      DWORD nxt = get_fat (fs, clst); /* Get cluster status */
+      if (nxt == 0)
+        break;        /* Empty cluster? */
+
+      if (nxt == 1) {
+        /* Internal error? */
+        res = FR_INT_ERR;
+        break;
+        }
+
+      if (nxt == 0xFFFFFFFF) {
+        /* Disk error? */
+        res = FR_DISK_ERR;
+        break;
+        }
+
       res = put_fat(fs, clst, 0);     /* Mark the cluster "empty" */
       if (res != FR_OK) break;
       if (fs->free_clust != 0xFFFFFFFF) { /* Update FSINFO */
         fs->free_clust++;
         fs->fsi_flag |= 1;
-      }
+        }
+
 #if _USE_TRIM
-      if (ecl + 1 == nxt) { /* Is next cluster contiguous? */
+      if (ecl + 1 == nxt)
+        /* Is next cluster contiguous? */
         ecl = nxt;
-      } else {        /* End of contiguous clusters */
+      else {        /* End of contiguous clusters */
         rt[0] = clust2sect(fs, scl);          /* Start sector */
         rt[1] = clust2sect(fs, ecl) + fs->csize - 1;  /* End sector */
         disk_ioctl(fs->drv, CTRL_TRIM, rt);       /* Erase the block */
         scl = ecl = nxt;
-      }
+        }
 #endif
+
       clst = nxt; /* Next cluster */
+      }
     }
-  }
 
   return res;
-}
+  }
 /*}}}*/
 /*{{{*/
 static DWORD create_chain (FATFS* fs, DWORD clst) {
@@ -763,14 +777,14 @@ static DWORD create_chain (FATFS* fs, DWORD clst) {
   if (clst == 0) {    /* Create a new chain */
     scl = fs->last_clust;     /* Get suggested start point */
     if (!scl || scl >= fs->n_fatent) scl = 1;
-  }
+    }
   else {          /* Stretch the current chain */
     cs = get_fat(fs, clst);     /* Check the cluster status */
     if (cs < 2) return 1;     /* Invalid value */
     if (cs == 0xFFFFFFFF) return cs;  /* A disk error occurred */
     if (cs < fs->n_fatent) return cs; /* It is already followed by next cluster */
     scl = clst;
-  }
+    }
 
   ncl = scl;        /* Start cluster */
   for (;;) {
@@ -778,45 +792,46 @@ static DWORD create_chain (FATFS* fs, DWORD clst) {
     if (ncl >= fs->n_fatent) {    /* Check wrap around */
       ncl = 2;
       if (ncl > scl) return 0;  /* No free cluster */
-    }
+      }
     cs = get_fat(fs, ncl);      /* Get the cluster status */
     if (cs == 0) break;       /* Found a free cluster */
     if (cs == 0xFFFFFFFF || cs == 1)/* An error occurred */
       return cs;
     if (ncl == scl) return 0;   /* No free cluster */
-  }
+    }
 
   res = put_fat(fs, ncl, 0x0FFFFFFF); /* Mark the new cluster "last link" */
   if (res == FR_OK && clst != 0) {
     res = put_fat(fs, clst, ncl); /* Link it to the previous one if needed */
-  }
+    }
+
   if (res == FR_OK) {
     fs->last_clust = ncl;     /* Update FSINFO */
     if (fs->free_clust != 0xFFFFFFFF) {
       fs->free_clust--;
       fs->fsi_flag |= 1;
+      }
     }
-  } else {
+  else
     ncl = (res == FR_DISK_ERR) ? 0xFFFFFFFF : 1;
-  }
 
   return ncl;   /* Return new cluster number or error code */
-}
+  }
 /*}}}*/
 /*{{{*/
 static DWORD clmt_clust (FIL* fp, DWORD ofs) {
 
-  DWORD cl, ncl, *tbl;
-  tbl = fp->cltbl + 1;  /* Top of CLMT */
-  cl = ofs / SS(fp->fs) / fp->fs->csize;  /* Cluster order from top of the file */
+  DWORD* tbl = fp->cltbl + 1;  /* Top of CLMT */
+  DWORD cl = ofs / SS(fp->fs) / fp->fs->csize;  /* Cluster order from top of the file */
   for (;;) {
-    ncl = *tbl++;     /* Number of cluters in the fragment */
+    DWORD ncl = *tbl++;   /* Number of cluters in the fragment */
     if (!ncl) return 0;   /* End of table? (error) */
     if (cl < ncl) break;  /* In this fragment? */
-    cl -= ncl; tbl++;   /* Next fragment */
-  }
+    cl -= ncl; tbl++;     /* Next fragment */
+    }
+
   return cl + *tbl; /* Return the cluster number */
-}
+  }
 /*}}}*/
 
 /*{{{*/
@@ -2901,9 +2916,7 @@ FRESULT f_utime (const TCHAR* path, const FILINFO* fno) {
 }
 /*}}}*/
 /*{{{*/
-FRESULT f_getlabel (const TCHAR* path,  /* Path name of the logical drive number */
-                    TCHAR* label,   /* Pointer to a buffer to return the volume label */
-                    DWORD* vsn      /* Pointer to a variable to return the volume serial number */) {
+FRESULT f_getlabel (const TCHAR* path, TCHAR* label, DWORD* vsn) {
 
   DIR dj;
   UINT i, j;

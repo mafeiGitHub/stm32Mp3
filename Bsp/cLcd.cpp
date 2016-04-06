@@ -5,6 +5,7 @@
 #include <iostream>
 #include <iomanip>
 
+#include "memory.h"
 #include "stm32746g_discovery.h"
 #include "cLcd.h"
 #include "cLcdPrivate.h"
@@ -103,6 +104,7 @@ static FT_Library FTlibrary;
 static FT_Face FTface;
 static FT_GlyphSlot FTglyphSlot;
 //}}}
+cLcd mLcd (SDRAM_FRAME0, SDRAM_FRAME1);
 
 LTDC_HandleTypeDef hLtdc;
 //{{{
@@ -177,18 +179,25 @@ void LCD_DMA2D_IRQHandler() {
 
 // cLcd public
 //{{{
-cLcd::cLcd()  {
+cLcd::cLcd (uint32_t buffer0, uint32_t buffer1)  {
+
   mStartTime = osKernelSysTick();
+
+  mBuffer[false] = buffer0;
+  mBuffer[true] = buffer1;
+
   updateNumDrawLines();
   }
 //}}}
 //{{{
-void cLcd::init (uint32_t buffer0, uint32_t buffer1, bool buffered) {
+cLcd* cLcd::instance() {
+  return &mLcd;
+  }
+//}}}
+//{{{
+void cLcd::init (bool buffered) {
 
   mBuffered = buffered;
-
-  mBuffer[false] = buffer0;
-  mBuffer[true] = buffer1;
   mDrawBuffer = !mDrawBuffer;
   ltdcInit (mBuffer[mDrawBuffer]);
 

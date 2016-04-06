@@ -3,12 +3,13 @@
 #include "ff.h"
 #include "diskio.h"
 #include "../Bsp/stm32746g_discovery_sd.h"
+#include "../Bsp/cLcd.h"
 
 #define BLOCK_SIZE 512
 
 static volatile DSTATUS Stat = STA_NOINIT;
 
-/*{{{*/
+//{{{
 DSTATUS disk_status (BYTE pdrv) {
 
   Stat = STA_NOINIT;
@@ -16,8 +17,8 @@ DSTATUS disk_status (BYTE pdrv) {
     Stat &= ~STA_NOINIT;
   return Stat;
   }
-/*}}}*/
-/*{{{*/
+//}}}
+//{{{
 DSTATUS disk_initialize (BYTE pdrv) {
 
   Stat = STA_NOINIT;
@@ -25,8 +26,8 @@ DSTATUS disk_initialize (BYTE pdrv) {
     Stat &= ~STA_NOINIT;
   return Stat;
   }
-/*}}}*/
-/*{{{*/
+//}}}
+//{{{
 DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff) {
 
   DRESULT res = RES_ERROR;
@@ -66,15 +67,17 @@ DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff) {
 
   return res;
   }
-/*}}}*/
+//}}}
 
-/*{{{*/
+//{{{
 DRESULT disk_read (BYTE pdrv, BYTE* buff, DWORD sector, UINT count) {
+
+  cLcd::instance()->info ("diskRead b:" + cLcd::hexStr ((int)buff) + " s:" + cLcd::intStr (sector) + " c:" + cLcd::intStr (count));
   return BSP_SD_ReadBlocks ((uint32_t*)buff, (uint64_t)(sector * BLOCK_SIZE), BLOCK_SIZE, count) == MSD_OK ? RES_OK : RES_ERROR;
   }
-/*}}}*/
-/*{{{*/
+//}}}
+//{{{
 DRESULT disk_write (BYTE pdrv, const BYTE* buff, DWORD sector, UINT count) {
   return BSP_SD_WriteBlocks ((uint32_t*)buff, (uint64_t)(sector * BLOCK_SIZE), BLOCK_SIZE, count) == MSD_OK ? RES_OK : RES_ERROR;
   }
-/*}}}*/
+//}}}
