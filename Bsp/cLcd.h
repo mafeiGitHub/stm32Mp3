@@ -37,11 +37,13 @@ public:
   cLcd (uint32_t buffer0, uint32_t buffer1);
   ~cLcd() {}
 
+  // static members
   static cLcd* instance();
   static int getWidth() { return 480; }
   static int getHeight() { return 272; }
-  static std::string intStr (int value, int width = 0, char fill = ' ');
   static std::string hexStr (int value, int width = 0);
+  static std::string intStr (int value, int width = 0, char fill = ' ');
+  static void debug (std::string str) { instance()->info (str); }
 
   void init (bool buffered = true);
   void setTitle (std::string title);

@@ -13,8 +13,10 @@ static volatile DSTATUS Stat = STA_NOINIT;
 DSTATUS disk_status (BYTE pdrv) {
 
   Stat = STA_NOINIT;
+
   if (BSP_SD_GetStatus() == MSD_OK)
     Stat &= ~STA_NOINIT;
+
   return Stat;
   }
 //}}}
@@ -22,8 +24,10 @@ DSTATUS disk_status (BYTE pdrv) {
 DSTATUS disk_initialize (BYTE pdrv) {
 
   Stat = STA_NOINIT;
+
   if (BSP_SD_Init() == MSD_OK)
     Stat &= ~STA_NOINIT;
+
   return Stat;
   }
 //}}}
@@ -31,6 +35,7 @@ DSTATUS disk_initialize (BYTE pdrv) {
 DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff) {
 
   DRESULT res = RES_ERROR;
+
   if (Stat & STA_NOINIT)
     return RES_NOTRDY;
 
@@ -72,7 +77,7 @@ DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff) {
 //{{{
 DRESULT disk_read (BYTE pdrv, BYTE* buff, DWORD sector, UINT count) {
 
-  cLcd::instance()->info ("diskRead b:" + cLcd::hexStr ((int)buff) + " s:" + cLcd::intStr (sector) + " c:" + cLcd::intStr (count));
+  cLcd::debug ("diskRead b:" + cLcd::hexStr ((int)buff) + " s:" + cLcd::intStr (sector) + " c:" + cLcd::intStr (count));
   return BSP_SD_ReadBlocks ((uint32_t*)buff, (uint64_t)(sector * BLOCK_SIZE), BLOCK_SIZE, count) == MSD_OK ? RES_OK : RES_ERROR;
   }
 //}}}

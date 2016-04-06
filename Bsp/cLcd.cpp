@@ -104,6 +104,7 @@ static FT_Library FTlibrary;
 static FT_Face FTface;
 static FT_GlyphSlot FTglyphSlot;
 //}}}
+
 cLcd mLcd (SDRAM_FRAME0, SDRAM_FRAME1);
 
 LTDC_HandleTypeDef hLtdc;
@@ -177,7 +178,7 @@ void LCD_DMA2D_IRQHandler() {
   }
 //}}}
 
-// cLcd public
+// cLcd 
 //{{{
 cLcd::cLcd (uint32_t buffer0, uint32_t buffer1)  {
 
@@ -189,6 +190,8 @@ cLcd::cLcd (uint32_t buffer0, uint32_t buffer1)  {
   updateNumDrawLines();
   }
 //}}}
+
+// static members
 //{{{
 cLcd* cLcd::instance() {
   return &mLcd;
@@ -237,7 +240,30 @@ void cLcd::init (bool buffered) {
     chars[i] = nullptr;
   }
 //}}}
+//{{{
+std::string cLcd::hexStr (int value, int width) {
 
+  std::ostringstream os;
+  if (width)
+    os << std::hex << std::setfill ('0') << std::setw (width) << value;
+  else
+    os << std::hex << value;
+  return os.str();
+  }
+//}}}
+//{{{
+std::string cLcd::intStr (int value, int width, char fill) {
+
+  std::ostringstream os;
+  if (width)
+    os << std::setfill (fill) << std::setw (width) << value;
+  else
+    os << value;
+  return os.str();
+  }
+//}}}
+
+// public members
 //{{{
 void cLcd::setTitle (std::string title) {
   mTitle = title;
@@ -262,28 +288,6 @@ void cLcd::setShowFooter (bool enable) {
   }
 //}}}
 
-//{{{
-std::string cLcd::intStr (int value, int width, char fill) {
-
-  std::ostringstream os;
-  if (width)
-    os << std::setfill (fill) << std::setw (width) << value;
-  else
-    os << value;
-  return os.str();
-  }
-//}}}
-//{{{
-std::string cLcd::hexStr (int value, int width) {
-
-  std::ostringstream os;
-  if (width)
-    os << std::hex << std::setfill ('0') << std::setw (width) << value;
-  else
-    os << std::hex << value;
-  return os.str();
-  }
-//}}}
 //{{{
 void cLcd::info (uint32_t colour, std::string str, bool newLine) {
 

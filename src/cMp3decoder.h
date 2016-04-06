@@ -4,7 +4,10 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <math.h>
+
 #include "cmsis_os.h"
+
+#include "../Bsp/cLcd.h"
 //}}}
 //{{{  defines
 #define PI 3.141592654
@@ -806,19 +809,17 @@ public:
       //{{{  compute n ^ (4/3) and store it in mantissa/exp format
       table_4_3_exp = (int8_t*)pvPortMalloc ((8191 + 16)*4 * sizeof(table_4_3_exp[0]));
       table_4_3_value = (uint32_t*)pvPortMalloc ((8191 + 16)*4 * sizeof(table_4_3_value[0]));
+
       for (auto i = 1; i < (8191 + 16) * 4; i++) {
         int e;
-        auto f = pow ((double)(i/4), 4.0 / 3.0) * pow(2, (i&3)*0.25);
-        auto fm = frexp (f, &e);
-        auto m = (uint32_t)(fm * (1LL << 31) + 0.5);
-        e += FRAC_BITS - 31 + 5 - 100;
-        table_4_3_value[i] = m;
-        table_4_3_exp[i] = -e;
+        float fm = frexpf (powf (i/4, 4.0f/3.0f) * powf (2, (i & 3) * 0.25f), &e);
+        table_4_3_value[i] = (uint32_t)(fm * (1LL << 31) + 0.5f);
+        table_4_3_exp[i] = -e - FRAC_BITS + 31 - 5 + 100;
         }
 
       for (auto i = 0; i < 512*16; i++){
-        auto exponent = (i >> 4);
-        auto f = pow (i & 15, 4.0 / 3.0) * pow (2, (exponent - 400) * 0.25 + FRAC_BITS + 5);
+        auto exponent = i >> 4;
+        float f = powf (i & 15, 4.0 / 3.0) * powf (2, (exponent - 400) * 0.25 + FRAC_BITS + 5);
         expval_table[exponent][i & 15] = (uint32_t)f;
         if ((i & 15) == 1)
           exp_table[exponent]= (uint32_t)f;
@@ -827,11 +828,11 @@ public:
       for (auto i = 0; i < 7; i++) {
         int v;
         if (i != 6) {
-          float f = (float)tan ((double)i * PI / 12.0);
-          v = FIXR(f / (1.0 + f));
+          float f = (float)tanf (i * PI / 12.0f);
+          v = FIXR(f / (1.0f + f));
           }
         else
-          v = FIXR(1.0);
+          v = FIXR(1.0f);
         is_table[0][i] = v;
         is_table[1][6 - i] = v;
         }
@@ -921,7 +922,7 @@ public:
           if (j == 2 && i % 3 != 1)
             continue;
 
-          double d = sin (PI * (i + 0.5) / 36.0);
+          float d = sinf (PI * (i + 0.5) / 36.0);
           if (j == 1) {
               if (i >= 30)
                 d = 0;

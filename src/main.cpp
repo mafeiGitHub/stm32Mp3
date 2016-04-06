@@ -154,7 +154,7 @@ static void uiThread (void const* argument) {
   int lastz [5];
 
   while (true) {
-    //{{{  get and action touch
+    //{{{  read touch and use it
     mSkip = false;
 
     TS_StateTypeDef tsState;
@@ -178,20 +178,20 @@ static void uiThread (void const* argument) {
             }
             //}}}
           else {
-             //{{{  pressed volume
-             auto volume = pressed[touch] ? mVolume + float(y - lasty[touch]) / mLcd->getHeight(): float(y) / mLcd->getHeight();
+            //{{{  pressed volume
+            auto volume = pressed[touch] ? mVolume + float(y - lasty[touch]) / mLcd->getHeight(): float(y) / mLcd->getHeight();
 
-             if (volume < 0)
-               volume = 0;
-             else if (volume > 1.0f)
-               volume = 1.0f;
+            if (volume < 0)
+              volume = 0;
+            else if (volume > 1.0f)
+              volume = 1.0f;
 
-             if (volume != mVolume) {
-               mVolume = volume;
-               BSP_AUDIO_OUT_SetVolume (int(mVolume * 100));
-               }
-             }
-             //}}}
+            if (volume != mVolume) {
+              mVolume = volume;
+              BSP_AUDIO_OUT_SetVolume (int(mVolume * 100));
+              }
+            }
+            //}}}
           }
 
         lastx[touch] = x;
@@ -205,13 +205,10 @@ static void uiThread (void const* argument) {
     //}}}
 
     mLcd->startDraw();
-    //{{{  draw cursors
-    auto drawTouch = 0;
-    while ((drawTouch < 5) && pressed[drawTouch]) {
-      mLcd->ellipse (drawTouch > 0 ? LCD_LIGHTGREY : lastx[0] < kInfo ? LCD_GREEN : lastx[0] < kVolume ? LCD_MAGENTA : LCD_YELLOW,
-                    lastx[drawTouch], lasty[drawTouch], lastz[drawTouch], lastz[drawTouch]);
-      drawTouch++;
-      }
+    //{{{  draw touch
+    for (auto touch = 0; (touch < 5) && pressed[touch]; touch++)
+      mLcd->ellipse (touch > 0 ? LCD_LIGHTGREY : lastx[0] < kInfo ? LCD_GREEN : lastx[0] < kVolume ? LCD_MAGENTA : LCD_YELLOW,
+                    lastx[touch], lasty[touch], lastz[touch], lastz[touch]);
     //}}}
     //{{{  draw yellow volume
     mLcd->rect (LCD_YELLOW, cLcd::getWidth()-20, 0, 20, int(mVolume * cLcd::getHeight()));
@@ -397,76 +394,55 @@ static void startThread (void const* argument) {
 //}}}
 
 // init
-//{{{
-static void MPUconfigSDRAM() {
-// config writeThrough for SDRAM 0xC0000000, 8m - region0
+static void initStm32f7() {
+// init cpu caches, MPU regions, clocks
 
+  SCB_EnableICache();
+  SCB_EnableDCache();
+  HAL_Init();
+
+  // common MPU config for writeThrough
   HAL_MPU_Disable();
 
   MPU_Region_InitTypeDef MPU_InitStruct;
-  MPU_InitStruct.Number = MPU_REGION_NUMBER0;
   MPU_InitStruct.Enable = MPU_REGION_ENABLE;
+  MPU_InitStruct.AccessPermission = MPU_REGION_FULL_ACCESS;
+  MPU_InitStruct.SubRegionDisable = 0x00;
+  MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
+  MPU_InitStruct.IsCacheable = MPU_ACCESS_CACHEABLE;
+  MPU_InitStruct.IsShareable = MPU_ACCESS_NOT_SHAREABLE;
+  MPU_InitStruct.TypeExtField = MPU_TEX_LEVEL0;
+  MPU_InitStruct.DisableExec = MPU_INSTRUCTION_ACCESS_ENABLE;
 
+  // config writeThrough for SDRAM 0xC0000000, 8m - region0
+  MPU_InitStruct.Number = MPU_REGION_NUMBER0;
   MPU_InitStruct.BaseAddress = 0xC0000000;
   MPU_InitStruct.Size = MPU_REGION_SIZE_8MB;
-  MPU_InitStruct.AccessPermission = MPU_REGION_FULL_ACCESS;
-  MPU_InitStruct.SubRegionDisable = 0x00;
-
-  MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
-  MPU_InitStruct.IsCacheable = MPU_ACCESS_CACHEABLE;
-  MPU_InitStruct.IsShareable = MPU_ACCESS_NOT_SHAREABLE;
-  MPU_InitStruct.TypeExtField = MPU_TEX_LEVEL0;
-  MPU_InitStruct.DisableExec = MPU_INSTRUCTION_ACCESS_ENABLE;
-
   HAL_MPU_ConfigRegion (&MPU_InitStruct);
 
-  HAL_MPU_Enable (MPU_PRIVILEGED_DEFAULT);
-  }
-//}}}
-//{{{
-static void MPUconfigSRAM() {
-// config writeThrough for SRAM1 SRAM2 0x20010000, 256k, AXI - region1
-
-  HAL_MPU_Disable();
-
-  MPU_Region_InitTypeDef MPU_InitStruct;
+  // config writeThrough for SRAM1 SRAM2 0x20010000, 256k, AXI - region1
   MPU_InitStruct.Number = MPU_REGION_NUMBER1;
-  MPU_InitStruct.Enable = MPU_REGION_ENABLE;
-
   MPU_InitStruct.BaseAddress = 0x20010000;
   MPU_InitStruct.Size = MPU_REGION_SIZE_256KB;
-  MPU_InitStruct.AccessPermission = MPU_REGION_FULL_ACCESS;
-  MPU_InitStruct.SubRegionDisable = 0x00;
-
-  MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
-  MPU_InitStruct.IsCacheable = MPU_ACCESS_CACHEABLE;
-  MPU_InitStruct.IsShareable = MPU_ACCESS_NOT_SHAREABLE;
-  MPU_InitStruct.TypeExtField = MPU_TEX_LEVEL0;
-  MPU_InitStruct.DisableExec = MPU_INSTRUCTION_ACCESS_ENABLE;
-
   HAL_MPU_ConfigRegion (&MPU_InitStruct);
 
   HAL_MPU_Enable (MPU_PRIVILEGED_DEFAULT);
-  }
-//}}}
-//{{{
-static void initSystemClock216() {
-// Enable HSE Oscillator and activate PLL with HSE as source
-//  System Clock source            = PLL (HSE)
-//  SYSCLK(Hz)                     = 216000000
-//  HCLK(Hz)                       = 216000000
-//  HSE Frequency(Hz)              = 25000000
-//  PLL_M                          = 25
-//  PLL_N                          = 432
-//  PLL_P                          = 2
-//  PLL_Q                          = 9
-//  VDD(V)                         = 3.3
-//  Main regulator output voltage  = Scale1 mode
-//  AHB Prescaler                  = 1
-//  APB1 Prescaler                 = 4
-//  APB2 Prescaler                 = 2
-//  Flash Latency(WS)              = 7
 
+  //{{{  Enable HSE Oscillator and activate PLL with HSE as source
+  //  System Clock source            = PLL (HSE)
+  //  SYSCLK(Hz)                     = 216000000
+  //  HCLK(Hz)                       = 216000000
+  //  HSE Frequency(Hz)              = 25000000
+  //  PLL_M                          = 25
+  //  PLL_N                          = 432
+  //  PLL_P                          = 2
+  //  PLL_Q                          = 9
+  //  VDD(V)                         = 3.3
+  //  Main regulator output voltage  = Scale1 mode
+  //  AHB Prescaler                  = 1
+  //  APB1 Prescaler                 = 4
+  //  APB2 Prescaler                 = 2
+  //  Flash Latency(WS)              = 7
   RCC_OscInitTypeDef RCC_OscInitStruct;
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
@@ -492,20 +468,13 @@ static void initSystemClock216() {
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
   if (HAL_RCC_ClockConfig (&RCC_ClkInitStruct, FLASH_LATENCY_7) != HAL_OK)
     while (true) {;}
+  //}}}
   }
-//}}}
 
 //{{{
 int main() {
 
-  // init cpu caches, clocks, memory regions
-  SCB_EnableICache();
-  SCB_EnableDCache();
-  HAL_Init();
-
-  MPUconfigSDRAM();
-  MPUconfigSRAM();
-  initSystemClock216();
+  initStm32f7();
 
   // init freeRTOS heap_5c
   HeapRegion_t xHeapRegions[] = { {(uint8_t*)SDRAM_HEAP, SDRAM_HEAP_SIZE }, { nullptr, 0 } };
