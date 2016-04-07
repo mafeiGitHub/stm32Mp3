@@ -248,7 +248,10 @@ static void loadThread (void const* argument) {
   if (result != FR_OK)
     lcd->info ("fatFs mount error:" + cLcd::intStr (result));
   else {
-    lcd->info ("fatFs mounted");
+    DWORD vsn;
+    char label[12];
+    f_getlabel ("", label, &vsn);
+    lcd->info ("fatFs mounted " + string(label) + " sn:" + cLcd::hexStr (vsn));
 
     DIR dir;
     result = f_opendir (&dir, "/");
