@@ -26,24 +26,10 @@ typedef unsigned long   DWORD;
 //}}}
 //{{{  ff_conf defines
 #define _MAX_SS      512
-
 #define _MAX_LFN     255  /* Maximum LFN length to handle (12 to 255) */
 #define _CODE_PAGE   1252
 #define _LFN_UNICODE 0   /* 0:ANSI/OEM or 1:Unicode */
 #define _STRF_ENCODE 3   /* 0:ANSI/OEM, 1:UTF-16LE, 2:UTF-16BE, 3:UTF-8 */
-
-#define _USE_TRIM    0
-
-#define _FS_NOFSINFO 0   /* 0 or 1 */
-
-#define _FS_NORTC    0
-#define _NORTC_MON   2
-#define _NORTC_MDAY  1
-#define _NORTC_YEAR  2015
-#define _WORD_ACCESS 0    /* 0 or 1 */
-
-#define _FS_TIMEOUT  1000 /* Timeout period in unit of time ticks */
-#define _FS_LOCK     2    /* 0:Disable or >=1:Enable */
 //}}}
 
 //{{{  Type of path name strings on FatFs API
@@ -225,9 +211,9 @@ typedef struct {
 //}}}
 
 FRESULT f_mount (FATFS* fs, const TCHAR* path, BYTE opt);                       // Mount/Unmount a logical drive
+FRESULT f_getfree (const TCHAR* path, DWORD* nclst, FATFS** fatfs);             // Get number of free clusters on the drive
 FRESULT f_getlabel (const TCHAR* path, TCHAR* label, DWORD* vsn);               // Get volume label
 FRESULT f_setlabel (const TCHAR* label);                                        // Set volume label
-FRESULT f_getfree (const TCHAR* path, DWORD* nclst, FATFS** fatfs);             // Get number of free clusters on the drive
 
 FRESULT f_open (FIL* fp, const TCHAR* path, BYTE mode);                         // Open or create a file
 FRESULT f_read (FIL* fp, void* buff, UINT btr, UINT* br);                       // Read data from a file

@@ -36,7 +36,7 @@ using namespace std;
 static struct netif gNetif;
 static osSemaphoreId dhcpSem;
 
-static float mVolume = 0.7f;
+static float mVolume = 0.8f;
 
 static int mPlayFrame = 0;
 static int mPlayBytes = 0;
@@ -233,8 +233,10 @@ static void loadThread (void const* argument) {
   auto lcd = cLcd::instance();
   lcd->info ("loadThread started");
 
-  BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_BOTH, int(mVolume * 100), 44100);
-  BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
+  //BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mVolume * 100), 44100);
+  //BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
+  BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 44100);
+  BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);
 
   BSP_SD_Init();
   while (BSP_SD_IsDetected() != SD_PRESENT) {
