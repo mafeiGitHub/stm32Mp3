@@ -510,6 +510,7 @@ static void clear_lock (FATFS* fs) {
   }
 /*}}}*/
 /*}}}*/
+/*{{{  util*/
 /*{{{*/
 static int mem_cmp (const void* dst, const void* src, UINT cnt) {
 /* Compare memory to memory */
@@ -530,7 +531,8 @@ static int chk_chr (const char* str, int chr) {
   return *str;
   }
 /*}}}*/
-
+/*}}}*/
+/*{{{  window*/
 /*{{{*/
 static FRESULT sync_window (FATFS* fs) {
 
@@ -603,7 +605,8 @@ static FRESULT sync_fs (FATFS* fs) {
   return res;
   }
 /*}}}*/
-
+/*}}}*/
+/*{{{  clust*/
 /*{{{*/
 static DWORD clust2sect (FATFS* fs, DWORD clst) {
 
@@ -646,7 +649,8 @@ static void st_clust (BYTE* dir, DWORD cl) {
   ST_WORD(dir + DIR_FstClusHI, cl >> 16);
   }
 /*}}}*/
-
+/*}}}*/
+/*{{{  fat*/
 /*{{{*/
 static DWORD get_fat (FATFS* fs, DWORD clst) {
 
@@ -749,6 +753,8 @@ static FRESULT put_fat (FATFS* fs, DWORD clst, DWORD val) {
   return res;
   }
 /*}}}*/
+/*}}}*/
+/*{{{  chain*/
 /*{{{*/
 static DWORD create_chain (FATFS* fs, DWORD clst) {
 
@@ -857,21 +863,215 @@ static FRESULT remove_chain (FATFS* fs, DWORD clst) {
   return res;
   }
 /*}}}*/
-
+/*}}}*/
+/*{{{  lfn*/
 /*{{{*/
-static FRESULT dir_sdi (DIR* dp, UINT idx ) {
+static int cmp_lfn (WCHAR* lfnbuf, BYTE* dir) {
 
-  DWORD clst, sect;
-  UINT ic;
+  UINT i = ((dir[LDIR_Ord] & ~LLEF) - 1) * 13; /* Get offset in the LFN buffer */
+  UINT s = 0;
+  WCHAR wc = 1;
+  do {
+    WCHAR uc = LD_WORD(dir + LfnOfs[s]);  /* Pick an LFN character from the entry */
+    if (wc) { /* Last character has not been processed */
+      wc = ff_wtoupper (uc);   /* Convert it to upper case */
+      if (i >= _MAX_LFN || wc != ff_wtoupper (lfnbuf[i++]))  /* Compare it */
+        return 0;       /* Not matched */
+      }
+    else {
+      if (uc != 0xFFFF)
+        return 0; /* Check filler */
+      }
+    } while (++s < 13);       /* Repeat until all characters in the entry are checked */
+
+  if ((dir[LDIR_Ord] & LLEF) && wc && lfnbuf[i])  /* Last segment matched but different length */
+    return 0;
+
+  return 1;           /* The part of LFN matched */
+  }
+/*}}}*/
+/*{{{*/
+static int pick_lfn (WCHAR* lfnbuf, BYTE* dir) {
+
+  UINT i = ((dir[LDIR_Ord] & 0x3F) - 1) * 13;  /* Offset in the LFN buffer */
+  UINT s = 0;
+  WCHAR wc = 1;
+  do {
+    WCHAR uc = LD_WORD(dir + LfnOfs[s]);    /* Pick an LFN character from the entry */
+    if (wc) { /* Last character has not been processed */
+      if (i >= _MAX_LFN) return 0;  /* Buffer overflow? */
+      lfnbuf[i++] = wc = uc;      /* Store it */
+      }
+    else {
+      if (uc != 0xFFFF)
+        return 0;   /* Check filler */
+      }
+    } while (++s < 13);           /* Read all character in the entry */
+
+  if (dir[LDIR_Ord] & LLEF) {       /* Put terminator if it is the last LFN part */
+    if (i >= _MAX_LFN)
+      return 0;    /* Buffer overflow? */
+    lfnbuf[i] = 0;
+    }
+
+  return 1;
+  }
+/*}}}*/
+/*{{{*/
+static void fit_lfn (const WCHAR* lfnbuf, BYTE* dir, BYTE ord, BYTE sum) {
+
+  dir[LDIR_Chksum] = sum;   /* Set check sum */
+  dir[LDIR_Attr] = AM_LFN;  /* Set attribute. LFN entry */
+  dir[LDIR_Type] = 0;
+  ST_WORD(dir + LDIR_FstClusLO, 0);
+
+  UINT i = (ord - 1) * 13;  /* Get offset in the LFN buffer */
+  UINT s = 0;
+  WCHAR wc = 0;
+  do {
+    if (wc != 0xFFFF)
+      wc = lfnbuf[i++];  /* Get an effective character */
+    ST_WORD(dir+LfnOfs[s], wc);  /* Put it */
+    if (!wc)
+      wc = 0xFFFF;  /* Padding characters following last character */
+    } while (++s < 13);
+
+  if (wc == 0xFFFF || !lfnbuf[i])
+    ord |= LLEF;  /* Bottom LFN part is the start of LFN sequence */
+
+  dir[LDIR_Ord] = ord;      /* Set the LFN order */
+  }
+/*}}}*/
+/*{{{*/
+static BYTE sum_sfn (const BYTE* dir) {
+
+  BYTE sum = 0;
+  UINT n = 11;
+  do sum = (sum >> 1) + (sum << 7) + *dir++;
+    while (--n);
+
+  return sum;
+  }
+/*}}}*/
+/*{{{*/
+static void gen_numname (BYTE* dst, const BYTE* src, const WCHAR* lfn, UINT seq) {
+
+  BYTE ns[8], c;
+  UINT i, j;
+  WCHAR wc;
+  DWORD sr;
+
+  memcpy (dst, src, 11);
+
+  if (seq > 5) {
+    /* On many collisions, generate a hash number instead of sequential number */
+    sr = seq;
+    while (*lfn) {  /* Create a CRC */
+      wc = *lfn++;
+      for (i = 0; i < 16; i++) {
+        sr = (sr << 1) + (wc & 1);
+        wc >>= 1;
+        if (sr & 0x10000) sr ^= 0x11021;
+        }
+      }
+    seq = (UINT)sr;
+    }
+
+  /* itoa (hexdecimal) */
+  i = 7;
+  do {
+    c = (seq % 16) + '0';
+    if (c > '9') c += 7;
+    ns[i--] = c;
+    seq /= 16;
+    } while (seq);
+  ns[i] = '~';
+
+  /* Append the number */
+  for (j = 0; j < i && dst[j] != ' '; j++) {
+    if (IsDBCS1(dst[j])) {
+      if (j == i - 1) break;
+      j++;
+      }
+     }
+
+   do {
+    dst[j++] = (i < 8) ? ns[i++] : ' ';
+     } while (j < 8);
+ }
+/*}}}*/
+/*}}}*/
+/*{{{  dir*/
+/*{{{*/
+static void get_fileinfo (DIR* dp, FILINFO* fno) {
+
+  UINT i;
+  TCHAR *p, c;
+  BYTE *dir;
+  WCHAR w, *lfn;
+
+  p = fno->fname;
+  if (dp->sect) {   /* Get SFN */
+    dir = dp->dir;
+    i = 0;
+    while (i < 11) {    /* Copy name body and extension */
+      c = (TCHAR)dir[i++];
+      if (c == ' ') continue;       /* Skip padding spaces */
+      if (c == RDDEM) c = (TCHAR)DDEM;  /* Restore replaced DDEM character */
+      if (i == 9) *p++ = '.';       /* Insert a . if extension is exist */
+      if (IsUpper(c) && (dir[DIR_NTres] & (i >= 9 ? NS_EXT : NS_BODY)))
+        c += 0x20;      /* To lower */
+#if _LFN_UNICODE
+      if (IsDBCS1(c) && i != 8 && i != 11 && IsDBCS2(dir[i]))
+        c = c << 8 | dir[i++];
+      c = ff_convert(c, 1); /* OEM -> Unicode */
+      if (!c) c = '?';
+#endif
+      *p++ = c;
+    }
+    fno->fattrib = dir[DIR_Attr];       /* Attribute */
+    fno->fsize = LD_DWORD(dir + DIR_FileSize);  /* Size */
+    fno->fdate = LD_WORD(dir + DIR_WrtDate);  /* Date */
+    fno->ftime = LD_WORD(dir + DIR_WrtTime);  /* Time */
+  }
+  *p = 0;   /* Terminate SFN string by a \0 */
+
+  if (fno->lfname) {
+    i = 0; p = fno->lfname;
+    if (dp->sect && fno->lfsize && dp->lfn_idx != 0xFFFF) { /* Get LFN if available */
+      lfn = dp->lfn;
+      while ((w = *lfn++) != 0) {   /* Get an LFN character */
+
+#if !_LFN_UNICODE
+        w = ff_convert(w, 0);   /* Unicode -> OEM */
+        if (!w) { i = 0; break; } /* No LFN if it could not be converted */
+        if (_DF1S && w >= 0x100)  /* Put 1st byte if it is a DBC (always false on SBCS cfg) */
+          p[i++] = (TCHAR)(w >> 8);
+#endif
+
+        if (i >= fno->lfsize - 1) {
+          i = 0;
+          break;
+          } /* No LFN if buffer overflow */
+        p[i++] = (TCHAR)w;
+      }
+    }
+    p[i] = 0; /* Terminate LFN string by a \0 */
+  }
+}
+/*}}}*/
+/*{{{*/
+static FRESULT dir_sdi (DIR* dp, UINT idx) {
 
   dp->index = (WORD)idx;  /* Current index */
 
-  clst = dp->sclust;    /* Table start cluster (0:root) */
+  DWORD clst = dp->sclust;    /* Table start cluster (0:root) */
   if (clst == 1 || clst >= dp->fs->n_fatent)  /* Check start cluster range */
     return FR_INT_ERR;
   if (!clst && dp->fs->fs_type == FS_FAT32) /* Replace cluster# 0 with root cluster# if in FAT32 */
     clst = dp->fs->dirbase;
 
+  DWORD sect;
   if (clst == 0) {
     /* Static table (root-directory in FAT12/16) */
     if (idx >= dp->fs->n_rootdir) /* Is index out of range? */
@@ -880,7 +1080,7 @@ static FRESULT dir_sdi (DIR* dp, UINT idx ) {
     }
   else {
     /* Dynamic table (root-directory in FAT32 or sub-directory) */
-    ic = _MAX_SS / SZ_DIRE * dp->fs->csize;  /* Entries per cluster */
+    UINT ic = _MAX_SS / SZ_DIRE * dp->fs->csize;  /* Entries per cluster */
     while (idx >= ic) { /* Follow cluster chain */
       clst = get_fat(dp->fs, clst);       /* Get next cluster */
       if (clst == 0xFFFFFFFF)
@@ -896,7 +1096,7 @@ static FRESULT dir_sdi (DIR* dp, UINT idx ) {
   if (!sect)
     return FR_INT_ERR;
 
-  dp->sect = sect + idx / (_MAX_SS / SZ_DIRE);         /* Sector# of the directory entry */
+  dp->sect = sect + idx / (_MAX_SS / SZ_DIRE);                       /* Sector# of the directory entry */
   dp->dir = dp->fs->win.d8 + (idx % (_MAX_SS / SZ_DIRE)) * SZ_DIRE;  /* Ptr to the entry in the sector */
 
   return FR_OK;
@@ -1001,145 +1201,8 @@ static FRESULT dir_alloc (DIR* dp, UINT nent) {
   return res;
   }
 /*}}}*/
-
 /*{{{*/
-static int cmp_lfn (WCHAR* lfnbuf, BYTE* dir ) {
-
-  UINT i = ((dir[LDIR_Ord] & ~LLEF) - 1) * 13; /* Get offset in the LFN buffer */
-  UINT s = 0;
-  WCHAR wc = 1;
-  do {
-    WCHAR uc = LD_WORD(dir + LfnOfs[s]);  /* Pick an LFN character from the entry */
-    if (wc) { /* Last character has not been processed */
-      wc = ff_wtoupper (uc);   /* Convert it to upper case */
-      if (i >= _MAX_LFN || wc != ff_wtoupper (lfnbuf[i++]))  /* Compare it */
-        return 0;       /* Not matched */
-      }
-    else {
-      if (uc != 0xFFFF)
-        return 0; /* Check filler */
-      }
-    } while (++s < 13);       /* Repeat until all characters in the entry are checked */
-
-  if ((dir[LDIR_Ord] & LLEF) && wc && lfnbuf[i])  /* Last segment matched but different length */
-    return 0;
-
-  return 1;           /* The part of LFN matched */
-  }
-/*}}}*/
-/*{{{*/
-static int pick_lfn (WCHAR* lfnbuf, BYTE* dir) {
-
-  UINT i = ((dir[LDIR_Ord] & 0x3F) - 1) * 13;  /* Offset in the LFN buffer */
-  UINT s = 0;
-  WCHAR wc = 1;
-  do {
-    WCHAR uc = LD_WORD(dir + LfnOfs[s]);    /* Pick an LFN character from the entry */
-    if (wc) { /* Last character has not been processed */
-      if (i >= _MAX_LFN) return 0;  /* Buffer overflow? */
-      lfnbuf[i++] = wc = uc;      /* Store it */
-      }
-    else {
-      if (uc != 0xFFFF)
-        return 0;   /* Check filler */
-      }
-    } while (++s < 13);           /* Read all character in the entry */
-
-  if (dir[LDIR_Ord] & LLEF) {       /* Put terminator if it is the last LFN part */
-    if (i >= _MAX_LFN)
-      return 0;    /* Buffer overflow? */
-    lfnbuf[i] = 0;
-    }
-
-  return 1;
-  }
-/*}}}*/
-/*{{{*/
-static void fit_lfn (const WCHAR* lfnbuf, BYTE* dir, BYTE ord, BYTE sum) {
-
-  dir[LDIR_Chksum] = sum;   /* Set check sum */
-  dir[LDIR_Attr] = AM_LFN;  /* Set attribute. LFN entry */
-  dir[LDIR_Type] = 0;
-  ST_WORD(dir + LDIR_FstClusLO, 0);
-
-  UINT i = (ord - 1) * 13;  /* Get offset in the LFN buffer */
-  UINT s = 0;
-  WCHAR wc = 0;
-  do {
-    if (wc != 0xFFFF)
-      wc = lfnbuf[i++];  /* Get an effective character */
-    ST_WORD(dir+LfnOfs[s], wc);  /* Put it */
-    if (!wc)
-      wc = 0xFFFF;  /* Padding characters following last character */
-    } while (++s < 13);
-
-  if (wc == 0xFFFF || !lfnbuf[i])
-    ord |= LLEF;  /* Bottom LFN part is the start of LFN sequence */
-
-  dir[LDIR_Ord] = ord;      /* Set the LFN order */
-  }
-/*}}}*/
-/*{{{*/
-static BYTE sum_sfn (const BYTE* dir ) {
-
-  BYTE sum = 0;
-  UINT n = 11;
-  do sum = (sum >> 1) + (sum << 7) + *dir++;
-    while (--n);
-
-  return sum;
-  }
-/*}}}*/
-/*{{{*/
-static void gen_numname (BYTE* dst, const BYTE* src, const WCHAR* lfn, UINT seq) {
-
-  BYTE ns[8], c;
-  UINT i, j;
-  WCHAR wc;
-  DWORD sr;
-
-  memcpy (dst, src, 11);
-
-  if (seq > 5) {
-    /* On many collisions, generate a hash number instead of sequential number */
-    sr = seq;
-    while (*lfn) {  /* Create a CRC */
-      wc = *lfn++;
-      for (i = 0; i < 16; i++) {
-        sr = (sr << 1) + (wc & 1);
-        wc >>= 1;
-        if (sr & 0x10000) sr ^= 0x11021;
-        }
-      }
-    seq = (UINT)sr;
-    }
-
-  /* itoa (hexdecimal) */
-  i = 7;
-  do {
-    c = (seq % 16) + '0';
-    if (c > '9') c += 7;
-    ns[i--] = c;
-    seq /= 16;
-    } while (seq);
-  ns[i] = '~';
-
-  /* Append the number */
-  for (j = 0; j < i && dst[j] != ' '; j++) {
-    if (IsDBCS1(dst[j])) {
-      if (j == i - 1) break;
-      j++;
-      }
-     }
-
-   do {
-    dst[j++] = (i < 8) ? ns[i++] : ' ';
-     } while (j < 8);
- }
-/*}}}*/
-
-/*{{{*/
-static FRESULT dir_find (DIR* dp ) {
+static FRESULT dir_find (DIR* dp) {
 
   BYTE c, *dir;
   BYTE a, sum;
@@ -1334,67 +1397,10 @@ static FRESULT dir_remove (DIR* dp) {
   return res;
   }
 /*}}}*/
-
-/*{{{*/
-static void get_fileinfo (DIR* dp, FILINFO* fno) {
-
-  UINT i;
-  TCHAR *p, c;
-  BYTE *dir;
-  WCHAR w, *lfn;
-
-  p = fno->fname;
-  if (dp->sect) {   /* Get SFN */
-    dir = dp->dir;
-    i = 0;
-    while (i < 11) {    /* Copy name body and extension */
-      c = (TCHAR)dir[i++];
-      if (c == ' ') continue;       /* Skip padding spaces */
-      if (c == RDDEM) c = (TCHAR)DDEM;  /* Restore replaced DDEM character */
-      if (i == 9) *p++ = '.';       /* Insert a . if extension is exist */
-      if (IsUpper(c) && (dir[DIR_NTres] & (i >= 9 ? NS_EXT : NS_BODY)))
-        c += 0x20;      /* To lower */
-#if _LFN_UNICODE
-      if (IsDBCS1(c) && i != 8 && i != 11 && IsDBCS2(dir[i]))
-        c = c << 8 | dir[i++];
-      c = ff_convert(c, 1); /* OEM -> Unicode */
-      if (!c) c = '?';
-#endif
-      *p++ = c;
-    }
-    fno->fattrib = dir[DIR_Attr];       /* Attribute */
-    fno->fsize = LD_DWORD(dir + DIR_FileSize);  /* Size */
-    fno->fdate = LD_WORD(dir + DIR_WrtDate);  /* Date */
-    fno->ftime = LD_WORD(dir + DIR_WrtTime);  /* Time */
-  }
-  *p = 0;   /* Terminate SFN string by a \0 */
-
-  if (fno->lfname) {
-    i = 0; p = fno->lfname;
-    if (dp->sect && fno->lfsize && dp->lfn_idx != 0xFFFF) { /* Get LFN if available */
-      lfn = dp->lfn;
-      while ((w = *lfn++) != 0) {   /* Get an LFN character */
-
-#if !_LFN_UNICODE
-        w = ff_convert(w, 0);   /* Unicode -> OEM */
-        if (!w) { i = 0; break; } /* No LFN if it could not be converted */
-        if (_DF1S && w >= 0x100)  /* Put 1st byte if it is a DBC (always false on SBCS cfg) */
-          p[i++] = (TCHAR)(w >> 8);
-#endif
-
-        if (i >= fno->lfsize - 1) {
-          i = 0;
-          break;
-          } /* No LFN if buffer overflow */
-        p[i++] = (TCHAR)w;
-      }
-    }
-    p[i] = 0; /* Terminate LFN string by a \0 */
-  }
-}
 /*}}}*/
+
 /*{{{*/
-static WCHAR get_achar (const TCHAR** ptr ) {
+static WCHAR get_achar (const TCHAR** ptr) {
 
   WCHAR chr;
 
@@ -1420,40 +1426,48 @@ static WCHAR get_achar (const TCHAR** ptr ) {
 /*{{{*/
 static int pattern_matching (const TCHAR* pat, const TCHAR* nam, int skip, int inf) {
 
-  const TCHAR *pp, *np;
-  WCHAR pc, nc;
-  int nm, nx;
-
-  while (skip--) {        /* Pre-skip name chars */
-    if (!get_achar(&nam))
+  while (skip--) {
+    /* Pre-skip name chars */
+    if (!get_achar (&nam))
       return 0; /* Branch mismatched if less name chars */
     }
   if (!*pat && inf)
     return 1;   /* (short circuit) */
 
+  WCHAR nc;
   do {
-    pp = pat;
-    np = nam;     /* Top of pattern and name to match */
+    const TCHAR* pp = pat;
+    const TCHAR* np = nam;  /* Top of pattern and name to match */
     for (;;) {
-      if (*pp == '?' || *pp == '*') { /* Wildcard? */
-        nm = nx = 0;
-        do {        /* Analyze the wildcard chars */
-          if (*pp++ == '?') nm++; else nx = 1;
+      if (*pp == '?' || *pp == '*') {
+        /* Wildcard? */
+        int nm = 0;
+        int nx = 0;
+        do {
+          /* Analyze the wildcard chars */
+          if (*pp++ == '?')
+            nm++;
+          else
+            nx = 1;
           } while (*pp == '?' || *pp == '*');
-        if (pattern_matching(pp, np, nm, nx))
+
+        if (pattern_matching (pp, np, nm, nx))
           return 1; /* Test new branch (recurs upto number of wildcard blocks in the pattern) */
-        nc = *np; break;  /* Branch mismatched */
+
+        nc = *np;
+        break;  /* Branch mismatched */
         }
 
-      pc = get_achar(&pp);  /* Get a pattern char */
-      nc = get_achar(&np);  /* Get a name char */
+      WCHAR pc = get_achar (&pp);  /* Get a pattern char */
+      nc = get_achar (&np);  /* Get a name char */
       if (pc != nc)
         break;  /* Branch mismatched? */
       if (!pc)
         return 1;    /* Branch matched? (matched at end of both strings) */
       }
-    get_achar(&nam);      /* nam++ */
-    } while (inf && nc);      /* Retry until end of name if infinite search is specified */
+
+    get_achar (&nam);     /* nam++ */
+    } while (inf && nc);  /* Retry until end of name if infinite search is specified */
 
   return 0;
   }
@@ -1656,7 +1670,7 @@ static FRESULT follow_path (DIR* dp, const TCHAR* path) {
   }
 /*}}}*/
 /*{{{*/
-static int get_ldnumber (const TCHAR** path ) {
+static int get_ldnumber (const TCHAR** path) {
 
   const TCHAR *tp, *tt;
   UINT i;
@@ -1774,16 +1788,16 @@ static FRESULT find_volume (FATFS** rfs, const TCHAR** path, BYTE wmode) {
   /* Find an FAT partition on the drive. Supports only generic partitioning, FDISK and SFD. */
   bsect = 0;
   fmt = check_fs(fs, bsect);          /* Load sector 0 and check if it is an FAT boot sector as SFD */
-  if (fmt == 1 || (!fmt && vol)) { 
+  if (fmt == 1 || (!fmt && vol)) {
     /* Not an FAT boot sector or forced partition number */
-    for (i = 0; i < 4; i++) {     
+    for (i = 0; i < 4; i++) {
       /* Get partition offset */
       pt = fs->win.d8 + MBR_Table + i * SZ_PTE;
       br[i] = pt[4] ? LD_DWORD(&pt[8]) : 0;
       }
 
     i = vol;  /* Partition number: 0:auto, 1-4:forced */
-    if (i) 
+    if (i)
       i--;
     do {
       /* Find an FAT volume */
@@ -1847,7 +1861,7 @@ static FRESULT find_volume (FATFS** rfs, const TCHAR** path, BYTE wmode) {
   fs->fatbase = bsect + nrsv;             /* FAT start sector */
   fs->database = bsect + sysect;            /* Data start sector */
   if (fmt == FS_FAT32) {
-    if (fs->n_rootdir) 
+    if (fs->n_rootdir)
       return FR_NO_FILESYSTEM;   /* (BPB_RootEntCnt must be 0) */
     fs->dirbase = LD_DWORD(fs->win.d8 + BPB_RootClus);  /* Root directory start cluster */
     szbfat = fs->n_fatent * 4;            /* (Needed FAT size) */
@@ -2747,7 +2761,7 @@ FRESULT f_readdir (DIR* dp, FILINFO* fno) {
         res = FR_OK;
         }
       if (res == FR_OK) {       /* A valid entry is found */
-        get_fileinfo(dp, fno);    /* Get the object information */
+        get_fileinfo (dp, fno);    /* Get the object information */
         res = dir_next(dp, 0);    /* Increment index for next */
         if (res == FR_NO_FILE) {
           dp->sect = 0;
@@ -3454,12 +3468,12 @@ typedef struct {
 /*{{{*/
 static void putc_bfd (putbuff* pb, TCHAR c) {
 
-  UINT bw;
-
-  if (c == '\n')  /* LF -> CRLF conversion */
+  if (c == '\n')
+    /* LF -> CRLF conversion */
     putc_bfd (pb, '\r');
 
-  int i = pb->idx;  /* Buffer write index (-1:error) */
+  /* Buffer write index (-1:error) */
+  int i = pb->idx;
   if (i < 0)
     return;
 
@@ -3476,26 +3490,32 @@ static void putc_bfd (putbuff* pb, TCHAR c) {
         }
       pb->buf[i++] = (BYTE)(0x80 | (c & 0x3F));
       }
-  #elif _STRF_ENCODE == 2     /* Write a character in UTF-16BE */
+  #elif _STRF_ENCODE == 2
+    // Write a character in UTF-16BE
     pb->buf[i++] = (BYTE)(c >> 8);
     pb->buf[i++] = (BYTE)c;
-  #elif _STRF_ENCODE == 1     /* Write a character in UTF-16LE */
+  #elif _STRF_ENCODE == 1
+    // Write a character in UTF-16LE
     pb->buf[i++] = (BYTE)c;
     pb->buf[i++] = (BYTE)(c >> 8);
-  #else             /* Write a character in ANSI/OEM */
-    c = ff_convert (c, 0); /* Unicode -> OEM */
+  #else
+    // Write a character in ANSI/OEM, Unicode -> OEM
+    c = ff_convert (c, 0);
     if (!c)
       c = '?';
     if (c >= 0x100)
       pb->buf[i++] = (BYTE)(c >> 8);
     pb->buf[i++] = (BYTE)c;
   #endif
-#else             /* Write a character without conversion */
-    pb->buf[i++] = (BYTE)c;
+#else
+  // Write a character without conversion
+  pb->buf[i++] = (BYTE)c;
 #endif
 
-  if (i >= (int)(sizeof pb->buf) - 3) { /* Write buffered characters to the file */
-    f_write(pb->fp, pb->buf, (UINT)i, &bw);
+  if (i >= (int)(sizeof pb->buf) - 3) {
+    // Write buffered characters to the file
+    UINT bw;
+    f_write (pb->fp, pb->buf, (UINT)i, &bw);
     i = (bw == (UINT)i) ? 0 : -1;
     }
 
@@ -3506,10 +3526,13 @@ static void putc_bfd (putbuff* pb, TCHAR c) {
 /*{{{*/
 int f_putc (TCHAR c, FIL* fp) {
 
+  /* Initialize output buffer */
   putbuff pb;
-  pb.fp = fp;     /* Initialize output buffer */
+  pb.fp = fp;
   pb.nchr = pb.idx = 0;
-  putc_bfd (&pb, c); /* Put a character */
+
+  /* Put a character */
+  putc_bfd (&pb, c);
 
   UINT nw;
   if (pb.idx >= 0 && f_write (pb.fp, pb.buf, (UINT)pb.idx, &nw) == FR_OK && (UINT)pb.idx == nw)
@@ -3521,10 +3544,13 @@ int f_putc (TCHAR c, FIL* fp) {
 /*{{{*/
 int f_puts (const TCHAR* str, FIL* fp) {
 
+  /* Initialize output buffer */
   putbuff pb;
-  pb.fp = fp;       /* Initialize output buffer */
+  pb.fp = fp;
   pb.nchr = pb.idx = 0;
-  while (*str)      /* Put the string */
+
+  /* Put the string */
+  while (*str)
     putc_bfd(&pb, *str++);
 
   UINT nw;
@@ -3537,53 +3563,64 @@ int f_puts (const TCHAR* str, FIL* fp) {
 /*{{{*/
 int f_printf (FIL* fp, const TCHAR* fmt, ...) {
 
-  va_list arp;
   BYTE f, r;
   UINT nw, i, j, w;
   DWORD v;
   TCHAR c, d, s[16], *p;
 
+  /* Initialize output buffer */
   putbuff pb;
-  pb.fp = fp;       /* Initialize output buffer */
+  pb.fp = fp;
   pb.nchr = pb.idx = 0;
 
+  va_list arp;
   va_start (arp, fmt);
 
   for (;;) {
     c = *fmt++;
     if (c == 0)
       break;      /* End of string */
+
     if (c != '%') {       /* Non escape character */
-      putc_bfd(&pb, c);
+      putc_bfd (&pb, c);
       continue;
       }
+
     w = f = 0;
     c = *fmt++;
-    if (c == '0') {       /* Flag: '0' padding */
+    if (c == '0') {
+      /*{{{  flag: '0' padding*/
       f = 1;
       c = *fmt++;
       }
-    else {
-      if (c == '-')      /* Flag: left justified */
-        f = 2; c = *fmt++;
+      /*}}}*/
+    else if (c == '-') {
+      /*{{{  flag: left justified*/
+      f = 2;
+      c = *fmt++;
       }
-
-    while (IsDigit(c)) {    /* Precision */
+      /*}}}*/
+    while (IsDigit(c)) {
+      /*{{{  Precision*/
       w = w * 10 + c - '0';
       c = *fmt++;
       }
-
-    if (c == 'l' || c == 'L')  /* Prefix: Size is long int */
-      f |= 4; c = *fmt++;
-
+      /*}}}*/
+    if (c == 'l' || c == 'L')  {
+      /*{{{  Prefix: Size is long int*/
+      f |= 4;
+      c = *fmt++;
+      }
+      /*}}}*/
     if (!c)
       break;
 
     d = c;
-    if (IsLower(d))
+    if (IsLower (d))
       d -= 0x20;
 
     switch (d) {        /* Type is... */
+      /*{{{*/
       case 'S' :          /* String */
         p = va_arg(arp, TCHAR*);
         for (j = 0; p[j]; j++) ;
@@ -3596,28 +3633,41 @@ int f_printf (FIL* fp, const TCHAR* fmt, ...) {
         while (j++ < w)
           putc_bfd (&pb, ' ');
         continue;
+      /*}}}*/
+      /*{{{*/
       case 'C' :          /* Character */
         putc_bfd(&pb, (TCHAR)va_arg(arp, int));
         continue;
+      /*}}}*/
+      /*{{{*/
       case 'B' :          /* Binary */
         r = 2;
         break;
+      /*}}}*/
+      /*{{{*/
       case 'O' :          /* Octal */
         r = 8;
         break;
+      /*}}}*/
       case 'D' :          /* Signed decimal */
+      /*{{{*/
       case 'U' :          /* Unsigned decimal */
         r = 10;
         break;
+      /*}}}*/
+      /*{{{*/
       case 'X' :          /* Hexdecimal */
         r = 16;
         break;
+      /*}}}*/
+      /*{{{*/
       default:          /* Unknown type (pass-through) */
         putc_bfd(&pb, c);
         continue;
+      /*}}}*/
       }
 
-    /* Get an argument and put it in numeral */
+    // Get an argument and put it in numeral
     v = (f & 4) ? (DWORD)va_arg(arp, long) : ((d == 'D') ? (DWORD)(long)va_arg(arp, int) : (DWORD)va_arg(arp, unsigned int));
     if (d == 'D' && (v & 0x80000000)) {
       v = 0 - v;
@@ -3638,20 +3688,21 @@ int f_printf (FIL* fp, const TCHAR* fmt, ...) {
     d = (f & 1) ? '0' : ' ';
 
     while (!(f & 2) && j++ < w)
-      putc_bfd(&pb, d);
+      putc_bfd (&pb, d);
 
     do
       putc_bfd (&pb, s[--i]);
       while (i);
 
     while (j++ < w)
-      putc_bfd(&pb, d);
+      putc_bfd (&pb, d);
     }
 
   va_end (arp);
 
-  if (pb.idx >= 0 && f_write(pb.fp, pb.buf, (UINT)pb.idx, &nw) == FR_OK && (UINT)pb.idx == nw)
+  if (pb.idx >= 0 && f_write (pb.fp, pb.buf, (UINT)pb.idx, &nw) == FR_OK && (UINT)pb.idx == nw)
     return pb.nchr;
+
   return EOF;
   }
 /*}}}*/
