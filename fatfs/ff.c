@@ -360,12 +360,8 @@ static const WORD cst[] = {32768, 16384, 8192, 4096, 2048, 16384, 8192, 4096, 20
 #endif
 /*}}}*/
 /*{{{  static vars*/
-static FATFS* FatFs[_VOLUMES]; /* Pointer to the file system objects (logical drives) */
-static WORD Fsid;              /* File system mount ID */
-
-#if _VOLUMES >= 2
-  static BYTE CurrVol;      /* Current drive */
-#endif
+static FATFS* FatFs[1]; /* Pointer to the file system objects (logical drives) */
+static WORD Fsid;       /* File system mount ID */
 
 /*{{{  FILESEM struct*/
 typedef struct {
@@ -1009,76 +1005,90 @@ static FRESULT dir_alloc (DIR* dp, UINT nent) {
 /*{{{*/
 static int cmp_lfn (WCHAR* lfnbuf, BYTE* dir ) {
 
-  UINT i, s;
-  WCHAR wc, uc;
-
-  i = ((dir[LDIR_Ord] & ~LLEF) - 1) * 13; /* Get offset in the LFN buffer */
-  s = 0; wc = 1;
+  UINT i = ((dir[LDIR_Ord] & ~LLEF) - 1) * 13; /* Get offset in the LFN buffer */
+  UINT s = 0;
+  WCHAR wc = 1;
   do {
-    uc = LD_WORD(dir + LfnOfs[s]);  /* Pick an LFN character from the entry */
+    WCHAR uc = LD_WORD(dir + LfnOfs[s]);  /* Pick an LFN character from the entry */
     if (wc) { /* Last character has not been processed */
-      wc = ff_wtoupper(uc);   /* Convert it to upper case */
-      if (i >= _MAX_LFN || wc != ff_wtoupper(lfnbuf[i++]))  /* Compare it */
+      wc = ff_wtoupper (uc);   /* Convert it to upper case */
+      if (i >= _MAX_LFN || wc != ff_wtoupper (lfnbuf[i++]))  /* Compare it */
         return 0;       /* Not matched */
-    } else {
-      if (uc != 0xFFFF) return 0; /* Check filler */
-    }
-  } while (++s < 13);       /* Repeat until all characters in the entry are checked */
+      }
+    else {
+      if (uc != 0xFFFF)
+        return 0; /* Check filler */
+      }
+    } while (++s < 13);       /* Repeat until all characters in the entry are checked */
 
   if ((dir[LDIR_Ord] & LLEF) && wc && lfnbuf[i])  /* Last segment matched but different length */
     return 0;
 
   return 1;           /* The part of LFN matched */
-}
+  }
 /*}}}*/
 /*{{{*/
 static int pick_lfn (WCHAR* lfnbuf, BYTE* dir) {
 
-  UINT i, s;
-  WCHAR wc, uc;
-
-  i = ((dir[LDIR_Ord] & 0x3F) - 1) * 13;  /* Offset in the LFN buffer */
-
-  s = 0; wc = 1;
+  UINT i = ((dir[LDIR_Ord] & 0x3F) - 1) * 13;  /* Offset in the LFN buffer */
+  UINT s = 0;
+  WCHAR wc = 1;
   do {
-    uc = LD_WORD(dir + LfnOfs[s]);    /* Pick an LFN character from the entry */
+    WCHAR uc = LD_WORD(dir + LfnOfs[s]);    /* Pick an LFN character from the entry */
     if (wc) { /* Last character has not been processed */
       if (i >= _MAX_LFN) return 0;  /* Buffer overflow? */
       lfnbuf[i++] = wc = uc;      /* Store it */
-    } else {
-      if (uc != 0xFFFF) return 0;   /* Check filler */
-    }
-  } while (++s < 13);           /* Read all character in the entry */
+      }
+    else {
+      if (uc != 0xFFFF)
+        return 0;   /* Check filler */
+      }
+    } while (++s < 13);           /* Read all character in the entry */
 
   if (dir[LDIR_Ord] & LLEF) {       /* Put terminator if it is the last LFN part */
-    if (i >= _MAX_LFN) return 0;    /* Buffer overflow? */
+    if (i >= _MAX_LFN)
+      return 0;    /* Buffer overflow? */
     lfnbuf[i] = 0;
-  }
+    }
 
   return 1;
-}
+  }
 /*}}}*/
 /*{{{*/
 static void fit_lfn (const WCHAR* lfnbuf, BYTE* dir, BYTE ord, BYTE sum) {
 
-  UINT i, s;
-  WCHAR wc;
-
-  dir[LDIR_Chksum] = sum;     /* Set check sum */
-  dir[LDIR_Attr] = AM_LFN;    /* Set attribute. LFN entry */
+  dir[LDIR_Chksum] = sum;   /* Set check sum */
+  dir[LDIR_Attr] = AM_LFN;  /* Set attribute. LFN entry */
   dir[LDIR_Type] = 0;
   ST_WORD(dir + LDIR_FstClusLO, 0);
 
-  i = (ord - 1) * 13;       /* Get offset in the LFN buffer */
-  s = wc = 0;
+  UINT i = (ord - 1) * 13;  /* Get offset in the LFN buffer */
+  UINT s = 0;
+  WCHAR wc = 0;
   do {
-    if (wc != 0xFFFF) wc = lfnbuf[i++]; /* Get an effective character */
-    ST_WORD(dir+LfnOfs[s], wc); /* Put it */
-    if (!wc) wc = 0xFFFF;   /* Padding characters following last character */
-  } while (++s < 13);
-  if (wc == 0xFFFF || !lfnbuf[i]) ord |= LLEF;  /* Bottom LFN part is the start of LFN sequence */
+    if (wc != 0xFFFF)
+      wc = lfnbuf[i++];  /* Get an effective character */
+    ST_WORD(dir+LfnOfs[s], wc);  /* Put it */
+    if (!wc)
+      wc = 0xFFFF;  /* Padding characters following last character */
+    } while (++s < 13);
+
+  if (wc == 0xFFFF || !lfnbuf[i])
+    ord |= LLEF;  /* Bottom LFN part is the start of LFN sequence */
+
   dir[LDIR_Ord] = ord;      /* Set the LFN order */
-}
+  }
+/*}}}*/
+/*{{{*/
+static BYTE sum_sfn (const BYTE* dir ) {
+
+  BYTE sum = 0;
+  UINT n = 11;
+  do sum = (sum >> 1) + (sum << 7) + *dir++;
+    while (--n);
+
+  return sum;
+  }
 /*}}}*/
 /*{{{*/
 static void gen_numname (BYTE* dst, const BYTE* src, const WCHAR* lfn, UINT seq) {
@@ -1126,17 +1136,6 @@ static void gen_numname (BYTE* dst, const BYTE* src, const WCHAR* lfn, UINT seq)
     dst[j++] = (i < 8) ? ns[i++] : ' ';
      } while (j < 8);
  }
-/*}}}*/
-/*{{{*/
-static BYTE sum_sfn (const BYTE* dir ) {
-
-  BYTE sum = 0;
-  UINT n = 11;
-  do sum = (sum >> 1) + (sum << 7) + *dir++;
-    while (--n);
-
-  return sum;
-  }
 /*}}}*/
 
 /*{{{*/
@@ -1676,7 +1675,7 @@ static int get_ldnumber (const TCHAR** path ) {
       tp = *path;
       i = *tp++ - '0';
       if (i < 10 && tp == tt) { /* Is there a numeric drive id? */
-        if (i < _VOLUMES) { /* If a drive id is found, get the value and strip it */
+        if (i < 1) { /* If a drive id is found, get the value and strip it */
           vol = (int)i;
           *path = ++tt;
           }
@@ -1691,8 +1690,8 @@ static int get_ldnumber (const TCHAR** path ) {
             c = *sp++; tc = *tp++;
             if (IsLower(tc)) tc -= 0x20;
             } while (c && (TCHAR)c == tc);
-          } while ((c || tp != tt) && ++i < _VOLUMES);  /* Repeat for each id until pattern match */
-        if (i < _VOLUMES) { /* If a drive id is found, get the value and strip it */
+          } while ((c || tp != tt) && ++i < 1);  /* Repeat for each id until pattern match */
+        if (i < 1) { /* If a drive id is found, get the value and strip it */
           vol = (int)i;
           *path = tt;
           }
@@ -1702,13 +1701,9 @@ static int get_ldnumber (const TCHAR** path ) {
       return vol;
       }
 
-#if _VOLUMES >= 2
-    vol = CurrVol;  /* Current drive */
-#else
     vol = 0;    /* Drive 0 */
-#endif
-
     }
+
   return vol;
   }
 /*}}}*/
@@ -1747,29 +1742,30 @@ static FRESULT find_volume (FATFS** rfs, const TCHAR** path, BYTE wmode) {
     return FR_INVALID_DRIVE;
 
   /* Check if the file system object is valid or not */
-  fs = FatFs[vol];          /* Get pointer to the file system object */
+  fs = FatFs[vol];  /* Get pointer to the file system object */
   if (!fs)
     return FR_NOT_ENABLED;   /* Is the file system object available? */
 
   /* Lock the volume */
   if (!ff_req_grant (fs->sobj))
     return FR_TIMEOUT;
-  *rfs = fs;              /* Return pointer to the file system object */
+  *rfs = fs;   /* Return pointer to the file system object */
 
-  if (fs->fs_type) {          /* If the volume has been mounted */
-    stat = disk_status(fs->drv);
+  if (fs->fs_type) {
+    /* If the volume has been mounted */
+    stat = disk_status (fs->drv);
     if (!(stat & STA_NOINIT)) {   /* and the physical drive is kept initialized */
       if (wmode && (stat & STA_PROTECT)) /* Check write protection if needed */
         return FR_WRITE_PROTECTED;
       return FR_OK;       /* The file system object is valid */
-       }
-   }
+      }
+    }
 
   /* The file system object is not valid. */
   /* Following code attempts to mount the volume. (analyze BPB and initialize the fs object) */
   fs->fs_type = 0;          /* Clear the file system object */
   fs->drv = vol;       /* Bind the logical drive and a physical drive */
-  stat = disk_initialize(fs->drv);  /* Initialize the physical drive */
+  stat = disk_initialize (fs->drv);  /* Initialize the physical drive */
   if (stat & STA_NOINIT)        /* Check if the initialization succeeded */
     return FR_NOT_READY;      /* Failed to initialize due to no medium or hard error */
   if (wmode && (stat & STA_PROTECT)) /* Check disk write protection if needed */
@@ -1778,15 +1774,19 @@ static FRESULT find_volume (FATFS** rfs, const TCHAR** path, BYTE wmode) {
   /* Find an FAT partition on the drive. Supports only generic partitioning, FDISK and SFD. */
   bsect = 0;
   fmt = check_fs(fs, bsect);          /* Load sector 0 and check if it is an FAT boot sector as SFD */
-  if (fmt == 1 || (!fmt && vol)) { /* Not an FAT boot sector or forced partition number */
-    for (i = 0; i < 4; i++) {     /* Get partition offset */
+  if (fmt == 1 || (!fmt && vol)) { 
+    /* Not an FAT boot sector or forced partition number */
+    for (i = 0; i < 4; i++) {     
+      /* Get partition offset */
       pt = fs->win.d8 + MBR_Table + i * SZ_PTE;
       br[i] = pt[4] ? LD_DWORD(&pt[8]) : 0;
       }
 
-    i = vol;           /* Partition number: 0:auto, 1-4:forced */
-    if (i) i--;
-    do {                /* Find an FAT volume */
+    i = vol;  /* Partition number: 0:auto, 1-4:forced */
+    if (i) 
+      i--;
+    do {
+      /* Find an FAT volume */
       bsect = br[i];
       fmt = bsect ? check_fs(fs, bsect) : 2;  /* Check the partition */
       } while (!vol && fmt && ++i < 4);
@@ -1798,7 +1798,6 @@ static FRESULT find_volume (FATFS** rfs, const TCHAR** path, BYTE wmode) {
     return FR_NO_FILESYSTEM;   /* No FAT volume is found */
 
   /* An FAT volume is found. Following code initializes the file system object */
-
   if (LD_WORD(fs->win.d8 + BPB_BytsPerSec) != _MAX_SS) /* (BPB_BytsPerSec must be equal to the physical sector size) */
     return FR_NO_FILESYSTEM;
 
@@ -1848,7 +1847,8 @@ static FRESULT find_volume (FATFS** rfs, const TCHAR** path, BYTE wmode) {
   fs->fatbase = bsect + nrsv;             /* FAT start sector */
   fs->database = bsect + sysect;            /* Data start sector */
   if (fmt == FS_FAT32) {
-    if (fs->n_rootdir) return FR_NO_FILESYSTEM;   /* (BPB_RootEntCnt must be 0) */
+    if (fs->n_rootdir) 
+      return FR_NO_FILESYSTEM;   /* (BPB_RootEntCnt must be 0) */
     fs->dirbase = LD_DWORD(fs->win.d8 + BPB_RootClus);  /* Root directory start cluster */
     szbfat = fs->n_fatent * 4;            /* (Needed FAT size) */
     }
@@ -1879,7 +1879,7 @@ static FRESULT find_volume (FATFS** rfs, const TCHAR** path, BYTE wmode) {
   fs->fs_type = fmt;  /* FAT sub-type */
   fs->id = ++Fsid;    /* File system mount ID */
   fs->cdir = 0;       /* Set current directory to root */
-  clear_lock(fs);
+  clear_lock (fs);
 
   return FR_OK;
   }
@@ -1908,6 +1908,7 @@ static FRESULT validate (void* obj) {
 FRESULT f_mount (FATFS* fs, const TCHAR* path, BYTE opt) {
 
   const TCHAR* rp = path;
+
   int vol = get_ldnumber (&rp);
   if (vol < 0)
     return FR_INVALID_DRIVE;
@@ -2042,9 +2043,8 @@ FRESULT f_setlabel (const TCHAR* label) {
         tm = GET_FATTIME();
         ST_DWORD(dj.dir + DIR_WrtTime, tm);
         }
-      else {
+      else
         dj.dir[0] = DDEM;     /* Remove the volume label */
-        }
       dj.fs->wflag = 1;
       res = sync_fs(dj.fs);
       }
@@ -2840,19 +2840,18 @@ FRESULT f_getcwd (TCHAR* buff, UINT len) {
 
     tp = buff;
     if (res == FR_OK) {
-#if _VOLUMES >= 2
-      *tp++ = '0' + CurrVol;      /* Put drive number */
-      *tp++ = ':';
-#endif
-      if (i == len) {         /* Root-directory */
+      if (i == len)
+        /* Root-directory */
         *tp++ = '/';
-        }
-      else {            /* Sub-directroy */
-        do    /* Add stacked path str */
+      else {
+        /* Sub-directroy */
+        do
+          /* Add stacked path str */
           *tp++ = buff[i++];
-        while (i < len);
+          while (i < len);
         }
       }
+
     *tp = 0;
     vPortFree (lfn);
     }
@@ -3201,20 +3200,6 @@ FRESULT f_utime (const TCHAR* path, const FILINFO* fno) {
   LEAVE_FF(dj.fs, res);
   }
 /*}}}*/
-
-#if _VOLUMES >= 2
-  /*{{{*/
-  FRESULT f_chdrive (const TCHAR* path) {
-
-    int vol = get_ldnumber(&path);
-    if (vol < 0)
-      return FR_INVALID_DRIVE;
-
-    CurrVol = (BYTE)vol;
-    return FR_OK;
-    }
-  /*}}}*/
-#endif
 
 #define N_FATS    1    /* Number of FATs (1 or 2) */
 #define N_ROOTDIR 512  /* Number of root directory entries for FAT12/16 */

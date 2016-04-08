@@ -32,8 +32,6 @@ typedef unsigned long   DWORD;
 #define _LFN_UNICODE 0   /* 0:ANSI/OEM or 1:Unicode */
 #define _STRF_ENCODE 3   /* 0:ANSI/OEM, 1:UTF-16LE, 2:UTF-16BE, 3:UTF-8 */
 
-#define _VOLUMES     1   // Number of volumes (logical drives) to be used
-
 #define _USE_TRIM    0
 
 #define _FS_NOFSINFO 0   /* 0 or 1 */
