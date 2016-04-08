@@ -25,7 +25,6 @@ typedef long            LONG;
 typedef unsigned long   DWORD;
 //}}}
 //{{{  ff_conf defines
-#define _MIN_SS      512
 #define _MAX_SS      512
 
 #define _MAX_LFN     255  /* Maximum LFN length to handle (12 to 255) */
@@ -34,7 +33,6 @@ typedef unsigned long   DWORD;
 #define _STRF_ENCODE 3   /* 0:ANSI/OEM, 1:UTF-16LE, 2:UTF-16BE, 3:UTF-8 */
 
 #define _VOLUMES     1   // Number of volumes (logical drives) to be used
-#define _MULTI_PARTITION 0 /* 0:Single partition, 1:Enable multiple partition */
 
 #define _USE_TRIM    0
 
@@ -50,26 +48,6 @@ typedef unsigned long   DWORD;
 #define _FS_LOCK     2    /* 0:Disable or >=1:Enable */
 //}}}
 
-//{{{  Definitions of volume management
-#if _MULTI_PARTITION
-  /* Multiple partition configuration */
-  //{{{  struct partition
-  typedef struct {
-    BYTE pd;  /* Physical drive number */
-    BYTE pt;  /* Partition: 0:Auto detect, 1-4:Forced partition) */
-    } PARTITION;
-  //}}}
-
-  extern PARTITION VolToPart[]; /* Volume - Partition resolution table */
-  #define LD2PD(vol) (VolToPart[vol].pd)  /* Get physical drive number */
-  #define LD2PT(vol) (VolToPart[vol].pt)  /* Get partition index */
-
-#else
-  /* Single partition configuration */
-  #define LD2PD(vol) (BYTE)(vol)  /* Each logical drive is bound to the same physical drive number */
-  #define LD2PT(vol) 0      /* Find first valid partition or in SFD */
-#endif
-//}}}
 //{{{  Type of path name strings on FatFs API
 #if _LFN_UNICODE
   /* Unicode string */
@@ -172,10 +150,6 @@ typedef struct {
   BYTE  fsi_flag;   // FSINFO flags (b7:disabled, b0:dirty)
   WORD  id;         // File system mount ID
   WORD  n_rootdir;  // Number of root directory entries (FAT12/16)
-
-#if _MAX_SS != _MIN_SS
-  WORD  ssize;      // Bytes per sector (512, 1024, 2048 or 4096)
-#endif
 
   osSemaphoreId sobj; // Identifier of sync object
 

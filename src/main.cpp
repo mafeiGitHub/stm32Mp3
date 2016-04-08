@@ -74,6 +74,7 @@ static void playFile (string fileName) {
   mPlaySize = 0;
   for (auto i = 0; i < 480*2; i++)
     mPower[i] = 0;
+  memset ((void*)AUDIO_BUFFER, 0, AUDIO_BUFFER_SIZE);
 
   FIL file;
   auto result = f_open (&file, fileName.c_str(), FA_OPEN_EXISTING | FA_READ);
@@ -100,7 +101,6 @@ static void playFile (string fileName) {
   // play file from fileBuffer
   lcd->info ("- loaded " + cLcd::intStr (bytesRead) + " of " +  cLcd::intStr (mPlaySize));
 
-  memset ((void*)AUDIO_BUFFER, 0, AUDIO_BUFFER_SIZE);
   BSP_AUDIO_OUT_Play ((uint16_t*)AUDIO_BUFFER, AUDIO_BUFFER_SIZE);
 
   auto ptr = fileBuffer;
@@ -248,10 +248,10 @@ static void loadThread (void const* argument) {
   if (result != FR_OK)
     lcd->info ("fatFs mount error:" + cLcd::intStr (result));
   else {
-    DWORD vsn;
+    DWORD volumeSerialNumber;
     char label[12];
-    f_getlabel ("", label, &vsn);
-    lcd->info ("fatFs mounted " + string(label) + " sn:" + cLcd::hexStr (vsn));
+    f_getlabel ("", label, &volumeSerialNumber);
+    lcd->info (string (label) + " mounted - sn " + cLcd::hexStr (volumeSerialNumber));
 
     DIR dir;
     result = f_opendir (&dir, "/");
