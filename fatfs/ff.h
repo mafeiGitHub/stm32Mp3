@@ -26,11 +26,10 @@ typedef unsigned long   DWORD;
 //}}}
 //{{{  ff_conf defines
 #define _MAX_SS      512
-
-#define _MAX_LFN     255  // Maximum LFN length to handle (12 to 255)
+#define _MAX_LFN     255  /* Maximum LFN length to handle (12 to 255) */
 #define _CODE_PAGE   1252
-#define _LFN_UNICODE 0    // 0:ANSI/OEM or 1:Unicode
-#define _STRF_ENCODE 3    // 0:ANSI/OEM, 1:UTF-16LE, 2:UTF-16BE, 3:UTF-8
+#define _LFN_UNICODE 0   /* 0:ANSI/OEM or 1:Unicode */
+#define _STRF_ENCODE 3   /* 0:ANSI/OEM, 1:UTF-16LE, 2:UTF-16BE, 3:UTF-8 */
 //}}}
 
 //{{{  Type of path name strings on FatFs API
@@ -53,14 +52,15 @@ typedef unsigned long   DWORD;
 #endif
 //}}}
 //{{{  File access control and file status flags (FIL.flag)
-#define FA_READ           0x01
+#define FA_READ       0x01
 #define FA_OPEN_EXISTING  0x00
-#define FA_WRITE          0x02
-#define FA_CREATE_NEW     0x04
+
+#define FA_WRITE      0x02
+#define FA_CREATE_NEW   0x04
 #define FA_CREATE_ALWAYS  0x08
 #define FA_OPEN_ALWAYS    0x10
-#define FA__WRITTEN       0x20
-#define FA__DIRTY         0x40
+#define FA__WRITTEN     0x20
+#define FA__DIRTY     0x40
 //}}}
 //{{{  FAT sub type (FATFS.fs_type)
 #define FS_FAT12  1
@@ -68,23 +68,30 @@ typedef unsigned long   DWORD;
 #define FS_FAT32  3
 //}}}
 //{{{  File attribute bits for directory entry
-#define AM_RDO  0x01  // Read only
-#define AM_HID  0x02  // Hidden
-#define AM_SYS  0x04  // System
-#define AM_VOL  0x08  // Volume label
-#define AM_LFN  0x0F  // LFN entry
-#define AM_DIR  0x10  // Directory
-#define AM_ARC  0x20  // Archive
-#define AM_MASK 0x3F  // Mask of defined bits
+#define AM_RDO  0x01  /* Read only */
+#define AM_HID  0x02  /* Hidden */
+#define AM_SYS  0x04  /* System */
+#define AM_VOL  0x08  /* Volume label */
+#define AM_LFN  0x0F  /* LFN entry */
+#define AM_DIR  0x10  /* Directory */
+#define AM_ARC  0x20  /* Archive */
+#define AM_MASK 0x3F  /* Mask of defined bits */
 //}}}
 //{{{  Fast seek feature
 #define CREATE_LINKMAP  0xFFFFFFFF
 //}}}
 //{{{  Multi-byte word access macros
-#define LD_WORD(ptr)       (WORD)(((WORD)*((BYTE*)(ptr)+1)<<8)|(WORD)*(BYTE*)(ptr))
-#define LD_DWORD(ptr)      (DWORD)(((DWORD)*((BYTE*)(ptr)+3)<<24)|((DWORD)*((BYTE*)(ptr)+2)<<16)|((WORD)*((BYTE*)(ptr)+1)<<8)|*(BYTE*)(ptr))
-#define ST_WORD(ptr,val)  *(BYTE*)(ptr)=(BYTE)(val); *((BYTE*)(ptr)+1)=(BYTE)((WORD)(val)>>8)
-#define ST_DWORD(ptr,val) *(BYTE*)(ptr)=(BYTE)(val); *((BYTE*)(ptr)+1)=(BYTE)((WORD)(val)>>8); *((BYTE*)(ptr)+2)=(BYTE)((DWORD)(val)>>16); *((BYTE*)(ptr)+3)=(BYTE)((DWORD)(val)>>24)
+#if     _WORD_ACCESS == 1 /* Enable word access to the FAT structure */
+  #define LD_WORD(ptr)    (WORD)(*(WORD*)(BYTE*)(ptr))
+  #define LD_DWORD(ptr)   (DWORD)(*(DWORD*)(BYTE*)(ptr))
+  #define ST_WORD(ptr,val)  *(WORD*)(BYTE*)(ptr)=(WORD)(val)
+  #define ST_DWORD(ptr,val) *(DWORD*)(BYTE*)(ptr)=(DWORD)(val)
+#else   /* Use byte-by-byte access to the FAT structure */
+  #define LD_WORD(ptr)    (WORD)(((WORD)*((BYTE*)(ptr)+1)<<8)|(WORD)*(BYTE*)(ptr))
+  #define LD_DWORD(ptr)   (DWORD)(((DWORD)*((BYTE*)(ptr)+3)<<24)|((DWORD)*((BYTE*)(ptr)+2)<<16)|((WORD)*((BYTE*)(ptr)+1)<<8)|*(BYTE*)(ptr))
+  #define ST_WORD(ptr,val)  *(BYTE*)(ptr)=(BYTE)(val); *((BYTE*)(ptr)+1)=(BYTE)((WORD)(val)>>8)
+  #define ST_DWORD(ptr,val) *(BYTE*)(ptr)=(BYTE)(val); *((BYTE*)(ptr)+1)=(BYTE)((WORD)(val)>>8); *((BYTE*)(ptr)+2)=(BYTE)((DWORD)(val)>>16); *((BYTE*)(ptr)+3)=(BYTE)((DWORD)(val)>>24)
+#endif
 //}}}
 
 //{{{  enum FRESULT
