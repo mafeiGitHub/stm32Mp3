@@ -28,6 +28,7 @@
 */
 /*}}}*/
 #include "ff.h"
+#include "ccsbcs.h"
 
 #if _CODE_PAGE == 437
   #define _TBLDEF 1

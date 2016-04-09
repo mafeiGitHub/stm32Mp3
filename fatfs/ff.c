@@ -13,15 +13,11 @@
 #include <stdarg.h>
 
 #include "ff.h"
+#include "ccsbcs.h"
 #include "diskio.h"
 /*}}}*/
 /*{{{  ff_conf defines*/
 #define _USE_TRIM    0
-
-#define _NORTC_MON   2
-#define _NORTC_MDAY  1
-#define _NORTC_YEAR  2015
-#define _WORD_ACCESS 0    /* 0 or 1 */
 
 #define _FS_TIMEOUT  1000 /* Timeout period in unit of time ticks */
 #define _FS_LOCK     2    /* 0:Disable or >=1:Enable */
@@ -281,6 +277,11 @@
 #define MIN_FAT16    4086U    /* Minimum number of clusters as FAT16 */
 #define MIN_FAT32   65526U    /* Minimum number of clusters as FAT32 */
 
+// FAT sub type (FATFS.fs_type)
+#define FS_FAT12  1
+#define FS_FAT16  2
+#define FS_FAT32  3
+
 #define BS_jmpBoot       0    /* x86 jump instruction (3) */
 #define BS_OEMName       3    /* OEM name (8) */
 #define BPB_BytsPerSec  11    /* Sector size [byte] (2) */
@@ -343,6 +344,13 @@
 #define LLEF            0x40  /* Last long entry flag in LDIR_Ord */
 #define DDEM            0xE5  /* Deleted directory entry mark at DIR_Name[0] */
 #define RDDEM           0x05  /* Replacement of the character collides with DDEM */
+/*}}}*/
+/*{{{  Multi-byte word access macros*/
+#define LD_WORD(ptr)   (WORD)(((WORD)*((BYTE*)(ptr)+1)<<8)|(WORD)*(BYTE*)(ptr))
+#define LD_DWORD(ptr)  (DWORD)(((DWORD)*((BYTE*)(ptr)+3)<<24)|((DWORD)*((BYTE*)(ptr)+2)<<16)|((WORD)*((BYTE*)(ptr)+1)<<8)|*(BYTE*)(ptr))
+
+#define ST_WORD(ptr,val)  *(BYTE*)(ptr)=(BYTE)(val); *((BYTE*)(ptr)+1)=(BYTE)((WORD)(val)>>8)
+#define ST_DWORD(ptr,val) *(BYTE*)(ptr)=(BYTE)(val); *((BYTE*)(ptr)+1)=(BYTE)((WORD)(val)>>8); *((BYTE*)(ptr)+2)=(BYTE)((DWORD)(val)>>16); *((BYTE*)(ptr)+3)=(BYTE)((DWORD)(val)>>24)
 /*}}}*/
 /*{{{  struct putbuff*/
 typedef struct {
@@ -1983,7 +1991,7 @@ static void getFileInfo (DIR* dp, FILINFO* fileInfo) {
       // Copy name body and extension
       c = (TCHAR)dir[i++];
       if (c == ' ')
-        continue;       
+        continue;
       if (c == RDDEM)
         c = (TCHAR)DDEM;  // Restore replaced DDEM character
       if (i == 9)
@@ -1994,7 +2002,7 @@ static void getFileInfo (DIR* dp, FILINFO* fileInfo) {
       if (IsDBCS1(c) && i != 8 && i != 11 && IsDBCS2(dir[i]))
         c = c << 8 | dir[i++];
       c = ff_convert (c, 1); // OEM -> Unicode
-      if (!c) 
+      if (!c)
         c = '?';
 #endif
       *p++ = c;
