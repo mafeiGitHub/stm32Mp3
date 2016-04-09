@@ -29,9 +29,7 @@
 
 #define N_FATS    1    /* Number of FATs (1 or 2) */
 #define N_ROOTDIR 512  /* Number of root directory entries for FAT12/16 */
-/*}}}*/
 
-/*{{{  timestamp defines*/
 #if _FS_NORTC == 1
 
   #if _NORTC_YEAR < 1980 || _NORTC_YEAR > 2107 || _NORTC_MON < 1 || _NORTC_MON > 12 || _NORTC_MDAY < 1 || _NORTC_MDAY > 31
@@ -1127,65 +1125,6 @@ static void gen_numname (BYTE* dst, const BYTE* src, const WCHAR* lfn, UINT seq)
 /*}}}*/
 /*{{{  dir*/
 /*{{{*/
-static void get_fileinfo (DIR* dp, FILINFO* fno) {
-
-  UINT i;
-  TCHAR *p, c;
-  BYTE *dir;
-  WCHAR w, *lfn;
-
-  p = fno->fname;
-  if (dp->sect) {   /* Get SFN */
-    dir = dp->dir;
-    i = 0;
-    while (i < 11) {    /* Copy name body and extension */
-      c = (TCHAR)dir[i++];
-      if (c == ' ') continue;       /* Skip padding spaces */
-      if (c == RDDEM) c = (TCHAR)DDEM;  /* Restore replaced DDEM character */
-      if (i == 9) *p++ = '.';       /* Insert a . if extension is exist */
-      if (IsUpper(c) && (dir[DIR_NTres] & (i >= 9 ? NS_EXT : NS_BODY)))
-        c += 0x20;      /* To lower */
-#if _LFN_UNICODE
-      if (IsDBCS1(c) && i != 8 && i != 11 && IsDBCS2(dir[i]))
-        c = c << 8 | dir[i++];
-      c = ff_convert(c, 1); /* OEM -> Unicode */
-      if (!c) c = '?';
-#endif
-      *p++ = c;
-    }
-    fno->fattrib = dir[DIR_Attr];       /* Attribute */
-    fno->fsize = LD_DWORD(dir + DIR_FileSize);  /* Size */
-    fno->fdate = LD_WORD(dir + DIR_WrtDate);  /* Date */
-    fno->ftime = LD_WORD(dir + DIR_WrtTime);  /* Time */
-  }
-  *p = 0;   /* Terminate SFN string by a \0 */
-
-  if (fno->lfname) {
-    i = 0;
-    p = fno->lfname;
-    if (dp->sect && fno->lfsize && dp->lfn_idx != 0xFFFF) { /* Get LFN if available */
-      lfn = dp->lfn;
-      while ((w = *lfn++) != 0) {   /* Get an LFN character */
-
-#if !_LFN_UNICODE
-        w = ff_convert(w, 0);   /* Unicode -> OEM */
-        if (!w) { i = 0; break; } /* No LFN if it could not be converted */
-        if (_DF1S && w >= 0x100)  /* Put 1st byte if it is a DBC (always false on SBCS cfg) */
-          p[i++] = (TCHAR)(w >> 8);
-#endif
-
-        if (i >= fno->lfsize - 1) {
-          i = 0;
-          break;
-          } /* No LFN if buffer overflow */
-        p[i++] = (TCHAR)w;
-      }
-    }
-    p[i] = 0; /* Terminate LFN string by a \0 */
-  }
-}
-/*}}}*/
-/*{{{*/
 static FRESULT dir_sdi (DIR* dp, UINT idx) {
 
   dp->index = (WORD)idx;  /* Current index */
@@ -1551,205 +1490,6 @@ static FRESULT validate (void* obj) {
   }
 /*}}}*/
 /*{{{*/
-static FRESULT create_name (DIR* dp, const TCHAR** path ) {
-
-  BYTE b, cf;
-  WCHAR w, *lfn;
-  UINT i, ni, si, di;
-  const TCHAR *p;
-
-  /* Create LFN in Unicode */
-  for (p = *path; *p == '/' || *p == '\\'; p++) ; /* Strip duplicated separator */
-  lfn = dp->lfn;
-  si = di = 0;
-  for (;;) {
-    w = p[si++];          /* Get a character */
-    if (w < ' ' || w == '/' || w == '\\') break;  /* Break on end of segment */
-    if (di >= _MAX_LFN)       /* Reject too long name */
-      return FR_INVALID_NAME;
-
-#if !_LFN_UNICODE
-    w &= 0xFF;
-    if (IsDBCS1(w)) {       /* Check if it is a DBC 1st byte (always false on SBCS cfg) */
-
-#if _DF1S
-      b = (BYTE)p[si++];      /* Get 2nd byte */
-      w = (w << 8) + b;     /* Create a DBC */
-      if (!IsDBCS2(b))
-        return FR_INVALID_NAME; /* Reject invalid sequence */
-#endif
-
-    }
-    w = ff_convert(w, 1);     /* Convert ANSI/OEM to Unicode */
-    if (!w) return FR_INVALID_NAME; /* Reject invalid code */
-#endif
-
-    if (w < 0x80 && chk_chr("\"*:<>\?|\x7F", w)) /* Reject illegal characters for LFN */
-      return FR_INVALID_NAME;
-    lfn[di++] = w;          /* Store the Unicode character */
-    }
-
-  *path = &p[si];           /* Return pointer to the next segment */
-  cf = (w < ' ') ? NS_LAST : 0;   /* Set last segment flag if end of path */
-  if ((di == 1 && lfn[di - 1] == '.') || /* Is this a dot entry? */
-    (di == 2 && lfn[di - 1] == '.' && lfn[di - 2] == '.')) {
-    lfn[di] = 0;
-    for (i = 0; i < 11; i++)
-      dp->fn[i] = (i < di) ? '.' : ' ';
-    dp->fn[i] = cf | NS_DOT;    /* This is a dot entry */
-    return FR_OK;
-    }
-
-  while (di) {            /* Strip trailing spaces and dots */
-    w = lfn[di - 1];
-    if (w != ' ' && w != '.') break;
-    di--;
-    }
-  if (!di)
-    return FR_INVALID_NAME;  /* Reject nul string */
-
-  lfn[di] = 0;            /* LFN is created */
-
-  /* Create SFN in directory form */
-  memset(dp->fn, ' ', 11);
-  for (si = 0; lfn[si] == ' ' || lfn[si] == '.'; si++) ;  /* Strip leading spaces and dots */
-  if (si)
-    cf |= NS_LOSS | NS_LFN;
-  while (di && lfn[di - 1] != '.')
-    di--;  /* Find extension (di<=si: no extension) */
-
-  b = i = 0; ni = 8;
-  for (;;) {
-    w = lfn[si++];          /* Get an LFN character */
-    if (!w) break;          /* Break on end of the LFN */
-    if (w == ' ' || (w == '.' && si != di)) { /* Remove spaces and dots */
-      cf |= NS_LOSS | NS_LFN; continue;
-      }
-
-    if (i >= ni || si == di) {    /* Extension or end of SFN */
-      if (ni == 11) {       /* Long extension */
-        cf |= NS_LOSS | NS_LFN; break;
-        }
-      if (si != di)
-        cf |= NS_LOSS | NS_LFN; /* Out of 8.3 format */
-      if (si > di)
-        break;     /* No extension */
-      si = di;
-      i = 8;
-      ni = 11;  /* Enter extension section */
-      b <<= 2; continue;
-      }
-
-    if (w >= 0x80) {        /* Non ASCII character */
-
-#ifdef _EXCVT
-      w = ff_convert(w, 0);   /* Unicode -> OEM code */
-      if (w)
-        w = ExCvt[w - 0x80]; /* Convert extended character to upper (SBCS) */
-#else
-      w = ff_convert(ff_wtoupper(w), 0);  /* Upper converted Unicode -> OEM code */
-#endif
-
-      cf |= NS_LFN;       /* Force create LFN entry */
-      }
-
-    if (_DF1S && w >= 0x100) {    /* DBC (always false at SBCS cfg) */
-      if (i >= ni - 1) {
-        cf |= NS_LOSS | NS_LFN; i = ni; continue;
-        }
-      dp->fn[i++] = (BYTE)(w >> 8);
-      }
-    else {            /* SBC */
-      if (!w || chk_chr("+,;=[]", w)) { /* Replace illegal characters for SFN */
-        w = '_'; cf |= NS_LOSS | NS_LFN;/* Lossy conversion */
-        }
-      else {
-        if (IsUpper(w)) {   /* ASCII large capital */
-          b |= 2;
-          }
-        else {
-          if (IsLower(w)) { /* ASCII small capital */
-            b |= 1; w -= 0x20;
-            }
-          }
-        }
-      }
-    dp->fn[i++] = (BYTE)w;
-    }
-
-  if (dp->fn[0] == DDEM)
-    dp->fn[0] = RDDEM; /* If the first character collides with deleted mark, replace it with RDDEM */
-
-  if (ni == 8) b <<= 2;
-  if ((b & 0x0C) == 0x0C || (b & 0x03) == 0x03) /* Create LFN entry when there are composite capitals */
-    cf |= NS_LFN;
-  if (!(cf & NS_LFN)) {           /* When LFN is in 8.3 format without extended character, NT flags are created */
-    if ((b & 0x03) == 0x01)
-      cf |= NS_EXT; /* NT flag (Extension has only small capital) */
-    if ((b & 0x0C) == 0x04)
-      cf |= NS_BODY;  /* NT flag (Filename has only small capital) */
-    }
-
-  dp->fn[NSFLAG] = cf;  /* SFN is created */
-
-  return FR_OK;
-  }
-/*}}}*/
-/*{{{*/
-static FRESULT follow_path (DIR* dp, const TCHAR* path) {
-
-  FRESULT res;
-  BYTE *dir, ns;
-
-  if (*path == '/' || *path == '\\') {
-    //  There is a heading separator
-    path++;
-    dp->sclust = 0;       /* Strip it and start from the root directory */
-    }
-  else
-    // No heading separator
-    dp->sclust = dp->fs->cdir;      /* Start from the current directory */
-
-  if ((UINT)*path < ' ') {
-    // Null path name is the origin directory itself
-    res = dir_sdi (dp, 0);
-    dp->dir = 0;
-    }
-
-  else {
-    // Follow path
-    for (;;) {
-      res = create_name (dp, &path); /* Get a segment name of the path */
-      if (res != FR_OK) break;
-      res = dir_find (dp);       /* Find an object with the sagment name */
-      ns = dp->fn[NSFLAG];
-      if (res != FR_OK) {       /* Failed to find the object */
-        if (res == FR_NO_FILE) {  /* Object is not found */
-          if (ns & NS_DOT) { /* If dot entry is not exist, */
-            dp->sclust = 0; dp->dir = 0;  /* it is the root directory and stay there */
-            if (!(ns & NS_LAST)) continue;  /* Continue to follow if not last segment */
-            res = FR_OK;          /* Ended at the root directroy. Function completed. */
-            }
-          else if (!(ns & NS_LAST))
-            res = FR_NO_PATH;  /* Adjust error code if not last segment */
-          }
-        break;
-        }
-
-      if (ns & NS_LAST)
-        break;      /* Last segment matched. Function completed. */
-      dir = dp->dir;            /* Follow the sub-directory */
-      if (!(dir[DIR_Attr] & AM_DIR))
-        /* It is not a sub-directory and cannot follow */
-        res = FR_NO_PATH; break;
-      dp->sclust = loadCluster (dp->fs, dir);
-      }
-    }
-
-  return res;
-  }
-/*}}}*/
-/*{{{*/
 static int get_ldnumber (const TCHAR** path) {
 
   const TCHAR *tp, *tt;
@@ -1959,6 +1699,274 @@ static FRESULT find_volume (FATFS** rfs, const TCHAR** path, BYTE wmode) {
   clear_lock (fs);
 
   return FR_OK;
+  }
+/*}}}*/
+/*{{{*/
+static FRESULT create_name (DIR* dp, const TCHAR** path ) {
+
+  BYTE b, cf;
+  WCHAR w, *lfn;
+  UINT i, ni, si, di;
+  const TCHAR *p;
+
+  /* Create LFN in Unicode */
+  for (p = *path; *p == '/' || *p == '\\'; p++) ; /* Strip duplicated separator */
+  lfn = dp->lfn;
+  si = di = 0;
+  for (;;) {
+    w = p[si++];          /* Get a character */
+    if (w < ' ' || w == '/' || w == '\\') break;  /* Break on end of segment */
+    if (di >= _MAX_LFN)       /* Reject too long name */
+      return FR_INVALID_NAME;
+
+#if !_LFN_UNICODE
+    w &= 0xFF;
+    if (IsDBCS1(w)) {       /* Check if it is a DBC 1st byte (always false on SBCS cfg) */
+
+#if _DF1S
+      b = (BYTE)p[si++];      /* Get 2nd byte */
+      w = (w << 8) + b;     /* Create a DBC */
+      if (!IsDBCS2(b))
+        return FR_INVALID_NAME; /* Reject invalid sequence */
+#endif
+
+    }
+    w = ff_convert(w, 1);     /* Convert ANSI/OEM to Unicode */
+    if (!w) return FR_INVALID_NAME; /* Reject invalid code */
+#endif
+
+    if (w < 0x80 && chk_chr("\"*:<>\?|\x7F", w)) /* Reject illegal characters for LFN */
+      return FR_INVALID_NAME;
+    lfn[di++] = w;          /* Store the Unicode character */
+    }
+
+  *path = &p[si];           /* Return pointer to the next segment */
+  cf = (w < ' ') ? NS_LAST : 0;   /* Set last segment flag if end of path */
+  if ((di == 1 && lfn[di - 1] == '.') || /* Is this a dot entry? */
+    (di == 2 && lfn[di - 1] == '.' && lfn[di - 2] == '.')) {
+    lfn[di] = 0;
+    for (i = 0; i < 11; i++)
+      dp->fn[i] = (i < di) ? '.' : ' ';
+    dp->fn[i] = cf | NS_DOT;    /* This is a dot entry */
+    return FR_OK;
+    }
+
+  while (di) {            /* Strip trailing spaces and dots */
+    w = lfn[di - 1];
+    if (w != ' ' && w != '.') break;
+    di--;
+    }
+  if (!di)
+    return FR_INVALID_NAME;  /* Reject nul string */
+
+  lfn[di] = 0;            /* LFN is created */
+
+  /* Create SFN in directory form */
+  memset(dp->fn, ' ', 11);
+  for (si = 0; lfn[si] == ' ' || lfn[si] == '.'; si++) ;  /* Strip leading spaces and dots */
+  if (si)
+    cf |= NS_LOSS | NS_LFN;
+  while (di && lfn[di - 1] != '.')
+    di--;  /* Find extension (di<=si: no extension) */
+
+  b = i = 0; ni = 8;
+  for (;;) {
+    w = lfn[si++];          /* Get an LFN character */
+    if (!w) break;          /* Break on end of the LFN */
+    if (w == ' ' || (w == '.' && si != di)) { /* Remove spaces and dots */
+      cf |= NS_LOSS | NS_LFN; continue;
+      }
+
+    if (i >= ni || si == di) {    /* Extension or end of SFN */
+      if (ni == 11) {       /* Long extension */
+        cf |= NS_LOSS | NS_LFN; break;
+        }
+      if (si != di)
+        cf |= NS_LOSS | NS_LFN; /* Out of 8.3 format */
+      if (si > di)
+        break;     /* No extension */
+      si = di;
+      i = 8;
+      ni = 11;  /* Enter extension section */
+      b <<= 2; continue;
+      }
+
+    if (w >= 0x80) {        /* Non ASCII character */
+
+#ifdef _EXCVT
+      w = ff_convert(w, 0);   /* Unicode -> OEM code */
+      if (w)
+        w = ExCvt[w - 0x80]; /* Convert extended character to upper (SBCS) */
+#else
+      w = ff_convert(ff_wtoupper(w), 0);  /* Upper converted Unicode -> OEM code */
+#endif
+
+      cf |= NS_LFN;       /* Force create LFN entry */
+      }
+
+    if (_DF1S && w >= 0x100) {    /* DBC (always false at SBCS cfg) */
+      if (i >= ni - 1) {
+        cf |= NS_LOSS | NS_LFN; i = ni; continue;
+        }
+      dp->fn[i++] = (BYTE)(w >> 8);
+      }
+    else {            /* SBC */
+      if (!w || chk_chr("+,;=[]", w)) { /* Replace illegal characters for SFN */
+        w = '_'; cf |= NS_LOSS | NS_LFN;/* Lossy conversion */
+        }
+      else {
+        if (IsUpper(w)) {   /* ASCII large capital */
+          b |= 2;
+          }
+        else {
+          if (IsLower(w)) { /* ASCII small capital */
+            b |= 1; w -= 0x20;
+            }
+          }
+        }
+      }
+    dp->fn[i++] = (BYTE)w;
+    }
+
+  if (dp->fn[0] == DDEM)
+    dp->fn[0] = RDDEM; /* If the first character collides with deleted mark, replace it with RDDEM */
+
+  if (ni == 8) b <<= 2;
+  if ((b & 0x0C) == 0x0C || (b & 0x03) == 0x03) /* Create LFN entry when there are composite capitals */
+    cf |= NS_LFN;
+  if (!(cf & NS_LFN)) {           /* When LFN is in 8.3 format without extended character, NT flags are created */
+    if ((b & 0x03) == 0x01)
+      cf |= NS_EXT; /* NT flag (Extension has only small capital) */
+    if ((b & 0x0C) == 0x04)
+      cf |= NS_BODY;  /* NT flag (Filename has only small capital) */
+    }
+
+  dp->fn[NSFLAG] = cf;  /* SFN is created */
+
+  return FR_OK;
+  }
+/*}}}*/
+/*{{{*/
+static FRESULT follow_path (DIR* dp, const TCHAR* path) {
+
+  FRESULT res;
+  BYTE *dir, ns;
+
+  if (*path == '/' || *path == '\\') {
+    //  There is a heading separator
+    path++;
+    dp->sclust = 0;       /* Strip it and start from the root directory */
+    }
+  else
+    // No heading separator
+    dp->sclust = dp->fs->cdir;      /* Start from the current directory */
+
+  if ((UINT)*path < ' ') {
+    // Null path name is the origin directory itself
+    res = dir_sdi (dp, 0);
+    dp->dir = 0;
+    }
+
+  else {
+    // Follow path
+    for (;;) {
+      res = create_name (dp, &path); /* Get a segment name of the path */
+      if (res != FR_OK) break;
+      res = dir_find (dp);       /* Find an object with the sagment name */
+      ns = dp->fn[NSFLAG];
+      if (res != FR_OK) {       /* Failed to find the object */
+        if (res == FR_NO_FILE) {  /* Object is not found */
+          if (ns & NS_DOT) { /* If dot entry is not exist, */
+            dp->sclust = 0; dp->dir = 0;  /* it is the root directory and stay there */
+            if (!(ns & NS_LAST)) continue;  /* Continue to follow if not last segment */
+            res = FR_OK;          /* Ended at the root directroy. Function completed. */
+            }
+          else if (!(ns & NS_LAST))
+            res = FR_NO_PATH;  /* Adjust error code if not last segment */
+          }
+        break;
+        }
+
+      if (ns & NS_LAST)
+        break;      /* Last segment matched. Function completed. */
+      dir = dp->dir;            /* Follow the sub-directory */
+      if (!(dir[DIR_Attr] & AM_DIR))
+        /* It is not a sub-directory and cannot follow */
+        res = FR_NO_PATH; break;
+      dp->sclust = loadCluster (dp->fs, dir);
+      }
+    }
+
+  return res;
+  }
+/*}}}*/
+/*{{{*/
+static void get_fileinfo (DIR* dp, FILINFO* fno) {
+
+  UINT i;
+  TCHAR *p, c;
+  BYTE *dir;
+  WCHAR w, *lfn;
+
+  p = fno->fname;
+  if (dp->sect) {
+    /* Get SFN */
+    dir = dp->dir;
+    i = 0;
+    while (i < 11) { 
+      /* Copy name body and extension */
+      c = (TCHAR)dir[i++];
+      if (c == ' ') 
+        continue;       /* Skip padding spaces */
+      if (c == RDDEM) 
+        c = (TCHAR)DDEM;  /* Restore replaced DDEM character */
+      if (i == 9) 
+        *p++ = '.';       /* Insert a . if extension is exist */
+      if (IsUpper(c) && (dir[DIR_NTres] & (i >= 9 ? NS_EXT : NS_BODY)))
+        c += 0x20;      /* To lower */
+#if _LFN_UNICODE
+      if (IsDBCS1(c) && i != 8 && i != 11 && IsDBCS2(dir[i]))
+        c = c << 8 | dir[i++];
+      c = ff_convert(c, 1); /* OEM -> Unicode */
+      if (!c) c = '?';
+#endif
+      *p++ = c;
+      }
+    fno->fattrib = dir[DIR_Attr];       /* Attribute */
+    fno->fsize = LD_DWORD(dir + DIR_FileSize);  /* Size */
+    fno->fdate = LD_WORD(dir + DIR_WrtDate);  /* Date */
+    fno->ftime = LD_WORD(dir + DIR_WrtTime);  /* Time */
+    }
+  *p = 0;   /* Terminate SFN string by a \0 */
+
+  if (fno->lfname) {
+    i = 0;
+    p = fno->lfname;
+    if (dp->sect && fno->lfsize && dp->lfn_idx != 0xFFFF) {
+      /* Get LFN if available */
+      lfn = dp->lfn;
+      while ((w = *lfn++) != 0) {   
+      /* Get an LFN character */
+
+#if !_LFN_UNICODE
+        w = ff_convert(w, 0);   /* Unicode -> OEM */
+        if (!w) { 
+          i = 0; 
+          break; 
+          } /* No LFN if it could not be converted */
+        if (_DF1S && w >= 0x100)  /* Put 1st byte if it is a DBC (always false on SBCS cfg) */
+          p[i++] = (TCHAR)(w >> 8);
+#endif
+
+        if (i >= fno->lfsize - 1) {
+          i = 0;
+          break;
+          } /* No LFN if buffer overflow */
+        p[i++] = (TCHAR)w;
+        }
+      }
+    p[i] = 0; /* Terminate LFN string by a \0 */
+    }
   }
 /*}}}*/
 
