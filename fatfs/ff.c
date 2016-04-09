@@ -552,49 +552,50 @@ static int chk_chr (const char* str, int chr) {
 /*{{{*/
 static WCHAR get_achar (const TCHAR** ptr) {
 
-  WCHAR chr;
+#if _LFN_UNICODE
 
-#if !_LFN_UNICODE
-  chr = (BYTE)*(*ptr)++;          /* Get a byte */
-  if (IsLower(chr))
-    chr -= 0x20;      /* To upper ASCII char */
-  if (IsDBCS1(chr) && IsDBCS2(**ptr))   /* Get DBC 2nd byte if needed */
+  return ff_wtoupper (*(*ptr)++); // Get a word and to upper
+
+#else
+
+  WCHAR chr = (BYTE)*(*ptr)++;
+  if (IsLower (chr))
+    chr -= 0x20; // To upper ASCII char
+  if (IsDBCS1(chr) && IsDBCS2(**ptr))  // Get DBC 2nd byte if needed
     chr = chr << 8 | (BYTE)*(*ptr)++;
 
   #ifdef _EXCVT
     if (chr >= 0x80)
-      chr = ExCvt[chr - 0x80]; /* To upper SBCS extended char */
+      chr = ExCvt[chr - 0x80]; // To upper SBCS extended char
   #endif
 
-#else
-  chr = ff_wtoupper(*(*ptr)++);     /* Get a word and to upper */
-#endif
-
   return chr;
+
+#endif
   }
 /*}}}*/
 /*{{{*/
 static int pattern_matching (const TCHAR* pat, const TCHAR* nam, int skip, int inf) {
 
   while (skip--) {
-    /* Pre-skip name chars */
+    // Pre-skip name chars
     if (!get_achar (&nam))
-      return 0; /* Branch mismatched if less name chars */
+      return 0; // Branch mismatched if less name chars
     }
   if (!*pat && inf)
-    return 1;   /* (short circuit) */
+    return 1;  // short circuit
 
   WCHAR nc;
   do {
     const TCHAR* pp = pat;
-    const TCHAR* np = nam;  /* Top of pattern and name to match */
+    const TCHAR* np = nam;  // Top of pattern and name to match
     for (;;) {
       if (*pp == '?' || *pp == '*') {
-        /* Wildcard? */
+        // Wildcard?
         int nm = 0;
         int nx = 0;
         do {
-          /* Analyze the wildcard chars */
+          // Analyze the wildcard chars
           if (*pp++ == '?')
             nm++;
           else
@@ -602,22 +603,22 @@ static int pattern_matching (const TCHAR* pat, const TCHAR* nam, int skip, int i
           } while (*pp == '?' || *pp == '*');
 
         if (pattern_matching (pp, np, nm, nx))
-          return 1; /* Test new branch (recurs upto number of wildcard blocks in the pattern) */
+          return 1; // Test new branch (recurs upto number of wildcard blocks in the pattern)
 
         nc = *np;
-        break;  /* Branch mismatched */
+        break;  // Branch mismatched
         }
 
-      WCHAR pc = get_achar (&pp);  /* Get a pattern char */
-      nc = get_achar (&np);  /* Get a name char */
+      WCHAR pc = get_achar (&pp);  // Get a pattern char
+      nc = get_achar (&np);  // Get a name char
       if (pc != nc)
-        break;  /* Branch mismatched? */
+        break;  // Branch mismatched?
       if (!pc)
-        return 1;    /* Branch matched? (matched at end of both strings) */
+        return 1;  // Branch matched? (matched at end of both strings)
       }
 
-    get_achar (&nam);     /* nam++ */
-    } while (inf && nc);  /* Retry until end of name if infinite search is specified */
+    get_achar (&nam);     // nam++
+    } while (inf && nc);  // Retry until end of name if infinite search is specified
 
   return 0;
   }
@@ -2751,29 +2752,33 @@ FRESULT f_readdir (DIR* dir, FILINFO* fileInfo) {
   }
 /*}}}*/
 /*{{{*/
-FRESULT f_findnext (DIR* dir, FILINFO* fileInfo) {
+FRESULT f_findfirst (DIR* dir, FILINFO* fileInfo, const TCHAR* path, const TCHAR* pattern) {
 
-  FRESULT res;
-  for (;;) {
-    res = f_readdir (dir, fileInfo);   /* Get a directory item */
-    if (res != FR_OK || !fileInfo || !fileInfo->fname[0])
-      break;  /* Terminate if any error or end of directory */
-    if (fileInfo->lfname && pattern_matching (dir->pat, fileInfo->lfname, 0, 0))
-      break; /* Test for LFN if exist */
-    if (pattern_matching (dir->pat, fileInfo->fname, 0, 0))
-      break; /* Test for SFN */
-    }
-
+  dir->pat = pattern;                   // Save pointer to pattern string
+  FRESULT res = f_opendir (dir, path);  // Open the target directory
+  if (res == FR_OK)
+    res = f_findnext (dir, fileInfo);   // Find the first item
   return res;
   }
 /*}}}*/
 /*{{{*/
-FRESULT f_findfirst (DIR* dir, FILINFO* fileInfo, const TCHAR* path, const TCHAR* pattern) {
+FRESULT f_findnext (DIR* dir, FILINFO* fileInfo) {
 
-  dir->pat = pattern;                   /* Save pointer to pattern string */
-  FRESULT res = f_opendir (dir, path);  /* Open the target directory */
-  if (res == FR_OK)
-    res = f_findnext (dir, fileInfo);        /* Find the first item */
+  FRESULT res;
+  for (;;) {
+    res = f_readdir (dir, fileInfo);  
+    if (res != FR_OK || !fileInfo || !fileInfo->fname[0])
+      break;  
+
+    // match lfn
+    if (fileInfo->lfname && pattern_matching (dir->pat, fileInfo->lfname, 0, 0))
+      break; 
+
+    // match sfn
+    if (pattern_matching (dir->pat, fileInfo->fname, 0, 0))
+      break; 
+    }
+
   return res;
   }
 /*}}}*/

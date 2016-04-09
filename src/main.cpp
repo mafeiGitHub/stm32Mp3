@@ -130,6 +130,83 @@ static void playFile (string fileName) {
   BSP_AUDIO_OUT_Stop (CODEC_PDWN_SW);
   }
 //}}}
+//{{{
+static void playDir (const char* extension) {
+
+  auto lcd = cLcd::instance();
+
+  DIR dir;
+  auto result = f_opendir (&dir, "/");
+  if (result != FR_OK)
+    lcd->info (LCD_RED, "directory open error:"  + cLcd::intStr (result));
+  else {
+    lcd->info ("directory opened");
+
+    FILINFO filInfo;
+    char lfn [_MAX_LFN + 1];
+    filInfo.lfname = lfn;
+    filInfo.lfsize = _MAX_LFN + 1;
+
+    while ((f_readdir (&dir, &filInfo) == FR_OK) && filInfo.fname[0]) {
+      if (filInfo.fname[0] == '.') {
+        // back
+        }
+      else if (filInfo.fattrib & AM_DIR) {
+        // directory
+        }
+      else {
+        auto i = 0;
+        while ((i < 9) && filInfo.fname[i++] != '.');
+        if (!extension || ((filInfo.fname[i] == extension[0]) &&
+                           (filInfo.fname[i+1] == extension[1]) &&
+                           (filInfo.fname[i+2] == extension[2]))) {
+          playFile (filInfo.lfname[0] ? filInfo.lfname : (char*)&filInfo.fname);
+          }
+        }
+      }
+    }
+  }
+//}}}
+//{{{
+static void listDir (const char* extension) {
+
+  auto lcd = cLcd::instance();
+
+  DIR dir;
+  auto result = f_opendir (&dir, "/");
+  if (result != FR_OK)
+    lcd->info (LCD_RED, "directory open error:"  + cLcd::intStr (result));
+  else {
+    FILINFO filInfo;
+    char lfn [_MAX_LFN + 1];
+    filInfo.lfname = lfn;
+    filInfo.lfsize = _MAX_LFN + 1;
+
+    while ((f_readdir (&dir, &filInfo) == FR_OK) && filInfo.fname[0]) {
+      if (filInfo.fname[0] == '.') {
+        // back
+        }
+      else if (filInfo.fattrib & AM_DIR) {
+        lcd->info ("directory - " + string (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname));
+        }
+      else {
+        auto i = 0;
+        while ((i < 9) && filInfo.fname[i++] != '.');
+        if (!extension || ((filInfo.fname[i] == extension[0]) &&
+                           (filInfo.fname[i+1] == extension[1]) &&
+                           (filInfo.fname[i+2] == extension[2]))) {
+          FIL file;
+          auto result = f_open (&file, filInfo.lfname[0] ? filInfo.lfname : (char*)&filInfo.fname, FA_OPEN_EXISTING | FA_READ);
+          if (result == FR_OK) {
+            lcd->info (cLcd::intStr (f_size (&file)) + " " + string (filInfo.lfname[0] ? filInfo.lfname : (char*)&filInfo.fname));
+            f_close (&file);
+            }
+          }
+        }
+      }
+    }
+  }
+//}}}
 
 // threads
 //{{{
@@ -233,10 +310,8 @@ static void loadThread (void const* argument) {
   auto lcd = cLcd::instance();
   lcd->info ("loadThread started");
 
-  //BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mVolume * 100), 44100);
-  //BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
-  BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 44100);
-  BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);
+  BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 44100);  // OUTPUT_DEVICE_HEADPHONE
+  BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);             // CODEC_AUDIOFRAME_SLOT_02
 
   BSP_SD_Init();
   while (BSP_SD_IsDetected() != SD_PRESENT) {
@@ -245,42 +320,16 @@ static void loadThread (void const* argument) {
     }
   lcd->info ("SD card found");
 
-  auto fatFs = (FATFS*)FATFS_BUFFER;
-  FRESULT result = f_mount (fatFs, "", 0);
-  if (result != FR_OK)
-    lcd->info ("fatFs mount error:" + cLcd::intStr (result));
-  else {
+  if (f_mount ((FATFS*)FATFS_BUFFER, "", 0) == FR_OK) {
+    char label[13];
     DWORD volumeSerialNumber;
-    char label[12];
     f_getlabel ("", label, &volumeSerialNumber);
-    lcd->info (string (label) + " mounted - sn " + cLcd::hexStr (volumeSerialNumber));
-
-    DIR dir;
-    result = f_opendir (&dir, "/");
-    if (result != FR_OK)
-      lcd->info (LCD_RED, "directory open error:"  + cLcd::intStr (result));
-    else {
-      lcd->info ("directory opened - matching .mp3");
-
-      FILINFO filInfo;
-      filInfo.lfname = (char*)pvPortMalloc (_MAX_LFN + 1);
-      filInfo.lfsize = _MAX_LFN + 1;
-
-      auto extension = "MP3";
-      while (true) {
-        if ((f_readdir (&dir, &filInfo) != FR_OK) || filInfo.fname[0] == 0)
-          break;
-        if (filInfo.fname[0] == '.')
-          continue;
-        if (!(filInfo.fattrib & AM_DIR)) {
-          auto i = 0;
-          while (filInfo.fname[i++] != '.') {}
-          if ((filInfo.fname[i] == extension[0]) && (filInfo.fname[i+1] == extension[1]) && (filInfo.fname[i+2] == extension[2]))
-            playFile (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname);
-          }
-        }
-      }
+    lcd->info (string (label) + " mounted");
+    listDir (nullptr);
+    playDir ("MP3");
     }
+  else
+    lcd->info ("fatFs mount error");
 
   int tick = 0;
   while (true) {
