@@ -370,18 +370,18 @@ static const WORD cst[] = {32768, 16384, 8192, 4096, 2048, 16384, 8192, 4096, 20
 #endif
 /*}}}*/
 /*{{{  static vars*/
-static FATFS* FatFs[1]; /* Pointer to the file system objects (logical drives) */
-static WORD Fsid;       /* File system mount ID */
+static FATFS* FatFs[1]; // Pointer to the file system objects (logical drives)
+static WORD Fsid;       // File system mount ID
 
-/*{{{  FILESEM struct*/
+// FILESEM struct
 typedef struct {
-  FATFS *fs;  /* Object ID 1, volume (NULL:blank entry) */
-  DWORD clu;  /* Object ID 2, directory (0:root) */
-  WORD idx;   /* Object ID 3, directory index */
-  WORD ctr;   /* Object open counter, 0:none, 0x01..0xFF:read mode open count, 0x100:write mode */
+  FATFS *fs;  // Object ID 1, volume (NULL:blank entry)
+  DWORD clu;  // Object ID 2, directory (0:root)
+  WORD idx;   // Object ID 3, directory index
+  WORD ctr;   // Object open counter, 0:none, 0x01..0xFF:read mode open count, 0x100:write mode
   } FILESEM;
-/*}}}*/
-static FILESEM Files[_FS_LOCK]; /* Open object lock semaphores */
+
+static FILESEM Files[_FS_LOCK];  // Open object lock semaphores
 /*}}}*/
 
 /*{{{  lock, synchronisation*/
