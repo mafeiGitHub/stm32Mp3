@@ -10,11 +10,11 @@
 #include "memory.h"
 #include "cmsis_os.h"
 
-#include "lwip/netif.h"
-#include "lwip/tcpip.h"
-#include "lwip/dhcp.h"
+#include "LwIP/netif.h"
+#include "LwIP/tcpip.h"
+#include "LwIP/dhcp.h"
 #include "ipv4/lwip/ip_addr.h"
-#include "lwip/api.h"
+#include "LwIP/api.h"
 
 #include "../Bsp/ethernetif.h"
 
