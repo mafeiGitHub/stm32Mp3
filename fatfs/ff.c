@@ -10,15 +10,14 @@
 /*}}}*/
 /*{{{  includes*/
 #include "string.h"
+#include <stdarg.h>
+
 #include "ff.h"
 #include "diskio.h"
 /*}}}*/
 /*{{{  ff_conf defines*/
 #define _USE_TRIM    0
 
-#define _FS_NOFSINFO 0   /* 0 or 1 */
-
-#define _FS_NORTC    0
 #define _NORTC_MON   2
 #define _NORTC_MDAY  1
 #define _NORTC_YEAR  2015
@@ -29,25 +28,6 @@
 
 #define N_FATS    1    /* Number of FATs (1 or 2) */
 #define N_ROOTDIR 512  /* Number of root directory entries for FAT12/16 */
-
-#if _FS_NORTC == 1
-
-  #if _NORTC_YEAR < 1980 || _NORTC_YEAR > 2107 || _NORTC_MON < 1 || _NORTC_MON > 12 || _NORTC_MDAY < 1 || _NORTC_MDAY > 31
-    #error Invalid _FS_NORTC settings
-  #endif
-
-  #define GET_FATTIME() ((DWORD)(_NORTC_YEAR - 1980) << 25 | (DWORD)_NORTC_MON << 21 | (DWORD)_NORTC_MDAY << 16)
-
-#else
-
-  /*{{{*/
-   DWORD get_fattime() {
-    return 0;
-    }
-  /*}}}*/
-  #define GET_FATTIME() get_fattime()
-
-#endif
 /*}}}*/
 /*{{{  code pages defines*/
 /* DBCS code ranges and SBCS extend character conversion table */
@@ -364,6 +344,13 @@
 #define DDEM            0xE5  /* Deleted directory entry mark at DIR_Name[0] */
 #define RDDEM           0x05  /* Replacement of the character collides with DDEM */
 /*}}}*/
+/*{{{  struct putbuff*/
+typedef struct {
+  FIL* fp;
+  int idx, nchr;
+  BYTE buf[64];
+  } putbuff;
+/*}}}*/
 /*{{{  static const*/
 static const BYTE LfnOfs[] = { 1,3,5,7,9,14,16,18,20,22,24,28,30 };  /* Offset of LFN characters in the directory entry */
 
@@ -525,7 +512,14 @@ static void clear_lock (FATFS* fs) {
   }
 /*}}}*/
 /*}}}*/
-/*{{{  util*/
+/*{{{  utils*/
+/*{{{*/
+static DWORD get_fattime() {
+// year, mon, day, time - 1.04.2016
+  return ((2016 - 1980) << 25) | (4 << 21) | (1 << 16);
+  }
+/*}}}*/
+
 /*{{{*/
 static int mem_cmp (const void* dst, const void* src, UINT cnt) {
 /* Compare memory to memory */
@@ -618,6 +612,65 @@ static int pattern_matching (const TCHAR* pat, const TCHAR* nam, int skip, int i
     } while (inf && nc);  /* Retry until end of name if infinite search is specified */
 
   return 0;
+  }
+/*}}}*/
+
+/*{{{*/
+static void putc_bfd (putbuff* pb, TCHAR c) {
+
+  if (c == '\n')
+    /* LF -> CRLF conversion */
+    putc_bfd (pb, '\r');
+
+  /* Buffer write index (-1:error) */
+  int i = pb->idx;
+  if (i < 0)
+    return;
+
+#if _LFN_UNICODE
+  #if _STRF_ENCODE == 3     /* Write a character in UTF-8 */
+    if (c < 0x80)        /* 7-bit */
+      pb->buf[i++] = (BYTE)c;
+    else {
+      if (c < 0x800)     /* 11-bit */
+        pb->buf[i++] = (BYTE)(0xC0 | c >> 6);
+      else {        /* 16-bit */
+        pb->buf[i++] = (BYTE)(0xE0 | c >> 12);
+        pb->buf[i++] = (BYTE)(0x80 | (c >> 6 & 0x3F));
+        }
+      pb->buf[i++] = (BYTE)(0x80 | (c & 0x3F));
+      }
+  #elif _STRF_ENCODE == 2
+    // Write a character in UTF-16BE
+    pb->buf[i++] = (BYTE)(c >> 8);
+    pb->buf[i++] = (BYTE)c;
+  #elif _STRF_ENCODE == 1
+    // Write a character in UTF-16LE
+    pb->buf[i++] = (BYTE)c;
+    pb->buf[i++] = (BYTE)(c >> 8);
+  #else
+    // Write a character in ANSI/OEM, Unicode -> OEM
+    c = ff_convert (c, 0);
+    if (!c)
+      c = '?';
+    if (c >= 0x100)
+      pb->buf[i++] = (BYTE)(c >> 8);
+    pb->buf[i++] = (BYTE)c;
+  #endif
+#else
+  // Write a character without conversion
+  pb->buf[i++] = (BYTE)c;
+#endif
+
+  if (i >= (int)(sizeof pb->buf) - 3) {
+    // Write buffered characters to the file
+    UINT bw;
+    f_write (pb->fp, pb->buf, (UINT)i, &bw);
+    i = (bw == (UINT)i) ? 0 : -1;
+    }
+
+  pb->idx = i;
+  pb->nchr++;
   }
 /*}}}*/
 /*}}}*/
@@ -1123,7 +1176,7 @@ static void gen_numname (BYTE* dst, const BYTE* src, const WCHAR* lfn, UINT seq)
  }
 /*}}}*/
 /*}}}*/
-/*{{{  dir*/
+/*{{{  dir utils*/
 /*{{{*/
 static FRESULT dir_sdi (DIR* dp, UINT idx) {
 
@@ -1923,59 +1976,59 @@ static void getFileInfo (DIR* dp, FILINFO* fileInfo) {
 
   p = fileInfo->fname;
   if (dp->sect) {
-    /* Get SFN */
+    // Get sfn
     dir = dp->dir;
     i = 0;
     while (i < 11) {
-      /* Copy name body and extension */
+      // Copy name body and extension
       c = (TCHAR)dir[i++];
       if (c == ' ')
-        continue;       /* Skip padding spaces */
+        continue;       
       if (c == RDDEM)
-        c = (TCHAR)DDEM;  /* Restore replaced DDEM character */
+        c = (TCHAR)DDEM;  // Restore replaced DDEM character
       if (i == 9)
-        *p++ = '.';       /* Insert a . if extension is exist */
+        *p++ = '.';       // Insert a . if extension is exist
       if (IsUpper(c) && (dir[DIR_NTres] & (i >= 9 ? NS_EXT : NS_BODY)))
-        c += 0x20;  /* To lower */
+        c += 0x20;  // To lower
 #if _LFN_UNICODE
       if (IsDBCS1(c) && i != 8 && i != 11 && IsDBCS2(dir[i]))
         c = c << 8 | dir[i++];
-      c = ff_convert(c, 1); /* OEM -> Unicode */
-      if (!c) c = '?';
+      c = ff_convert (c, 1); // OEM -> Unicode
+      if (!c) 
+        c = '?';
 #endif
       *p++ = c;
       }
-    fileInfo->fattrib = dir[DIR_Attr];       /* Attribute */
-    fileInfo->fsize = LD_DWORD(dir + DIR_FileSize);  /* Size */
-    fileInfo->fdate = LD_WORD(dir + DIR_WrtDate);  /* Date */
-    fileInfo->ftime = LD_WORD(dir + DIR_WrtTime);  /* Time */
+
+    fileInfo->fattrib = dir[DIR_Attr];              // Attribute
+    fileInfo->fsize = LD_DWORD(dir + DIR_FileSize); // Size
+    fileInfo->fdate = LD_WORD(dir + DIR_WrtDate);   // Date
+    fileInfo->ftime = LD_WORD(dir + DIR_WrtTime);   // Time
     }
 
-  /* Terminate SFN string by a \0 */
+  // terminate sfn string
   *p = 0;
 
   if (fileInfo->lfname) {
     i = 0;
     p = fileInfo->lfname;
     if (dp->sect && fileInfo->lfsize && dp->lfn_idx != 0xFFFF) {
-      /* Get LFN if available */
+      // Get lfn if available
       lfn = dp->lfn;
       while ((w = *lfn++) != 0) {
-      /* Get an LFN character */
-
+        // Get an lfn character
 #if !_LFN_UNICODE
-        w = ff_convert (w, 0);   /* Unicode -> OEM */
+        w = ff_convert (w, 0);  // Unicode -> OEM
         if (!w) {
-          /* No LFN if it could not be converted */
+          // No lfn if it could not be converted
           i = 0;
           break;
           }
-        if (_DF1S && w >= 0x100)  /* Put 1st byte if it is a DBC (always false on SBCS cfg) */
+        if (_DF1S && w >= 0x100)  // Put 1st byte if it is a DBC (always false on SBCS cfg)
           p[i++] = (TCHAR)(w >> 8);
 #endif
-
         if (i >= fileInfo->lfsize - 1) {
-          /* No LFN if buffer overflow */
+          // No lfn if buffer overflow
           i = 0;
           break;
           }
@@ -1983,7 +2036,7 @@ static void getFileInfo (DIR* dp, FILINFO* fileInfo) {
         }
       }
 
-    /* Terminate LFN string by a \0 */
+    // terminate lfn string
     p[i] = 0;
     }
   }
@@ -2075,7 +2128,7 @@ FRESULT f_open (FIL* file, const TCHAR* path, BYTE mode) {
 
       if (res == FR_OK && (mode & FA_CREATE_ALWAYS)) {
         /* Truncate it if overwrite mode */
-        dw = GET_FATTIME();       /* Created time */
+        dw = get_fattime();       /* Created time */
         ST_DWORD(dir + DIR_CrtTime, dw);
         dir[DIR_Attr] = 0;        /* Reset attribute */
         ST_DWORD(dir + DIR_FileSize, 0);/* size = 0 */
@@ -2341,7 +2394,7 @@ FRESULT f_sync (FIL* file) {
         dir[DIR_Attr] |= AM_ARC;          /* Set archive bit */
         ST_DWORD(dir + DIR_FileSize, file->fsize);  /* Update file size */
         storeCluster (dir, file->sclust);          /* Update start cluster */
-        tm = GET_FATTIME();             /* Update updated time */
+        tm = get_fattime();             /* Update updated time */
         ST_DWORD(dir + DIR_WrtTime, tm);
         ST_WORD(dir + DIR_LstAccDate, 0);
         file->flag &= ~FA__WRITTEN;
@@ -2767,11 +2820,11 @@ FRESULT f_getcwd (TCHAR* buff, UINT len) {
       fileInfo.lfsize = i;
       getFileInfo (&dj, &fileInfo);    /* Get the directory name and push it to the buffer */
       tp = fileInfo.fname;
-      if (*buff) 
+      if (*buff)
         tp = buff;
       for (n = 0; tp[n]; n++) ;
       if (i < n + 3) {
-        res = FR_NOT_ENOUGH_CORE; 
+        res = FR_NOT_ENOUGH_CORE;
           break;
         }
       while (n) buff[--i] = tp[--n];
@@ -2803,7 +2856,9 @@ FRESULT f_mkdir (const TCHAR* path) {
 
   DIR dj;
   BYTE *dir, n;
-  DWORD dsc, dcl, pcl, tm = GET_FATTIME();
+  DWORD dsc, dcl, pcl;
+
+  DWORD tm = get_fattime();
 
   /* Get logical drive number */
   FRESULT res = find_volume (&dj.fs, &path, 1);
@@ -2840,7 +2895,7 @@ FRESULT f_mkdir (const TCHAR* path) {
         storeCluster (dir, dcl);
         memcpy(dir + SZ_DIRE, dir, SZ_DIRE);   /* Create ".." entry */
 
-        dir[SZ_DIRE + 1] = '.'; 
+        dir[SZ_DIRE + 1] = '.';
         pcl = dj.sclust;
         if (dj.fs->fs_type == FS_FAT32 && pcl == dj.fs->dirbase)
           pcl = 0;
@@ -2884,7 +2939,7 @@ FRESULT f_chdir (const TCHAR* path) {
     WCHAR lfn [(_MAX_LFN + 1) * 2];
     dj.lfn = lfn;
     dj.fn = sfn;
-    res = follow_path (&dj, path); 
+    res = follow_path (&dj, path);
 
     if (res == FR_OK) {
       /* Follow completed */
@@ -3082,7 +3137,7 @@ FRESULT f_setlabel (const TCHAR* label) {
     if (res == FR_OK) {     /* A volume label is found */
       if (vn[0]) {
         memcpy(dj.dir, vn, 11);  /* Change the volume label name */
-        tm = GET_FATTIME();
+        tm = get_fattime();
         ST_DWORD(dj.dir + DIR_WrtTime, tm);
         }
       else
@@ -3099,7 +3154,7 @@ FRESULT f_setlabel (const TCHAR* label) {
             memset(dj.dir, 0, SZ_DIRE);  /* Set volume label */
             memcpy(dj.dir, vn, 11);
             dj.dir[DIR_Attr] = AM_VOL;
-            tm = GET_FATTIME();
+            tm = get_fattime();
             ST_DWORD(dj.dir + DIR_WrtTime, tm);
             dj.fs->wflag = 1;
             res = syncFs (dj.fs);
@@ -3499,7 +3554,7 @@ FRESULT f_mkfs (const TCHAR* path, BYTE sfd, UINT au) {
   ST_WORD(tbl + BPB_NumHeads, 255);   /* Number of heads */
   ST_DWORD(tbl + BPB_HiddSec, b_vol);   /* Hidden sectors */
 
-  n = GET_FATTIME();            /* Use current time as VSN */
+  n = get_fattime();            /* Use current time as VSN */
   if (fmt == FS_FAT32) {
     ST_DWORD(tbl + BS_VolID32, n);    /* VSN */
     ST_DWORD(tbl + BPB_FATSz32, n_fat); /* Number of sectors per FAT */
@@ -3579,72 +3634,6 @@ FRESULT f_mkfs (const TCHAR* path, BYTE sfd, UINT au) {
   }
 /*}}}*/
 
-#include <stdarg.h>
-/*{{{  struct putbuff*/
-typedef struct {
-  FIL* fp;
-  int idx, nchr;
-  BYTE buf[64];
-  } putbuff;
-/*}}}*/
-/*{{{*/
-static void putc_bfd (putbuff* pb, TCHAR c) {
-
-  if (c == '\n')
-    /* LF -> CRLF conversion */
-    putc_bfd (pb, '\r');
-
-  /* Buffer write index (-1:error) */
-  int i = pb->idx;
-  if (i < 0)
-    return;
-
-#if _LFN_UNICODE
-  #if _STRF_ENCODE == 3     /* Write a character in UTF-8 */
-    if (c < 0x80)        /* 7-bit */
-      pb->buf[i++] = (BYTE)c;
-    else {
-      if (c < 0x800)     /* 11-bit */
-        pb->buf[i++] = (BYTE)(0xC0 | c >> 6);
-      else {        /* 16-bit */
-        pb->buf[i++] = (BYTE)(0xE0 | c >> 12);
-        pb->buf[i++] = (BYTE)(0x80 | (c >> 6 & 0x3F));
-        }
-      pb->buf[i++] = (BYTE)(0x80 | (c & 0x3F));
-      }
-  #elif _STRF_ENCODE == 2
-    // Write a character in UTF-16BE
-    pb->buf[i++] = (BYTE)(c >> 8);
-    pb->buf[i++] = (BYTE)c;
-  #elif _STRF_ENCODE == 1
-    // Write a character in UTF-16LE
-    pb->buf[i++] = (BYTE)c;
-    pb->buf[i++] = (BYTE)(c >> 8);
-  #else
-    // Write a character in ANSI/OEM, Unicode -> OEM
-    c = ff_convert (c, 0);
-    if (!c)
-      c = '?';
-    if (c >= 0x100)
-      pb->buf[i++] = (BYTE)(c >> 8);
-    pb->buf[i++] = (BYTE)c;
-  #endif
-#else
-  // Write a character without conversion
-  pb->buf[i++] = (BYTE)c;
-#endif
-
-  if (i >= (int)(sizeof pb->buf) - 3) {
-    // Write buffered characters to the file
-    UINT bw;
-    f_write (pb->fp, pb->buf, (UINT)i, &bw);
-    i = (bw == (UINT)i) ? 0 : -1;
-    }
-
-  pb->idx = i;
-  pb->nchr++;
-  }
-/*}}}*/
 /*{{{*/
 int f_putc (TCHAR c, FIL* fp) {
 
@@ -3828,7 +3817,6 @@ int f_printf (FIL* fp, const TCHAR* fmt, ...) {
   return EOF;
   }
 /*}}}*/
-
 /*{{{*/
 TCHAR* f_gets (TCHAR* buff, int len, FIL* fp) {
 

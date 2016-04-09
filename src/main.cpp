@@ -290,50 +290,50 @@ static void loadThread (void const* argument) {
   }
 //}}}
 //{{{
-static void dhcpThread (void const* argument) {
+//static void dhcpThread (void const* argument) {
 
-  cLcd::debug  ("dhcpThread started");
-  auto netif = (struct netif*)argument;
+  //cLcd::debug  ("dhcpThread started");
+  //auto netif = (struct netif*)argument;
 
-  struct ip_addr nullIpAddr;
-  IP4_ADDR (&nullIpAddr, 0, 0, 0, 0);
-  netif->ip_addr = nullIpAddr;
-  netif->netmask = nullIpAddr;
-  netif->gw = nullIpAddr;
-  dhcp_start (netif);
+  //struct ip_addr nullIpAddr;
+  //IP4_ADDR (&nullIpAddr, 0, 0, 0, 0);
+  //netif->ip_addr = nullIpAddr;
+  //netif->netmask = nullIpAddr;
+  //netif->gw = nullIpAddr;
+  //dhcp_start (netif);
 
-  while (true) {
-    if (netif->ip_addr.addr) {
-      cLcd::debug (LCD_YELLOW, "dhcp allocated " + cLcd::intStr ( (int)(netif->ip_addr.addr & 0xFF)) + "." +
-                                                   cLcd::intStr ((int)((netif->ip_addr.addr >> 16) & 0xFF)) + "." +
-                                                   cLcd::intStr ((int)((netif->ip_addr.addr >> 8) & 0xFF)) + "." +
-                                                   cLcd::intStr ( (int)(netif->ip_addr.addr >> 24)));
-      dhcp_stop (netif);
-      osSemaphoreRelease (dhcpSem);
-      break;
-      }
+  //while (true) {
+    //if (netif->ip_addr.addr) {
+      //cLcd::debug (LCD_YELLOW, "dhcp allocated " + cLcd::intStr ( (int)(netif->ip_addr.addr & 0xFF)) + "." +
+                                                   //cLcd::intStr ((int)((netif->ip_addr.addr >> 16) & 0xFF)) + "." +
+                                                   //cLcd::intStr ((int)((netif->ip_addr.addr >> 8) & 0xFF)) + "." +
+                                                   //cLcd::intStr ( (int)(netif->ip_addr.addr >> 24)));
+      //dhcp_stop (netif);
+      //osSemaphoreRelease (dhcpSem);
+      //break;
+      //}
 
-    else if (netif->dhcp->tries > 4) {
-      cLcd::debug (LCD_RED, "dhcp timeout");
-      dhcp_stop (netif);
+    //else if (netif->dhcp->tries > 4) {
+      //cLcd::debug (LCD_RED, "dhcp timeout");
+      //dhcp_stop (netif);
 
-      // use static address
-      struct ip_addr ipAddr;
-      IP4_ADDR (&ipAddr, 192 ,168 , 1 , 67 );
-      struct ip_addr netmask;
-      IP4_ADDR (&netmask, 255, 255, 255, 0);
-      struct ip_addr gateway;
-      IP4_ADDR (&gateway, 192, 168, 0, 1);
-      netif_set_addr (netif, &ipAddr , &netmask, &gateway);
-      osSemaphoreRelease (dhcpSem);
-      break;
-      }
+      //// use static address
+      //struct ip_addr ipAddr;
+      //IP4_ADDR (&ipAddr, 192 ,168 , 1 , 67 );
+      //struct ip_addr netmask;
+      //IP4_ADDR (&netmask, 255, 255, 255, 0);
+      //struct ip_addr gateway;
+      //IP4_ADDR (&gateway, 192, 168, 0, 1);
+      //netif_set_addr (netif, &ipAddr , &netmask, &gateway);
+      //osSemaphoreRelease (dhcpSem);
+      //break;
+      //}
 
-    osDelay (250);
-    }
+    //osDelay (250);
+    //}
 
-  osThreadTerminate (NULL);
-  }
+  //osThreadTerminate (NULL);
+  //}
 //}}}
 //{{{
 static void startThread (void const* argument) {
@@ -367,12 +367,15 @@ static void startThread (void const* argument) {
 
     if (netif_is_link_up (&gNetif)) {
       netif_set_up (&gNetif);
-      cLcd::debug ("ethernet connected");
+      cLcd::debug (LCD_YELLOW, "ethernet static ip " + cLcd::intStr ((int) (gNetif.ip_addr.addr & 0xFF)) + "." +
+                                                       cLcd::intStr ((int)((gNetif.ip_addr.addr >> 16) & 0xFF)) + "." +
+                                                       cLcd::intStr ((int)((gNetif.ip_addr.addr >> 8) & 0xFF)) + "." +
+                                                       cLcd::intStr ((int) (gNetif.ip_addr.addr >> 24)));
 
-      const osThreadDef_t osThreadDHCP =  { (char*)"DHCP", dhcpThread, osPriorityBelowNormal, 0, 1024 };
-      osThreadCreate (&osThreadDHCP, &gNetif);
-      while (osSemaphoreWait (dhcpSem, 1000) == osOK)
-        osDelay (1000);
+      //const osThreadDef_t osThreadDHCP =  { (char*)"DHCP", dhcpThread, osPriorityBelowNormal, 0, 1024 };
+      //osThreadCreate (&osThreadDHCP, &gNetif);
+      //while (osSemaphoreWait (dhcpSem, 1000) == osOK)
+      //  osDelay (1000);
 
       httpServerInit();
       cLcd::debug ("httpServer started");
