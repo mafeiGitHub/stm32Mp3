@@ -97,8 +97,9 @@ typedef enum {
   FR_INVALID_PARAMETER    // 19  Given parameter is invalid
   } FRESULT;
 //}}}
-//{{{  struct FATFS fileSystem
-typedef struct {
+//{{{
+class FATFS {
+public :
   union {
     UINT  d32[_MAX_SS/4]; // Force 32bits alignement
     BYTE   d8[_MAX_SS];   // Disk access window for Directory, FAT (and file data at tiny cfg)
@@ -126,7 +127,7 @@ typedef struct {
   DWORD dirbase;    // Root directory start sector (FAT32:Cluster#)
   DWORD database;   // Data start sector
   DWORD winsect;    // Current sector appearing in the win[]
-  } FATFS;
+  };
 //}}}
 //{{{  struct FIL file
 typedef struct {
