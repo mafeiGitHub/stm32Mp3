@@ -210,6 +210,52 @@ static void listDir (const char* extension) {
 
 // threads
 //{{{
+//static void dhcpThread (void const* argument) {
+
+  //cLcd::debug  ("dhcpThread started");
+  //auto netif = (struct netif*)argument;
+
+  //struct ip_addr nullIpAddr;
+  //IP4_ADDR (&nullIpAddr, 0, 0, 0, 0);
+  //netif->ip_addr = nullIpAddr;
+  //netif->netmask = nullIpAddr;
+  //netif->gw = nullIpAddr;
+  //dhcp_start (netif);
+
+  //while (true) {
+    //if (netif->ip_addr.addr) {
+      //cLcd::debug (LCD_YELLOW, "dhcp allocated " + cLcd::intStr ( (int)(netif->ip_addr.addr & 0xFF)) + "." +
+                                                   //cLcd::intStr ((int)((netif->ip_addr.addr >> 16) & 0xFF)) + "." +
+                                                   //cLcd::intStr ((int)((netif->ip_addr.addr >> 8) & 0xFF)) + "." +
+                                                   //cLcd::intStr ( (int)(netif->ip_addr.addr >> 24)));
+      //dhcp_stop (netif);
+      //osSemaphoreRelease (dhcpSem);
+      //break;
+      //}
+
+    //else if (netif->dhcp->tries > 4) {
+      //cLcd::debug (LCD_RED, "dhcp timeout");
+      //dhcp_stop (netif);
+
+      //// use static address
+      //struct ip_addr ipAddr;
+      //IP4_ADDR (&ipAddr, 192 ,168 , 1 , 67 );
+      //struct ip_addr netmask;
+      //IP4_ADDR (&netmask, 255, 255, 255, 0);
+      //struct ip_addr gateway;
+      //IP4_ADDR (&gateway, 192, 168, 0, 1);
+      //netif_set_addr (netif, &ipAddr , &netmask, &gateway);
+      //osSemaphoreRelease (dhcpSem);
+      //break;
+      //}
+
+    //osDelay (250);
+    //}
+
+  //osThreadTerminate (NULL);
+  //}
+//}}}
+//{{{
 static void uiThread (void const* argument) {
 
   auto lcd = cLcd::instance();
@@ -337,52 +383,6 @@ static void loadThread (void const* argument) {
     osDelay (10000);
     }
   }
-//}}}
-//{{{
-//static void dhcpThread (void const* argument) {
-
-  //cLcd::debug  ("dhcpThread started");
-  //auto netif = (struct netif*)argument;
-
-  //struct ip_addr nullIpAddr;
-  //IP4_ADDR (&nullIpAddr, 0, 0, 0, 0);
-  //netif->ip_addr = nullIpAddr;
-  //netif->netmask = nullIpAddr;
-  //netif->gw = nullIpAddr;
-  //dhcp_start (netif);
-
-  //while (true) {
-    //if (netif->ip_addr.addr) {
-      //cLcd::debug (LCD_YELLOW, "dhcp allocated " + cLcd::intStr ( (int)(netif->ip_addr.addr & 0xFF)) + "." +
-                                                   //cLcd::intStr ((int)((netif->ip_addr.addr >> 16) & 0xFF)) + "." +
-                                                   //cLcd::intStr ((int)((netif->ip_addr.addr >> 8) & 0xFF)) + "." +
-                                                   //cLcd::intStr ( (int)(netif->ip_addr.addr >> 24)));
-      //dhcp_stop (netif);
-      //osSemaphoreRelease (dhcpSem);
-      //break;
-      //}
-
-    //else if (netif->dhcp->tries > 4) {
-      //cLcd::debug (LCD_RED, "dhcp timeout");
-      //dhcp_stop (netif);
-
-      //// use static address
-      //struct ip_addr ipAddr;
-      //IP4_ADDR (&ipAddr, 192 ,168 , 1 , 67 );
-      //struct ip_addr netmask;
-      //IP4_ADDR (&netmask, 255, 255, 255, 0);
-      //struct ip_addr gateway;
-      //IP4_ADDR (&gateway, 192, 168, 0, 1);
-      //netif_set_addr (netif, &ipAddr , &netmask, &gateway);
-      //osSemaphoreRelease (dhcpSem);
-      //break;
-      //}
-
-    //osDelay (250);
-    //}
-
-  //osThreadTerminate (NULL);
-  //}
 //}}}
 //{{{
 static void startThread (void const* argument) {

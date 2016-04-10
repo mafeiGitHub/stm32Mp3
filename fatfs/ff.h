@@ -135,8 +135,8 @@ typedef struct {
     BYTE   d8[_MAX_SS];   // File data read/write buffer
     } buf;
 
-  FATFS* fs;       // Pointer to the related file system object (**do not change order**)
-  WORD id;         // Owner file system mount ID (**do not change order**)
+  FATFS* fs;       // Pointer to the related file system
+  WORD id;         // Owner file system mount ID
   BYTE flag;       // Status flags
   BYTE err;        // Abort flag (error code)
 
@@ -160,8 +160,8 @@ typedef struct {
     BYTE  d8[_MAX_SS];    // File data read/write buffer
     } buf;
 
-  FATFS* fs;     // Pointer to the owner file system object (**do not change order**)
-  WORD id;       // Owner file system mount ID (**do not change order**)
+  FATFS* fs;     // Pointer to the owner file system
+  WORD id;       // Owner file system mount ID
   WORD index;    // Current read/write index number
 
   DWORD sclust;  // Table start cluster (0:Root dir)
