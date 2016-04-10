@@ -77,7 +77,7 @@ static void playFile (string fileName) {
   memset ((void*)AUDIO_BUFFER, 0, AUDIO_BUFFER_SIZE);
 
   cFile file;
-  auto result = f_open (&file, fileName.c_str(), FA_OPEN_EXISTING | FA_READ);
+  auto result = file.f_open (fileName.c_str(), FA_OPEN_EXISTING | FA_READ);
   if (result != FR_OK) {
     lcd->info ("- load failed " + cLcd::intStr (result));
     return;
@@ -136,7 +136,7 @@ static void playDir (const char* extension) {
   auto lcd = cLcd::instance();
 
   cDirectory dir;
-  auto result = f_opendir (&dir, "/");
+  auto result = dir.f_opendir ("/");
   if (result != FR_OK)
     lcd->info (LCD_RED, "directory open error:"  + cLcd::intStr (result));
   else {
@@ -147,7 +147,7 @@ static void playDir (const char* extension) {
     filInfo.lfname = lfn;
     filInfo.lfsize = _MAX_LFN + 1;
 
-    while ((f_readdir (&dir, &filInfo) == FR_OK) && filInfo.fname[0]) {
+    while ((dir.f_readdir (&filInfo) == FR_OK) && filInfo.fname[0]) {
       if (filInfo.fname[0] == '.') {
         // back
         }
@@ -173,7 +173,7 @@ static void listDir (const char* extension) {
   auto lcd = cLcd::instance();
 
   cDirectory dir;
-  auto result = f_opendir (&dir, "/");
+  auto result = dir.f_opendir ("/");
   if (result != FR_OK)
     lcd->info (LCD_RED, "directory open error:"  + cLcd::intStr (result));
   else {
@@ -182,7 +182,7 @@ static void listDir (const char* extension) {
     filInfo.lfname = lfn;
     filInfo.lfsize = _MAX_LFN + 1;
 
-    while ((f_readdir (&dir, &filInfo) == FR_OK) && filInfo.fname[0]) {
+    while ((dir.f_readdir (&filInfo) == FR_OK) && filInfo.fname[0]) {
       if (filInfo.fname[0] == '.') {
         // back
         }
@@ -196,7 +196,7 @@ static void listDir (const char* extension) {
                            (filInfo.fname[i+1] == extension[1]) &&
                            (filInfo.fname[i+2] == extension[2]))) {
           cFile file;
-          auto result = f_open (&file, filInfo.lfname[0] ? filInfo.lfname : (char*)&filInfo.fname, FA_OPEN_EXISTING | FA_READ);
+          auto result = file.f_open (filInfo.lfname[0] ? filInfo.lfname : (char*)&filInfo.fname, FA_OPEN_EXISTING | FA_READ);
           if (result == FR_OK) {
             lcd->info (cLcd::intStr (file.f_size()) + " " + string (filInfo.lfname[0] ? filInfo.lfname : (char*)&filInfo.fname));
             file.f_close();

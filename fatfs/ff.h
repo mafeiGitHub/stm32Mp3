@@ -91,14 +91,28 @@ typedef enum {
   FR_INVALID_PARAMETER    // 19  Given parameter is invalid
   } FRESULT;
 //}}}
+
 class cFatFs;
+//{{{
+class cFileInfo {
+public:
+  DWORD fsize;      // File size
+  WORD  fdate;      // Last modified date
+  WORD  ftime;      // Last modified time
+  BYTE  fattrib;    // Attribute
+  TCHAR fname[13];  // Short file name (8.3 format)
+  TCHAR* lfname;    // Pointer to the LFN buffer
+  UINT  lfsize;     // Size of LFN buffer in TCHAR
+  };
+//}}}
 //{{{
 class cFile {
 public:
+  FRESULT f_open (const TCHAR* path, BYTE mode);
   int f_size() { return fsize; }
   FRESULT f_lseek (DWORD ofs);
   FRESULT f_read (void* buff, UINT btr, UINT* br);
-  FRESULT f_write (const void* buff, UINT btw, UINT* bw); 
+  FRESULT f_write (const void* buff, UINT btw, UINT* bw);
   FRESULT f_truncate();
   FRESULT f_sync();
   FRESULT f_close ();
@@ -107,6 +121,10 @@ public:
   int f_puts (const TCHAR* str);
   int f_printf (const TCHAR* str, ...);
   TCHAR* f_gets (TCHAR* buff, int len);
+
+private:
+  FRESULT validateFile();
+  DWORD clmtCluster (DWORD ofs);
 
   // vars
   union {
@@ -130,21 +148,32 @@ public:
 
   DWORD* cltbl;    // Pointer to the cluster link map table (Nulled on file open)
   UINT lockid;     // File lock ID origin from 1 (index of file semaphore table Files[])
-
-private:
-  FRESULT validateFile();
   };
 //}}}
 //{{{
 class cDirectory {
 public:
+  FRESULT f_opendir (const TCHAR* path);
+  FRESULT f_findfirst (cFileInfo* fileInfo, const TCHAR* path, const TCHAR* pattern);
+  FRESULT f_readdir (cFileInfo* fileInfo);
+  FRESULT f_findnext (cFileInfo* fileInfo);
+  FRESULT f_closedir();
+
+  FRESULT followPath (const TCHAR* path);
+  FRESULT dir_sdi (UINT idx);
+  FRESULT dir_next (int stretch);
+  FRESULT dir_read (int vol);
+  FRESULT dir_register();
+  FRESULT dir_alloc (UINT nent);
+  FRESULT dir_remove();
+  void getFileInfo (cFileInfo* fileInfo);
+
   union {
     UINT d32[_MAX_SS/4];  // Force 32bits alignement
     BYTE  d8[_MAX_SS];    // File data read/write buffer
     } buf;
 
-  cFatFs* fs;     // Pointer to the owner file system
-  WORD id;       // Owner file system mount ID
+  cFatFs* fs;    // Pointer to the owner file system
   WORD index;    // Current read/write index number
 
   DWORD sclust;  // Table start cluster (0:Root dir)
@@ -156,31 +185,18 @@ public:
   WCHAR* lfn;    // Pointer to the LFN working buffer
   WORD lfn_idx;  // Last matched LFN index number (0xFFFF:No LFN)
 
-  UINT  lockid;  // File lock ID (index of file semaphore table Files[])
+private:
+  FRESULT validateDir();
+  FRESULT createName (const TCHAR** path);
+  FRESULT dir_find();
+
+  WORD id;       // Owner file system mount ID
+  UINT lockid;  // File lock ID (index of file semaphore table Files[])
   const TCHAR* pat;  // Pointer to the name matching pattern
   };
 //}}}
-//{{{  class cFileInfo fileInformation
-class cFileInfo {
-public:
-  DWORD fsize;      // File size
-  WORD  fdate;      // Last modified date
-  WORD  ftime;      // Last modified time
-  BYTE  fattrib;    // Attribute
-  TCHAR fname[13];  // Short file name (8.3 format)
-  TCHAR* lfname;    // Pointer to the LFN buffer
-  UINT  lfsize;     // Size of LFN buffer in TCHAR
-  };
-//}}}
 
-FRESULT f_mount ();                                                  // Mount/Unmount a logical drive
-FRESULT f_open (cFile* file, const TCHAR* path, BYTE mode);          // Open or create a file
-
-FRESULT f_opendir (cDirectory* dir, const TCHAR* path);              // Open a directory
-FRESULT f_closedir (cDirectory* dir);                                // Close an open directory
-FRESULT f_readdir (cDirectory* dir, cFileInfo* fileInfo);            // Read a directory item
-FRESULT f_findfirst (cDirectory* dir, cFileInfo* fileInfo, const TCHAR* path, const TCHAR* pattern); // Find first file
-FRESULT f_findnext (cDirectory* dir, cFileInfo* fileInfo);           // Find next file
+FRESULT f_mount();                                                   // Mount fatFs only drive
 
 FRESULT f_getcwd (TCHAR* buff, UINT len);                            // Get current directory
 FRESULT f_mkdir (const TCHAR* path);                                 // Create a sub directory
