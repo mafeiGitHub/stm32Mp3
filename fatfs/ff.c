@@ -1510,20 +1510,34 @@ static FRESULT dir_remove (DIR* dp) {
 /*}}}*/
 
 /*{{{*/
-static FRESULT validate (void* obj) {
+static FRESULT validateDir (DIR* dir) {
 
-  /* Assuming offset of .fs and .id in the FIL/DIR structure is identical */
-  FIL* fil = (FIL*)obj;
-
-  if (!fil ||
-      !fil->fs ||
-      !fil->fs->fs_type ||
-      fil->fs->id != fil->id ||
-      (disk_status (fil->fs->drv) & STA_NOINIT))
+  if (!dir ||
+      !dir->fs ||
+      !dir->fs->fs_type ||
+      dir->fs->id != dir->id ||
+      (disk_status (dir->fs->drv) & STA_NOINIT))
     return FR_INVALID_OBJECT;
 
   // Lock file system
-  if (!ff_req_grant (fil->fs->semaphore))
+  if (!ff_req_grant (dir->fs->semaphore))
+    return FR_TIMEOUT;
+
+  return FR_OK;
+  }
+/*}}}*/
+/*{{{*/
+static FRESULT validateFile (FIL* file) {
+
+  if (!file ||
+      !file->fs ||
+      !file->fs->fs_type ||
+      file->fs->id != file->id ||
+      (disk_status (file->fs->drv) & STA_NOINIT))
+    return FR_INVALID_OBJECT;
+
+  // Lock file system
+  if (!ff_req_grant (file->fs->semaphore))
     return FR_TIMEOUT;
 
   return FR_OK;
@@ -1859,18 +1873,23 @@ static FRESULT followPath (DIR* dp, const TCHAR* path) {
     }
 
   else {
-    // Follow path
     for (;;) {
       res = createName (dp, &path); /* Get a segment name of the path */
-      if (res != FR_OK) break;
+      if (res != FR_OK) 
+        break;
       res = dir_find (dp);       /* Find an object with the sagment name */
       ns = dp->fn[NSFLAG];
-      if (res != FR_OK) {       /* Failed to find the object */
-        if (res == FR_NO_FILE) {  /* Object is not found */
-          if (ns & NS_DOT) { /* If dot entry is not exist, */
-            dp->sclust = 0; dp->dir = 0;  /* it is the root directory and stay there */
-            if (!(ns & NS_LAST)) continue;  /* Continue to follow if not last segment */
-            res = FR_OK;          /* Ended at the root directroy. Function completed. */
+      if (res != FR_OK) {    
+        /* Failed to find the object */
+        if (res == FR_NO_FILE) { 
+          /* Object is not found */
+          if (ns & NS_DOT) {
+            /* If dot entry is not exist, */
+            dp->sclust = 0; 
+            dp->dir = 0;  /* it is the root directory and stay there */
+            if (!(ns & NS_LAST)) 
+              continue;  /* Continue to follow if not last segment */
+            res = FR_OK;  /* Ended at the root directroy. Function completed. */
             }
           else if (!(ns & NS_LAST))
             res = FR_NO_PATH;  /* Adjust error code if not last segment */
@@ -1880,10 +1899,14 @@ static FRESULT followPath (DIR* dp, const TCHAR* path) {
 
       if (ns & NS_LAST)
         break;      /* Last segment matched. Function completed. */
-      dir = dp->dir;            /* Follow the sub-directory */
-      if (!(dir[DIR_Attr] & AM_DIR))
+
+      dir = dp->dir; 
+      if (!(dir[DIR_Attr] & AM_DIR)) {
         /* It is not a sub-directory and cannot follow */
-        res = FR_NO_PATH; break;
+        res = FR_NO_PATH; 
+        break;
+        }
+
       dp->sclust = loadCluster (dp->fs, dir);
       }
     }
@@ -1975,8 +1998,8 @@ FRESULT f_mount() {
 
   fs->fs_type = 0;
 
-  osSemaphoreDef (SEM);
-  fs->semaphore = osSemaphoreCreate (osSemaphore(SEM), 1);
+  osSemaphoreDef (fatfs);
+  fs->semaphore = osSemaphoreCreate (osSemaphore (fatfs), 1);
 
   // Do not mount now, it will be mounted later
   return FR_OK;
@@ -2083,8 +2106,8 @@ FRESULT f_open (FIL* file, const TCHAR* path, BYTE mode) {
       file->fsize = LD_DWORD(dir + DIR_FileSize); /* File size */
       file->fptr = 0;                             /* File pointer */
       file->dsect = 0;
-      file->cltbl = 0;                              /* Normal seek mode */
-      file->fs = dj.fs;                             /* Validate file object */
+      file->cltbl = 0;                            /* Normal seek mode */
+      file->fs = dj.fs;                           /* Validate file object */
       file->id = file->fs->id;
       }
     }
@@ -2100,7 +2123,7 @@ FRESULT f_read (FIL* file, void* buff, UINT btr, UINT* br) {
   BYTE csect, *rbuff = (BYTE*)buff;
   *br = 0;  /* Clear read byte counter */
 
-  FRESULT res = validate (file); /* Check validity */
+  FRESULT res = validateFile (file); /* Check validity */
   if (res != FR_OK)
     LEAVE_FF(file->fs, res);
   if (file->err)                /* Check error */
@@ -2185,7 +2208,7 @@ FRESULT f_write (FIL* file, const void *buff, UINT btw, UINT* bw) {
 
   *bw = 0;  /* Clear write byte counter */
 
-  FRESULT res = validate (file);           /* Check validity */
+  FRESULT res = validateFile (file);           /* Check validity */
   if (res != FR_OK)
     LEAVE_FF(file->fs, res);
   if (file->err)              /* Check error */
@@ -2281,7 +2304,7 @@ FRESULT f_sync (FIL* file) {
   DWORD tm;
   BYTE* dir;
 
-  FRESULT res = validate (file);         /* Check validity of the object */
+  FRESULT res = validateFile (file);         /* Check validity of the object */
   if (res == FR_OK) {
     if (file->flag & FA__WRITTEN) {
       /* Has the file been written? ,  Write-back dirty buffer */
@@ -2312,11 +2335,11 @@ FRESULT f_sync (FIL* file) {
   }
 /*}}}*/
 /*{{{*/
-FRESULT f_close (FIL *file) {
+FRESULT f_close (FIL* file) {
 
   FRESULT res = f_sync (file);       // Flush cached data
   if (res == FR_OK) {
-    res = validate (file);           // Lock volume
+    res = validateFile (file);           // Lock volume
     if (res == FR_OK) {
       FATFS* fs = file->fs;
       res = dec_lock (file->lockid); // Decrement file open counter
@@ -2335,7 +2358,7 @@ FRESULT f_lseek (FIL* file, DWORD ofs) {
   DWORD clst, bcs, nsect, ifptr;
   DWORD cl, pcl, ncl, tcl, dsc, tlen, ulen, *tbl;
 
-  FRESULT res = validate (file);  /* Check validity of the object */
+  FRESULT res = validateFile (file);  /* Check validity of the object */
   if (res != FR_OK)
     LEAVE_FF(file->fs, res);
   if (file->err)                 /* Check error */
@@ -2493,7 +2516,7 @@ FRESULT f_lseek (FIL* file, DWORD ofs) {
 FRESULT f_truncate (FIL* file) {
 
   DWORD ncl;
-  FRESULT res = validate (file);           /* Check validity of the object */
+  FRESULT res = validateFile (file);           /* Check validity of the object */
   if (res == FR_OK) {
     if (file->err)             /* Check error */
       res = (FRESULT)file->err;
@@ -2595,9 +2618,9 @@ FRESULT f_opendir (DIR* dir, const TCHAR* path) {
   }
 /*}}}*/
 /*{{{*/
-FRESULT f_closedir (DIR *dir) {
+FRESULT f_closedir (DIR* dir) {
 
-  FRESULT res = validate (dir);
+  FRESULT res = validateDir (dir);
   if (res == FR_OK) {
     FATFS* fs = dir->fs;
     if (dir->lockid)       /* Decrement sub-directory open counter */
@@ -2613,7 +2636,7 @@ FRESULT f_closedir (DIR *dir) {
 /*{{{*/
 FRESULT f_readdir (DIR* dir, FILINFO* fileInfo) {
 
-  FRESULT res = validate (dir);
+  FRESULT res = validateDir (dir);
   if (res == FR_OK) {
     if (!fileInfo)
       res = dir_sdi (dir, 0);     /* Rewind the directory object */
@@ -2773,7 +2796,7 @@ FRESULT f_mkdir (const TCHAR* path) {
     WCHAR lfn [(_MAX_LFN + 1) * 2];
     dj.lfn = lfn;
     dj.fn = sfn;
-    res = followPath (&dj, path);     /* Follow the file path */
+    res = followPath (&dj, path);
     if (res == FR_OK)
       res = FR_EXIST;   /* Any object with same name is already existing */
     if (res == FR_NO_FILE && (dj.fn[NSFLAG] & NS_DOT))
@@ -3088,7 +3111,7 @@ FRESULT f_unlink (const TCHAR* path) {
     WCHAR lfn [(_MAX_LFN + 1) * 2];
     dj.lfn = lfn;
     dj.fn = sfn;
-    res = followPath (&dj, path);   /* Follow the file path */
+    res = followPath (&dj, path);
     if (res == FR_OK && (dj.fn[NSFLAG] & NS_DOT))
       res = FR_INVALID_NAME;      /* Cannot remove dot entry */
     if (res == FR_OK) res = chk_lock(&dj, 2); /* Cannot remove open object */
@@ -3147,8 +3170,8 @@ FRESULT f_stat (const TCHAR* path, FILINFO* fileInfo) {
     dj.lfn = lfn;
     dj.fn = sfn;
 
-    res = followPath (&dj, path); /* Follow the file path */
-    if (res == FR_OK) {       /* Follow completed */
+    res = followPath (&dj, path);
+    if (res == FR_OK) {    
       if (dj.dir) {
         /* Found an object */
         if (fileInfo)
@@ -3176,7 +3199,7 @@ FRESULT f_chmod (const TCHAR* path, BYTE attr, BYTE mask) {
     WCHAR lfn [(_MAX_LFN + 1) * 2];
     dj.lfn = lfn;
     dj.fn = sfn;
-    res = followPath (&dj, path);   /* Follow the file path */
+    res = followPath (&dj, path);
 
     if (res == FR_OK && (dj.fn[NSFLAG] & NS_DOT))
       res = FR_INVALID_NAME;
@@ -3212,7 +3235,7 @@ FRESULT f_rename (const TCHAR* path_old, const TCHAR* path_new) {
     WCHAR lfn [(_MAX_LFN + 1) * 2];
     djo.lfn = lfn;
     djo.fn = sfn;
-    res = followPath (&djo, path_old);    /* Check old object */
+    res = followPath (&djo, path_old); 
     if (res == FR_OK && (djo.fn[NSFLAG] & NS_DOT))
       res = FR_INVALID_NAME;
     if (res == FR_OK)
