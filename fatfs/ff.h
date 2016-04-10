@@ -106,20 +106,21 @@ typedef struct {
 
   BYTE  fs_type;    // FAT sub-type (0:Not mounted)
   BYTE  drv;        // Physical drive number
+  osSemaphoreId semaphore; // Identifier of sync object
+  WORD  id;         // File system mount ID
+
   BYTE  csize;      // Sectors per cluster (1,2,4...128)
   BYTE  n_fats;     // Number of FAT copies (1 or 2)
   BYTE  wflag;      // win[] flag (b0:dirty)
   BYTE  fsi_flag;   // FSINFO flags (b7:disabled, b0:dirty)
-  WORD  id;         // File system mount ID
+
   WORD  n_rootdir;  // Number of root directory entries (FAT12/16)
-
-  osSemaphoreId sobj; // Identifier of sync object
-
   DWORD last_clust; // Last allocated cluster
   DWORD free_clust; // Number of free clusters
   DWORD cdir;       // Current directory start cluster (0:root)
   DWORD n_fatent;   // Number of FAT entries, = number of clusters + 2
   DWORD fsize;      // Sectors per FAT
+
   DWORD volbase;    // Volume start sector
   DWORD fatbase;    // FAT start sector
   DWORD dirbase;    // Root directory start sector (FAT32:Cluster#)
@@ -207,7 +208,7 @@ FRESULT f_getcwd (TCHAR* buff, UINT len);                            // Get curr
 FRESULT f_mkdir (const TCHAR* path);                                 // Create a sub directory
 FRESULT f_chdir (const TCHAR* path);                                 // Change current directory
 
-FRESULT f_getfree (const TCHAR* path, DWORD* nclst)    ;             // Get number of free clusters on the drive
+FRESULT f_getfree (const TCHAR* path, DWORD* nclst);                 // Get number of free clusters on the drive
 FRESULT f_getlabel (const TCHAR* path, TCHAR* label, DWORD* vsn);    // Get volume label
 FRESULT f_setlabel (const TCHAR* label);                             // Set volume label
 FRESULT f_unlink (const TCHAR* path);                                // Delete an existing file or directory
@@ -223,7 +224,7 @@ FRESULT f_fdisk (BYTE pdrv, const DWORD szt[], void* work);          // Divide a
 
 int f_putc (TCHAR c, FIL* fp);                    // Put a character to the file
 int f_puts (const TCHAR* str, FIL* cp);           // Put a string to the file
-int f_printf (FIL* fp, const TCHAR* str, ...);    // Put a formatted string to the file
+int f_printf (FIL* file, const TCHAR* str, ...);    // Put a formatted string to the file
 TCHAR* f_gets (TCHAR* buff, int len, FIL* fp);    // Get a string from the file
 
 #define f_eof(fp) ((int)((fp)->fptr == (fp)->fsize))
