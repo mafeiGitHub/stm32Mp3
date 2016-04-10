@@ -320,7 +320,7 @@ static void loadThread (void const* argument) {
     }
   lcd->info ("SD card found");
 
-  if (f_mount ((FATFS*)FATFS_BUFFER, "", 0) == FR_OK) {
+  if (f_mount() == FR_OK) {
     char label[13];
     DWORD volumeSerialNumber;
     f_getlabel ("", label, &volumeSerialNumber);

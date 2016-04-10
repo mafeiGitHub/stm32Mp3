@@ -15,6 +15,7 @@
 #include "ff.h"
 #include "ccsbcs.h"
 #include "diskio.h"
+#include "memory.h"
 /*}}}*/
 /*{{{  ff_conf defines*/
 #define _USE_TRIM    0
@@ -1544,58 +1545,6 @@ static FRESULT validate (void* obj) {
   }
 /*}}}*/
 /*{{{*/
-static int getLogicalDrive (const TCHAR** path) {
-
-  const TCHAR *tp, *tt;
-  UINT i;
-  int vol = -1;
-
-#if _STR_VOLUME_ID    /* Find string drive id */
-  static const char* const str[] = {_VOLUME_STRS};
-  const char *sp;
-  char c;
-  TCHAR tc;
-#endif
-
-  if (*path) {  /* If the pointer is not a null */
-    for (tt = *path; (UINT)*tt >= (' ') && *tt != ':'; tt++) ; /* Find ':' in the path */
-    if (*tt == ':') { /* If a ':' is exist in the path name */
-      tp = *path;
-      i = *tp++ - '0';
-      if (i < 10 && tp == tt) { /* Is there a numeric drive id? */
-        if (i < 1) { /* If a drive id is found, get the value and strip it */
-          vol = (int)i;
-          *path = ++tt;
-          }
-        }
-
-#if _STR_VOLUME_ID
-       else { /* No numeric drive number, find string drive id */
-        i = 0; tt++;
-        do {
-          sp = str[i]; tp = *path;
-          do {  /* Compare a string drive id with path name */
-            c = *sp++; tc = *tp++;
-            if (IsLower(tc)) tc -= 0x20;
-            } while (c && (TCHAR)c == tc);
-          } while ((c || tp != tt) && ++i < 1);  /* Repeat for each id until pattern match */
-        if (i < 1) { /* If a drive id is found, get the value and strip it */
-          vol = (int)i;
-          *path = tt;
-          }
-        }
-#endif
-
-      return vol;
-      }
-
-    vol = 0;    /* Drive 0 */
-    }
-
-  return vol;
-  }
-/*}}}*/
-/*{{{*/
 static FRESULT findVolume (FATFS** rfs, const TCHAR** path, BYTE wmode) {
 
   BYTE fmt, *pt;
@@ -1607,11 +1556,7 @@ static FRESULT findVolume (FATFS** rfs, const TCHAR** path, BYTE wmode) {
   UINT i;
 
   *rfs = 0;
-  vol = getLogicalDrive (path);
-  if (vol < 0)
-    return FR_INVALID_DRIVE;
-
-  /* Check if the file system object is valid or not */
+  vol = 0;
   fs = FatFs[vol];  /* Get pointer to the file system object */
   if (!fs)
     return FR_NOT_ENABLED;   /* Is the file system object available? */
@@ -2042,13 +1987,11 @@ static void getFileInfo (DIR* dp, FILINFO* fileInfo) {
 /*}}}*/
 
 /*{{{*/
-FRESULT f_mount (FATFS* fs, const TCHAR* path, BYTE opt) {
+FRESULT f_mount() {
 
-  const TCHAR* rp = path;
-  int vol = getLogicalDrive (&rp);
-  if (vol < 0)
-    return FR_INVALID_DRIVE;
+  FATFS* fs = (FATFS*)FATFS_BUFFER;
 
+  int vol = 0;
   FATFS* cfs = FatFs[vol];
   if (cfs) {
     clear_lock(cfs);
@@ -2067,14 +2010,9 @@ FRESULT f_mount (FATFS* fs, const TCHAR* path, BYTE opt) {
 
   // register new fs object
   FatFs[vol] = fs;
-  if (!fs || opt != 1)
-    return FR_OK;  // Do not mount now, it will be mounted later
-
-  FRESULT res = findVolume (&fs, &path, 0); // force mounted the volume
-  LEAVE_FF(fs, res);
+  return FR_OK;  // Do not mount now, it will be mounted later
   }
 /*}}}*/
-
 /*{{{*/
 FRESULT f_open (FIL* file, const TCHAR* path, BYTE mode) {
 
@@ -2963,15 +2901,15 @@ FRESULT f_chdir (const TCHAR* path) {
 /*}}}*/
 
 /*{{{*/
-FRESULT f_getfree (const TCHAR* path, DWORD* nclst, FATFS** fatfs) {
+FRESULT f_getfree (const TCHAR* path, DWORD* nclst) {
 
   DWORD n, clst, sect, stat;
   UINT i;
   BYTE fat, *p;
 
   /* Get logical drive number */
-  FRESULT res = findVolume (fatfs, &path, 0);
-  FATFS* fs = *fatfs;
+  FRESULT res = findVolume (FatFs, &path, 0);
+  FATFS* fs = FatFs[0];
   if (res == FR_OK) {
     /* If free_clust is valid, return it without full cluster scan */
     if (fs->free_clust <= fs->n_fatent - 2)
@@ -3319,10 +3257,7 @@ FRESULT f_rename (const TCHAR* path_old, const TCHAR* path_new) {
       else {
         memcpy (buf, djo.dir + DIR_Attr, 21); /* Save information about object except name */
         memcpy (&djn, &djo, sizeof (DIR));    /* Duplicate the directory object */
-        if (getLogicalDrive (&path_new) >= 0) /* Snip drive number off and ignore it */
-          res = followPath (&djn, path_new);  /* and make sure if new object name is not conflicting */
-        else
-          res = FR_INVALID_DRIVE;
+        res = followPath (&djn, path_new);  /* and make sure if new object name is not conflicting */
         if (res == FR_OK)
           res = FR_EXIST;   /* The new object name is already existing */
         if (res == FR_NO_FILE) {        /* It is a valid path and no name collision */
@@ -3414,10 +3349,8 @@ FRESULT f_mkfs (const TCHAR* path, BYTE sfd, UINT au) {
   /* Check mounted drive and clear work area */
   if (sfd > 1)
     return FR_INVALID_PARAMETER;
-  vol = getLogicalDrive (&path);
-  if (vol < 0)
-    return FR_INVALID_DRIVE;
 
+  vol = 0;
   fs = FatFs[vol];
   if (!fs)
     return FR_NOT_ENABLED;
