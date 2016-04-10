@@ -17,13 +17,9 @@ typedef unsigned int    UINT;
 // 32 bit
 typedef long            LONG;
 typedef unsigned long   DWORD;
-//}}}
-//{{{  defines
-#define _MAX_SS      512
-#define _MAX_LFN     255  /* Maximum LFN length to handle (12 to 255) */
-#define _CODE_PAGE   1252
+
+// chars
 #define _LFN_UNICODE 0   /* 0:ANSI/OEM or 1:Unicode */
-#define _STRF_ENCODE 3   /* 0:ANSI/OEM, 1:UTF-16LE, 2:UTF-16BE, 3:UTF-8 */
 
 // Type of path name strings on FatFs API
 #if _LFN_UNICODE
@@ -33,7 +29,6 @@ typedef unsigned long   DWORD;
     #define _T(x) L ## x
     #define _TEXT(x) L ## x
   #endif
-
 #else
   /* ANSI/OEM string */
   #ifndef _INC_TCHAR
@@ -41,8 +36,13 @@ typedef unsigned long   DWORD;
     #define _T(x) x
     #define _TEXT(x) x
   #endif
-
 #endif
+//}}}
+//{{{  defines
+#define _MAX_SS      512
+#define _MAX_LFN     255  /* Maximum LFN length to handle (12 to 255) */
+#define _CODE_PAGE   1252
+#define _STRF_ENCODE 3   /* 0:ANSI/OEM, 1:UTF-16LE, 2:UTF-16BE, 3:UTF-8 */
 
 // attribute flag defines
 #define FA_OPEN_EXISTING  0x00
