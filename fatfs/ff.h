@@ -1,11 +1,6 @@
 // ff.h
 #pragma once
 #include "cmsis_os.h"
-//{{{
-#ifdef __cplusplus
-  extern "C" {
-#endif
-//}}}
 //{{{  integer.h typedefs
 // 8 bit
 typedef unsigned char   BYTE;
@@ -23,14 +18,14 @@ typedef unsigned int    UINT;
 typedef long            LONG;
 typedef unsigned long   DWORD;
 //}}}
-//{{{  ff_conf defines
+//{{{  defines
 #define _MAX_SS      512
 #define _MAX_LFN     255  /* Maximum LFN length to handle (12 to 255) */
 #define _CODE_PAGE   1252
 #define _LFN_UNICODE 0   /* 0:ANSI/OEM or 1:Unicode */
 #define _STRF_ENCODE 3   /* 0:ANSI/OEM, 1:UTF-16LE, 2:UTF-16BE, 3:UTF-8 */
-//}}}
-//{{{  Type of path name strings on FatFs API
+
+// Type of path name strings on FatFs API
 #if _LFN_UNICODE
   /* Unicode string */
   #ifndef _INC_TCHAR
@@ -48,8 +43,8 @@ typedef unsigned long   DWORD;
   #endif
 
 #endif
-//}}}
-//{{{  attribute flags
+
+// attribute flag defines
 #define FA_OPEN_EXISTING  0x00
 #define FA_READ           0x01
 #define FA_WRITE          0x02
@@ -72,7 +67,6 @@ typedef unsigned long   DWORD;
 // Fast seek feature
 #define CREATE_LINKMAP  0xFFFFFFFF
 //}}}
-
 //{{{  enum FRESULT
 typedef enum {
   FR_OK = 0,              //  0  Succeeded
@@ -97,46 +91,16 @@ typedef enum {
   FR_INVALID_PARAMETER    // 19  Given parameter is invalid
   } FRESULT;
 //}}}
-//{{{
-class FATFS {
-public :
-  union {
-    UINT  d32[_MAX_SS/4]; // Force 32bits alignement
-    BYTE   d8[_MAX_SS];   // Disk access window for Directory, FAT (and file data at tiny cfg)
-    } win;
-
-  BYTE  fs_type;    // FAT sub-type (0:Not mounted)
-  BYTE  drv;        // Physical drive number
-  osSemaphoreId semaphore; // Identifier of sync object
-  WORD  id;         // File system mount ID
-
-  BYTE  csize;      // Sectors per cluster (1,2,4...128)
-  BYTE  n_fats;     // Number of FAT copies (1 or 2)
-  BYTE  wflag;      // win[] flag (b0:dirty)
-  BYTE  fsi_flag;   // FSINFO flags (b7:disabled, b0:dirty)
-
-  WORD  n_rootdir;  // Number of root directory entries (FAT12/16)
-  DWORD last_clust; // Last allocated cluster
-  DWORD free_clust; // Number of free clusters
-  DWORD cdir;       // Current directory start cluster (0:root)
-  DWORD n_fatent;   // Number of FAT entries, = number of clusters + 2
-  DWORD fsize;      // Sectors per FAT
-
-  DWORD volbase;    // Volume start sector
-  DWORD fatbase;    // FAT start sector
-  DWORD dirbase;    // Root directory start sector (FAT32:Cluster#)
-  DWORD database;   // Data start sector
-  DWORD winsect;    // Current sector appearing in the win[]
-  };
-//}}}
-//{{{  struct FIL file
+class cFatFs;
+//{{{  class FIL file
 typedef struct {
+public:
   union {
     UINT  d32[_MAX_SS/4]; // Force 32bits alignement
     BYTE   d8[_MAX_SS];   // File data read/write buffer
     } buf;
 
-  FATFS* fs;       // Pointer to the related file system
+  cFatFs* fs;       // Pointer to the related file system
   WORD id;         // Owner file system mount ID
   BYTE flag;       // Status flags
   BYTE err;        // Abort flag (error code)
@@ -154,14 +118,15 @@ typedef struct {
   UINT lockid;     // File lock ID origin from 1 (index of file semaphore table Files[])
   } FIL;
 //}}}
-//{{{  struct DIR directory
+//{{{  class DIR directory
 typedef struct {
+public:
   union {
     UINT d32[_MAX_SS/4];  // Force 32bits alignement
     BYTE  d8[_MAX_SS];    // File data read/write buffer
     } buf;
 
-  FATFS* fs;     // Pointer to the owner file system
+  cFatFs* fs;     // Pointer to the owner file system
   WORD id;       // Owner file system mount ID
   WORD index;    // Current read/write index number
 
@@ -178,8 +143,9 @@ typedef struct {
   const TCHAR* pat;  // Pointer to the name matching pattern
   } DIR;
 //}}}
-//{{{  struct FILINFO fileInformation
+//{{{  class cFileInfo fileInformation
 typedef struct {
+public:
   DWORD fsize;      // File size
   WORD  fdate;      // Last modified date
   WORD  ftime;      // Last modified time
@@ -208,7 +174,6 @@ FRESULT f_findnext (DIR* dir, FILINFO* fileInfo);                    // Find nex
 FRESULT f_getcwd (TCHAR* buff, UINT len);                            // Get current directory
 FRESULT f_mkdir (const TCHAR* path);                                 // Create a sub directory
 FRESULT f_chdir (const TCHAR* path);                                 // Change current directory
-
 FRESULT f_getfree (const TCHAR* path, DWORD* nclst);                 // Get number of free clusters on the drive
 FRESULT f_getlabel (const TCHAR* path, TCHAR* label, DWORD* vsn);    // Get volume label
 FRESULT f_setlabel (const TCHAR* label);                             // Set volume label
@@ -217,16 +182,13 @@ FRESULT f_stat (const TCHAR* path, FILINFO* fileInfo);               // Get file
 FRESULT f_chmod (const TCHAR* path, BYTE attr, BYTE mask);           // Change attribute of the file/dir
 FRESULT f_rename (const TCHAR* path_old, const TCHAR* path_new);     // Rename/Move a file or directory
 FRESULT f_utime (const TCHAR* path, const FILINFO* fileInfo);        // Change times-tamp of the file/dir
-
 FRESULT f_chdrive (const TCHAR* path);                               // Change current drive
-
 FRESULT f_mkfs (const TCHAR* path, BYTE sfd, UINT au);               // Create a file system on the volume
-FRESULT f_fdisk (BYTE pdrv, const DWORD szt[], void* work);          // Divide a physical drive into some partitions */
 
-int f_putc (TCHAR c, FIL* fp);                    // Put a character to the file
-int f_puts (const TCHAR* str, FIL* cp);           // Put a string to the file
+int f_putc (TCHAR c, FIL* file);                    // Put a character to the file
+int f_puts (const TCHAR* str, FIL* file);           // Put a string to the file
 int f_printf (FIL* file, const TCHAR* str, ...);    // Put a formatted string to the file
-TCHAR* f_gets (TCHAR* buff, int len, FIL* fp);    // Get a string from the file
+TCHAR* f_gets (TCHAR* buff, int len, FIL* file);    // Get a string from the file
 
 #define f_eof(fp) ((int)((fp)->fptr == (fp)->fsize))
 #define f_error(fp) ((fp)->err)
@@ -238,9 +200,3 @@ TCHAR* f_gets (TCHAR* buff, int len, FIL* fp);    // Get a string from the file
 #ifndef EOF
   #define EOF (-1)
 #endif
-
-//{{{
-#ifdef __cplusplus
-  }
-#endif
-//}}}

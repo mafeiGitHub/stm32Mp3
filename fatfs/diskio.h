@@ -1,10 +1,4 @@
-// diskio.h
 #pragma once
-//{{{
-#ifdef __cplusplus
-  extern "C" {
-#endif
-//}}}
 
 typedef BYTE DSTATUS;
 typedef enum {
@@ -50,9 +44,3 @@ DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff);
 #define ATA_GET_REV     20  /* Get F/W revision */
 #define ATA_GET_MODEL   21  /* Get model name */
 #define ATA_GET_SN      22  /* Get serial number */
-
-//{{{
-#ifdef __cplusplus
-  }
-#endif
-//}}}
