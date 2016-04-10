@@ -76,13 +76,13 @@ static void playFile (string fileName) {
     mPower[i] = 0;
   memset ((void*)AUDIO_BUFFER, 0, AUDIO_BUFFER_SIZE);
 
-  FIL file;
+  cFile file;
   auto result = f_open (&file, fileName.c_str(), FA_OPEN_EXISTING | FA_READ);
   if (result != FR_OK) {
     lcd->info ("- load failed " + cLcd::intStr (result));
     return;
     }
-  mPlaySize = f_size (&file);
+  mPlaySize = file.f_size();
 
   // load file into fileBuffer, limit to 5m for now
   int size = mPlaySize;
@@ -90,8 +90,8 @@ static void playFile (string fileName) {
     size = 0x00500000;
   auto fileBuffer = (unsigned char*)pvPortMalloc (size);
   unsigned int bytesRead = 0;
-  result = f_read (&file, fileBuffer, size, &bytesRead);
-  f_close (&file);
+  result = file.f_read (fileBuffer, size, &bytesRead);
+  file.f_close();
 
   if (result != FR_OK) {
     lcd->info ("- read failed " + cLcd::intStr (result));
@@ -135,14 +135,14 @@ static void playDir (const char* extension) {
 
   auto lcd = cLcd::instance();
 
-  DIR dir;
+  cDirectory dir;
   auto result = f_opendir (&dir, "/");
   if (result != FR_OK)
     lcd->info (LCD_RED, "directory open error:"  + cLcd::intStr (result));
   else {
     lcd->info ("directory opened");
 
-    FILINFO filInfo;
+    cFileInfo filInfo;
     char lfn [_MAX_LFN + 1];
     filInfo.lfname = lfn;
     filInfo.lfsize = _MAX_LFN + 1;
@@ -172,12 +172,12 @@ static void listDir (const char* extension) {
 
   auto lcd = cLcd::instance();
 
-  DIR dir;
+  cDirectory dir;
   auto result = f_opendir (&dir, "/");
   if (result != FR_OK)
     lcd->info (LCD_RED, "directory open error:"  + cLcd::intStr (result));
   else {
-    FILINFO filInfo;
+    cFileInfo filInfo;
     char lfn [_MAX_LFN + 1];
     filInfo.lfname = lfn;
     filInfo.lfsize = _MAX_LFN + 1;
@@ -195,11 +195,11 @@ static void listDir (const char* extension) {
         if (!extension || ((filInfo.fname[i] == extension[0]) &&
                            (filInfo.fname[i+1] == extension[1]) &&
                            (filInfo.fname[i+2] == extension[2]))) {
-          FIL file;
+          cFile file;
           auto result = f_open (&file, filInfo.lfname[0] ? filInfo.lfname : (char*)&filInfo.fname, FA_OPEN_EXISTING | FA_READ);
           if (result == FR_OK) {
-            lcd->info (cLcd::intStr (f_size (&file)) + " " + string (filInfo.lfname[0] ? filInfo.lfname : (char*)&filInfo.fname));
-            f_close (&file);
+            lcd->info (cLcd::intStr (file.f_size()) + " " + string (filInfo.lfname[0] ? filInfo.lfname : (char*)&filInfo.fname));
+            file.f_close();
             }
           }
         }

@@ -123,7 +123,7 @@
 //{{{
 class cPutBuff {
 public:
-  FIL* fp;
+  cFile* fp;
   int idx, nchr;
   BYTE buf[64];
   };
@@ -250,15 +250,15 @@ static const BYTE ExCvt[] = { 0x80,0x81,0x82,0x83,0x84,0x85,0x86,0x87,0x88,0x89,
 static cFatFs* FatFs[1]; // Pointer to the file system objects (logical drives)
 static WORD Fsid;       // File system mount ID
 
-// FILESEM struct
-typedef struct {
+class cFileSem {
+public:
   cFatFs* fs; // Object ID 1, volume (NULL:blank entry)
   DWORD clu;  // Object ID 2, directory (0:root)
   WORD idx;   // Object ID 3, directory index
   WORD ctr;   // Object open counter, 0:none, 0x01..0xFF:read mode open count, 0x100:write mode
-  } FILESEM;
+  };
 
-static FILESEM Files[_FS_LOCK];  // Open object lock semaphores
+static cFileSem Files[_FS_LOCK];  // Open object lock semaphores
 //}}}
 
 //{{{  lock, synchronisation
@@ -290,9 +290,10 @@ static void unlock_fs (cFatFs* fs, FRESULT res) {
 #define ENTER_FF(fs)      { if (!ff_req_grant (fs->semaphore)) return FR_TIMEOUT; }
 #define LEAVE_FF(fs, res) { unlock_fs(fs, res); return res; }
 #define ABORT(fs, res)    { file->err = (BYTE)(res); LEAVE_FF(fs, res); }
+#define ABORT1(fs, res)    { err = (BYTE)(res); LEAVE_FF(fs, res); }
 
 //{{{
-static FRESULT chk_lock (DIR* dp, int acc) {
+static FRESULT chk_lock (cDirectory* dp, int acc) {
 
   UINT i, be;
 
@@ -325,7 +326,7 @@ static int enq_lock (void) {
   }
 //}}}
 //{{{
-static UINT inc_lock (DIR* dp, int acc) {
+static UINT inc_lock (cDirectory* dp, int acc) {
 
   UINT i;
   for (i = 0; i < _FS_LOCK; i++) {  /* Find the object */
@@ -544,7 +545,7 @@ static void putc_bfd (cPutBuff* pb, TCHAR c) {
   if (i >= (int)(sizeof pb->buf) - 3) {
     // Write buffered characters to the file
     UINT bw;
-    f_write (pb->fp, pb->buf, (UINT)i, &bw);
+    pb->fp->f_write (pb->buf, (UINT)i, &bw);
     i = (bw == (UINT)i) ? 0 : -1;
     }
 
@@ -662,7 +663,7 @@ static DWORD clusterToSector (cFatFs* fs, DWORD clst) {
   }
 //}}}
 //{{{
-static DWORD clmtCluster (FIL* fp, DWORD ofs) {
+static DWORD clmtCluster (cFile* fp, DWORD ofs) {
 
   /* Top of CLMT */
   DWORD* tbl = fp->cltbl + 1;
@@ -1051,7 +1052,7 @@ static void gen_numname (BYTE* dst, const BYTE* src, const WCHAR* lfn, UINT seq)
 //}}}
 //{{{  dir utils
 //{{{
-static FRESULT dir_sdi (DIR* dp, UINT idx) {
+static FRESULT dir_sdi (cDirectory* dp, UINT idx) {
 
   // Current index
   dp->index = (WORD)idx;
@@ -1099,7 +1100,7 @@ static FRESULT dir_sdi (DIR* dp, UINT idx) {
   }
 //}}}
 //{{{
-static FRESULT dir_next (DIR* dp, int stretch) {
+static FRESULT dir_next (cDirectory* dp, int stretch) {
 
   UINT i = dp->index + 1;
   if (!(i & 0xFFFF) || !dp->sect) /* Report EOT when index has reached 65535 */
@@ -1171,7 +1172,7 @@ static FRESULT dir_next (DIR* dp, int stretch) {
   }
 //}}}
 //{{{
-static FRESULT dir_alloc (DIR* dp, UINT nent) {
+static FRESULT dir_alloc (cDirectory* dp, UINT nent) {
 
   UINT n;
   FRESULT res = dir_sdi (dp, 0);
@@ -1199,7 +1200,7 @@ static FRESULT dir_alloc (DIR* dp, UINT nent) {
   }
 //}}}
 //{{{
-static FRESULT dir_find (DIR* dp) {
+static FRESULT dir_find (cDirectory* dp) {
 
   BYTE c, *dir;
   BYTE a, sum;
@@ -1257,7 +1258,7 @@ static FRESULT dir_find (DIR* dp) {
   }
 //}}}
 //{{{
-static FRESULT dir_read (DIR* dp, int vol) {
+static FRESULT dir_read (cDirectory* dp, int vol) {
 
   BYTE a, c, *dir;
   BYTE ord = 0xFF;
@@ -1307,7 +1308,7 @@ static FRESULT dir_read (DIR* dp, int vol) {
   }
 //}}}
 //{{{
-static FRESULT dir_register (DIR* dp) {
+static FRESULT dir_register (cDirectory* dp) {
 
   UINT n, nent;
 
@@ -1378,7 +1379,7 @@ static FRESULT dir_register (DIR* dp) {
   }
 //}}}
 //{{{
-static FRESULT dir_remove (DIR* dp) {
+static FRESULT dir_remove (cDirectory* dp) {
 
   // SFN index
   UINT i = dp->index;
@@ -1409,7 +1410,7 @@ static FRESULT dir_remove (DIR* dp) {
 //}}}
 
 //{{{
-static FRESULT validateDir (DIR* dir) {
+static FRESULT validateDir (cDirectory* dir) {
 
   if (!dir ||
       !dir->fs ||
@@ -1426,17 +1427,16 @@ static FRESULT validateDir (DIR* dir) {
   }
 //}}}
 //{{{
-static FRESULT validateFile (FIL* file) {
+FRESULT cFile::validateFile() {
 
-  if (!file ||
-      !file->fs ||
-      !file->fs->fs_type ||
-      file->fs->id != file->id ||
-      (disk_status (file->fs->drv) & STA_NOINIT))
+  if (!fs ||
+      !fs->fs_type ||
+      fs->id != id ||
+      (disk_status (fs->drv) & STA_NOINIT))
     return FR_INVALID_OBJECT;
 
   // Lock file system
-  if (!ff_req_grant (file->fs->semaphore))
+  if (!ff_req_grant (fs->semaphore))
     return FR_TIMEOUT;
 
   return FR_OK;
@@ -1594,7 +1594,7 @@ static FRESULT findVolume (cFatFs** returnedfs, BYTE wmode) {
   }
 //}}}
 //{{{
-static FRESULT createName (DIR* dp, const TCHAR** path) {
+static FRESULT createName (cDirectory* dp, const TCHAR** path) {
 
   BYTE b, cf;
   WCHAR w, *lfn;
@@ -1729,7 +1729,7 @@ static FRESULT createName (DIR* dp, const TCHAR** path) {
   }
 //}}}
 //{{{
-static FRESULT followPath (DIR* dp, const TCHAR* path) {
+static FRESULT followPath (cDirectory* dp, const TCHAR* path) {
 
   FRESULT res;
   BYTE *dir, ns;
@@ -1792,7 +1792,7 @@ static FRESULT followPath (DIR* dp, const TCHAR* path) {
   }
 //}}}
 //{{{
-static void getFileInfo (DIR* dp, FILINFO* fileInfo) {
+static void getFileInfo (cDirectory* dp, cFileInfo* fileInfo) {
 
   UINT i;
   TCHAR *p, c;
@@ -1879,9 +1879,9 @@ FRESULT f_mount() {
   }
 //}}}
 //{{{
-FRESULT f_open (FIL* file, const TCHAR* path, BYTE mode) {
+FRESULT f_open (cFile* file, const TCHAR* path, BYTE mode) {
 
-  DIR dj;
+  cDirectory dj;
   BYTE* dir;
   DWORD dw, cl;
 
@@ -1988,263 +1988,62 @@ FRESULT f_open (FIL* file, const TCHAR* path, BYTE mode) {
   LEAVE_FF(dj.fs, res);
   }
 //}}}
+
 //{{{
-FRESULT f_read (FIL* file, void* buff, UINT btr, UINT* br) {
-
-  DWORD clst, sect;
-  UINT rcnt, cc;
-  BYTE csect;
-  BYTE* rbuff = (BYTE*)buff;
-
-  *br = 0;  /* Clear read byte counter */
-  FRESULT res = validateFile (file); /* Check validity */
-  if (res != FR_OK)
-    LEAVE_FF(file->fs, res);
-  if (file->err)                /* Check error */
-    LEAVE_FF(file->fs, (FRESULT)file->err);
-  if (!(file->flag & FA_READ))   /* Check access mode */
-    LEAVE_FF(file->fs, FR_DENIED);
-
-  DWORD remain = file->fsize - file->fptr;
-  if (btr > remain)
-    btr = (UINT)remain;   /* Truncate btr by remaining bytes */
-
-  for ( ;  btr; /* Repeat until all data read */ rbuff += rcnt, file->fptr += rcnt, *br += rcnt, btr -= rcnt) {
-    if ((file->fptr % _MAX_SS) == 0) {
-      /* On the sector boundary? */
-      csect = (BYTE)(file->fptr / _MAX_SS & (file->fs->csize - 1));  /* Sector offset in the cluster */
-      if (!csect) {
-        /* On the cluster boundary? */
-        if (file->fptr == 0)
-          /* On the top of the file? */
-          clst = file->sclust;  /* Follow from the origin */
-        else {
-          /* Middle or end of the file */
-          if (file->cltbl)
-            clst = clmtCluster (file, file->fptr);  /* Get cluster# from the CLMT */
-          else
-            clst = getFat (file->fs, file->clust);  /* Follow cluster chain on the FAT */
-          }
-        if (clst < 2)
-          ABORT(file->fs, FR_INT_ERR);
-        if (clst == 0xFFFFFFFF)
-          ABORT(file->fs, FR_DISK_ERR);
-        file->clust = clst;  /* Update current cluster */
-        }
-
-      sect = clusterToSector (file->fs, file->clust); /* Get current sector */
-      if (!sect)
-        ABORT(file->fs, FR_INT_ERR);
-      sect += csect;
-      cc = btr / _MAX_SS; /* When remaining bytes >= sector size, */
-      if (cc) {
-        /* Read maximum contiguous sectors directly */
-        if (csect + cc > file->fs->csize) /* Clip at cluster boundary */
-          cc = file->fs->csize - csect;
-        if (disk_read (file->fs->drv, rbuff, sect, cc) != RES_OK)
-          ABORT(file->fs, FR_DISK_ERR);
-        if ((file->flag & FA__DIRTY) && file->dsect - sect < cc)
-          memcpy(rbuff + ((file->dsect - sect) * _MAX_SS), file->buf.d8, _MAX_SS);
-        rcnt = _MAX_SS * cc;     /* Number of bytes transferred */
-        continue;
-        }
-
-      if (file->dsect != sect) {
-        /* Load data sector if not in cache */
-        if (file->flag & FA__DIRTY) {
-          /* Write-back dirty sector cache */
-          if (disk_write (file->fs->drv, file->buf.d8, file->dsect, 1) != RES_OK)
-            ABORT(file->fs, FR_DISK_ERR);
-          file->flag &= ~FA__DIRTY;
-          }
-        if (disk_read (file->fs->drv, file->buf.d8, sect, 1) != RES_OK)  /* Fill sector cache */
-          ABORT(file->fs, FR_DISK_ERR);
-        }
-      file->dsect = sect;
-      }
-
-    rcnt = _MAX_SS - ((UINT)file->fptr % _MAX_SS);  /* Get partial sector data from sector buffer */
-    if (rcnt > btr)
-      rcnt = btr;
-    memcpy (rbuff, &file->buf.d8[file->fptr % _MAX_SS], rcnt); /* Pick partial sector */
-    }
-
-  LEAVE_FF(file->fs, FR_OK);
-  }
-//}}}
-//{{{
-FRESULT f_write (FIL* file, const void *buff, UINT btw, UINT* bw) {
-
-  DWORD clst, sect;
-  UINT wcnt, cc;
-  const BYTE *wbuff = (const BYTE*)buff;
-  BYTE csect;
-
-  *bw = 0;  /* Clear write byte counter */
-
-  FRESULT res = validateFile (file);           /* Check validity */
-  if (res != FR_OK)
-    LEAVE_FF(file->fs, res);
-  if (file->err)              /* Check error */
-    LEAVE_FF(file->fs, (FRESULT)file->err);
-  if (!(file->flag & FA_WRITE))       /* Check access mode */
-    LEAVE_FF(file->fs, FR_DENIED);
-  if (file->fptr + btw < file->fptr) btw = 0; /* File size cannot reach 4GB */
-
-  for ( ;  btw;             /* Repeat until all data written */
-    wbuff += wcnt, file->fptr += wcnt, *bw += wcnt, btw -= wcnt) {
-    if ((file->fptr % _MAX_SS) == 0) { /* On the sector boundary? */
-      csect = (BYTE)(file->fptr / _MAX_SS & (file->fs->csize - 1));  /* Sector offset in the cluster */
-      if (!csect) {
-        /* On the cluster boundary? */
-        if (file->fptr == 0) {
-          /* On the top of the file? */
-          clst = file->sclust;
-          /* Follow from the origin */
-          if (clst == 0)
-            /* When no cluster is allocated, */
-            clst = createChain(file->fs, 0); /* Create a new cluster chain */
-          }
-        else {
-          /* Middle or end of the file */
-          if (file->cltbl)
-            clst = clmtCluster (file, file->fptr);  /* Get cluster# from the CLMT */
-          else
-            clst = createChain (file->fs, file->clust); /* Follow or stretch cluster chain on the FAT */
-          }
-
-        if (clst == 0)
-          break;   /* Could not allocate a new cluster (disk full) */
-        if (clst == 1)
-          ABORT(file->fs, FR_INT_ERR);
-        if (clst == 0xFFFFFFFF)
-          ABORT(file->fs, FR_DISK_ERR);
-
-        file->clust = clst;     /* Update current cluster */
-        if (file->sclust == 0)
-          file->sclust = clst; /* Set start cluster if the first write */
-        }
-
-      if (file->flag & FA__DIRTY) {   /* Write-back sector cache */
-        if (disk_write (file->fs->drv, file->buf.d8, file->dsect, 1) != RES_OK)
-          ABORT(file->fs, FR_DISK_ERR);
-        file->flag &= ~FA__DIRTY;
-        }
-
-      sect = clusterToSector(file->fs, file->clust); /* Get current sector */
-      if (!sect)
-        ABORT(file->fs, FR_INT_ERR);
-      sect += csect;
-
-      cc = btw / _MAX_SS;      /* When remaining bytes >= sector size, */
-      if (cc) {           /* Write maximum contiguous sectors directly */
-        if (csect + cc > file->fs->csize) /* Clip at cluster boundary */
-          cc = file->fs->csize - csect;
-        if (disk_write (file->fs->drv, wbuff, sect, cc) != RES_OK)
-          ABORT(file->fs, FR_DISK_ERR);
-        if (file->dsect - sect < cc) { /* Refill sector cache if it gets invalidated by the direct write */
-          memcpy (file->buf.d8, wbuff + ((file->dsect - sect) * _MAX_SS), _MAX_SS);
-          file->flag &= ~FA__DIRTY;
-          }
-        wcnt = _MAX_SS * cc;   /* Number of bytes transferred */
-        continue;
-        }
-
-      if (file->dsect != sect) {    /* Fill sector cache with file data */
-        if (file->fptr < file->fsize &&
-          disk_read (file->fs->drv, file->buf.d8, sect, 1) != RES_OK)
-            ABORT (file->fs, FR_DISK_ERR);
-        }
-      file->dsect = sect;
-      }
-
-    wcnt = _MAX_SS - ((UINT)file->fptr % _MAX_SS); /* Put partial sector into file I/O buffer */
-    if (wcnt > btw)
-      wcnt = btw;
-    memcpy (&file->buf.d8[file->fptr % _MAX_SS], wbuff, wcnt); /* Fit partial sector */
-    file->flag |= FA__DIRTY;
-    }
-
-  if (file->fptr > file->fsize)
-    file->fsize = file->fptr;  /* Update file size if needed */
-  file->flag |= FA__WRITTEN; /* Set file change flag */
-
-  LEAVE_FF(file->fs, FR_OK);
-  }
-//}}}
-//{{{
-FRESULT f_sync (FIL* file) {
+FRESULT cFile::f_sync() {
 
   DWORD tm;
   BYTE* dir;
 
-  FRESULT res = validateFile (file);         /* Check validity of the object */
+  FRESULT res = validateFile();         /* Check validity of the object */
   if (res == FR_OK) {
-    if (file->flag & FA__WRITTEN) {
+    if (flag & FA__WRITTEN) {
       /* Has the file been written? ,  Write-back dirty buffer */
-      if (file->flag & FA__DIRTY) {
-        if (disk_write (file->fs->drv, file->buf.d8, file->dsect, 1) != RES_OK)
-          LEAVE_FF(file->fs, FR_DISK_ERR);
-        file->flag &= ~FA__DIRTY;
+      if (flag & FA__DIRTY) {
+        if (disk_write (fs->drv, buf.d8, dsect, 1) != RES_OK)
+          LEAVE_FF(fs, FR_DISK_ERR);
+        flag &= ~FA__DIRTY;
         }
 
       /* Update the directory entry */
-      res = moveWindow (file->fs, file->dir_sect);
+      res = moveWindow (fs, dir_sect);
       if (res == FR_OK) {
-        dir = file->dir_ptr;
+        dir = dir_ptr;
         dir[DIR_Attr] |= AM_ARC;          /* Set archive bit */
-        ST_DWORD(dir + DIR_FileSize, file->fsize);  /* Update file size */
-        storeCluster (dir, file->sclust);          /* Update start cluster */
+        ST_DWORD(dir + DIR_FileSize, fsize);  /* Update file size */
+        storeCluster (dir, sclust);          /* Update start cluster */
         tm = get_fattime();             /* Update updated time */
         ST_DWORD(dir + DIR_WrtTime, tm);
         ST_WORD(dir + DIR_LstAccDate, 0);
-        file->flag &= ~FA__WRITTEN;
-        file->fs->wflag = 1;
-        res = syncFs (file->fs);
+        flag &= ~FA__WRITTEN;
+        fs->wflag = 1;
+        res = syncFs (fs);
         }
       }
     }
 
-  LEAVE_FF(file->fs, res);
+  LEAVE_FF(fs, res);
   }
 //}}}
 //{{{
-FRESULT f_close (FIL* file) {
-
-  FRESULT res = f_sync (file);       // Flush cached data
-  if (res == FR_OK) {
-    res = validateFile (file);           // Lock volume
-    if (res == FR_OK) {
-      cFatFs* fs = file->fs;
-      res = dec_lock (file->lockid); // Decrement file open counter
-      if (res == FR_OK)
-        file->fs = 0;                // Invalidate file object
-      unlock_fs (fs, FR_OK);       // Unlock volume
-      }
-    }
-
-  return res;
-  }
-//}}}
-//{{{
-FRESULT f_lseek (FIL* file, DWORD ofs) {
+FRESULT cFile::f_lseek (DWORD ofs) {
 
   DWORD clst, bcs, nsect, ifptr;
   DWORD cl, pcl, ncl, tcl, dsc, tlen, ulen, *tbl;
 
-  FRESULT res = validateFile (file);  /* Check validity of the object */
+  FRESULT res = validateFile();  /* Check validity of the object */
   if (res != FR_OK)
-    LEAVE_FF(file->fs, res);
-  if (file->err)                 /* Check error */
-    LEAVE_FF(file->fs, (FRESULT)file->err);
+    LEAVE_FF(fs, res);
+  if (err)                 /* Check error */
+    LEAVE_FF(fs, (FRESULT)err);
 
-  if (file->cltbl) {
+  if (cltbl) {
     /* Fast seek */
     if (ofs == CREATE_LINKMAP) {
       /* Create CLMT */
-      tbl = file->cltbl;
+      tbl = cltbl;
       tlen = *tbl++; ulen = 2;  /* Given table size and required table size */
-      cl = file->sclust;      /* Top of the chain */
+      cl = sclust;      /* Top of the chain */
       if (cl) {
         do {
           /* Get a fragment */
@@ -2253,22 +2052,22 @@ FRESULT f_lseek (FIL* file, DWORD ofs) {
           ulen += 2; /* Top, length and used items */
           do {
             pcl = cl; ncl++;
-            cl = getFat (file->fs, cl);
+            cl = getFat (fs, cl);
             if (cl <= 1)
-              ABORT(file->fs, FR_INT_ERR);
+              ABORT1(fs, FR_INT_ERR);
             if (cl == 0xFFFFFFFF)
-              ABORT(file->fs, FR_DISK_ERR);
+              ABORT1(fs, FR_DISK_ERR);
             } while (cl == pcl + 1);
           if (ulen <= tlen) {
             /* Store the length and top of the fragment */
             *tbl++ = ncl;
             *tbl++ = tcl;
             }
-          } while (cl < file->fs->n_fatent);  /* Repeat until end of chain */
+          } while (cl < fs->n_fatent);  /* Repeat until end of chain */
         }
 
       /* Number of items used */
-      *file->cltbl = ulen;
+      *cltbl = ulen;
       if (ulen <= tlen)
         /* Terminate table */
         *tbl = 0;
@@ -2279,23 +2078,25 @@ FRESULT f_lseek (FIL* file, DWORD ofs) {
 
     else {
       /* Fast seek */
-      if (ofs > file->fsize)    /* Clip offset at the file size */
-        ofs = file->fsize;
-      file->fptr = ofs;       /* Set file pointer */
+      if (ofs > fsize)    /* Clip offset at the file size */
+        ofs = fsize;
+      fptr = ofs;       /* Set file pointer */
       if (ofs) {
-        file->clust = clmtCluster (file, ofs - 1);
-        dsc = clusterToSector (file->fs, file->clust);
-        if (!dsc) ABORT(file->fs, FR_INT_ERR);
-        dsc += (ofs - 1) / _MAX_SS & (file->fs->csize - 1);
-        if (file->fptr % _MAX_SS && dsc != file->dsect) {  /* Refill sector cache if needed */
-          if (file->flag & FA__DIRTY) {   /* Write-back dirty sector cache */
-            if (disk_write (file->fs->drv, file->buf.d8, file->dsect, 1) != RES_OK)
-              ABORT(file->fs, FR_DISK_ERR);
-            file->flag &= ~FA__DIRTY;
+        clust = clmtCluster (this, ofs - 1);
+        dsc = clusterToSector (fs, clust);
+        if (!dsc)
+          ABORT1(fs, FR_INT_ERR);
+        dsc += (ofs - 1) / _MAX_SS & (fs->csize - 1);
+        if (fptr % _MAX_SS && dsc != dsect) {  /* Refill sector cache if needed */
+          if (flag & FA__DIRTY) {
+            /* Write-back dirty sector cache */
+            if (disk_write (fs->drv, buf.d8, dsect, 1) != RES_OK)
+              ABORT1 (fs, FR_DISK_ERR);
+            flag &= ~FA__DIRTY;
             }
-          if (disk_read (file->fs->drv, file->buf.d8, dsc, 1) != RES_OK) /* Load current sector */
-            ABORT(file->fs, FR_DISK_ERR);
-          file->dsect = dsc;
+          if (disk_read (fs->drv, buf.d8, dsc, 1) != RES_OK) /* Load current sector */
+            ABORT1(fs, FR_DISK_ERR);
+          dsect = dsc;
           }
         }
       }
@@ -2303,143 +2104,604 @@ FRESULT f_lseek (FIL* file, DWORD ofs) {
 
   else {
     /* Normal Seek */
-    if (ofs > file->fsize && !(file->flag & FA_WRITE))
-      ofs = file->fsize;
+    if (ofs > fsize && !(flag & FA_WRITE))
+      ofs = fsize;
 
-    ifptr = file->fptr;
-    file->fptr = nsect = 0;
+    ifptr = fptr;
+    fptr = nsect = 0;
     if (ofs) {
-      bcs = (DWORD)file->fs->csize * _MAX_SS;  /* Cluster size (byte) */
+      bcs = (DWORD)fs->csize * _MAX_SS;  /* Cluster size (byte) */
       if (ifptr > 0 && (ofs - 1) / bcs >= (ifptr - 1) / bcs) {
         /* When seek to same or following cluster, */
-        file->fptr = (ifptr - 1) & ~(bcs - 1);  /* start from the current cluster */
-        ofs -= file->fptr;
-        clst = file->clust;
+        fptr = (ifptr - 1) & ~(bcs - 1);  /* start from the current cluster */
+        ofs -= fptr;
+        clst = clust;
         }
       else {
         /* When seek to back cluster, */
         /* start from the first cluster */
-        clst = file->sclust;
+        clst = sclust;
         if (clst == 0) {
           /* If no cluster chain, create a new chain */
-          clst = createChain (file->fs, 0);
+          clst = createChain (fs, 0);
           if (clst == 1)
-            ABORT(file->fs, FR_INT_ERR);
+            ABORT1(fs, FR_INT_ERR);
           if (clst == 0xFFFFFFFF)
-            ABORT(file->fs, FR_DISK_ERR);
-          file->sclust = clst;
+            ABORT1(fs, FR_DISK_ERR);
+          sclust = clst;
           }
-        file->clust = clst;
+        clust = clst;
         }
 
       if (clst != 0) {
         while (ofs > bcs) {           /* Cluster following loop */
-          if (file->flag & FA_WRITE) {      /* Check if in write mode or not */
-            clst = createChain (file->fs, clst);  /* Force stretch if in write mode */
+          if (flag & FA_WRITE) {      /* Check if in write mode or not */
+            clst = createChain (fs, clst);  /* Force stretch if in write mode */
             if (clst == 0) {        /* When disk gets full, clip file size */
               ofs = bcs; break;
               }
             }
           else
-            clst = getFat (file->fs, clst); /* Follow cluster chain if not in write mode */
+            clst = getFat (fs, clst); /* Follow cluster chain if not in write mode */
           if (clst == 0xFFFFFFFF)
-            ABORT(file->fs, FR_DISK_ERR);
-          if (clst <= 1 || clst >= file->fs->n_fatent)
-            ABORT(file->fs, FR_INT_ERR);
-          file->clust = clst;
-          file->fptr += bcs;
+            ABORT1(fs, FR_DISK_ERR);
+          if (clst <= 1 || clst >= fs->n_fatent)
+            ABORT1(fs, FR_INT_ERR);
+          clust = clst;
+          fptr += bcs;
           ofs -= bcs;
           }
 
-        file->fptr += ofs;
+        fptr += ofs;
         if (ofs % _MAX_SS) {
-          nsect = clusterToSector (file->fs, clst); /* Current sector */
+          nsect = clusterToSector (fs, clst); /* Current sector */
           if (!nsect)
-            ABORT(file->fs, FR_INT_ERR);
+            ABORT1(fs, FR_INT_ERR);
           nsect += ofs / _MAX_SS;
           }
         }
       }
 
-    if (file->fptr % _MAX_SS && nsect != file->dsect) {
+    if (fptr % _MAX_SS && nsect != dsect) {
       /* Fill sector cache if needed */
-      if (file->flag & FA__DIRTY) {
+      if (flag & FA__DIRTY) {
         /* Write-back dirty sector cache */
-        if (disk_write (file->fs->drv, file->buf.d8, file->dsect, 1) != RES_OK)
-          ABORT(file->fs, FR_DISK_ERR);
-        file->flag &= ~FA__DIRTY;
+        if (disk_write (fs->drv, buf.d8, dsect, 1) != RES_OK)
+          ABORT1(fs, FR_DISK_ERR);
+        flag &= ~FA__DIRTY;
         }
 
-      if (disk_read (file->fs->drv, file->buf.d8, nsect, 1) != RES_OK)
+      if (disk_read (fs->drv, buf.d8, nsect, 1) != RES_OK)
         /* Fill sector cache */
-        ABORT(file->fs, FR_DISK_ERR);
-      file->dsect = nsect;
+        ABORT1(fs, FR_DISK_ERR);
+      dsect = nsect;
       }
 
-    if (file->fptr > file->fsize) {
+    if (fptr > fsize) {
       /* Set file change flag if the file size is extended */
-      file->fsize = file->fptr;
-      file->flag |= FA__WRITTEN;
+      fsize = fptr;
+      flag |= FA__WRITTEN;
       }
     }
 
-  LEAVE_FF(file->fs, res);
+  LEAVE_FF(fs, res);
   }
 //}}}
 //{{{
-FRESULT f_truncate (FIL* file) {
+FRESULT cFile::f_read (void* buff, UINT btr, UINT* br) {
+
+  DWORD clst, sect;
+  UINT rcnt, cc;
+  BYTE csect;
+  BYTE* rbuff = (BYTE*)buff;
+
+  *br = 0;  /* Clear read byte counter */
+  FRESULT res = validateFile(); /* Check validity */
+  if (res != FR_OK)
+    LEAVE_FF(fs, res);
+  if (err)                /* Check error */
+    LEAVE_FF(fs, (FRESULT)err);
+  if (!(flag & FA_READ))   /* Check access mode */
+    LEAVE_FF(fs, FR_DENIED);
+
+  DWORD remain = fsize - fptr;
+  if (btr > remain)
+    btr = (UINT)remain;   /* Truncate btr by remaining bytes */
+
+  for ( ;  btr; /* Repeat until all data read */ rbuff += rcnt, fptr += rcnt, *br += rcnt, btr -= rcnt) {
+    if ((fptr % _MAX_SS) == 0) {
+      /* On the sector boundary? */
+      csect = (BYTE)(fptr / _MAX_SS & (fs->csize - 1));  /* Sector offset in the cluster */
+      if (!csect) {
+        /* On the cluster boundary? */
+        if (fptr == 0)
+          /* On the top of the file? */
+          clst = sclust;  /* Follow from the origin */
+        else {
+          /* Middle or end of the file */
+          if (cltbl)
+            clst = clmtCluster (this, fptr);  /* Get cluster# from the CLMT */
+          else
+            clst = getFat (fs, clust);  /* Follow cluster chain on the FAT */
+          }
+        if (clst < 2)
+          ABORT1(fs, FR_INT_ERR);
+        if (clst == 0xFFFFFFFF)
+          ABORT1(fs, FR_DISK_ERR);
+        clust = clst;  /* Update current cluster */
+        }
+
+      sect = clusterToSector (fs, clust); /* Get current sector */
+      if (!sect)
+        ABORT1(fs, FR_INT_ERR);
+      sect += csect;
+      cc = btr / _MAX_SS; /* When remaining bytes >= sector size, */
+      if (cc) {
+        /* Read maximum contiguous sectors directly */
+        if (csect + cc > fs->csize) /* Clip at cluster boundary */
+          cc = fs->csize - csect;
+        if (disk_read (fs->drv, rbuff, sect, cc) != RES_OK)
+          ABORT1(fs, FR_DISK_ERR);
+        if ((flag & FA__DIRTY) && dsect - sect < cc)
+          memcpy(rbuff + ((dsect - sect) * _MAX_SS), buf.d8, _MAX_SS);
+        rcnt = _MAX_SS * cc;     /* Number of bytes transferred */
+        continue;
+        }
+
+      if (dsect != sect) {
+        /* Load data sector if not in cache */
+        if (flag & FA__DIRTY) {
+          /* Write-back dirty sector cache */
+          if (disk_write (fs->drv, buf.d8, dsect, 1) != RES_OK)
+            ABORT1(fs, FR_DISK_ERR);
+          flag &= ~FA__DIRTY;
+          }
+        if (disk_read (fs->drv, buf.d8, sect, 1) != RES_OK)  /* Fill sector cache */
+          ABORT1(fs, FR_DISK_ERR);
+        }
+      dsect = sect;
+      }
+
+    rcnt = _MAX_SS - ((UINT)fptr % _MAX_SS);  /* Get partial sector data from sector buffer */
+    if (rcnt > btr)
+      rcnt = btr;
+    memcpy (rbuff, &buf.d8[fptr % _MAX_SS], rcnt); /* Pick partial sector */
+    }
+
+  LEAVE_FF(fs, FR_OK);
+  }
+//}}}
+//{{{
+FRESULT cFile::f_write (const void *buff, UINT btw, UINT* bw) {
+
+  DWORD clst, sect;
+  UINT wcnt, cc;
+  const BYTE *wbuff = (const BYTE*)buff;
+  BYTE csect;
+
+  *bw = 0;  /* Clear write byte counter */
+
+  FRESULT res = validateFile();           /* Check validity */
+  if (res != FR_OK)
+    LEAVE_FF(fs, res);
+  if (err)              /* Check error */
+    LEAVE_FF(fs, (FRESULT)err);
+  if (!(flag & FA_WRITE))       /* Check access mode */
+    LEAVE_FF(fs, FR_DENIED);
+  if (fptr + btw < fptr) btw = 0; /* File size cannot reach 4GB */
+
+  for ( ;  btw;             /* Repeat until all data written */
+    wbuff += wcnt, fptr += wcnt, *bw += wcnt, btw -= wcnt) {
+    if ((fptr % _MAX_SS) == 0) { /* On the sector boundary? */
+      csect = (BYTE)(fptr / _MAX_SS & (fs->csize - 1));  /* Sector offset in the cluster */
+      if (!csect) {
+        /* On the cluster boundary? */
+        if (fptr == 0) {
+          /* On the top of the file? */
+          clst = sclust;
+          /* Follow from the origin */
+          if (clst == 0)
+            /* When no cluster is allocated, */
+            clst = createChain (fs, 0); /* Create a new cluster chain */
+          }
+        else {
+          /* Middle or end of the file */
+          if (cltbl)
+            clst = clmtCluster (this, fptr);  /* Get cluster# from the CLMT */
+          else
+            clst = createChain (fs, clust); /* Follow or stretch cluster chain on the FAT */
+          }
+
+        if (clst == 0)
+          break;   /* Could not allocate a new cluster (disk full) */
+        if (clst == 1)
+          ABORT1(fs, FR_INT_ERR);
+        if (clst == 0xFFFFFFFF)
+          ABORT1(fs, FR_DISK_ERR);
+
+        clust = clst;     /* Update current cluster */
+        if (sclust == 0)
+          sclust = clst; /* Set start cluster if the first write */
+        }
+
+      if (flag & FA__DIRTY) {   /* Write-back sector cache */
+        if (disk_write (fs->drv, buf.d8, dsect, 1) != RES_OK)
+          ABORT1(fs, FR_DISK_ERR);
+        flag &= ~FA__DIRTY;
+        }
+
+      sect = clusterToSector (fs, clust); /* Get current sector */
+      if (!sect)
+        ABORT1(fs, FR_INT_ERR);
+      sect += csect;
+
+      cc = btw / _MAX_SS;      /* When remaining bytes >= sector size, */
+      if (cc) {           /* Write maximum contiguous sectors directly */
+        if (csect + cc > fs->csize) /* Clip at cluster boundary */
+          cc = fs->csize - csect;
+        if (disk_write (fs->drv, wbuff, sect, cc) != RES_OK)
+          ABORT1(fs, FR_DISK_ERR);
+        if (dsect - sect < cc) { /* Refill sector cache if it gets invalidated by the direct write */
+          memcpy (buf.d8, wbuff + ((dsect - sect) * _MAX_SS), _MAX_SS);
+          flag &= ~FA__DIRTY;
+          }
+        wcnt = _MAX_SS * cc;   /* Number of bytes transferred */
+        continue;
+        }
+
+      if (dsect != sect) {    /* Fill sector cache with file data */
+        if (fptr < fsize &&
+          disk_read (fs->drv, buf.d8, sect, 1) != RES_OK)
+            ABORT1(fs, FR_DISK_ERR);
+        }
+      dsect = sect;
+      }
+
+    wcnt = _MAX_SS - ((UINT)fptr % _MAX_SS); /* Put partial sector into file I/O buffer */
+    if (wcnt > btw)
+      wcnt = btw;
+    memcpy (&buf.d8[fptr % _MAX_SS], wbuff, wcnt); /* Fit partial sector */
+    flag |= FA__DIRTY;
+    }
+
+  if (fptr > fsize)
+    fsize = fptr;  /* Update file size if needed */
+  flag |= FA__WRITTEN; /* Set file change flag */
+
+  LEAVE_FF(fs, FR_OK);
+  }
+//}}}
+//{{{
+FRESULT cFile::f_truncate() {
 
   DWORD ncl;
-  FRESULT res = validateFile (file);           /* Check validity of the object */
+  FRESULT res = validateFile();
   if (res == FR_OK) {
-    if (file->err)             /* Check error */
-      res = (FRESULT)file->err;
+    if (err)             /* Check error */
+      res = (FRESULT)err;
     else {
-      if (!(file->flag & FA_WRITE))   /* Check access mode */
+      if (!(flag & FA_WRITE))   /* Check access mode */
         res = FR_DENIED;
       }
     }
 
   if (res == FR_OK) {
-    if (file->fsize > file->fptr) {
-      file->fsize = file->fptr; /* Set file size to current R/W point */
-      file->flag |= FA__WRITTEN;
-      if (file->fptr == 0) {  /* When set file size to zero, remove entire cluster chain */
-        res = removeChain (file->fs, file->sclust);
-        file->sclust = 0;
+    if (fsize > fptr) {
+      fsize = fptr; /* Set file size to current R/W point */
+      flag |= FA__WRITTEN;
+      if (fptr == 0) {  /* When set file size to zero, remove entire cluster chain */
+        res = removeChain (fs, sclust);
+        sclust = 0;
         }
       else {
         /* When truncate a part of the file, remove remaining clusters */
-        ncl = getFat (file->fs, file->clust);
+        ncl = getFat (fs, clust);
         res = FR_OK;
         if (ncl == 0xFFFFFFFF)
           res = FR_DISK_ERR;
         if (ncl == 1)
           res = FR_INT_ERR;
-        if (res == FR_OK && ncl < file->fs->n_fatent) {
-          res = putFat (file->fs, file->clust, 0x0FFFFFFF);
+        if (res == FR_OK && ncl < fs->n_fatent) {
+          res = putFat (fs, clust, 0x0FFFFFFF);
           if (res == FR_OK)
-            res = removeChain (file->fs, ncl);
+            res = removeChain (fs, ncl);
           }
         }
 
-      if (res == FR_OK && (file->flag & FA__DIRTY)) {
-        if (disk_write (file->fs->drv, file->buf.d8, file->dsect, 1) != RES_OK)
+      if (res == FR_OK && (flag & FA__DIRTY)) {
+        if (disk_write (fs->drv, buf.d8, dsect, 1) != RES_OK)
           res = FR_DISK_ERR;
         else
-          file->flag &= ~FA__DIRTY;
+          flag &= ~FA__DIRTY;
         }
       }
     if (res != FR_OK)
-      file->err = (FRESULT)res;
+      err = (FRESULT)res;
     }
 
-  LEAVE_FF(file->fs, res);
+  LEAVE_FF(fs, res);
+  }
+//}}}
+//{{{
+FRESULT cFile::f_close() {
+
+  FRESULT res = f_sync();
+  if (res == FR_OK) {
+    res = validateFile();          // Lock volume
+    if (res == FR_OK) {
+      cFatFs* fs1 = fs;
+      res = dec_lock (lockid);     // Decrement file open counter
+      if (res == FR_OK)
+        fs = 0;              // Invalidate file object
+      unlock_fs (fs1, FR_OK);       // Unlock volume
+      }
+    }
+
+  return res;
+  }
+//}}}
+//{{{
+int cFile::f_putc (TCHAR c) {
+
+  /* Initialize output buffer */
+  cPutBuff pb;
+  pb.fp = this;
+  pb.nchr = pb.idx = 0;
+
+  /* Put a character */
+  putc_bfd (&pb, c);
+
+  UINT nw;
+  if (pb.idx >= 0 && f_write (pb.buf, (UINT)pb.idx, &nw) == FR_OK && (UINT)pb.idx == nw)
+    return pb.nchr;
+
+  return -1;
+  }
+//}}}
+//{{{
+int cFile::f_puts (const TCHAR* str) {
+
+  /* Initialize output buffer */
+  cPutBuff pb;
+  pb.fp = this;
+  pb.nchr = pb.idx = 0;
+
+  /* Put the string */
+  while (*str)
+    putc_bfd(&pb, *str++);
+
+  UINT nw;
+  if (pb.idx >= 0 && f_write (pb.buf, (UINT)pb.idx, &nw) == FR_OK && (UINT)pb.idx == nw)
+    return pb.nchr;
+
+  return -1;
+  }
+//}}}
+//{{{
+int cFile::f_printf (const TCHAR* fmt, ...) {
+
+  BYTE f, r;
+  UINT nw, i, j, w;
+  DWORD v;
+  TCHAR c, d, s[16], *p;
+
+  /* Initialize output buffer */
+  cPutBuff pb;
+  pb.fp = this;
+  pb.nchr = pb.idx = 0;
+
+  va_list arp;
+  va_start (arp, fmt);
+
+  for (;;) {
+    c = *fmt++;
+    if (c == 0)
+      break;      /* End of string */
+
+    if (c != '%') {       /* Non escape character */
+      putc_bfd (&pb, c);
+      continue;
+      }
+
+    w = f = 0;
+    c = *fmt++;
+    if (c == '0') {
+      //{{{  flag: '0' padding
+      f = 1;
+      c = *fmt++;
+      }
+      //}}}
+    else if (c == '-') {
+      //{{{  flag: left justified
+      f = 2;
+      c = *fmt++;
+      }
+      //}}}
+    while (IsDigit(c)) {
+      //{{{  Precision
+      w = w * 10 + c - '0';
+      c = *fmt++;
+      }
+      //}}}
+    if (c == 'l' || c == 'L')  {
+      //{{{  Prefix: Size is long int
+      f |= 4;
+      c = *fmt++;
+      }
+      //}}}
+    if (!c)
+      break;
+
+    d = c;
+    if (IsLower (d))
+      d -= 0x20;
+
+    switch (d) {        /* Type is... */
+      //{{{
+      case 'S' :          /* String */
+        p = va_arg(arp, TCHAR*);
+        for (j = 0; p[j]; j++) ;
+        if (!(f & 2)) {
+          while (j++ < w)
+            putc_bfd(&pb, ' ');
+          }
+        while (*p)
+          putc_bfd (&pb, *p++);
+        while (j++ < w)
+          putc_bfd (&pb, ' ');
+        continue;
+      //}}}
+      //{{{
+      case 'C' :          /* Character */
+        putc_bfd(&pb, (TCHAR)va_arg(arp, int));
+        continue;
+      //}}}
+      //{{{
+      case 'B' :          /* Binary */
+        r = 2;
+        break;
+      //}}}
+      //{{{
+      case 'O' :          /* Octal */
+        r = 8;
+        break;
+      //}}}
+      case 'D' :          /* Signed decimal */
+      //{{{
+      case 'U' :          /* Unsigned decimal */
+        r = 10;
+        break;
+      //}}}
+      //{{{
+      case 'X' :          /* Hexdecimal */
+        r = 16;
+        break;
+      //}}}
+      //{{{
+      default:          /* Unknown type (pass-through) */
+        putc_bfd(&pb, c);
+        continue;
+      //}}}
+      }
+
+    // Get an argument and put it in numeral
+    v = (f & 4) ? (DWORD)va_arg(arp, long) : ((d == 'D') ? (DWORD)(long)va_arg(arp, int) : (DWORD)va_arg(arp, unsigned int));
+    if (d == 'D' && (v & 0x80000000)) {
+      v = 0 - v;
+      f |= 8;
+      }
+
+    i = 0;
+    do {
+      d = (TCHAR)(v % r); v /= r;
+      if (d > 9)
+        d += (c == 'x') ? 0x27 : 0x07;
+      s[i++] = d + '0';
+      } while (v && i < sizeof s / sizeof s[0]);
+
+    if (f & 8)
+      s[i++] = '-';
+    j = i;
+    d = (f & 1) ? '0' : ' ';
+
+    while (!(f & 2) && j++ < w)
+      putc_bfd (&pb, d);
+
+    do
+      putc_bfd (&pb, s[--i]);
+      while (i);
+
+    while (j++ < w)
+      putc_bfd (&pb, d);
+    }
+
+  va_end (arp);
+
+  if (pb.idx >= 0 && pb.fp->f_write (pb.buf, (UINT)pb.idx, &nw) == FR_OK && (UINT)pb.idx == nw)
+    return pb.nchr;
+
+  return -1;
+  }
+//}}}
+//{{{
+TCHAR* cFile::f_gets (TCHAR* buff, int len) {
+
+  int n = 0;
+  TCHAR c, *p = buff;
+  BYTE s[2];
+  UINT rc;
+
+  while (n < len - 1) {
+    /* Read characters until buffer gets filled */
+#if _LFN_UNICODE
+#if _STRF_ENCODE == 3
+    /* Read a character in UTF-8 */
+    f_read (s, 1, &rc);
+    if (rc != 1) break;
+    c = s[0];
+    if (c >= 0x80) {
+      if (c < 0xC0)
+        continue; /* Skip stray trailer */
+      if (c < 0xE0) {     /* Two-byte sequence */
+        f_read (s, 1, &rc);
+        if (rc != 1)
+          break;
+        c = (c & 0x1F) << 6 | (s[0] & 0x3F);
+        if (c < 0x80)
+          c = '?';
+        }
+      else {
+        if (c < 0xF0) {   /* Three-byte sequence */
+          f_read (s, 2, &rc);
+          if (rc != 2)
+            break;
+          c = c << 12 | (s[0] & 0x3F) << 6 | (s[1] & 0x3F);
+          if (c < 0x800)
+            c = '?';
+          }
+        else       /* Reject four-byte sequence */
+          c = '?';
+        }
+      }
+#elif _STRF_ENCODE == 2   /* Read a character in UTF-16BE */
+    f_read (s, 2, &rc);
+    if (rc != 2)
+      break;
+    c = s[1] + (s[0] << 8);
+#elif _STRF_ENCODE == 1   /* Read a character in UTF-16LE */
+    f_read (s, 2, &rc);
+    if (rc != 2)
+      break;
+    c = s[0] + (s[1] << 8);
+#else           /* Read a character in ANSI/OEM */
+    f_read (s, 1, &rc);
+    if (rc != 1)
+      break;
+    c = s[0];
+    c = ff_convert(c, 1); /* OEM -> Unicode */
+    if (!c) c = '?';
+#endif
+#else           /* Read a character without conversion */
+    f_read (s, 1, &rc);
+    if (rc != 1)
+      break;
+    c = s[0];
+#endif
+    if (c == '\r')
+      continue; /* Strip '\r' */
+    *p++ = c;
+    n++;
+    if (c == '\n')
+      break;   /* Break on EOL */
+    }
+
+  *p = 0;
+  return n ? buff : 0;      /* When no data read (eof or error), return with error. */
   }
 //}}}
 
 //{{{
-FRESULT f_opendir (DIR* dir, const TCHAR* path) {
+FRESULT f_opendir (cDirectory* dir, const TCHAR* path) {
 
   if (!dir)
     return FR_INVALID_OBJECT;
@@ -2492,7 +2754,7 @@ FRESULT f_opendir (DIR* dir, const TCHAR* path) {
   }
 //}}}
 //{{{
-FRESULT f_closedir (DIR* dir) {
+FRESULT f_closedir (cDirectory* dir) {
 
   FRESULT res = validateDir (dir);
   if (res == FR_OK) {
@@ -2508,7 +2770,7 @@ FRESULT f_closedir (DIR* dir) {
   }
 //}}}
 //{{{
-FRESULT f_readdir (DIR* dir, FILINFO* fileInfo) {
+FRESULT f_readdir (cDirectory* dir, cFileInfo* fileInfo) {
 
   FRESULT res = validateDir (dir);
   if (res == FR_OK) {
@@ -2542,7 +2804,7 @@ FRESULT f_readdir (DIR* dir, FILINFO* fileInfo) {
   }
 //}}}
 //{{{
-FRESULT f_findfirst (DIR* dir, FILINFO* fileInfo, const TCHAR* path, const TCHAR* pattern) {
+FRESULT f_findfirst (cDirectory* dir, cFileInfo* fileInfo, const TCHAR* path, const TCHAR* pattern) {
 
   dir->pat = pattern;                   // Save pointer to pattern string
   FRESULT res = f_opendir (dir, path);  // Open the target directory
@@ -2552,7 +2814,7 @@ FRESULT f_findfirst (DIR* dir, FILINFO* fileInfo, const TCHAR* path, const TCHAR
   }
 //}}}
 //{{{
-FRESULT f_findnext (DIR* dir, FILINFO* fileInfo) {
+FRESULT f_findnext (cDirectory* dir, cFileInfo* fileInfo) {
 
   FRESULT res;
   for (;;) {
@@ -2576,11 +2838,11 @@ FRESULT f_findnext (DIR* dir, FILINFO* fileInfo) {
 //{{{
 FRESULT f_getcwd (TCHAR* buff, UINT len) {
 
-  DIR dj;
+  cDirectory dj;
   UINT i, n;
   DWORD ccl;
   TCHAR *tp;
-  FILINFO fileInfo;
+  cFileInfo fileInfo;
 
   *buff = 0;
   /* Get logical drive number */
@@ -2657,7 +2919,7 @@ FRESULT f_getcwd (TCHAR* buff, UINT len) {
 //{{{
 FRESULT f_mkdir (const TCHAR* path) {
 
-  DIR dj;
+  cDirectory dj;
   BYTE *dir, n;
   DWORD dsc, dcl, pcl;
 
@@ -2735,7 +2997,7 @@ FRESULT f_mkdir (const TCHAR* path) {
 FRESULT f_chdir (const TCHAR* path) {
 
   /* Get logical drive number */
-  DIR dj;
+  cDirectory dj;
   FRESULT res = findVolume (&dj.fs, 0);
   if (res == FR_OK) {
     BYTE sfn[12];
@@ -2843,7 +3105,7 @@ FRESULT f_getlabel (const TCHAR* path, TCHAR* label, DWORD* vsn) {
 #endif
 
   /* Get logical drive number */
-  DIR dj;
+  cDirectory dj;
   FRESULT res = findVolume (&dj.fs, 0);
 
   /* Get volume label */
@@ -2894,7 +3156,7 @@ FRESULT f_getlabel (const TCHAR* path, TCHAR* label, DWORD* vsn) {
 //{{{
 FRESULT f_setlabel (const TCHAR* label) {
 
-  DIR dj;
+  cDirectory dj;
   BYTE vn[11];
   UINT i, j, sl;
   WCHAR w;
@@ -2969,7 +3231,7 @@ FRESULT f_setlabel (const TCHAR* label) {
 //{{{
 FRESULT f_unlink (const TCHAR* path) {
 
-  DIR dj, sdj;
+  cDirectory dj, sdj;
   BYTE *dir;
   DWORD dclst = 0;
 
@@ -3001,7 +3263,7 @@ FRESULT f_unlink (const TCHAR* path) {
             res = FR_DENIED;
             }
           else {
-            memcpy(&sdj, &dj, sizeof (DIR)); /* Open the sub-directory */
+            memcpy(&sdj, &dj, sizeof (cDirectory)); /* Open the sub-directory */
             sdj.sclust = dclst;
             res = dir_sdi(&sdj, 2);
             if (res == FR_OK) {
@@ -3027,9 +3289,9 @@ FRESULT f_unlink (const TCHAR* path) {
   }
 //}}}
 //{{{
-FRESULT f_stat (const TCHAR* path, FILINFO* fileInfo) {
+FRESULT f_stat (const TCHAR* path, cFileInfo* fileInfo) {
 
-  DIR dj;
+  cDirectory dj;
 
   /* Get logical drive number */
   FRESULT res = findVolume (&dj.fs, 0);
@@ -3058,7 +3320,7 @@ FRESULT f_stat (const TCHAR* path, FILINFO* fileInfo) {
 //{{{
 FRESULT f_chmod (const TCHAR* path, BYTE attr, BYTE mask) {
 
-  DIR dj;
+  cDirectory dj;
   BYTE* dir;
 
   /* Get logical drive number */
@@ -3092,7 +3354,7 @@ FRESULT f_chmod (const TCHAR* path, BYTE attr, BYTE mask) {
 //{{{
 FRESULT f_rename (const TCHAR* path_old, const TCHAR* path_new) {
 
-  DIR djo, djn;
+  cDirectory djo, djn;
   BYTE buf[21], *dir;
   DWORD dw;
 
@@ -3115,7 +3377,7 @@ FRESULT f_rename (const TCHAR* path_old, const TCHAR* path_new) {
         res = FR_NO_FILE;
       else {
         memcpy (buf, djo.dir + DIR_Attr, 21); /* Save information about object except name */
-        memcpy (&djn, &djo, sizeof (DIR));    /* Duplicate the directory object */
+        memcpy (&djn, &djo, sizeof (cDirectory));    /* Duplicate the directory object */
         res = followPath (&djn, path_new);  /* and make sure if new object name is not conflicting */
         if (res == FR_OK)
           res = FR_EXIST;   /* The new object name is already existing */
@@ -3158,9 +3420,9 @@ FRESULT f_rename (const TCHAR* path_old, const TCHAR* path_new) {
   }
 //}}}
 //{{{
-FRESULT f_utime (const TCHAR* path, const FILINFO* fileInfo) {
+FRESULT f_utime (const TCHAR* path, const cFileInfo* fileInfo) {
 
-  DIR dj;
+  cDirectory dj;
   BYTE *dir;
 
   // Get logical drive number
@@ -3428,265 +3690,5 @@ FRESULT f_mkfs (const TCHAR* path, BYTE sfd, UINT au) {
     }
 
   return (disk_ioctl (vol, CTRL_SYNC, 0) == RES_OK) ? FR_OK : FR_DISK_ERR;
-  }
-//}}}
-
-//{{{
-int f_putc (TCHAR c, FIL* file) {
-
-  /* Initialize output buffer */
-  cPutBuff pb;
-  pb.fp = file;
-  pb.nchr = pb.idx = 0;
-
-  /* Put a character */
-  putc_bfd (&pb, c);
-
-  UINT nw;
-  if (pb.idx >= 0 && f_write (pb.fp, pb.buf, (UINT)pb.idx, &nw) == FR_OK && (UINT)pb.idx == nw)
-    return pb.nchr;
-
-  return EOF;
-  }
-//}}}
-//{{{
-int f_puts (const TCHAR* str, FIL* file) {
-
-  /* Initialize output buffer */
-  cPutBuff pb;
-  pb.fp = file;
-  pb.nchr = pb.idx = 0;
-
-  /* Put the string */
-  while (*str)
-    putc_bfd(&pb, *str++);
-
-  UINT nw;
-  if (pb.idx >= 0 && f_write (pb.fp, pb.buf, (UINT)pb.idx, &nw) == FR_OK && (UINT)pb.idx == nw)
-    return pb.nchr;
-
-  return EOF;
-  }
-//}}}
-//{{{
-int f_printf (FIL* file, const TCHAR* fmt, ...) {
-
-  BYTE f, r;
-  UINT nw, i, j, w;
-  DWORD v;
-  TCHAR c, d, s[16], *p;
-
-  /* Initialize output buffer */
-  cPutBuff pb;
-  pb.fp = file;
-  pb.nchr = pb.idx = 0;
-
-  va_list arp;
-  va_start (arp, fmt);
-
-  for (;;) {
-    c = *fmt++;
-    if (c == 0)
-      break;      /* End of string */
-
-    if (c != '%') {       /* Non escape character */
-      putc_bfd (&pb, c);
-      continue;
-      }
-
-    w = f = 0;
-    c = *fmt++;
-    if (c == '0') {
-      //{{{  flag: '0' padding
-      f = 1;
-      c = *fmt++;
-      }
-      //}}}
-    else if (c == '-') {
-      //{{{  flag: left justified
-      f = 2;
-      c = *fmt++;
-      }
-      //}}}
-    while (IsDigit(c)) {
-      //{{{  Precision
-      w = w * 10 + c - '0';
-      c = *fmt++;
-      }
-      //}}}
-    if (c == 'l' || c == 'L')  {
-      //{{{  Prefix: Size is long int
-      f |= 4;
-      c = *fmt++;
-      }
-      //}}}
-    if (!c)
-      break;
-
-    d = c;
-    if (IsLower (d))
-      d -= 0x20;
-
-    switch (d) {        /* Type is... */
-      //{{{
-      case 'S' :          /* String */
-        p = va_arg(arp, TCHAR*);
-        for (j = 0; p[j]; j++) ;
-        if (!(f & 2)) {
-          while (j++ < w)
-            putc_bfd(&pb, ' ');
-          }
-        while (*p)
-          putc_bfd (&pb, *p++);
-        while (j++ < w)
-          putc_bfd (&pb, ' ');
-        continue;
-      //}}}
-      //{{{
-      case 'C' :          /* Character */
-        putc_bfd(&pb, (TCHAR)va_arg(arp, int));
-        continue;
-      //}}}
-      //{{{
-      case 'B' :          /* Binary */
-        r = 2;
-        break;
-      //}}}
-      //{{{
-      case 'O' :          /* Octal */
-        r = 8;
-        break;
-      //}}}
-      case 'D' :          /* Signed decimal */
-      //{{{
-      case 'U' :          /* Unsigned decimal */
-        r = 10;
-        break;
-      //}}}
-      //{{{
-      case 'X' :          /* Hexdecimal */
-        r = 16;
-        break;
-      //}}}
-      //{{{
-      default:          /* Unknown type (pass-through) */
-        putc_bfd(&pb, c);
-        continue;
-      //}}}
-      }
-
-    // Get an argument and put it in numeral
-    v = (f & 4) ? (DWORD)va_arg(arp, long) : ((d == 'D') ? (DWORD)(long)va_arg(arp, int) : (DWORD)va_arg(arp, unsigned int));
-    if (d == 'D' && (v & 0x80000000)) {
-      v = 0 - v;
-      f |= 8;
-      }
-
-    i = 0;
-    do {
-      d = (TCHAR)(v % r); v /= r;
-      if (d > 9)
-        d += (c == 'x') ? 0x27 : 0x07;
-      s[i++] = d + '0';
-      } while (v && i < sizeof s / sizeof s[0]);
-
-    if (f & 8)
-      s[i++] = '-';
-    j = i;
-    d = (f & 1) ? '0' : ' ';
-
-    while (!(f & 2) && j++ < w)
-      putc_bfd (&pb, d);
-
-    do
-      putc_bfd (&pb, s[--i]);
-      while (i);
-
-    while (j++ < w)
-      putc_bfd (&pb, d);
-    }
-
-  va_end (arp);
-
-  if (pb.idx >= 0 && f_write (pb.fp, pb.buf, (UINT)pb.idx, &nw) == FR_OK && (UINT)pb.idx == nw)
-    return pb.nchr;
-
-  return EOF;
-  }
-//}}}
-//{{{
-TCHAR* f_gets (TCHAR* buff, int len, FIL* file) {
-
-  int n = 0;
-  TCHAR c, *p = buff;
-  BYTE s[2];
-  UINT rc;
-
-  while (n < len - 1) {
-    /* Read characters until buffer gets filled */
-#if _LFN_UNICODE
-#if _STRF_ENCODE == 3
-    /* Read a character in UTF-8 */
-    f_read (file, s, 1, &rc);
-    if (rc != 1) break;
-    c = s[0];
-    if (c >= 0x80) {
-      if (c < 0xC0)
-        continue; /* Skip stray trailer */
-      if (c < 0xE0) {     /* Two-byte sequence */
-        f_read (file, s, 1, &rc);
-        if (rc != 1)
-          break;
-        c = (c & 0x1F) << 6 | (s[0] & 0x3F);
-        if (c < 0x80)
-          c = '?';
-        }
-      else {
-        if (c < 0xF0) {   /* Three-byte sequence */
-          f_read (file, s, 2, &rc);
-          if (rc != 2)
-            break;
-          c = c << 12 | (s[0] & 0x3F) << 6 | (s[1] & 0x3F);
-          if (c < 0x800)
-            c = '?';
-          }
-        else       /* Reject four-byte sequence */
-          c = '?';
-        }
-      }
-#elif _STRF_ENCODE == 2   /* Read a character in UTF-16BE */
-    f_read (file, s, 2, &rc);
-    if (rc != 2)
-      break;
-    c = s[1] + (s[0] << 8);
-#elif _STRF_ENCODE == 1   /* Read a character in UTF-16LE */
-    f_read (file, s, 2, &rc);
-    if (rc != 2)
-      break;
-    c = s[0] + (s[1] << 8);
-#else           /* Read a character in ANSI/OEM */
-    f_read (file, s, 1, &rc);
-    if (rc != 1)
-      break;
-    c = s[0];
-    c = ff_convert(c, 1); /* OEM -> Unicode */
-    if (!c) c = '?';
-#endif
-#else           /* Read a character without conversion */
-    f_read (file, s, 1, &rc);
-    if (rc != 1)
-      break;
-    c = s[0];
-#endif
-    if (c == '\r')
-      continue; /* Strip '\r' */
-    *p++ = c;
-    n++;
-    if (c == '\n')
-      break;   /* Break on EOL */
-    }
-
-  *p = 0;
-  return n ? buff : 0;      /* When no data read (eof or error), return with error. */
   }
 //}}}

@@ -92,9 +92,23 @@ typedef enum {
   } FRESULT;
 //}}}
 class cFatFs;
-//{{{  class FIL file
-typedef struct {
+//{{{
+class cFile {
 public:
+  int f_size() { return fsize; }
+  FRESULT f_lseek (DWORD ofs);
+  FRESULT f_read (void* buff, UINT btr, UINT* br);
+  FRESULT f_write (const void* buff, UINT btw, UINT* bw); 
+  FRESULT f_truncate();
+  FRESULT f_sync();
+  FRESULT f_close ();
+
+  int f_putc (TCHAR c);
+  int f_puts (const TCHAR* str);
+  int f_printf (const TCHAR* str, ...);
+  TCHAR* f_gets (TCHAR* buff, int len);
+
+  // vars
   union {
     UINT  d32[_MAX_SS/4]; // Force 32bits alignement
     BYTE   d8[_MAX_SS];   // File data read/write buffer
@@ -116,10 +130,13 @@ public:
 
   DWORD* cltbl;    // Pointer to the cluster link map table (Nulled on file open)
   UINT lockid;     // File lock ID origin from 1 (index of file semaphore table Files[])
-  } FIL;
+
+private:
+  FRESULT validateFile();
+  };
 //}}}
-//{{{  class DIR directory
-typedef struct {
+//{{{
+class cDirectory {
 public:
   union {
     UINT d32[_MAX_SS/4];  // Force 32bits alignement
@@ -141,10 +158,10 @@ public:
 
   UINT  lockid;  // File lock ID (index of file semaphore table Files[])
   const TCHAR* pat;  // Pointer to the name matching pattern
-  } DIR;
+  };
 //}}}
 //{{{  class cFileInfo fileInformation
-typedef struct {
+class cFileInfo {
 public:
   DWORD fsize;      // File size
   WORD  fdate;      // Last modified date
@@ -153,23 +170,17 @@ public:
   TCHAR fname[13];  // Short file name (8.3 format)
   TCHAR* lfname;    // Pointer to the LFN buffer
   UINT  lfsize;     // Size of LFN buffer in TCHAR
-  } FILINFO;
+  };
 //}}}
 
 FRESULT f_mount ();                                                  // Mount/Unmount a logical drive
-FRESULT f_open (FIL* file, const TCHAR* path, BYTE mode);            // Open or create a file
-FRESULT f_read (FIL* file, void* buff, UINT btr, UINT* br);          // Read data from a file
-FRESULT f_write (FIL* file, const void* buff, UINT btw, UINT* bw);   // Write data to a file
-FRESULT f_sync (FIL* file);                                          // Flush cached data of a writing file
-FRESULT f_close (FIL* file);                                         // Close an open file object
-FRESULT f_lseek (FIL* file, DWORD ofs);                              // Move file pointer of a file object
-FRESULT f_truncate (FIL* file);                                      // Truncate file
+FRESULT f_open (cFile* file, const TCHAR* path, BYTE mode);          // Open or create a file
 
-FRESULT f_opendir (DIR* dir, const TCHAR* path);                     // Open a directory
-FRESULT f_closedir (DIR* dir);                                       // Close an open directory
-FRESULT f_readdir (DIR* dir, FILINFO* fileInfo);                     // Read a directory item
-FRESULT f_findfirst (DIR* dir, FILINFO* fileInfo, const TCHAR* path, const TCHAR* pattern); // Find first file
-FRESULT f_findnext (DIR* dir, FILINFO* fileInfo);                    // Find next file
+FRESULT f_opendir (cDirectory* dir, const TCHAR* path);              // Open a directory
+FRESULT f_closedir (cDirectory* dir);                                // Close an open directory
+FRESULT f_readdir (cDirectory* dir, cFileInfo* fileInfo);            // Read a directory item
+FRESULT f_findfirst (cDirectory* dir, cFileInfo* fileInfo, const TCHAR* path, const TCHAR* pattern); // Find first file
+FRESULT f_findnext (cDirectory* dir, cFileInfo* fileInfo);           // Find next file
 
 FRESULT f_getcwd (TCHAR* buff, UINT len);                            // Get current directory
 FRESULT f_mkdir (const TCHAR* path);                                 // Create a sub directory
@@ -178,25 +189,9 @@ FRESULT f_getfree (const TCHAR* path, DWORD* nclst);                 // Get numb
 FRESULT f_getlabel (const TCHAR* path, TCHAR* label, DWORD* vsn);    // Get volume label
 FRESULT f_setlabel (const TCHAR* label);                             // Set volume label
 FRESULT f_unlink (const TCHAR* path);                                // Delete an existing file or directory
-FRESULT f_stat (const TCHAR* path, FILINFO* fileInfo);               // Get file status
+FRESULT f_stat (const TCHAR* path, cFileInfo* fileInfo);               // Get file status
 FRESULT f_chmod (const TCHAR* path, BYTE attr, BYTE mask);           // Change attribute of the file/dir
 FRESULT f_rename (const TCHAR* path_old, const TCHAR* path_new);     // Rename/Move a file or directory
-FRESULT f_utime (const TCHAR* path, const FILINFO* fileInfo);        // Change times-tamp of the file/dir
+FRESULT f_utime (const TCHAR* path, const cFileInfo* fileInfo);        // Change times-tamp of the file/dir
 FRESULT f_chdrive (const TCHAR* path);                               // Change current drive
 FRESULT f_mkfs (const TCHAR* path, BYTE sfd, UINT au);               // Create a file system on the volume
-
-int f_putc (TCHAR c, FIL* file);                    // Put a character to the file
-int f_puts (const TCHAR* str, FIL* file);           // Put a string to the file
-int f_printf (FIL* file, const TCHAR* str, ...);    // Put a formatted string to the file
-TCHAR* f_gets (TCHAR* buff, int len, FIL* file);    // Get a string from the file
-
-#define f_eof(fp) ((int)((fp)->fptr == (fp)->fsize))
-#define f_error(fp) ((fp)->err)
-#define f_tell(fp) ((fp)->fptr)
-#define f_size(fp) ((fp)->fsize)
-#define f_rewind(fp) f_lseek((fp), 0)
-#define f_rewinddir(dp) f_readdir((dp), 0)
-
-#ifndef EOF
-  #define EOF (-1)
-#endif
