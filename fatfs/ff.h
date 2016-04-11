@@ -39,10 +39,9 @@ typedef unsigned long   DWORD;
 #endif
 //}}}
 //{{{  defines
-#define _MAX_SS      512
-#define _MAX_LFN     255  /* Maximum LFN length to handle (12 to 255) */
-#define _CODE_PAGE   1252
-#define _STRF_ENCODE 3   /* 0:ANSI/OEM, 1:UTF-16LE, 2:UTF-16BE, 3:UTF-8 */
+#define SECTOR_SIZE   512
+#define MAX_LFN       255  /* Maximum LFN length to handle (12 to 255) */
+#define _STRF_ENCODE    3  /* 0:ANSI/OEM, 1:UTF-16LE, 2:UTF-16BE, 3:UTF-8 */
 
 // attribute flag defines
 #define FA_OPEN_EXISTING  0x00
@@ -54,6 +53,9 @@ typedef unsigned long   DWORD;
 #define FA__WRITTEN       0x20
 #define FA__DIRTY         0x40
 
+// Fast seek feature
+#define CREATE_LINKMAP  0xFFFFFFFF
+
 // File attribute bits for directory entry
 #define AM_RDO  0x01  // Read only
 #define AM_HID  0x02  // Hidden
@@ -63,9 +65,6 @@ typedef unsigned long   DWORD;
 #define AM_DIR  0x10  // Directory
 #define AM_ARC  0x20  // Archive
 #define AM_MASK 0x3F  // Mask of defined bits
-
-// Fast seek feature
-#define CREATE_LINKMAP  0xFFFFFFFF
 //}}}
 //{{{  enum FRESULT
 typedef enum {
@@ -96,13 +95,31 @@ class cFatFs;
 //{{{
 class cFileInfo {
 public:
+  cFileInfo() : lfname(lfn), lfsize(MAX_LFN + 1) {}
+
+  char* getName() { return lfname[0] ? lfname : (char*)&fname; }
+  bool getEmpty() { return fname[0] == 0; }
+  bool getBack() { return fname[0] == '.'; }
+  bool isDirectory() { return fattrib & AM_DIR; }
+  //{{{
+  bool matchExtension (const char* extension) {
+    auto i = 0;
+    while ((i < 9) && fname[i++] != '.');
+    return (fname[i] == extension[0]) && (fname[i+1] == extension[1]) && (fname[i+2] == extension[2]);
+    }
+  //}}}
+
   DWORD fsize;      // File size
   WORD  fdate;      // Last modified date
   WORD  ftime;      // Last modified time
   BYTE  fattrib;    // Attribute
+
   TCHAR fname[13];  // Short file name (8.3 format)
+
   TCHAR* lfname;    // Pointer to the LFN buffer
   UINT  lfsize;     // Size of LFN buffer in TCHAR
+
+  char lfn [MAX_LFN + 1];
   };
 //}}}
 //{{{
@@ -128,8 +145,8 @@ private:
 
   // vars
   union {
-    UINT  d32[_MAX_SS/4]; // Force 32bits alignement
-    BYTE   d8[_MAX_SS];   // File data read/write buffer
+    UINT  d32[SECTOR_SIZE/4]; // Force 32bits alignement
+    BYTE   d8[SECTOR_SIZE];   // File data read/write buffer
     } buf;
 
   cFatFs* fs;       // Pointer to the related file system
@@ -169,8 +186,8 @@ public:
   void getFileInfo (cFileInfo* fileInfo);
 
   union {
-    UINT d32[_MAX_SS/4];  // Force 32bits alignement
-    BYTE  d8[_MAX_SS];    // File data read/write buffer
+    UINT d32[SECTOR_SIZE/4];  // Force 32bits alignement
+    BYTE  d8[SECTOR_SIZE];    // File data read/write buffer
     } buf;
 
   cFatFs* fs;    // Pointer to the owner file system
@@ -196,18 +213,16 @@ private:
   };
 //}}}
 
-FRESULT f_mount();                                                   // Mount fatFs only drive
-
-FRESULT f_getcwd (TCHAR* buff, UINT len);                            // Get current directory
-FRESULT f_mkdir (const TCHAR* path);                                 // Create a sub directory
-FRESULT f_chdir (const TCHAR* path);                                 // Change current directory
-FRESULT f_getfree (const TCHAR* path, DWORD* nclst);                 // Get number of free clusters on the drive
-FRESULT f_getlabel (const TCHAR* path, TCHAR* label, DWORD* vsn);    // Get volume label
-FRESULT f_setlabel (const TCHAR* label);                             // Set volume label
-FRESULT f_unlink (const TCHAR* path);                                // Delete an existing file or directory
-FRESULT f_stat (const TCHAR* path, cFileInfo* fileInfo);               // Get file status
-FRESULT f_chmod (const TCHAR* path, BYTE attr, BYTE mask);           // Change attribute of the file/dir
-FRESULT f_rename (const TCHAR* path_old, const TCHAR* path_new);     // Rename/Move a file or directory
-FRESULT f_utime (const TCHAR* path, const cFileInfo* fileInfo);        // Change times-tamp of the file/dir
-FRESULT f_chdrive (const TCHAR* path);                               // Change current drive
-FRESULT f_mkfs (const TCHAR* path, BYTE sfd, UINT au);               // Create a file system on the volume
+FRESULT f_mount();                                               // Mount fatFs only drive
+FRESULT f_getFree (DWORD* numClusters, DWORD* clusterSize);      // Get number of free clusters on the drive
+FRESULT f_getCwd (TCHAR* buff, UINT len);                        // Get current directory
+FRESULT f_getLabel (TCHAR* label, DWORD* vsn);                   // Get volume label
+FRESULT f_setLabel (const TCHAR* label);                         // Set volume label
+FRESULT f_mkdir (const TCHAR* path);                             // Create a sub directory
+FRESULT f_chdir (const TCHAR* path);                             // Change current directory
+FRESULT f_stat (const TCHAR* path, cFileInfo* fileInfo);         // Get file status
+FRESULT f_rename (const TCHAR* path_old, const TCHAR* path_new); // Rename/Move a file or directory
+FRESULT f_chmod (const TCHAR* path, BYTE attr, BYTE mask);       // Change attribute of the file/dir
+FRESULT f_utime (const TCHAR* path, const cFileInfo* fileInfo);  // Change timestamp of the file/dir
+FRESULT f_unlink (const TCHAR* path);                            // Delete an existing file or directory
+FRESULT f_mkfs (const TCHAR* path, BYTE sfd, UINT au);           // Create a file system on the volume

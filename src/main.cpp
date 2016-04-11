@@ -143,26 +143,14 @@ static void playDir (const char* extension) {
     lcd->info ("directory opened");
 
     cFileInfo filInfo;
-    char lfn [_MAX_LFN + 1];
-    filInfo.lfname = lfn;
-    filInfo.lfsize = _MAX_LFN + 1;
-
-    while ((dir.f_readdir (&filInfo) == FR_OK) && filInfo.fname[0]) {
-      if (filInfo.fname[0] == '.') {
+    while ((dir.f_readdir (&filInfo) == FR_OK) && !filInfo.getEmpty()) {
+      if (filInfo.getBack()) {
         // back
         }
-      else if (filInfo.fattrib & AM_DIR) {
-        // directory
-        }
-      else {
-        auto i = 0;
-        while ((i < 9) && filInfo.fname[i++] != '.');
-        if (!extension || ((filInfo.fname[i] == extension[0]) &&
-                           (filInfo.fname[i+1] == extension[1]) &&
-                           (filInfo.fname[i+2] == extension[2]))) {
-          playFile (filInfo.lfname[0] ? filInfo.lfname : (char*)&filInfo.fname);
-          }
-        }
+      else if (filInfo.isDirectory())
+        lcd->info ("directory - " +  string (filInfo.getName()));
+      else if (!extension || filInfo.matchExtension (extension))
+        playFile (filInfo.getName());
       }
     }
   }
@@ -178,29 +166,18 @@ static void listDir (const char* extension) {
     lcd->info (LCD_RED, "directory open error:"  + cLcd::intStr (result));
   else {
     cFileInfo filInfo;
-    char lfn [_MAX_LFN + 1];
-    filInfo.lfname = lfn;
-    filInfo.lfsize = _MAX_LFN + 1;
-
-    while ((dir.f_readdir (&filInfo) == FR_OK) && filInfo.fname[0]) {
-      if (filInfo.fname[0] == '.') {
+    while ((dir.f_readdir (&filInfo) == FR_OK) && !filInfo.getEmpty()) {
+      if (filInfo.getBack()) {
         // back
         }
-      else if (filInfo.fattrib & AM_DIR) {
-        lcd->info ("directory - " + string (filInfo.lfname[0] ? (char*)filInfo.lfname : (char*)&filInfo.fname));
-        }
-      else {
-        auto i = 0;
-        while ((i < 9) && filInfo.fname[i++] != '.');
-        if (!extension || ((filInfo.fname[i] == extension[0]) &&
-                           (filInfo.fname[i+1] == extension[1]) &&
-                           (filInfo.fname[i+2] == extension[2]))) {
-          cFile file;
-          auto result = file.f_open (filInfo.lfname[0] ? filInfo.lfname : (char*)&filInfo.fname, FA_OPEN_EXISTING | FA_READ);
-          if (result == FR_OK) {
-            lcd->info (cLcd::intStr (file.f_size()) + " " + string (filInfo.lfname[0] ? filInfo.lfname : (char*)&filInfo.fname));
-            file.f_close();
-            }
+      else if (filInfo.isDirectory())
+        lcd->info ("directory - " +  string (filInfo.getName()));
+      else if (!extension || filInfo.matchExtension (extension)) {
+        cFile file;
+        auto result = file.f_open (filInfo.getName(), FA_OPEN_EXISTING | FA_READ);
+        if (result == FR_OK) {
+          lcd->info (cLcd::intStr (file.f_size()) + " " + filInfo.getName());
+          file.f_close();
           }
         }
       }
@@ -369,8 +346,13 @@ static void loadThread (void const* argument) {
   if (f_mount() == FR_OK) {
     char label[13];
     DWORD volumeSerialNumber;
-    f_getlabel ("", label, &volumeSerialNumber);
-    lcd->info (string (label) + " mounted");
+    f_getLabel (label, &volumeSerialNumber);
+
+    DWORD freeClusters;
+    DWORD clusterSize;
+    f_getFree (&freeClusters, &clusterSize);
+
+    lcd->info (string (label) + " mounted " + cLcd::intStr (freeClusters) + " free " + cLcd::intStr (clusterSize));
     listDir (nullptr);
     playDir ("MP3");
     }
@@ -443,7 +425,7 @@ static void startThread (void const* argument) {
 
 //{{{
 static void initCpu() {
-// init cpu caches, MPU regions, clocks
+// init cpu caches, MPU regions
 
   SCB_EnableICache();
   SCB_EnableDCache();
@@ -475,22 +457,25 @@ static void initCpu() {
   HAL_MPU_ConfigRegion (&MPU_InitStruct);
 
   HAL_MPU_Enable (MPU_PRIVILEGED_DEFAULT);
+  }
+//}}}
+//{{{
+static void initClock() {
+//  System Clock source            = PLL (HSE)
+//  SYSCLK(Hz)                     = 216000000
+//  HCLK(Hz)                       = 216000000
+//  HSE Frequency(Hz)              = 25000000
+//  PLL_M                          = 25
+//  PLL_N                          = 432
+//  PLL_P                          = 2
+//  PLL_Q                          = 9
+//  VDD(V)                         = 3.3
+//  Main regulator output voltage  = Scale1 mode
+//  AHB Prescaler                  = 1
+//  APB1 Prescaler                 = 4
+//  APB2 Prescaler                 = 2
+//  Flash Latency(WS)              = 7
 
-  //{{{  Enable HSE Oscillator and activate PLL with HSE as source
-  //  System Clock source            = PLL (HSE)
-  //  SYSCLK(Hz)                     = 216000000
-  //  HCLK(Hz)                       = 216000000
-  //  HSE Frequency(Hz)              = 25000000
-  //  PLL_M                          = 25
-  //  PLL_N                          = 432
-  //  PLL_P                          = 2
-  //  PLL_Q                          = 9
-  //  VDD(V)                         = 3.3
-  //  Main regulator output voltage  = Scale1 mode
-  //  AHB Prescaler                  = 1
-  //  APB1 Prescaler                 = 4
-  //  APB2 Prescaler                 = 2
-  //  Flash Latency(WS)              = 7
   RCC_OscInitTypeDef RCC_OscInitStruct;
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
@@ -516,7 +501,6 @@ static void initCpu() {
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
   if (HAL_RCC_ClockConfig (&RCC_ClkInitStruct, FLASH_LATENCY_7) != HAL_OK)
     while (true) {;}
-  //}}}
   }
 //}}}
 
@@ -524,6 +508,7 @@ static void initCpu() {
 int main() {
 
   initCpu();
+  initClock();
 
   // init freeRTOS heap_5c
   HeapRegion_t xHeapRegions[] = { {(uint8_t*)SDRAM_HEAP, SDRAM_HEAP_SIZE }, { nullptr, 0 } };
