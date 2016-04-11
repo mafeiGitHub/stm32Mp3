@@ -1,4 +1,4 @@
-// ff.h
+// fatFs.h
 #pragma once
 #include "cmsis_os.h"
 //{{{  integer.h typedefs
@@ -125,19 +125,19 @@ public:
 //{{{
 class cFile {
 public:
-  FRESULT f_open (const TCHAR* path, BYTE mode);
-  int f_size() { return fsize; }
-  FRESULT f_lseek (DWORD ofs);
-  FRESULT f_read (void* buff, UINT btr, UINT* br);
-  FRESULT f_write (const void* buff, UINT btw, UINT* bw);
-  FRESULT f_truncate();
-  FRESULT f_sync();
-  FRESULT f_close ();
+  FRESULT open (const TCHAR* path, BYTE mode);
+  int size() { return fsize; }
+  FRESULT lseek (DWORD ofs);
+  FRESULT read (void* buff, UINT btr, UINT* br);
+  FRESULT write (const void* buff, UINT btw, UINT* bw);
+  FRESULT truncate();
+  FRESULT sync();
+  FRESULT close ();
 
-  int f_putc (TCHAR c);
-  int f_puts (const TCHAR* str);
-  int f_printf (const TCHAR* str, ...);
-  TCHAR* f_gets (TCHAR* buff, int len);
+  int putCh (TCHAR c);
+  int putStr (const TCHAR* str);
+  int printf (const TCHAR* str, ...);
+  TCHAR* gets (TCHAR* buff, int len);
 
 private:
   FRESULT validateFile();
@@ -170,19 +170,19 @@ private:
 //{{{
 class cDirectory {
 public:
-  FRESULT f_opendir (const TCHAR* path);
-  FRESULT f_findfirst (cFileInfo* fileInfo, const TCHAR* path, const TCHAR* pattern);
-  FRESULT f_readdir (cFileInfo* fileInfo);
-  FRESULT f_findnext (cFileInfo* fileInfo);
-  FRESULT f_closedir();
+  FRESULT open (const TCHAR* path);
+  FRESULT read (cFileInfo* fileInfo);
+  FRESULT findfirst (cFileInfo* fileInfo, const TCHAR* path, const TCHAR* pattern);
+  FRESULT findnext (cFileInfo* fileInfo);
+  FRESULT close();
 
   FRESULT followPath (const TCHAR* path);
-  FRESULT dir_sdi (UINT idx);
-  FRESULT dir_next (int stretch);
-  FRESULT dir_read (int vol);
-  FRESULT dir_register();
-  FRESULT dir_alloc (UINT nent);
-  FRESULT dir_remove();
+  FRESULT setIndex (UINT idx);
+  FRESULT next (int stretch);
+  FRESULT read (int vol);
+  FRESULT registerNewEntry();
+  FRESULT allocate (UINT nent);
+  FRESULT remove();
   void getFileInfo (cFileInfo* fileInfo);
 
   union {
@@ -207,22 +207,22 @@ private:
   FRESULT createName (const TCHAR** path);
   FRESULT dir_find();
 
-  WORD id;       // Owner file system mount ID
-  UINT lockid;  // File lock ID (index of file semaphore table Files[])
-  const TCHAR* pat;  // Pointer to the name matching pattern
+  WORD id;          // Owner file system mount ID
+  UINT lockid;      // File lock ID (index of file semaphore table Files[])
+  const TCHAR* pat; // Pointer to the name matching pattern
   };
 //}}}
 
-FRESULT f_mount();                                               // Mount fatFs only drive
-FRESULT f_getFree (DWORD* numClusters, DWORD* clusterSize);      // Get number of free clusters on the drive
-FRESULT f_getCwd (TCHAR* buff, UINT len);                        // Get current directory
-FRESULT f_getLabel (TCHAR* label, DWORD* vsn);                   // Get volume label
-FRESULT f_setLabel (const TCHAR* label);                         // Set volume label
-FRESULT f_mkdir (const TCHAR* path);                             // Create a sub directory
-FRESULT f_chdir (const TCHAR* path);                             // Change current directory
-FRESULT f_stat (const TCHAR* path, cFileInfo* fileInfo);         // Get file status
-FRESULT f_rename (const TCHAR* path_old, const TCHAR* path_new); // Rename/Move a file or directory
-FRESULT f_chmod (const TCHAR* path, BYTE attr, BYTE mask);       // Change attribute of the file/dir
-FRESULT f_utime (const TCHAR* path, const cFileInfo* fileInfo);  // Change timestamp of the file/dir
-FRESULT f_unlink (const TCHAR* path);                            // Delete an existing file or directory
-FRESULT f_mkfs (const TCHAR* path, BYTE sfd, UINT au);           // Create a file system on the volume
+FRESULT fatFsMount();                                               // Mount fatFs only drive
+FRESULT fatFsGetFree (DWORD* numClusters, DWORD* clusterSize);      // Get number of free clusters on the drive
+FRESULT fatFsGetCwd (TCHAR* buff, UINT len);                        // Get current directory
+FRESULT fatFsGetLabel (TCHAR* label, DWORD* vsn);                   // Get volume label
+FRESULT fatFsSetLabel (const TCHAR* label);                         // Set volume label
+FRESULT fatFsMkDir (const TCHAR* path);                             // Create a sub directory
+FRESULT fatFsChDir (const TCHAR* path);                             // Change current directory
+FRESULT fatFsStat (const TCHAR* path, cFileInfo* fileInfo);         // Get file status
+FRESULT fatFsRename (const TCHAR* path_old, const TCHAR* path_new); // Rename/Move a file or directory
+FRESULT fatFsChMod (const TCHAR* path, BYTE attr, BYTE mask);       // Change attribute of the file/dir
+FRESULT fatFsUtime (const TCHAR* path, const cFileInfo* fileInfo);  // Change timestamp of the file/dir
+FRESULT fatFsUnlink (const TCHAR* path);                            // Delete an existing file or directory
+FRESULT fatFsMkfs (const TCHAR* path, BYTE sfd, UINT au);           // Create a file system on the volume

@@ -24,7 +24,7 @@
 #include "../Bsp/cLcd.h"
 
 #include "../Bsp/stm32746g_discovery_sd.h"
-#include "../fatfs/ff.h"
+#include "../fatfs/fatFs.h"
 
 #include "../httpServer/httpServer.h"
 
@@ -77,12 +77,12 @@ static void playFile (string fileName) {
   memset ((void*)AUDIO_BUFFER, 0, AUDIO_BUFFER_SIZE);
 
   cFile file;
-  auto result = file.f_open (fileName.c_str(), FA_OPEN_EXISTING | FA_READ);
+  auto result = file.open (fileName.c_str(), FA_OPEN_EXISTING | FA_READ);
   if (result != FR_OK) {
     lcd->info ("- load failed " + cLcd::intStr (result));
     return;
     }
-  mPlaySize = file.f_size();
+  mPlaySize = file.size();
 
   // load file into fileBuffer, limit to 5m for now
   int size = mPlaySize;
@@ -90,8 +90,8 @@ static void playFile (string fileName) {
     size = 0x00500000;
   auto fileBuffer = (unsigned char*)pvPortMalloc (size);
   unsigned int bytesRead = 0;
-  result = file.f_read (fileBuffer, size, &bytesRead);
-  file.f_close();
+  result = file.read (fileBuffer, size, &bytesRead);
+  file.close();
 
   if (result != FR_OK) {
     lcd->info ("- read failed " + cLcd::intStr (result));
@@ -136,21 +136,20 @@ static void playDir (const char* extension) {
   auto lcd = cLcd::instance();
 
   cDirectory dir;
-  auto result = dir.f_opendir ("/");
+  auto result = dir.open ("/");
   if (result != FR_OK)
     lcd->info (LCD_RED, "directory open error:"  + cLcd::intStr (result));
   else {
     lcd->info ("directory opened");
 
-    cFileInfo filInfo;
-    while ((dir.f_readdir (&filInfo) == FR_OK) && !filInfo.getEmpty()) {
-      if (filInfo.getBack()) {
-        // back
+    cFileInfo fileInfo;
+    while ((dir.read (&fileInfo) == FR_OK) && !fileInfo.getEmpty()) {
+      if (fileInfo.getBack()) {
         }
-      else if (filInfo.isDirectory())
-        lcd->info ("directory - " +  string (filInfo.getName()));
-      else if (!extension || filInfo.matchExtension (extension))
-        playFile (filInfo.getName());
+      else if (fileInfo.isDirectory())
+        lcd->info ("directory - " +  string (fileInfo.getName()));
+      else if (!extension || fileInfo.matchExtension (extension))
+        playFile (fileInfo.getName());
       }
     }
   }
@@ -161,23 +160,22 @@ static void listDir (const char* extension) {
   auto lcd = cLcd::instance();
 
   cDirectory dir;
-  auto result = dir.f_opendir ("/");
+  auto result = dir.open ("/");
   if (result != FR_OK)
     lcd->info (LCD_RED, "directory open error:"  + cLcd::intStr (result));
   else {
-    cFileInfo filInfo;
-    while ((dir.f_readdir (&filInfo) == FR_OK) && !filInfo.getEmpty()) {
-      if (filInfo.getBack()) {
-        // back
+    cFileInfo fileInfo;
+    while ((dir.read (&fileInfo) == FR_OK) && !fileInfo.getEmpty()) {
+      if (fileInfo.getBack()) {
         }
-      else if (filInfo.isDirectory())
-        lcd->info ("directory - " +  string (filInfo.getName()));
-      else if (!extension || filInfo.matchExtension (extension)) {
+      else if (fileInfo.isDirectory())
+        lcd->info ("directory - " +  string (fileInfo.getName()));
+      else if (!extension || fileInfo.matchExtension (extension)) {
         cFile file;
-        auto result = file.f_open (filInfo.getName(), FA_OPEN_EXISTING | FA_READ);
+        auto result = file.open (fileInfo.getName(), FA_OPEN_EXISTING | FA_READ);
         if (result == FR_OK) {
-          lcd->info (cLcd::intStr (file.f_size()) + " " + filInfo.getName());
-          file.f_close();
+          lcd->info (cLcd::intStr (file.size()) + " " + fileInfo.getName());
+          file.close();
           }
         }
       }
@@ -343,14 +341,14 @@ static void loadThread (void const* argument) {
     }
   lcd->info ("SD card found");
 
-  if (f_mount() == FR_OK) {
+  if (fatFsMount() == FR_OK) {
     char label[13];
     DWORD volumeSerialNumber;
-    f_getLabel (label, &volumeSerialNumber);
+    fatFsGetLabel (label, &volumeSerialNumber);
 
     DWORD freeClusters;
     DWORD clusterSize;
-    f_getFree (&freeClusters, &clusterSize);
+    fatFsGetFree (&freeClusters, &clusterSize);
 
     lcd->info (string (label) + " mounted " + cLcd::intStr (freeClusters) + " free " + cLcd::intStr (clusterSize));
     listDir (nullptr);
