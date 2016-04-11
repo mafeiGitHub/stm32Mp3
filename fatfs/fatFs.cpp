@@ -219,38 +219,11 @@ public:
   BYTE buf[64];
   };
 //}}}
+//{{{  static member vars
 cFatFs* cFatFs::mFatFs = nullptr;
 cFatFs::cFileSem cFatFs::mFiles[FS_LOCK];
+//}}}
 //{{{  static utils
-// fatFs lock
-//{{{
-static int ff_req_grant (osSemaphoreId semaphore) {
-
-  int ret = 0;
-  if (osSemaphoreWait (semaphore, 1000) == osOK)
-    ret = 1;
-
-  return ret;
-  }
-//}}}
-//{{{
-static void ff_rel_grant (osSemaphoreId semaphore) {
-
-  osSemaphoreRelease (semaphore);
-  }
-//}}}
-//{{{
-static void unlock_fs (cFatFs* fs, FRESULT res) {
-
-  if (fs && res != FR_NOT_ENABLED && res != FR_INVALID_DRIVE && res != FR_INVALID_OBJECT && res != FR_TIMEOUT)
-    ff_rel_grant (fs->semaphore);
-  }
-//}}}
-#define ENTER_FF(fs)      { if (!ff_req_grant (fs->semaphore)) return FR_TIMEOUT; }
-#define LEAVE_FF(fs, res) { unlock_fs(fs, res); return res; }
-#define ABORT(fs, res)    { err = (BYTE)(res); LEAVE_FF(fs, res); }
-
-// file lock
 //{{{
 static DWORD getFatTime() {
 // year, mon, day, time - 1.04.2016
@@ -558,166 +531,35 @@ static void storeCluster (BYTE* dir, DWORD cluster) {
   ST_WORD(dir + DIR_FstClusHI, cluster >> 16);
   }
 //}}}
+
+// lock
 //{{{
-FRESULT cFatFs::findVolume (cFatFs** fs, BYTE wmode) {
+static int ff_req_grant (osSemaphoreId semaphore) {
 
-  BYTE fmt, *pt;
-  DWORD bsect, fasize, tsect, sysect, nclst, szbfat, br[4];
-  WORD nrsv;
-  UINT i;
+  int ret = 0;
+  if (osSemaphoreWait (semaphore, 1000) == osOK)
+    ret = 1;
 
-  if (!ff_req_grant (mFatFs->semaphore)) {
-    *fs = 0;
-    return FR_TIMEOUT;
-    }
-  *fs = mFatFs;
-
-  if (mFatFs->fsType) {
-    // check volume mounted
-    DSTATUS stat = disk_status (cFatFs::mFatFs->drv);
-    if (!(stat & STA_NOINIT)) {
-      // and the physical drive is kept initialized
-      if (wmode && (stat & STA_PROTECT)) // Check write protection if needed
-        return FR_WRITE_PROTECTED;
-      return FR_OK;
-      }
-    }
-
-  // mount volume, analyze BPB and initialize the fs
-  int vol = 0;
-  mFatFs->fsType = 0;
-  mFatFs->drv = vol;
-
-  // init physical drive
-  DSTATUS stat = disk_initialize (mFatFs->drv);
-  if (stat & STA_NOINIT)
-    return FR_NOT_READY;
-  if (wmode && (stat & STA_PROTECT))
-    return FR_WRITE_PROTECTED;
-
-  // find FAT partition, supports only generic partitioning, FDISK and SFD
-  bsect = 0;
-  fmt = checkFs (bsect); // Load sector 0 and check if it is an FAT boot sector as SFD
-  if (fmt == 1 || (!fmt && vol)) {
-    // Not an FAT boot sector or forced partition number
-    for (i = 0; i < 4; i++) {
-      // Get partition offset
-      pt = mFatFs->win.d8 + MBR_Table + i * SZ_PTE;
-      br[i] = pt[4] ? LD_DWORD(&pt[8]) : 0;
-      }
-
-    // Partition number: 0:auto, 1-4:forced
-    i = vol;
-    if (i)
-      i--;
-    do {
-      // Find a FAT volume
-      bsect = br[i];
-      fmt = bsect ? checkFs (bsect) : 2; // Check the partition
-      } while (!vol && fmt && ++i < 4);
-    }
-
-  if (fmt == 3)
-    return FR_DISK_ERR; // An error occured in the disk I/O layer
-  if (fmt)
-    return FR_NO_FILESYSTEM; // No FAT volume is found
-
-  // FAT volume found, code initializes the file system
-  if (LD_WORD(mFatFs->win.d8 + BPB_BytsPerSec) != SECTOR_SIZE) // (BPB_BytsPerSec must be equal to the physical sector size)
-    return FR_NO_FILESYSTEM;
-
-  // Number of sectors per FAT
-  fasize = LD_WORD(mFatFs->win.d8 + BPB_FATSz16);
-  if (!fasize)
-    fasize = LD_DWORD(mFatFs->win.d8 + BPB_FATSz32);
-  mFatFs->fsize = fasize;
-
-  // Number of FAT copies
-  mFatFs->numFatCopies = mFatFs->win.d8[BPB_NumFATs];
-  if (mFatFs->numFatCopies != 1 && mFatFs->numFatCopies != 2) // (Must be 1 or 2)
-    return FR_NO_FILESYSTEM;
-  fasize *= mFatFs->numFatCopies; // Number of sectors for FAT area
-
-  // Number of sectors per cluster
-  mFatFs->csize = mFatFs->win.d8[BPB_SecPerClus];
-  if (!mFatFs->csize || (mFatFs->csize & (mFatFs->csize - 1)))  // (Must be power of 2)
-    return FR_NO_FILESYSTEM;
-
-  // Number of root directory entries
-  mFatFs->n_rootdir = LD_WORD(mFatFs->win.d8 + BPB_RootEntCnt);
-  if (mFatFs->n_rootdir % (SECTOR_SIZE / SZ_DIRE)) // (Must be sector aligned)
-    return FR_NO_FILESYSTEM;
-
-  // Number of sectors on the volume
-  tsect = LD_WORD(mFatFs->win.d8 + BPB_TotSec16);
-  if (!tsect)
-    tsect = LD_DWORD(mFatFs->win.d8 + BPB_TotSec32);
-
-  // Number of reserved sectors
-  nrsv = LD_WORD(mFatFs->win.d8 + BPB_RsvdSecCnt);
-  if (!nrsv)
-    return FR_NO_FILESYSTEM; /* (Must not be 0) */
-
-  // Determine the FAT sub type
-  sysect = nrsv + fasize + mFatFs->n_rootdir / (SECTOR_SIZE / SZ_DIRE); /* RSV + FAT + DIR */
-  if (tsect < sysect)
-    return FR_NO_FILESYSTEM; /* (Invalid volume size) */
-
-  // Number of clusters
-  nclst = (tsect - sysect) / mFatFs->csize;
-  if (!nclst)
-    return FR_NO_FILESYSTEM; /* (Invalid volume size) */
-  fmt = FS_FAT12;
-  if (nclst >= MIN_FAT16)
-    fmt = FS_FAT16;
-  if (nclst >= MIN_FAT32)
-    fmt = FS_FAT32;
-
-  // Boundaries and Limits
-  mFatFs->numFatEntries = nclst + 2;      // Number of FAT entries
-  mFatFs->volbase = bsect;           // Volume start sector
-  mFatFs->fatbase = bsect + nrsv;    // FAT start sector
-  mFatFs->database = bsect + sysect; // Data start sector
-  if (fmt == FS_FAT32) {
-    if (mFatFs->n_rootdir)
-      return FR_NO_FILESYSTEM;       // (BPB_RootEntCnt must be 0)
-    mFatFs->dirbase = LD_DWORD(mFatFs->win.d8 + BPB_RootClus);  // Root directory start cluster
-    szbfat = mFatFs->numFatEntries * 4;   // (Needed FAT size)
-    }
-  else {
-    if (!mFatFs->n_rootdir)
-      return FR_NO_FILESYSTEM;  // (BPB_RootEntCnt must not be 0)
-    mFatFs->dirbase = mFatFs->fatbase + fasize;  // Root directory start sector
-    szbfat = (fmt == FS_FAT16) ? mFatFs->numFatEntries * 2 : mFatFs->numFatEntries * 3 / 2 + (mFatFs->numFatEntries & 1);  /* (Needed FAT size) */
-    }
-
-  // (BPB_FATSz must not be less than the size needed)
-  if (mFatFs->fsize < (szbfat + (SECTOR_SIZE - 1)) / SECTOR_SIZE)
-    return FR_NO_FILESYSTEM;
-
-  // Initialize cluster allocation information
-  mFatFs->lastCluster = mFatFs->freeCluster = 0xFFFFFFFF;
-
-  // Get fsinfo if available
-  mFatFs->fsi_flag = 0x80;
-  if (fmt == FS_FAT32 && LD_WORD(mFatFs->win.d8 + BPB_FSInfo) == 1 && mFatFs->moveWindow (bsect + 1) == FR_OK) {
-    mFatFs->fsi_flag = 0;
-    if (LD_WORD(mFatFs->win.d8 + BS_55AA) == 0xAA55 &&
-        LD_DWORD(mFatFs->win.d8 + FSI_LeadSig) == 0x41615252 &&
-        LD_DWORD(mFatFs->win.d8 + FSI_StrucSig) == 0x61417272) {
-      mFatFs->freeCluster = LD_DWORD(mFatFs->win.d8 + FSI_Free_Count);
-      mFatFs->lastCluster = LD_DWORD(mFatFs->win.d8 + FSI_Nxt_Free);
-      }
-    }
-
-  mFatFs->fsType = fmt;  /* FAT sub-type */
-  ++mFatFs->id;
-  mFatFs->cdir = 0;       /* Set current directory to root */
-  clearLock();
-
-  return FR_OK;
+  return ret;
   }
 //}}}
+//{{{
+static void ff_rel_grant (osSemaphoreId semaphore) {
+
+  osSemaphoreRelease (semaphore);
+  }
+//}}}
+//{{{
+static void unlock_fs (cFatFs* fs, FRESULT res) {
+
+  if (fs && res != FR_NOT_ENABLED && res != FR_INVALID_DRIVE && res != FR_INVALID_OBJECT && res != FR_TIMEOUT)
+    ff_rel_grant (fs->semaphore);
+  }
+//}}}
+#define ENTER_FF(fs)      { if (!ff_req_grant (fs->semaphore)) return FR_TIMEOUT; }
+#define LEAVE_FF(fs, res) { unlock_fs(fs, res); return res; }
+#define ABORT(fs, res)    { err = (BYTE)(res); LEAVE_FF(fs, res); }
+
 //}}}
 
 // cFatFs
@@ -1574,6 +1416,167 @@ FRESULT cFatFs::mkfs (const TCHAR* path, BYTE sfd, UINT au) {
   }
 //}}}
 //{{{  other cFatFs members
+//{{{
+FRESULT cFatFs::findVolume (cFatFs** fs, BYTE wmode) {
+
+  BYTE fmt, *pt;
+  DWORD bsect, fasize, tsect, sysect, nclst, szbfat, br[4];
+  WORD nrsv;
+  UINT i;
+
+  if (!ff_req_grant (mFatFs->semaphore)) {
+    *fs = 0;
+    return FR_TIMEOUT;
+    }
+  *fs = mFatFs;
+
+  if (mFatFs->fsType) {
+    // check volume mounted
+    DSTATUS stat = disk_status (cFatFs::mFatFs->drv);
+    if (!(stat & STA_NOINIT)) {
+      // and the physical drive is kept initialized
+      if (wmode && (stat & STA_PROTECT)) // Check write protection if needed
+        return FR_WRITE_PROTECTED;
+      return FR_OK;
+      }
+    }
+
+  // mount volume, analyze BPB and initialize the fs
+  int vol = 0;
+  mFatFs->fsType = 0;
+  mFatFs->drv = vol;
+
+  // init physical drive
+  DSTATUS stat = disk_initialize (mFatFs->drv);
+  if (stat & STA_NOINIT)
+    return FR_NOT_READY;
+  if (wmode && (stat & STA_PROTECT))
+    return FR_WRITE_PROTECTED;
+
+  // find FAT partition, supports only generic partitioning, FDISK and SFD
+  bsect = 0;
+  fmt = checkFs (bsect); // Load sector 0 and check if it is an FAT boot sector as SFD
+  if (fmt == 1 || (!fmt && vol)) {
+    // Not an FAT boot sector or forced partition number
+    for (i = 0; i < 4; i++) {
+      // Get partition offset
+      pt = mFatFs->win.d8 + MBR_Table + i * SZ_PTE;
+      br[i] = pt[4] ? LD_DWORD(&pt[8]) : 0;
+      }
+
+    // Partition number: 0:auto, 1-4:forced
+    i = vol;
+    if (i)
+      i--;
+    do {
+      // Find a FAT volume
+      bsect = br[i];
+      fmt = bsect ? checkFs (bsect) : 2; // Check the partition
+      } while (!vol && fmt && ++i < 4);
+    }
+
+  if (fmt == 3)
+    return FR_DISK_ERR; // An error occured in the disk I/O layer
+  if (fmt)
+    return FR_NO_FILESYSTEM; // No FAT volume is found
+
+  // FAT volume found, code initializes the file system
+  if (LD_WORD(mFatFs->win.d8 + BPB_BytsPerSec) != SECTOR_SIZE) // (BPB_BytsPerSec must be equal to the physical sector size)
+    return FR_NO_FILESYSTEM;
+
+  // Number of sectors per FAT
+  fasize = LD_WORD(mFatFs->win.d8 + BPB_FATSz16);
+  if (!fasize)
+    fasize = LD_DWORD(mFatFs->win.d8 + BPB_FATSz32);
+  mFatFs->fsize = fasize;
+
+  // Number of FAT copies
+  mFatFs->numFatCopies = mFatFs->win.d8[BPB_NumFATs];
+  if (mFatFs->numFatCopies != 1 && mFatFs->numFatCopies != 2) // (Must be 1 or 2)
+    return FR_NO_FILESYSTEM;
+  fasize *= mFatFs->numFatCopies; // Number of sectors for FAT area
+
+  // Number of sectors per cluster
+  mFatFs->csize = mFatFs->win.d8[BPB_SecPerClus];
+  if (!mFatFs->csize || (mFatFs->csize & (mFatFs->csize - 1)))  // (Must be power of 2)
+    return FR_NO_FILESYSTEM;
+
+  // Number of root directory entries
+  mFatFs->n_rootdir = LD_WORD(mFatFs->win.d8 + BPB_RootEntCnt);
+  if (mFatFs->n_rootdir % (SECTOR_SIZE / SZ_DIRE)) // (Must be sector aligned)
+    return FR_NO_FILESYSTEM;
+
+  // Number of sectors on the volume
+  tsect = LD_WORD(mFatFs->win.d8 + BPB_TotSec16);
+  if (!tsect)
+    tsect = LD_DWORD(mFatFs->win.d8 + BPB_TotSec32);
+
+  // Number of reserved sectors
+  nrsv = LD_WORD(mFatFs->win.d8 + BPB_RsvdSecCnt);
+  if (!nrsv)
+    return FR_NO_FILESYSTEM; /* (Must not be 0) */
+
+  // Determine the FAT sub type
+  sysect = nrsv + fasize + mFatFs->n_rootdir / (SECTOR_SIZE / SZ_DIRE); /* RSV + FAT + DIR */
+  if (tsect < sysect)
+    return FR_NO_FILESYSTEM; /* (Invalid volume size) */
+
+  // Number of clusters
+  nclst = (tsect - sysect) / mFatFs->csize;
+  if (!nclst)
+    return FR_NO_FILESYSTEM; /* (Invalid volume size) */
+  fmt = FS_FAT12;
+  if (nclst >= MIN_FAT16)
+    fmt = FS_FAT16;
+  if (nclst >= MIN_FAT32)
+    fmt = FS_FAT32;
+
+  // Boundaries and Limits
+  mFatFs->numFatEntries = nclst + 2;      // Number of FAT entries
+  mFatFs->volbase = bsect;           // Volume start sector
+  mFatFs->fatbase = bsect + nrsv;    // FAT start sector
+  mFatFs->database = bsect + sysect; // Data start sector
+  if (fmt == FS_FAT32) {
+    if (mFatFs->n_rootdir)
+      return FR_NO_FILESYSTEM;       // (BPB_RootEntCnt must be 0)
+    mFatFs->dirbase = LD_DWORD(mFatFs->win.d8 + BPB_RootClus);  // Root directory start cluster
+    szbfat = mFatFs->numFatEntries * 4;   // (Needed FAT size)
+    }
+  else {
+    if (!mFatFs->n_rootdir)
+      return FR_NO_FILESYSTEM;  // (BPB_RootEntCnt must not be 0)
+    mFatFs->dirbase = mFatFs->fatbase + fasize;  // Root directory start sector
+    szbfat = (fmt == FS_FAT16) ? mFatFs->numFatEntries * 2 : mFatFs->numFatEntries * 3 / 2 + (mFatFs->numFatEntries & 1);  /* (Needed FAT size) */
+    }
+
+  // (BPB_FATSz must not be less than the size needed)
+  if (mFatFs->fsize < (szbfat + (SECTOR_SIZE - 1)) / SECTOR_SIZE)
+    return FR_NO_FILESYSTEM;
+
+  // Initialize cluster allocation information
+  mFatFs->lastCluster = mFatFs->freeCluster = 0xFFFFFFFF;
+
+  // Get fsinfo if available
+  mFatFs->fsi_flag = 0x80;
+  if (fmt == FS_FAT32 && LD_WORD(mFatFs->win.d8 + BPB_FSInfo) == 1 && mFatFs->moveWindow (bsect + 1) == FR_OK) {
+    mFatFs->fsi_flag = 0;
+    if (LD_WORD(mFatFs->win.d8 + BS_55AA) == 0xAA55 &&
+        LD_DWORD(mFatFs->win.d8 + FSI_LeadSig) == 0x41615252 &&
+        LD_DWORD(mFatFs->win.d8 + FSI_StrucSig) == 0x61417272) {
+      mFatFs->freeCluster = LD_DWORD(mFatFs->win.d8 + FSI_Free_Count);
+      mFatFs->lastCluster = LD_DWORD(mFatFs->win.d8 + FSI_Nxt_Free);
+      }
+    }
+
+  mFatFs->fsType = fmt;  /* FAT sub-type */
+  ++mFatFs->id;
+  mFatFs->cdir = 0;       /* Set current directory to root */
+  clearLock();
+
+  return FR_OK;
+  }
+//}}}
+
 //{{{
 FRESULT cFatFs::syncWindow() {
 
