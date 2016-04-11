@@ -1245,7 +1245,6 @@ FRESULT cFatFs::stat (const TCHAR* path, cFileInfo* fileInfo) {
     res = directory.followPath (path);
     if (res == FR_OK) {
       if (directory.dir) {
-        /* Found an object */
         if (fileInfo)
           directory.getFileInfo (fileInfo);
         }
