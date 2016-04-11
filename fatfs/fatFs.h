@@ -40,8 +40,8 @@ typedef unsigned long   DWORD;
 //}}}
 //{{{  defines
 #define SECTOR_SIZE   512
-#define MAX_LFN       255  /* Maximum LFN length to handle (12 to 255) */
-#define _STRF_ENCODE    3  /* 0:ANSI/OEM, 1:UTF-16LE, 2:UTF-16BE, 3:UTF-8 */
+#define MAX_LFN       255  // Maximum LFN length to handle (12 to 255)
+#define _STRF_ENCODE    3  // 0:ANSI/OEM, 1:UTF-16LE, 2:UTF-16BE, 3:UTF-8
 
 // attribute flag defines
 #define FA_OPEN_EXISTING  0x00
