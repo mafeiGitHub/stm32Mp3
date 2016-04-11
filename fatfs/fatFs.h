@@ -1,6 +1,7 @@
 // fatFs.h
 #pragma once
 #include "cmsis_os.h"
+
 //{{{  integer.h typedefs
 // 8 bit
 typedef unsigned char   BYTE;
