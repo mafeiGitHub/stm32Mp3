@@ -20,8 +20,6 @@
 //{{{  defines
 #define USE_TRIM    0
 
-#define FS_LOCK     2  // 0:Disable or >=1:Enable
-
 #define N_FATS      1  // Number of FATs (1 or 2)
 #define N_ROOTDIR 512  // Number of root directory entries for FAT12/16
 
@@ -221,19 +219,8 @@ public:
   BYTE buf[64];
   };
 //}}}
-//{{{
-class cFileSem {
-public:
-  cFatFs* fs; // Object ID 1, volume (NULL:blank entry)
-  DWORD clu;  // Object ID 2, directory (0:root)
-  WORD idx;   // Object ID 3, directory index
-  WORD ctr;   // Object open counter, 0:none, 0x01..0xFF:read mode open count, 0x100:write mode
-  };
-//}}}
-//{{{  static vars
-static cFileSem mFiles[FS_LOCK];
 cFatFs* cFatFs::mFatFs = nullptr;
-//}}}
+cFatFs::cFileSem cFatFs::mFiles[FS_LOCK];
 //{{{  static utils
 // fatFs lock
 //{{{
@@ -264,98 +251,6 @@ static void unlock_fs (cFatFs* fs, FRESULT res) {
 #define ABORT(fs, res)    { err = (BYTE)(res); LEAVE_FF(fs, res); }
 
 // file lock
-//{{{
-static FRESULT checkLock (cDirectory* dp, int acc) {
-
-  UINT i, be;
-
-  // Search file semaphore table
-  for (i = be = 0; i < FS_LOCK; i++) {
-    if (mFiles[i].fs) {
-      // Existing entry
-      if (mFiles[i].fs == dp->fs && mFiles[i].clu == dp->sclust && mFiles[i].idx == dp->index)
-         break;
-      }
-    else
-      // Blank entry
-      be = 1;
-    }
-
-  if (i == FS_LOCK)
-    // The object is not opened
-    return (be || acc == 2) ? FR_OK : FR_TOO_MANY_OPEN_FILES; // Is there a blank entry for new object
-
-  // The object has been opened. Reject any open against writing file and all write mode open
-  return (acc || mFiles[i].ctr == 0x100) ? FR_LOCKED : FR_OK;
-  }
-//}}}
-//{{{
-static int enquireLock() {
-
-  UINT i;
-  for (i = 0; i < FS_LOCK && mFiles[i].fs; i++) ;
-  return (i == FS_LOCK) ? 0 : 1;
-  }
-//}}}
-//{{{
-static UINT incLock (cDirectory* dp, int acc) {
-
-  UINT i;
-  for (i = 0; i < FS_LOCK; i++)
-    // Find the object
-    if (mFiles[i].fs == dp->fs && mFiles[i].clu == dp->sclust && mFiles[i].idx == dp->index)
-      break;
-
-  if (i == FS_LOCK) {
-    /* Not opened. Register it as new. */
-    for (i = 0; i < FS_LOCK && mFiles[i].fs; i++) ;
-    if (i == FS_LOCK)
-      return 0;  /* No free entry to register (int err) */
-
-    mFiles[i].fs = dp->fs;
-    mFiles[i].clu = dp->sclust;
-    mFiles[i].idx = dp->index;
-    mFiles[i].ctr = 0;
-    }
-
-  if (acc && mFiles[i].ctr)
-    return 0;  /* Access violation (int err) */
-
-  mFiles[i].ctr = acc ? 0x100 : mFiles[i].ctr + 1;  /* Set semaphore value */
-
-  return i + 1;
-  }
-//}}}
-//{{{
-static FRESULT decLock (UINT i) {
-
-  if (--i < FS_LOCK) {
-    /* Shift index number origin from 0 */
-    WORD n = mFiles[i].ctr;
-    if (n == 0x100)
-      n = 0;    /* If write mode open, delete the entry */
-    if (n)
-      n--;         /* Decrement read mode open count */
-
-    mFiles[i].ctr = n;
-    if (!n)
-      mFiles[i].fs = 0;  /* Delete the entry if open count gets zero */
-
-    return FR_OK;
-    }
-  else
-    return FR_INT_ERR;     /* Invalid index nunber */
-  }
-//}}}
-//{{{
-static void clearLock (cFatFs* fs) {
-
-  for (UINT i = 0; i < FS_LOCK; i++)
-    if (mFiles[i].fs == fs)
-      mFiles[i].fs = 0;
-  }
-//}}}
-
 //{{{
 static DWORD getFatTime() {
 // year, mon, day, time - 1.04.2016
@@ -702,7 +597,7 @@ FRESULT cFatFs::findVolume (cFatFs** fs, BYTE wmode) {
 
   // find FAT partition, supports only generic partitioning, FDISK and SFD
   bsect = 0;
-  fmt = mFatFs->checkFs (bsect); // Load sector 0 and check if it is an FAT boot sector as SFD
+  fmt = checkFs (bsect); // Load sector 0 and check if it is an FAT boot sector as SFD
   if (fmt == 1 || (!fmt && vol)) {
     // Not an FAT boot sector or forced partition number
     for (i = 0; i < 4; i++) {
@@ -718,7 +613,7 @@ FRESULT cFatFs::findVolume (cFatFs** fs, BYTE wmode) {
     do {
       // Find a FAT volume
       bsect = br[i];
-      fmt = bsect ? mFatFs->checkFs (bsect) : 2; // Check the partition
+      fmt = bsect ? checkFs (bsect) : 2; // Check the partition
       } while (!vol && fmt && ++i < 4);
     }
 
@@ -818,7 +713,7 @@ FRESULT cFatFs::findVolume (cFatFs** fs, BYTE wmode) {
   mFatFs->fsType = fmt;  /* FAT sub-type */
   ++mFatFs->id;
   mFatFs->cdir = 0;       /* Set current directory to root */
-  clearLock (mFatFs);
+  clearLock();
 
   return FR_OK;
   }
@@ -1270,7 +1165,7 @@ FRESULT cFatFs::rename (const TCHAR* path_old, const TCHAR* path_new) {
     if (res == FR_OK && (oldDirectory.fn[NSFLAG] & NS_DOT))
       res = FR_INVALID_NAME;
     if (res == FR_OK)
-      res = checkLock(&oldDirectory, 2);
+      res = checkLock (&oldDirectory, 2);
     if (res == FR_OK) {
       // old object is found
       if (!oldDirectory.dir)  // Is root dir?
@@ -2008,13 +1903,105 @@ FRESULT cFatFs::removeChain (DWORD cluster) {
   return res;
   }
 //}}}
+
+//{{{
+FRESULT cFatFs::checkLock (cDirectory* dp, int acc) {
+
+  UINT i, be;
+
+  // Search file semaphore table
+  for (i = be = 0; i < FS_LOCK; i++) {
+    if (mFiles[i].fs) {
+      // Existing entry
+      if (mFiles[i].fs == dp->fs && mFiles[i].clu == dp->sclust && mFiles[i].idx == dp->index)
+         break;
+      }
+    else
+      // Blank entry
+      be = 1;
+    }
+
+  if (i == FS_LOCK)
+    // The object is not opened
+    return (be || acc == 2) ? FR_OK : FR_TOO_MANY_OPEN_FILES; // Is there a blank entry for new object
+
+  // The object has been opened. Reject any open against writing file and all write mode open
+  return (acc || mFiles[i].ctr == 0x100) ? FR_LOCKED : FR_OK;
+  }
+//}}}
+//{{{
+int cFatFs::enquireLock() {
+
+  UINT i;
+  for (i = 0; i < FS_LOCK && mFiles[i].fs; i++) ;
+  return (i == FS_LOCK) ? 0 : 1;
+  }
+//}}}
+//{{{
+UINT cFatFs::incLock (cDirectory* dp, int acc) {
+
+  UINT i;
+  for (i = 0; i < FS_LOCK; i++)
+    // Find the object
+    if (mFiles[i].fs == dp->fs && mFiles[i].clu == dp->sclust && mFiles[i].idx == dp->index)
+      break;
+
+  if (i == FS_LOCK) {
+    /* Not opened. Register it as new. */
+    for (i = 0; i < FS_LOCK && mFiles[i].fs; i++) ;
+    if (i == FS_LOCK)
+      return 0;  /* No free entry to register (int err) */
+
+    mFiles[i].fs = dp->fs;
+    mFiles[i].clu = dp->sclust;
+    mFiles[i].idx = dp->index;
+    mFiles[i].ctr = 0;
+    }
+
+  if (acc && mFiles[i].ctr)
+    return 0;  /* Access violation (int err) */
+
+  mFiles[i].ctr = acc ? 0x100 : mFiles[i].ctr + 1;  /* Set semaphore value */
+
+  return i + 1;
+  }
+//}}}
+//{{{
+FRESULT cFatFs::decLock (UINT i) {
+
+  if (--i < FS_LOCK) {
+    /* Shift index number origin from 0 */
+    WORD n = mFiles[i].ctr;
+    if (n == 0x100)
+      n = 0;    /* If write mode open, delete the entry */
+    if (n)
+      n--;         /* Decrement read mode open count */
+
+    mFiles[i].ctr = n;
+    if (!n)
+      mFiles[i].fs = 0;  /* Delete the entry if open count gets zero */
+
+    return FR_OK;
+    }
+  else
+    return FR_INT_ERR;     /* Invalid index nunber */
+  }
+//}}}
+//{{{
+void cFatFs::clearLock() {
+
+  for (UINT i = 0; i < FS_LOCK; i++)
+    if (mFiles[i].fs == this)
+      mFiles[i].fs = 0;
+  }
+//}}}
 //}}}
 
 // cDirectory
 //{{{
 FRESULT cDirectory::open (const TCHAR* path) {
 
-  FRESULT res = cFatFs::findVolume (&fs, 0);
+  FRESULT res = cFatFs::instance()->findVolume (&fs, 0);
   if (res == FR_OK) {
     BYTE sfn1[12];
     WCHAR lfn1[(MAX_LFN + 1) * 2];
@@ -2037,7 +2024,7 @@ FRESULT cDirectory::open (const TCHAR* path) {
         if (res == FR_OK) {
           if (sclust) {
             // lock subDir
-            lockid = incLock (this, 0);
+            lockid = cFatFs::instance()->incLock (this, 0);
             if (!lockid)
               res = FR_TOO_MANY_OPEN_FILES;
             }
@@ -2128,11 +2115,16 @@ FRESULT cDirectory::close() {
   FRESULT res = validateDir();
   if (res == FR_OK) {
     cFatFs* fatFs = fs;
-    if (lockid)       /* Decrement sub-directory open counter */
-      res = decLock (lockid);
+
+    if (lockid)
+      /* Decrement sub-directory open counter */
+      res = cFatFs::instance()->decLock (lockid);
+
     if (res == FR_OK)
-      fs = 0;       /* Invalidate directory object */
-    unlock_fs (fatFs, FR_OK);   /* Unlock volume */
+      /* Invalidate directory object */
+      fs = 0;
+
+    unlock_fs (fatFs, FR_OK);
     }
 
   return res;
@@ -2181,7 +2173,7 @@ FRESULT cDirectory::followPath (const TCHAR* path) {
       res = createName (&path); /* Get a segment name of the path */
       if (res != FR_OK)
         break;
-      res = dir_find();       /* Find an object with the sagment name */
+      res = find();       /* Find an object with the sagment name */
       ns = fn[NSFLAG];
       if (res != FR_OK) {
         /* Failed to find the object */
@@ -2490,7 +2482,7 @@ FRESULT cDirectory::registerNewEntry() {
     lfn = 0;      /* Find only SFN */
     for (n = 1; n < 100; n++) {
       generateNumName (fn1, sn, lfn1, n);  /* Generate a numbered name */
-      res = dir_find();       /* Check if the name collides with existing SFN */
+      res = find();       /* Check if the name collides with existing SFN */
       if (res != FR_OK)
         break;
       }
@@ -2572,7 +2564,7 @@ FRESULT cDirectory::allocate (UINT nent) {
   }
 //}}}
 //{{{
-FRESULT cDirectory::dir_find() {
+FRESULT cDirectory::find() {
 
   BYTE c, *dir1;
   BYTE a, sum;
@@ -2791,7 +2783,7 @@ FRESULT cFile::open (const TCHAR* path, BYTE mode) {
   fs = 0;
   cDirectory directory;
   mode &= FA_READ | FA_WRITE | FA_CREATE_ALWAYS | FA_OPEN_ALWAYS | FA_CREATE_NEW;
-  FRESULT res = cFatFs::findVolume (&directory.fs, (BYTE)(mode & ~FA_READ));
+  FRESULT res = cFatFs::instance()->findVolume (&directory.fs, (BYTE)(mode & ~FA_READ));
   if (res == FR_OK) {
     BYTE sfn[12];
     WCHAR lfn [(MAX_LFN + 1) * 2];
@@ -2804,7 +2796,7 @@ FRESULT cFile::open (const TCHAR* path, BYTE mode) {
         /* Default directory itself */
         res = FR_INVALID_NAME;
       else
-        res = checkLock (&directory, (mode & ~FA_READ) ? 1 : 0);
+        res = cFatFs::instance()->checkLock (&directory, (mode & ~FA_READ) ? 1 : 0);
       }
 
     /* Create or Open a file */
@@ -2813,7 +2805,7 @@ FRESULT cFile::open (const TCHAR* path, BYTE mode) {
         /* No file, create new */
         if (res == FR_NO_FILE)
           /* There is no file to open, create a new entry */
-          res = enquireLock() ? directory.registerNewEntry() : FR_TOO_MANY_OPEN_FILES;
+          res = cFatFs::instance()->enquireLock() ? directory.registerNewEntry() : FR_TOO_MANY_OPEN_FILES;
         mode |= FA_CREATE_ALWAYS;   /* File is created */
         dir = directory.dir;         /* New entry */
         }
@@ -2868,7 +2860,7 @@ FRESULT cFile::open (const TCHAR* path, BYTE mode) {
         mode |= FA__WRITTEN;
       dir_sect = directory.fs->winsect;  /* Pointer to the directory entry */
       dir_ptr = dir;
-      lockid = incLock (&directory, (mode & ~FA_READ) ? 1 : 0);
+      lockid = cFatFs::instance()->incLock (&directory, (mode & ~FA_READ) ? 1 : 0);
       if (!lockid)
         res = FR_INT_ERR;
       }
@@ -3336,7 +3328,7 @@ FRESULT cFile::close() {
     res = validateFile();          // Lock volume
     if (res == FR_OK) {
       cFatFs* fatFs = fs;
-      res = decLock (lockid);     // Decrement file open counter
+      res = cFatFs::instance()->decLock (lockid);     // Decrement file open counter
       if (res == FR_OK)
         fs = 0;              // Invalidate file object
       unlock_fs (fatFs, FR_OK);       // Unlock volume
