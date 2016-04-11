@@ -341,21 +341,20 @@ static void loadThread (void const* argument) {
     }
   lcd->info ("SD card found");
 
-  if (fatFsMount() == FR_OK) {
-    char label[13];
-    DWORD volumeSerialNumber;
-    fatFsGetLabel (label, &volumeSerialNumber);
+  cFatFs::create();
 
+  char label[13];
+  DWORD volumeSerialNumber;
+  if (cFatFs::getLabel (label, &volumeSerialNumber) == FR_OK) {
     DWORD freeClusters;
     DWORD clusterSize;
-    fatFsGetFree (&freeClusters, &clusterSize);
-
+    cFatFs::getFree (&freeClusters, &clusterSize);
     lcd->info (string (label) + " mounted " + cLcd::intStr (freeClusters) + " free " + cLcd::intStr (clusterSize));
     listDir (nullptr);
     playDir ("MP3");
     }
   else
-    lcd->info ("fatFs mount error");
+    lcd->info ("fatFs getLabel error");
 
   int tick = 0;
   while (true) {

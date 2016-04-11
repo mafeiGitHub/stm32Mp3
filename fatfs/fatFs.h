@@ -91,7 +91,6 @@ typedef enum {
   } FRESULT;
 //}}}
 
-class cFatFs;
 //{{{
 class cFileInfo {
 public:
@@ -120,6 +119,67 @@ public:
   UINT  lfsize;     // Size of LFN buffer in TCHAR
 
   char lfn [MAX_LFN + 1];
+  };
+//}}}
+//{{{
+class cFatFs {
+public :
+  static cFatFs* create();
+  static FRESULT getFree (DWORD* numClusters, DWORD* clusterSize);      // Get number of free clusters on the drive
+  static FRESULT getCwd (TCHAR* buff, UINT len);                        // Get current directory
+  static FRESULT getLabel (TCHAR* label, DWORD* vsn);                   // Get volume label
+  static FRESULT setLabel (const TCHAR* label);                         // Set volume label
+  static FRESULT mkDir (const TCHAR* path);                             // Create a sub directory
+  static FRESULT chDir (const TCHAR* path);                             // Change current directory
+  static FRESULT stat (const TCHAR* path, cFileInfo* fileInfo);         // Get file status
+  static FRESULT rename (const TCHAR* path_old, const TCHAR* path_new); // Rename/Move a file or directory
+  static FRESULT chMod (const TCHAR* path, BYTE attr, BYTE mask);       // Change attribute of the file/dir
+  static FRESULT utime (const TCHAR* path, const cFileInfo* fileInfo);  // Change timestamp of the file/dir
+  static FRESULT unlink (const TCHAR* path);                            // Delete an existing file or directory
+  static FRESULT mkfs (const TCHAR* path, BYTE sfd, UINT au);           // Create a file system on the volume
+
+  FRESULT syncWindow();
+  FRESULT moveWindow (DWORD sector);
+
+  BYTE checkFs (DWORD sect);
+  FRESULT syncFs();
+
+  DWORD getFat (DWORD cluster);
+  FRESULT putFat (DWORD cluster, DWORD val);
+
+  DWORD clusterToSector (DWORD cluster);
+  DWORD loadCluster (BYTE* dir);
+
+  DWORD createChain (DWORD cluster);
+  FRESULT removeChain (DWORD cluster);
+
+  union {
+    UINT  d32[SECTOR_SIZE/4]; // Force 32bits alignement
+    BYTE   d8[SECTOR_SIZE];   // Disk access window for Directory, FAT (and file data at tiny cfg)
+    } win;
+
+  BYTE  fsType;          // FAT sub-type (0:Not mounted)
+  BYTE  drv;             // Physical drive number
+  osSemaphoreId semaphore; // Identifier of sync object
+  WORD  id;              // File system mount ID
+
+  BYTE  csize;           // Sectors per cluster (1,2,4...128)
+  BYTE  numFatCopies;   // Number of FAT copies (1 or 2)
+  BYTE  wflag;          // win[] flag (b0:dirty)
+  BYTE  fsi_flag;       // FSINFO flags (b7:disabled, b0:dirty)
+
+  WORD  n_rootdir;      // Number of root directory entries (FAT12/16)
+  DWORD lastCluster;    // Last allocated cluster
+  DWORD freeCluster;    // Number of free clusters
+  DWORD cdir;           // Current directory start cluster (0:root)
+  DWORD numFatEntries;  // Number of FAT entries, = number of clusters + 2
+  DWORD fsize;          // Sectors per FAT
+
+  DWORD volbase;        // Volume start sector
+  DWORD fatbase;        // FAT start sector
+  DWORD dirbase;        // Root directory start sector (FAT32:Cluster#)
+  DWORD database;       // Data start sector
+  DWORD winsect;        // Current sector appearing in the win[]
   };
 //}}}
 //{{{
@@ -212,17 +272,3 @@ private:
   const TCHAR* pat; // Pointer to the name matching pattern
   };
 //}}}
-
-FRESULT fatFsMount();                                               // Mount fatFs only drive
-FRESULT fatFsGetFree (DWORD* numClusters, DWORD* clusterSize);      // Get number of free clusters on the drive
-FRESULT fatFsGetCwd (TCHAR* buff, UINT len);                        // Get current directory
-FRESULT fatFsGetLabel (TCHAR* label, DWORD* vsn);                   // Get volume label
-FRESULT fatFsSetLabel (const TCHAR* label);                         // Set volume label
-FRESULT fatFsMkDir (const TCHAR* path);                             // Create a sub directory
-FRESULT fatFsChDir (const TCHAR* path);                             // Change current directory
-FRESULT fatFsStat (const TCHAR* path, cFileInfo* fileInfo);         // Get file status
-FRESULT fatFsRename (const TCHAR* path_old, const TCHAR* path_new); // Rename/Move a file or directory
-FRESULT fatFsChMod (const TCHAR* path, BYTE attr, BYTE mask);       // Change attribute of the file/dir
-FRESULT fatFsUtime (const TCHAR* path, const cFileInfo* fileInfo);  // Change timestamp of the file/dir
-FRESULT fatFsUnlink (const TCHAR* path);                            // Delete an existing file or directory
-FRESULT fatFsMkfs (const TCHAR* path, BYTE sfd, UINT au);           // Create a file system on the volume
