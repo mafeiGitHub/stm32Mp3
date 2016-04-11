@@ -80,7 +80,13 @@ DRESULT disk_read (BYTE pdrv, BYTE* buff, DWORD sector, UINT count) {
 
   //if ((uint32_t)buff < 0xC0000000U)
   //  cLcd::debug ("diskRead b:" + cLcd::hexStr ((int)buff) + " s:" + cLcd::intStr (sector) + " c:" + cLcd::intStr (count));
-  return BSP_SD_ReadBlocks ((uint32_t*)buff, (uint64_t)(sector * BLOCK_SIZE), BLOCK_SIZE, count) == MSD_OK ? RES_OK : RES_ERROR;
+
+  auto result = BSP_SD_ReadBlocks ((uint32_t*)buff, (uint64_t)(sector * BLOCK_SIZE), BLOCK_SIZE, count) == MSD_OK ? RES_OK : RES_ERROR;
+  SCB_InvalidateDCache();
+  //SCB_InvalidateDCache_by_Addr ((uint32_t*)buff, count * BLOCK_SIZE);
+  //SCB_CleanDCache_by_Addr ((uint32_t*)buff, count * BLOCK_SIZE);
+  //SCB_CleanInvalidateDCache_by_Addr ((uint32_t*)buff, count * BLOCK_SIZE);
+  return result;
   }
 //}}}
 //{{{

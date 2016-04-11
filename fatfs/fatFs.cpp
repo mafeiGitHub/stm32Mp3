@@ -231,9 +231,8 @@ public:
   };
 //}}}
 //{{{  static vars
-static cFatFs* mFatFs;
-static WORD mFsMountId;
 static cFileSem mFiles[FS_LOCK];
+cFatFs* cFatFs::mFatFs = nullptr;
 //}}}
 //{{{  static utils
 // fatFs lock
@@ -665,7 +664,7 @@ static void storeCluster (BYTE* dir, DWORD cluster) {
   }
 //}}}
 //{{{
-static FRESULT findVolume (cFatFs** fs, BYTE wmode) {
+FRESULT cFatFs::findVolume (cFatFs** fs, BYTE wmode) {
 
   BYTE fmt, *pt;
   DWORD bsect, fasize, tsect, sysect, nclst, szbfat, br[4];
@@ -680,7 +679,7 @@ static FRESULT findVolume (cFatFs** fs, BYTE wmode) {
 
   if (mFatFs->fsType) {
     // check volume mounted
-    DSTATUS stat = disk_status (mFatFs->drv);
+    DSTATUS stat = disk_status (cFatFs::mFatFs->drv);
     if (!(stat & STA_NOINIT)) {
       // and the physical drive is kept initialized
       if (wmode && (stat & STA_PROTECT)) // Check write protection if needed
@@ -817,7 +816,7 @@ static FRESULT findVolume (cFatFs** fs, BYTE wmode) {
     }
 
   mFatFs->fsType = fmt;  /* FAT sub-type */
-  mFatFs->id = ++mFsMountId;    /* File system mount ID */
+  ++mFatFs->id;
   mFatFs->cdir = 0;       /* Set current directory to root */
   clearLock (mFatFs);
 
@@ -828,15 +827,9 @@ static FRESULT findVolume (cFatFs** fs, BYTE wmode) {
 
 // cFatFs
 //{{{
-cFatFs* cFatFs::create() {
-
-  mFatFs = (cFatFs*)FATFS_BUFFER;
-  mFatFs->fsType = 0;
-
+cFatFs::cFatFs() {
   osSemaphoreDef (fatfs);
-  mFatFs->semaphore = osSemaphoreCreate (osSemaphore (fatfs), 1);
-
-  return mFatFs;
+  semaphore = osSemaphoreCreate (osSemaphore (fatfs), 1);
   }
 //}}}
 //{{{
@@ -922,7 +915,7 @@ FRESULT cFatFs::getCwd (TCHAR* buff, UINT len) {
 
   *buff = 0;
   cDirectory directory;
-  FRESULT res = findVolume (&directory.fs, 0); /* Get current volume */
+  FRESULT res = findVolume (&directory.fs, 0);
   if (res == FR_OK) {
     BYTE sfn[12];
     WCHAR lfn [(MAX_LFN + 1) * 2];
@@ -1005,10 +998,12 @@ FRESULT cFatFs::getLabel (TCHAR* label, DWORD* vsn) {
 
   /* Get volume label */
   if (res == FR_OK && label) {
-    directory.sclust = 0;        /* Open root directory */
+    directory.sclust = 0;
+    /* Open root directory */
     res = directory.setIndex (0);
     if (res == FR_OK) {
-      res = directory.read (1); /* Get an entry with AM_VOL */
+      /* Get an entry with AM_VOL */
+      res = directory.read (1);
       if (res == FR_OK) {
         /* A volume label is exist */
 #if _LFN_UNICODE
@@ -2019,7 +2014,7 @@ FRESULT cFatFs::removeChain (DWORD cluster) {
 //{{{
 FRESULT cDirectory::open (const TCHAR* path) {
 
-  FRESULT res = findVolume (&fs, 0);
+  FRESULT res = cFatFs::findVolume (&fs, 0);
   if (res == FR_OK) {
     BYTE sfn1[12];
     WCHAR lfn1[(MAX_LFN + 1) * 2];
@@ -2796,7 +2791,7 @@ FRESULT cFile::open (const TCHAR* path, BYTE mode) {
   fs = 0;
   cDirectory directory;
   mode &= FA_READ | FA_WRITE | FA_CREATE_ALWAYS | FA_OPEN_ALWAYS | FA_CREATE_NEW;
-  FRESULT res = findVolume (&directory.fs, (BYTE)(mode & ~FA_READ));
+  FRESULT res = cFatFs::findVolume (&directory.fs, (BYTE)(mode & ~FA_READ));
   if (res == FR_OK) {
     BYTE sfn[12];
     WCHAR lfn [(MAX_LFN + 1) * 2];

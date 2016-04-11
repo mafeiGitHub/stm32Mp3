@@ -124,7 +124,13 @@ public:
 //{{{
 class cFatFs {
 public :
-  static cFatFs* create();
+  cFatFs();
+  //{{{
+  static cFatFs* create() {
+    mFatFs = new cFatFs();
+    return mFatFs;
+    }
+  //}}}
   static FRESULT getFree (DWORD* numClusters, DWORD* clusterSize);      // Get number of free clusters on the drive
   static FRESULT getCwd (TCHAR* buff, UINT len);                        // Get current directory
   static FRESULT getLabel (TCHAR* label, DWORD* vsn);                   // Get volume label
@@ -137,6 +143,8 @@ public :
   static FRESULT utime (const TCHAR* path, const cFileInfo* fileInfo);  // Change timestamp of the file/dir
   static FRESULT unlink (const TCHAR* path);                            // Delete an existing file or directory
   static FRESULT mkfs (const TCHAR* path, BYTE sfd, UINT au);           // Create a file system on the volume
+
+  static FRESULT findVolume (cFatFs** fs, BYTE wmode);
 
   FRESULT syncWindow();
   FRESULT moveWindow (DWORD sector);
@@ -153,17 +161,19 @@ public :
   DWORD createChain (DWORD cluster);
   FRESULT removeChain (DWORD cluster);
 
+  static cFatFs* mFatFs;
+
   union {
     UINT  d32[SECTOR_SIZE/4]; // Force 32bits alignement
     BYTE   d8[SECTOR_SIZE];   // Disk access window for Directory, FAT (and file data at tiny cfg)
     } win;
 
-  BYTE  fsType;          // FAT sub-type (0:Not mounted)
-  BYTE  drv;             // Physical drive number
+  BYTE  fsType = 0;     // FAT sub-type (0:Not mounted)
+  BYTE  drv = 0;        // Physical drive number
+  WORD  id = 0;         // File system mount ID
   osSemaphoreId semaphore; // Identifier of sync object
-  WORD  id;              // File system mount ID
 
-  BYTE  csize;           // Sectors per cluster (1,2,4...128)
+  BYTE  csize;          // Sectors per cluster (1,2,4...128)
   BYTE  numFatCopies;   // Number of FAT copies (1 or 2)
   BYTE  wflag;          // win[] flag (b0:dirty)
   BYTE  fsi_flag;       // FSINFO flags (b7:disabled, b0:dirty)
