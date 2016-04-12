@@ -2127,11 +2127,11 @@ FRESULT cDirectory::close() {
     cFatFs* fatFs = fs;
 
     if (lockid)
-      /* Decrement sub-directory open counter */
-      res = cFatFs::instance()->decLock (lockid);
+      // Decrement sub-directory open counter
+      res = fs->decLock (lockid);
 
     if (res == FR_OK)
-      /* Invalidate directory object */
+      // Invalidate directory object
       fs = 0;
 
     fatFs->unlock (FR_OK);
@@ -3353,13 +3353,17 @@ FRESULT cFile::close() {
 
   FRESULT res = sync();
   if (res == FR_OK) {
-    res = validateFile();          // Lock volume
+    res = validateFile();
     if (res == FR_OK) {
       cFatFs* fatFs = fs;
-      res = cFatFs::instance()->decLock (lockid);     // Decrement file open counter
+
+      // Decrement file open counter
+      res = fs->decLock (lockid);     
       if (res == FR_OK)
-        fs = 0;              // Invalidate file object
-      fatFs->unlock (FR_OK);       // Unlock volume
+        // Invalidate file object
+        fs = 0;   
+
+      fatFs->unlock (FR_OK);
       }
     }
 
