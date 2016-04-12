@@ -176,13 +176,17 @@ private:
   DWORD createChain (DWORD cluster);
   FRESULT removeChain (DWORD cluster);
 
-  FRESULT checkLock (cDirectory* dp, int acc);
-  int enquireLock();
-  UINT incLock (cDirectory* dp, int acc);
-  FRESULT decLock (UINT i);
-  void clearLock();
+  int enquireFileLock();
+  FRESULT checkFileLock (cDirectory* dp, int acc);
+  UINT incFileLock (cDirectory* dp, int acc);
+  FRESULT decFileLock (UINT i);
+  void clearFileLock();
 
+  bool lock();
   void unlock (FRESULT res);
+
+  // static vars
+  static cFatFs* mFatFs;
 
   //{{{
   class cFileSem {
@@ -193,9 +197,6 @@ private:
     WORD ctr;   // Object open counter, 0:none, 0x01..0xFF:read mode open count, 0x100:write mode
     };
   //}}}
-
-  // static vars
-  static cFatFs* mFatFs;
   static cFileSem mFiles[FS_LOCK];
 
   // private vars

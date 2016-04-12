@@ -501,9 +501,11 @@ static void storeCluster (BYTE* dir, DWORD cluster) {
 // cFatFs
 //{{{
 cFatFs::cFatFs() {
+
   osSemaphoreDef (fatfs);
   semaphore = osSemaphoreCreate (osSemaphore (fatfs), 1);
 
+  // non cacheable sector buffer explicitly allocated in DTCM
   windowBuffer = (BYTE*)FATFS_BUFFER;
   }
 //}}}
@@ -945,7 +947,7 @@ FRESULT cFatFs::rename (const TCHAR* path_old, const TCHAR* path_new) {
     if (res == FR_OK && (oldDirectory.fn[NSFLAG] & NS_DOT))
       res = FR_INVALID_NAME;
     if (res == FR_OK)
-      res = checkLock (&oldDirectory, 2);
+      res = checkFileLock (&oldDirectory, 2);
     if (res == FR_OK) {
       // old object is found
       if (!oldDirectory.dir)  // Is root dir?
@@ -1075,7 +1077,8 @@ FRESULT cFatFs::unlink (const TCHAR* path) {
     res = directory.followPath (path);
     if (res == FR_OK && (directory.fn[NSFLAG] & NS_DOT))
       res = FR_INVALID_NAME;      /* Cannot remove dot entry */
-    if (res == FR_OK) res = checkLock(&directory, 2); /* Cannot remove open object */
+    if (res == FR_OK)
+      res = checkFileLock (&directory, 2); /* Cannot remove open object */
     if (res == FR_OK) {         /* The object is accessible */
       dir = directory.dir;
       if (!dir) {
@@ -1366,7 +1369,8 @@ FRESULT cFatFs::findVolume (cFatFs** fs, BYTE wmode) {
   WORD nrsv;
   UINT i;
 
-  if (osSemaphoreWait (semaphore, 1000) != osOK) {
+  // lock access to file system
+  if (!lock()) {
     *fs = 0;
     return FR_TIMEOUT;
     }
@@ -1513,7 +1517,7 @@ FRESULT cFatFs::findVolume (cFatFs** fs, BYTE wmode) {
   fsType = fmt;  /* FAT sub-type */
   ++id;
   cdir = 0;       /* Set current directory to root */
-  clearLock();
+  clearFileLock();
 
   return FR_OK;
   }
@@ -1850,7 +1854,29 @@ FRESULT cFatFs::removeChain (DWORD cluster) {
 //}}}
 
 //{{{
-FRESULT cFatFs::checkLock (cDirectory* dp, int acc) {
+bool cFatFs::lock() {
+
+  return osSemaphoreWait (semaphore, 1000) == osOK;
+  }
+//}}}
+//{{{
+void cFatFs::unlock (FRESULT res) {
+
+  if (res != FR_NOT_ENABLED && res != FR_INVALID_DRIVE && res != FR_INVALID_OBJECT && res != FR_TIMEOUT)
+    osSemaphoreRelease (semaphore);
+  }
+//}}}
+
+//{{{
+int cFatFs::enquireFileLock() {
+
+  UINT i;
+  for (i = 0; i < FS_LOCK && mFiles[i].fs; i++) ;
+  return (i == FS_LOCK) ? 0 : 1;
+  }
+//}}}
+//{{{
+FRESULT cFatFs::checkFileLock (cDirectory* dp, int acc) {
 
   UINT i, be;
 
@@ -1875,15 +1901,7 @@ FRESULT cFatFs::checkLock (cDirectory* dp, int acc) {
   }
 //}}}
 //{{{
-int cFatFs::enquireLock() {
-
-  UINT i;
-  for (i = 0; i < FS_LOCK && mFiles[i].fs; i++) ;
-  return (i == FS_LOCK) ? 0 : 1;
-  }
-//}}}
-//{{{
-UINT cFatFs::incLock (cDirectory* dp, int acc) {
+UINT cFatFs::incFileLock (cDirectory* dp, int acc) {
 
   UINT i;
   for (i = 0; i < FS_LOCK; i++)
@@ -1912,7 +1930,7 @@ UINT cFatFs::incLock (cDirectory* dp, int acc) {
   }
 //}}}
 //{{{
-FRESULT cFatFs::decLock (UINT i) {
+FRESULT cFatFs::decFileLock (UINT i) {
 
   if (--i < FS_LOCK) {
     /* Shift index number origin from 0 */
@@ -1933,19 +1951,11 @@ FRESULT cFatFs::decLock (UINT i) {
   }
 //}}}
 //{{{
-void cFatFs::clearLock() {
+void cFatFs::clearFileLock() {
 
   for (UINT i = 0; i < FS_LOCK; i++)
     if (mFiles[i].fs == this)
       mFiles[i].fs = 0;
-  }
-//}}}
-
-//{{{
-void cFatFs::unlock (FRESULT res) {
-
-  if (res != FR_NOT_ENABLED && res != FR_INVALID_DRIVE && res != FR_INVALID_OBJECT && res != FR_TIMEOUT)
-    osSemaphoreRelease (semaphore);
   }
 //}}}
 //}}}
@@ -1977,7 +1987,7 @@ FRESULT cDirectory::open (const TCHAR* path) {
         if (res == FR_OK) {
           if (sclust) {
             // lock subDir
-            lockid = cFatFs::instance()->incLock (this, 0);
+            lockid = fs->incFileLock (this, 0);
             if (!lockid)
               res = FR_TOO_MANY_OPEN_FILES;
             }
@@ -2073,7 +2083,7 @@ FRESULT cDirectory::close() {
 
     if (lockid)
       // Decrement sub-directory open counter
-      res = fs->decLock (lockid);
+      res = fs->decFileLock (lockid);
 
     if (res == FR_OK)
       // Invalidate directory object
@@ -2095,8 +2105,8 @@ FRESULT cDirectory::validateDir() {
       (diskStatus (fs->drv) & STA_NOINIT))
     return FR_INVALID_OBJECT;
 
-  // Lock file system
-  if (osSemaphoreWait (fs->semaphore, 1000) != osOK)
+  // lock access to file system
+  if (!fs->lock())
     return FR_TIMEOUT;
 
   return FR_OK;
@@ -2752,7 +2762,7 @@ FRESULT cFile::open (const TCHAR* path, BYTE mode) {
         /* Default directory itself */
         res = FR_INVALID_NAME;
       else
-        res = cFatFs::instance()->checkLock (&directory, (mode & ~FA_READ) ? 1 : 0);
+        res = directory.fs->checkFileLock (&directory, (mode & ~FA_READ) ? 1 : 0);
       }
 
     /* Create or Open a file */
@@ -2761,7 +2771,7 @@ FRESULT cFile::open (const TCHAR* path, BYTE mode) {
         /* No file, create new */
         if (res == FR_NO_FILE)
           /* There is no file to open, create a new entry */
-          res = cFatFs::instance()->enquireLock() ? directory.registerNewEntry() : FR_TOO_MANY_OPEN_FILES;
+          res = fs->enquireFileLock() ? directory.registerNewEntry() : FR_TOO_MANY_OPEN_FILES;
         mode |= FA_CREATE_ALWAYS;   /* File is created */
         dir = directory.dir;         /* New entry */
         }
@@ -2816,7 +2826,7 @@ FRESULT cFile::open (const TCHAR* path, BYTE mode) {
         mode |= FA__WRITTEN;
       dir_sect = directory.fs->winsect;  /* Pointer to the directory entry */
       dir_ptr = dir;
-      lockid = cFatFs::instance()->incLock (&directory, (mode & ~FA_READ) ? 1 : 0);
+      lockid = directory.fs->incFileLock (&directory, (mode & ~FA_READ) ? 1 : 0);
       if (!lockid)
         res = FR_INT_ERR;
       }
@@ -3304,7 +3314,7 @@ FRESULT cFile::close() {
       cFatFs* fatFs = fs;
 
       // Decrement file open counter
-      res = fs->decLock (lockid);
+      res = fs->decFileLock (lockid);
       if (res == FR_OK)
         // Invalidate file object
         fs = 0;
@@ -3560,8 +3570,8 @@ FRESULT cFile::validateFile() {
       (diskStatus (fs->drv) & STA_NOINIT))
     return FR_INVALID_OBJECT;
 
-  // Lock file system
-  if (osSemaphoreWait (fs->semaphore, 1000) != osOK)
+  // lock access to file system
+  if (!fs->lock())
     return FR_TIMEOUT;
 
   return FR_OK;
