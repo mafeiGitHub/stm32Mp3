@@ -253,13 +253,16 @@ private:
   // vars
   BYTE* fileBuffer = nullptr;  // File data read/write buffer
 
-  cFatFs* fs;       // Pointer to the related file system
+  cFatFs* fs;      // Pointer to the related file system
   WORD id;         // Owner file system mount ID
+  UINT lockid;     // File lock ID origin from 1 (index of file semaphore table Files[])
+
   BYTE flag;       // Status flags
   BYTE err;        // Abort flag (error code)
 
   DWORD fptr;      // File read/write pointer (Zeroed on file open)
   DWORD fsize;     // File size
+
   DWORD sclust;    // File start cluster (0:no cluster chain, always 0 when fsize is 0)
   DWORD clust;     // Current cluster of fpter (not valid when fprt is 0)
   DWORD dsect;     // Sector number appearing in buf[] (0:invalid)
@@ -268,7 +271,6 @@ private:
   BYTE* dir_ptr;   // Pointer to the directory entry in the win[]
 
   DWORD* cltbl;    // Pointer to the cluster link map table (Nulled on file open)
-  UINT lockid;     // File lock ID origin from 1 (index of file semaphore table Files[])
   };
 //}}}
 //{{{
@@ -295,13 +297,11 @@ private:
   FRESULT remove();
   void getFileInfo (cFileInfo* fileInfo);
 
+  cFatFs* fs;    // Pointer to the owner file system
   WORD id;       // Owner file system mount ID
   UINT lockid;   // File lock ID (index of file semaphore table Files[])
-  const TCHAR* pat; // Pointer to the name matching pattern
 
-  cFatFs* fs;    // Pointer to the owner file system
   WORD index;    // Current read/write index number
-
   DWORD sclust;  // Table start cluster (0:Root dir)
   DWORD clust;   // Current cluster
   DWORD sect;    // Current sector
@@ -310,5 +310,7 @@ private:
   BYTE* fn;      // Pointer to the SFN (in/out) {file[8],ext[3],status[1]}
   WCHAR* lfn;    // Pointer to the LFN working buffer
   WORD lfn_idx;  // Last matched LFN index number (0xFFFF:No LFN)
+
+  const TCHAR* pat; // Pointer to the name matching pattern
   };
 //}}}

@@ -224,10 +224,6 @@ public:
   BYTE buf[64];
   };
 //}}}
-//{{{  static member vars
-cFatFs* cFatFs::mFatFs = nullptr;
-cFatFs::cFileSem cFatFs::mFiles[FS_LOCK];
-//}}}
 //{{{  static utils
 //{{{
 static DWORD getFatTime() {
@@ -499,6 +495,10 @@ static void storeCluster (BYTE* dir, DWORD cluster) {
 //}}}
 
 // cFatFs
+//{{{  static member vars
+cFatFs* cFatFs::mFatFs = nullptr;
+cFatFs::cFileSem cFatFs::mFiles[FS_LOCK];
+//}}}
 //{{{
 cFatFs::cFatFs() {
 
@@ -1066,10 +1066,10 @@ FRESULT cFatFs::utime (const TCHAR* path, const cFileInfo* fileInfo) {
       res = FR_INVALID_NAME;
     if (res == FR_OK) {
       BYTE* dir = directory.dir;
-      if (!dir) 
+      if (!dir)
         // root dir
         res = FR_INVALID_NAME;
-      else { 
+      else {
         // file or subDir
         ST_WORD(dir + DIR_WrtTime, fileInfo->ftime);
         ST_WORD(dir + DIR_WrtDate, fileInfo->fdate);
@@ -1101,7 +1101,7 @@ FRESULT cFatFs::unlink (const TCHAR* path) {
       res = FR_INVALID_NAME;
     if (res == FR_OK)  // Cannot remove open object */
       res = checkFileLock (&directory, 2);
-    if (res == FR_OK) {  
+    if (res == FR_OK) {
       // The object is accessible
       dir = directory.dir;
       if (!dir)  // Cannot remove the origin directory */
@@ -1111,7 +1111,7 @@ FRESULT cFatFs::unlink (const TCHAR* path) {
 
       if (res == FR_OK) {
         dclst = loadCluster (dir);
-        if (dclst && (dir[DIR_Attr] & AM_DIR)) {  
+        if (dclst && (dir[DIR_Attr] & AM_DIR)) {
           if (dclst == cdir) // current directory
             res = FR_DENIED;
           else {
@@ -2034,7 +2034,8 @@ FRESULT cDirectory::read (cFileInfo* fileInfo) {
   FRESULT res = validateDir();
   if (res == FR_OK) {
     if (!fileInfo)
-      res = setIndex (0);     /* Rewind the directory object */
+      // Rewind the directory object
+      res = setIndex (0); 
     else {
       BYTE sfn1[12];
       WCHAR lfn1 [(MAX_LFN + 1) * 2];
@@ -2042,15 +2043,17 @@ FRESULT cDirectory::read (cFileInfo* fileInfo) {
       fn = sfn1;
       res = read (0);
       if (res == FR_NO_FILE) {
-        /* Reached end of directory */
+        // Reached end of directory
         sect = 0;
         res = FR_OK;
         }
 
       if (res == FR_OK) {
-        /* A valid entry is found */
-        getFileInfo (fileInfo);    /* Get the object information */
-        res = next (0);    /* Increment index for next */
+        // valid entry is found, get the object information */
+        getFileInfo (fileInfo);
+
+        // Increment index for next */
+        res = next (0);    
         if (res == FR_NO_FILE) {
           sect = 0;
           res = FR_OK;
@@ -2066,10 +2069,10 @@ FRESULT cDirectory::read (cFileInfo* fileInfo) {
 //{{{
 FRESULT cDirectory::findfirst (cFileInfo* fileInfo, const TCHAR* path, const TCHAR* pattern) {
 
-  pat = pattern;                   // Save pointer to pattern string
-  FRESULT res = open (path);  // Open the target directory
+  pat = pattern;            
+  FRESULT res = open (path);
   if (res == FR_OK)
-    res = findnext (fileInfo);   // Find the first item
+    res = findnext (fileInfo);  
   return res;
   }
 //}}}
