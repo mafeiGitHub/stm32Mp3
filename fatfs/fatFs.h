@@ -112,6 +112,7 @@ public:
     }
   //}}}
 
+  // public var
   DWORD fsize;      // File size
   WORD  fdate;      // Last modified date
   WORD  ftime;      // Last modified time
@@ -130,16 +131,6 @@ class cFatFs {
 friend class cFile;
 friend class cDirectory;
 public :
-  //{{{
-  class cFileSem {
-  public:
-    cFatFs* fs; // Object ID 1, volume (NULL:blank entry)
-    DWORD clu;  // Object ID 2, directory (0:root)
-    WORD idx;   // Object ID 3, directory index
-    WORD ctr;   // Object open counter, 0:none, 0x01..0xFF:read mode open count, 0x100:write mode
-    };
-  //}}}
-
   cFatFs();
   //{{{
   static cFatFs* create() {
@@ -167,10 +158,17 @@ public :
   FRESULT unlink (const TCHAR* path);                            // Delete an existing file or directory
   FRESULT mkfs (const TCHAR* path, BYTE sfd, UINT au);           // Create a file system on the volume
 
-  // public var
-  osSemaphoreId semaphore; // Identifier of sync object
-
 private:
+  //{{{
+  class cFileSem {
+  public:
+    cFatFs* fs; // Object ID 1, volume (NULL:blank entry)
+    DWORD clu;  // Object ID 2, directory (0:root)
+    WORD idx;   // Object ID 3, directory index
+    WORD ctr;   // Object open counter, 0:none, 0x01..0xFF:read mode open count, 0x100:write mode
+    };
+  //}}}
+
   FRESULT findVolume (cFatFs** fs, BYTE wmode);
 
   FRESULT syncWindow();
@@ -194,6 +192,8 @@ private:
   FRESULT decLock (UINT i);
   void clearLock();
 
+  void unlock (FRESULT res);
+
   // static vars
   static cFatFs* mFatFs;
   static cFileSem mFiles[FS_LOCK];
@@ -203,6 +203,8 @@ private:
     UINT  d32[SECTOR_SIZE/4]; // Force 32bits alignement
     BYTE   d8[SECTOR_SIZE];   // Disk access window for Directory, FAT (and file data at tiny cfg)
     } win;
+
+  osSemaphoreId semaphore; // Identifier of sync object
 
   BYTE  fsType = 0;     // FAT sub-type (0:Not mounted)
   BYTE  drv = 0;        // Physical drive number
@@ -284,23 +286,6 @@ public:
   FRESULT findnext (cFileInfo* fileInfo);
   FRESULT close();
 
-  union {
-    UINT d32[SECTOR_SIZE/4];  // Force 32bits alignement
-    BYTE  d8[SECTOR_SIZE];    // File data read/write buffer
-    } buf;
-
-  cFatFs* fs;      // Pointer to the owner file system
-  WORD index;      // Current read/write index number
-
-  DWORD sclust;    // Table start cluster (0:Root dir)
-  DWORD clust;     // Current cluster
-  DWORD sect;      // Current sector
-
-  BYTE* dir;       // Pointer to the current SFN entry in the win[]
-  BYTE* fn;        // Pointer to the SFN (in/out) {file[8],ext[3],status[1]}
-  WCHAR* lfn;      // Pointer to the LFN working buffer
-  WORD lfn_idx;    // Last matched LFN index number (0xFFFF:No LFN)
-
 private:
   FRESULT validateDir();
   FRESULT createName (const TCHAR** path);
@@ -317,5 +302,17 @@ private:
   WORD id;          // Owner file system mount ID
   UINT lockid;      // File lock ID (index of file semaphore table Files[])
   const TCHAR* pat; // Pointer to the name matching pattern
+
+  cFatFs* fs;    // Pointer to the owner file system
+  WORD index;    // Current read/write index number
+
+  DWORD sclust;  // Table start cluster (0:Root dir)
+  DWORD clust;   // Current cluster
+  DWORD sect;    // Current sector
+
+  BYTE* dir;     // Pointer to the current SFN entry in the win[]
+  BYTE* fn;      // Pointer to the SFN (in/out) {file[8],ext[3],status[1]}
+  WCHAR* lfn;    // Pointer to the LFN working buffer
+  WORD lfn_idx;  // Last matched LFN index number (0xFFFF:No LFN)
   };
 //}}}
