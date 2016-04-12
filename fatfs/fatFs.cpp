@@ -218,15 +218,6 @@ static const BYTE kExCvt[] = {
   };
 //}}}
 //}}}
-//{{{
-class cPutBuffer {
-public:
-  cFile* file;
-  int idx;
-  int nchr;
-  BYTE buf[64];
-  };
-//}}}
 //{{{  static utils
 //{{{
 static DWORD getFatTime() {
@@ -329,32 +320,6 @@ static int matchPattern (const TCHAR* pat, const TCHAR* nam, int skip, int inf) 
   }
 //}}}
 
-//{{{
-static void putChBuffered (cPutBuffer* pb, TCHAR c) {
-
-  if (c == '\n')
-    /* LF -> CRLF conversion */
-    putChBuffered (pb, '\r');
-
-  /* Buffer write index (-1:error) */
-  int i = pb->idx;
-  if (i < 0)
-    return;
-
-  // Write a character without conversion
-  pb->buf[i++] = (BYTE)c;
-
-  if (i >= (int)(sizeof pb->buf) - 3) {
-    // Write buffered characters to the file
-    UINT bw;
-    pb->file->write (pb->buf, (UINT)i, &bw);
-    i = (bw == (UINT)i) ? 0 : -1;
-    }
-
-  pb->idx = i;
-  pb->nchr++;
-  }
-//}}}
 
 //{{{
 static int compareLfn (WCHAR* lfnbuf, BYTE* dir) {
@@ -3365,16 +3330,54 @@ FRESULT cFile::close() {
   return res;
   }
 //}}}
+
+//{{{
+class cPutBuffer {
+public:
+  //{{{
+  void putChBuffered (TCHAR c) {
+
+    if (c == '\n')
+      /* LF -> CRLF conversion */
+      putChBuffered ('\r');
+
+    /* Buffer write index (-1:error) */
+    int i = idx;
+    if (i < 0)
+      return;
+
+    // Write a character without conversion
+    buf[i++] = (BYTE)c;
+
+    if (i >= (int)(sizeof buf) - 3) {
+      // Write buffered characters to the file
+      UINT bw;
+      file->write (buf, (UINT)i, &bw);
+      i = (bw == (UINT)i) ? 0 : -1;
+      }
+
+    idx = i;
+    nchr++;
+    }
+  //}}}
+
+  cFile* file;
+  int idx;
+  int nchr;
+  BYTE buf[64];
+  };
+//}}}
 //{{{
 int cFile::putCh (TCHAR c) {
 
   /* Initialize output buffer */
   cPutBuffer putBuffer;
   putBuffer.file = this;
-  putBuffer.nchr = putBuffer.idx = 0;
+  putBuffer.nchr = 0;
+  putBuffer.idx = 0;
 
   /* Put a character */
-  putChBuffered (&putBuffer, c);
+  putBuffer.putChBuffered (c);
 
   UINT nw;
   if (putBuffer.idx >= 0 && write (putBuffer.buf, (UINT)putBuffer.idx, &nw) == FR_OK && (UINT)putBuffer.idx == nw)
@@ -3393,7 +3396,7 @@ int cFile::putStr (const TCHAR* str) {
 
   /* Put the string */
   while (*str)
-    putChBuffered (&putBuffer, *str++);
+    putBuffer.putChBuffered (*str++);
 
   UINT nw;
   if (putBuffer.idx >= 0 && write (putBuffer.buf, (UINT)putBuffer.idx, &nw) == FR_OK && (UINT)putBuffer.idx == nw)
@@ -3423,8 +3426,9 @@ int cFile::printf (const TCHAR* fmt, ...) {
     if (c == 0)
       break;      /* End of string */
 
-    if (c != '%') {       /* Non escape character */
-      putChBuffered (&putBuffer, c);
+    if (c != '%') {
+      /* Non escape character */
+      putBuffer.putChBuffered (c);
       continue;
       }
 
@@ -3468,17 +3472,17 @@ int cFile::printf (const TCHAR* fmt, ...) {
         for (j = 0; p[j]; j++) ;
         if (!(f & 2)) {
           while (j++ < w)
-            putChBuffered (&putBuffer, ' ');
+            putBuffer.putChBuffered (' ');
           }
         while (*p)
-          putChBuffered (&putBuffer, *p++);
+          putBuffer.putChBuffered (*p++);
         while (j++ < w)
-          putChBuffered (&putBuffer, ' ');
+          putBuffer.putChBuffered (' ');
         continue;
       //}}}
       //{{{
       case 'C' :          /* Character */
-        putChBuffered (&putBuffer, (TCHAR)va_arg(arp, int));
+        putBuffer.putChBuffered ((TCHAR)va_arg(arp, int));
         continue;
       //}}}
       //{{{
@@ -3504,7 +3508,7 @@ int cFile::printf (const TCHAR* fmt, ...) {
       //}}}
       //{{{
       default:          /* Unknown type (pass-through) */
-        putChBuffered (&putBuffer, c);
+        putBuffer.putChBuffered (c);
         continue;
       //}}}
       }
@@ -3530,14 +3534,14 @@ int cFile::printf (const TCHAR* fmt, ...) {
     d = (f & 1) ? '0' : ' ';
 
     while (!(f & 2) && j++ < w)
-      putChBuffered (&putBuffer, d);
+      putBuffer.putChBuffered (d);
 
     do
-      putChBuffered (&putBuffer, s[--i]);
+      putBuffer.putChBuffered (s[--i]);
       while (i);
 
     while (j++ < w)
-      putChBuffered (&putBuffer, d);
+      putBuffer.putChBuffered (d);
     }
 
   va_end (arp);
