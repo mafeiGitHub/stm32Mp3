@@ -19,23 +19,10 @@
 //}}}
 //{{{  defines
 #define USE_TRIM    0
-
 #define N_FATS      1  // Number of FATs (1 or 2)
 #define N_ROOTDIR 512  // Number of root directory entries for FAT12/16
 
-// Character code support macros
-#define IsUpper(c)  (((c) >= 'A') && ((c) <= 'Z'))
-#define IsLower(c)  (((c) >= 'a') && ((c) <= 'z'))
-#define IsDigit(c)  (((c) >= '0') && ((c) <= '9'))
-
-// Multi-byte word access macros
-#define LD_WORD(ptr)   (WORD)(((WORD)*((BYTE*)(ptr)+1)<<8)|(WORD)*(BYTE*)(ptr))
-#define LD_DWORD(ptr)  (DWORD)(((DWORD)*((BYTE*)(ptr)+3)<<24)|((DWORD)*((BYTE*)(ptr)+2)<<16)|((WORD)*((BYTE*)(ptr)+1)<<8)|*(BYTE*)(ptr))
-
-#define ST_WORD(ptr,val)  *(BYTE*)(ptr)=(BYTE)(val); *((BYTE*)(ptr)+1)=(BYTE)((WORD)(val)>>8)
-#define ST_DWORD(ptr,val) *(BYTE*)(ptr)=(BYTE)(val); *((BYTE*)(ptr)+1)=(BYTE)((WORD)(val)>>8); *((BYTE*)(ptr)+2)=(BYTE)((DWORD)(val)>>16); *((BYTE*)(ptr)+3)=(BYTE)((DWORD)(val)>>24)
-
-// name status flags defines
+//{{{  name status flags defines
 #define NSFLAG   11    // Index of name status byte in fn[]
 
 #define NS_LOSS  0x01  // Out of 8.3 format
@@ -45,15 +32,7 @@
 #define NS_EXT   0x10  // Lower case flag (ext)
 #define NS_DOT   0x20  // Dot entry
 //}}}
-//{{{  fatFs defines
-#define MIN_FAT16     4086U  // Minimum number of clusters as FAT16
-#define MIN_FAT32    65526U  // Minimum number of clusters as FAT32
-
-// FAT sub type (FATFS.fsType)
-#define FS_FAT12         1
-#define FS_FAT16         2
-#define FS_FAT32         3
-
+//{{{  BS, BPB offsets
 #define BS_jmpBoot       0  // x86 jump instruction (3)
 #define BS_OEMName       3  // OEM name (8)
 #define BPB_BytsPerSec  11  // Sector size [byte] (2)
@@ -84,15 +63,26 @@
 #define BS_VolID32      67  // Volume serial number (4)
 #define BS_VolLab32     71  // Volume label (8)
 #define BS_FilSysType32 82  // File system type (1)
-
+//}}}
+//{{{  FSI offsets
 #define FSI_LeadSig      0  // FSI: Leading signature (4)
 #define FSI_StrucSig   484  // FSI: Structure signature (4)
 #define FSI_Free_Count 488  // FSI: Number of free clusters (4)
 #define FSI_Nxt_Free   492  // FSI: Last allocated cluster (4)
+//}}}
+//{{{  FAT sub type (FATFS.fsType)
+#define FS_FAT12         1
+#define FS_FAT16         2
+#define FS_FAT32         3
+//}}}
+
+#define MIN_FAT16     4086U  // Minimum number of clusters as FAT16
+#define MIN_FAT32    65526U  // Minimum number of clusters as FAT32
 #define MBR_Table      446  // MBR: Partition table offset (2)
 #define SZ_PTE          16  // MBR: Size of a partition table entry
 #define BS_55AA        510  // Signature word (2)
 
+//  DIR offsets
 #define DIR_Name          0 // Short file name (11)
 #define DIR_Attr         11 // Attribute (1)
 #define DIR_NTres        12 // Lower case flag (1)
@@ -106,6 +96,7 @@
 #define DIR_FstClusLO    26 // Lower 16-bit of first cluster (2)
 #define DIR_FileSize     28 // File size (4)
 
+// LDIR offsets
 #define LDIR_Ord          0 // LFN entry order and LLE flag (1)
 #define LDIR_Attr        11 // LFN attribute (1)
 #define LDIR_Type        12 // LFN type (1)
@@ -117,11 +108,23 @@
 #define DDEM           0xE5 // Deleted directory entry mark at DIR_Name[0]
 #define RDDEM          0x05 // Replacement of the character collides with DDEM
 //}}}
-//{{{  unlock macros
+//{{{  macros
+// Character code support macros
+#define IsUpper(c)  (((c) >= 'A') && ((c) <= 'Z'))
+#define IsLower(c)  (((c) >= 'a') && ((c) <= 'z'))
+#define IsDigit(c)  (((c) >= '0') && ((c) <= '9'))
+
+// Multi-byte word access macros
+#define LD_WORD(ptr)   (WORD)(((WORD)*((BYTE*)(ptr)+1)<<8)|(WORD)*(BYTE*)(ptr))
+#define LD_DWORD(ptr)  (DWORD)(((DWORD)*((BYTE*)(ptr)+3)<<24)|((DWORD)*((BYTE*)(ptr)+2)<<16)|((WORD)*((BYTE*)(ptr)+1)<<8)|*(BYTE*)(ptr))
+
+#define ST_WORD(ptr,val)  *(BYTE*)(ptr)=(BYTE)(val); *((BYTE*)(ptr)+1)=(BYTE)((WORD)(val)>>8)
+#define ST_DWORD(ptr,val) *(BYTE*)(ptr)=(BYTE)(val); *((BYTE*)(ptr)+1)=(BYTE)((WORD)(val)>>8); *((BYTE*)(ptr)+2)=(BYTE)((DWORD)(val)>>16); *((BYTE*)(ptr)+3)=(BYTE)((DWORD)(val)>>24)
+
+// unlock macros
 #define LEAVE_FF(fs, res) { fs->unlock (res); return res; }
 #define ABORT(fs, res)    { err = (BYTE)(res); fs->unlock (res); return res; }
 //}}}
-
 //{{{  static const
 // Offset of LFN characters in the directory entry
 static const BYTE LfnOfs[] = { 1,3,5,7,9,14,16,18,20,22,24,28,30 };
@@ -2035,7 +2038,7 @@ FRESULT cDirectory::read (cFileInfo* fileInfo) {
   if (res == FR_OK) {
     if (!fileInfo)
       // Rewind the directory object
-      res = setIndex (0); 
+      res = setIndex (0);
     else {
       BYTE sfn1[12];
       WCHAR lfn1 [(MAX_LFN + 1) * 2];
@@ -2053,7 +2056,7 @@ FRESULT cDirectory::read (cFileInfo* fileInfo) {
         getFileInfo (fileInfo);
 
         // Increment index for next */
-        res = next (0);    
+        res = next (0);
         if (res == FR_NO_FILE) {
           sect = 0;
           res = FR_OK;
@@ -2069,10 +2072,10 @@ FRESULT cDirectory::read (cFileInfo* fileInfo) {
 //{{{
 FRESULT cDirectory::findfirst (cFileInfo* fileInfo, const TCHAR* path, const TCHAR* pattern) {
 
-  pat = pattern;            
+  pat = pattern;
   FRESULT res = open (path);
   if (res == FR_OK)
-    res = findnext (fileInfo);  
+    res = findnext (fileInfo);
   return res;
   }
 //}}}
