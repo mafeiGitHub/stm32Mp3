@@ -216,7 +216,7 @@ static const BYTE kExCvt[] = {
 //}}}
 //}}}
 //{{{
-class cPutBuff {
+class cPutBuffer {
 public:
   cFile* file;
   int idx;
@@ -331,7 +331,7 @@ static int matchPattern (const TCHAR* pat, const TCHAR* nam, int skip, int inf) 
 //}}}
 
 //{{{
-static void putChBuffered (cPutBuff* pb, TCHAR c) {
+static void putChBuffered (cPutBuffer* pb, TCHAR c) {
 
   if (c == '\n')
     /* LF -> CRLF conversion */
@@ -601,8 +601,9 @@ FRESULT cFatFs::getCwd (TCHAR* buff, UINT len) {
     directory.fn = sfn;
     i = len;      /* Bottom of buffer (directory stack base) */
     directory.sclust = cdir;      /* Start to follow upper directory from current directory */
-    while ((ccl = directory.sclust) != 0) {  /* Repeat while current directory is a sub-directory */
-      res = directory.setIndex (1);      /* Get parent directory */
+    while ((ccl = directory.sclust) != 0) {
+      /* Repeat while current directory is a sub-directory, Get parent directory */
+      res = directory.setIndex (1);
       if (res != FR_OK)
         break;
 
@@ -610,12 +611,14 @@ FRESULT cFatFs::getCwd (TCHAR* buff, UINT len) {
       if (res != FR_OK)
         break;
 
-      directory.sclust = loadCluster (directory.dir);  /* Goto parent directory */
+      // Goto parent directory */
+      directory.sclust = loadCluster (directory.dir);
       res = directory.setIndex (0);
       if (res != FR_OK)
         break;
 
-      do {              /* Find the entry links to the child directory */
+      do {
+        /* Find the entry links to the child directory */
         res = directory.read (0);
         if (res != FR_OK)
           break;
@@ -628,19 +631,21 @@ FRESULT cFatFs::getCwd (TCHAR* buff, UINT len) {
       if (res != FR_OK)
         break;
 
+      /* Get the directory name and push it to the buffer */
       cFileInfo fileInfo;
       fileInfo.lfname = buff;
       fileInfo.lfsize = i;
-      directory.getFileInfo (&fileInfo);    /* Get the directory name and push it to the buffer */
+      directory.getFileInfo (&fileInfo);
       tp = fileInfo.fname;
       if (*buff)
         tp = buff;
-      for (n = 0; tp[n]; n++) ;
+      for (n = 0; tp[n]; n++);
       if (i < n + 3) {
         res = FR_NOT_ENOUGH_CORE;
           break;
         }
-      while (n) buff[--i] = tp[--n];
+      while (n)
+        buff[--i] = tp[--n];
       buff[--i] = '/';
       }
 
@@ -670,17 +675,15 @@ FRESULT cFatFs::getLabel (TCHAR* label, DWORD* vsn) {
 
   cDirectory directory;
   FRESULT res = findVolume (&directory.fs, 0);
-
-  /* Get volume label */
   if (res == FR_OK && label) {
     directory.sclust = 0;
-    /* Open root directory */
+    // Open root directory
     res = directory.setIndex (0);
     if (res == FR_OK) {
-      /* Get an entry with AM_VOL */
+      // Get an entry with AM_VOL
       res = directory.read (1);
       if (res == FR_OK) {
-        /* A volume label is exist */
+        // A volume label is exist
         memcpy (label, directory.dir, 11);
         UINT k = 11;
         do {
@@ -690,14 +693,15 @@ FRESULT cFatFs::getLabel (TCHAR* label, DWORD* vsn) {
           } while (label[--k] == ' ');
         }
 
-      if (res == FR_NO_FILE) {  /* No label, return nul string */
+      if (res == FR_NO_FILE) {
+        // No label, return nul string
         label[0] = 0;
         res = FR_OK;
         }
       }
     }
 
-  /* Get volume serial number */
+  // Get volume serial number
   if (res == FR_OK && vsn) {
     res = moveWindow (volbase);
     if (res == FR_OK) {
@@ -713,11 +717,6 @@ FRESULT cFatFs::getLabel (TCHAR* label, DWORD* vsn) {
 //{{{
 FRESULT cFatFs::setLabel (const TCHAR* label) {
 
-  BYTE vn[11];
-  UINT i, j, sl;
-  WCHAR w;
-  DWORD tm;
-
   cDirectory directory;
   FRESULT res = findVolume (&directory.fs, 1);
   if (res) {
@@ -725,17 +724,26 @@ FRESULT cFatFs::setLabel (const TCHAR* label) {
     return res;
     }
 
-  /* Create a volume label in directory form */
+  // Create a volume label in directory form */
+  BYTE vn[11];
   vn[0] = 0;
-  for (sl = 0; label[sl]; sl++) ;       /* Get name length */
-  for ( ; sl && label[sl - 1] == ' '; sl--) ; /* Remove trailing spaces */
-  if (sl) { /* Create volume label in directory form */
-    i = j = 0;
+
+  // Get name length */
+  UINT sl;
+  for (sl = 0; label[sl]; sl++) ;
+
+  // Remove trailing spaces */
+  for ( ; sl && label[sl - 1] == ' '; sl--) ;
+
+  if (sl) {
+    // Create volume label in directory form
+    UINT i = 0;
+    UINT j = 0;
     do {
-      w = (BYTE)label[i++];
+      WCHAR w = (BYTE)label[i++];
       w = convertToFromUnicode (wideToUpperCase (convertToFromUnicode(w, 1)), 0);
       if (!w || strchr ("\"*+,.:;<=>\?[]|\x7F", w) || j >= (UINT)((w >= 0x100) ? 10 : 11)) {
-        /* Reject invalid characters for volume label */
+        // Reject invalid characters for volume label
         unlock (FR_INVALID_NAME);
         return FR_INVALID_NAME;
         }
@@ -744,40 +752,48 @@ FRESULT cFatFs::setLabel (const TCHAR* label) {
         vn[j++] = (BYTE)(w >> 8);
       vn[j++] = (BYTE)w;
       } while (i < sl);
-    while (j < 11) vn[j++] = ' '; /* Fill remaining name field */
+
+    // Fill remaining name field
+    while (j < 11) vn[j++] = ' ';
     if (vn[0] == DDEM) {
-      /* Reject illegal name (heading DDEM) */
+      // Reject illegal name (heading DDEM)
       unlock (FR_INVALID_NAME);
       return FR_INVALID_NAME;
       }
     }
 
-  /* Set volume label */
-  directory.sclust = 0;          /* Open root directory */
+  // Open root directory
+  directory.sclust = 0;
   res = directory.setIndex (0);
   if (res == FR_OK) {
-    res = directory.read (1);   /* Get an entry with AM_VOL */
-    if (res == FR_OK) {     /* A volume label is found */
+    // Get an entry with AM_VOL
+    res = directory.read (1);
+    if (res == FR_OK) {
+      // volume label found
       if (vn[0]) {
-        memcpy (directory.dir, vn, 11);  /* Change the volume label name */
-        tm = getFatTime();
+        // Change the volume label name
+        memcpy (directory.dir, vn, 11);
+        DWORD tm = getFatTime();
         ST_DWORD(directory.dir + DIR_WrtTime, tm);
         }
-      else
-        directory.dir[0] = DDEM;     /* Remove the volume label */
+      else // Remove the volume label
+        directory.dir[0] = DDEM;
       wflag = 1;
       res = syncFs();
       }
-    else {          /* No volume label is found or error */
+    else {
+      // No volume label is found or error
       if (res == FR_NO_FILE) {
         res = FR_OK;
-        if (vn[0]) {        /* Create volume label as new */
-          res = directory.allocate (1);  /* Allocate an entry for volume label */
+        if (vn[0]) {
+          // Create volume label as new, Allocate an entry for volume label
+          res = directory.allocate (1);
           if (res == FR_OK) {
-            memset(directory.dir, 0, SZ_DIRE);  /* Set volume label */
-            memcpy(directory.dir, vn, 11);
+            // Set volume label
+            memset (directory.dir, 0, SZ_DIRE);
+            memcpy (directory.dir, vn, 11);
             directory.dir[DIR_Attr] = AM_VOL;
-            tm = getFatTime();
+            DWORD tm = getFatTime();
             ST_DWORD(directory.dir + DIR_WrtTime, tm);
             wflag = 1;
             res = syncFs();
@@ -935,10 +951,12 @@ FRESULT cFatFs::rename (const TCHAR* path_old, const TCHAR* path_new) {
   BYTE buf[21], *dir;
   DWORD dw;
 
-  cDirectory oldDirectory, newDirectory;
+  cDirectory oldDirectory;
   FRESULT res = findVolume (&oldDirectory.fs, 1);
   if (res == FR_OK) {
+    cDirectory newDirectory;
     newDirectory.fs = oldDirectory.fs;
+
     BYTE sfn[12];
     WCHAR lfn [(MAX_LFN + 1) * 2];
     oldDirectory.lfn = lfn;
@@ -958,7 +976,8 @@ FRESULT cFatFs::rename (const TCHAR* path_old, const TCHAR* path_new) {
         res = newDirectory.followPath (path_new);  /* and make sure if new object name is not conflicting */
         if (res == FR_OK)
           res = FR_EXIST;   /* The new object name is already existing */
-        if (res == FR_NO_FILE) {        /* It is a valid path and no name collision */
+        if (res == FR_NO_FILE) {
+          /* It is a valid path and no name collision */
           res = newDirectory.registerNewEntry();
           if (res == FR_OK) {
 /* Start of critical section where any interruption can cause a cross-link */
@@ -1015,10 +1034,11 @@ FRESULT cFatFs::chMod (const TCHAR* path, BYTE attr, BYTE mask) {
       res = FR_INVALID_NAME;
     if (res == FR_OK) {
       dir = directory.dir;
-      if (!dir) {           /* Is it a root directory? */
+      if (!dir)
+        // root directory
         res = FR_INVALID_NAME;
-        }
-      else {            /* File or sub directory */
+      else {
+        // File or sub directory
         mask &= AM_RDO|AM_HID|AM_SYS|AM_ARC;  /* Valid attribute mask */
         dir[DIR_Attr] = (attr & mask) | (dir[DIR_Attr] & (BYTE)~mask);  /* Apply attribute change */
         wflag = 1;
@@ -1046,9 +1066,11 @@ FRESULT cFatFs::utime (const TCHAR* path, const cFileInfo* fileInfo) {
       res = FR_INVALID_NAME;
     if (res == FR_OK) {
       BYTE* dir = directory.dir;
-      if (!dir) // root dir
+      if (!dir) 
+        // root dir
         res = FR_INVALID_NAME;
-      else { // file or subDir
+      else { 
+        // file or subDir
         ST_WORD(dir + DIR_WrtTime, fileInfo->ftime);
         ST_WORD(dir + DIR_WrtDate, fileInfo->fdate);
         wflag = 1;
@@ -1067,7 +1089,7 @@ FRESULT cFatFs::unlink (const TCHAR* path) {
   BYTE *dir;
   DWORD dclst = 0;
 
-  cDirectory directory, subDirectory;
+  cDirectory directory;
   FRESULT res = findVolume (&directory.fs, 1);
   if (res == FR_OK) {
     BYTE sfn[12];
@@ -1075,28 +1097,26 @@ FRESULT cFatFs::unlink (const TCHAR* path) {
     directory.lfn = lfn;
     directory.fn = sfn;
     res = directory.followPath (path);
-    if (res == FR_OK && (directory.fn[NSFLAG] & NS_DOT))
-      res = FR_INVALID_NAME;      /* Cannot remove dot entry */
-    if (res == FR_OK)
-      res = checkFileLock (&directory, 2); /* Cannot remove open object */
-    if (res == FR_OK) {         /* The object is accessible */
+    if (res == FR_OK && (directory.fn[NSFLAG] & NS_DOT)) // Cannot remove dot entry */
+      res = FR_INVALID_NAME;
+    if (res == FR_OK)  // Cannot remove open object */
+      res = checkFileLock (&directory, 2);
+    if (res == FR_OK) {  
+      // The object is accessible
       dir = directory.dir;
-      if (!dir) {
-        res = FR_INVALID_NAME;    /* Cannot remove the origin directory */
-        }
-      else {
-        if (dir[DIR_Attr] & AM_RDO)
-          res = FR_DENIED;    /* Cannot remove R/O object */
-        }
+      if (!dir)  // Cannot remove the origin directory */
+        res = FR_INVALID_NAME;
+      else if (dir[DIR_Attr] & AM_RDO)  // Cannot remove R/O object */
+        res = FR_DENIED;
 
       if (res == FR_OK) {
         dclst = loadCluster (dir);
-        if (dclst && (dir[DIR_Attr] & AM_DIR)) {  /* Is it a sub-directory ? */
-          if (dclst == cdir) {       /* Is it the current directory? */
+        if (dclst && (dir[DIR_Attr] & AM_DIR)) {  
+          if (dclst == cdir) // current directory
             res = FR_DENIED;
-            }
           else {
-            /* Open the sub-directory */
+            // Open the sub-directory
+            cDirectory subDirectory;
             memcpy (&subDirectory, &directory, sizeof (cDirectory));
             subDirectory.sclust = dclst;
             res = subDirectory.setIndex (2);
@@ -1112,7 +1132,7 @@ FRESULT cFatFs::unlink (const TCHAR* path) {
         }
 
       if (res == FR_OK) {
-        res = directory.remove();    /* Remove the directory entry */
+        res = directory.remove();  /* Remove the directory entry */
         if (res == FR_OK && dclst)  /* Remove the cluster chain if exist */
           res = removeChain (dclst);
         if (res == FR_OK)
@@ -1360,7 +1380,7 @@ FRESULT cFatFs::mkfs (const TCHAR* path, BYTE sfd, UINT au) {
   return (diskIoctl (vol, CTRL_SYNC, 0) == RES_OK) ? FR_OK : FR_DISK_ERR;
   }
 //}}}
-//{{{  other cFatFs members
+//{{{  cFatFs private members
 //{{{
 FRESULT cFatFs::findVolume (cFatFs** fs, BYTE wmode) {
 
@@ -2095,7 +2115,7 @@ FRESULT cDirectory::close() {
   return res;
   }
 //}}}
-//{{{  other cDirectory members
+//{{{  cDirectory private members
 //{{{
 FRESULT cDirectory::validateDir() {
 
@@ -2179,43 +2199,45 @@ FRESULT cDirectory::followPath (const TCHAR* path) {
 FRESULT cDirectory::createName (const TCHAR** path) {
 
   BYTE b, cf;
-  WCHAR w, *lfn1;
-  UINT i, ni, si, di;
-  const TCHAR *p;
+  UINT i, ni;
 
-  /* Create LFN in Unicode */
+  // Create LFN in Unicode
+  const TCHAR* p;
   for (p = *path; *p == '/' || *p == '\\'; p++) ; /* Strip duplicated separator */
-  lfn1 = lfn;
-  si = di = 0;
+  WCHAR* lfn1 = lfn;
+  UINT si = 0;
+  UINT di = 0;
+  WCHAR w;
   for (;;) {
-    w = p[si++];          /* Get a character */
+    w = p[si++]; // Get a character
     if (w < ' ' || w == '/' || w == '\\')
-      break;  /* Break on end of segment */
-    if (di >= MAX_LFN)       /* Reject too long name */
+      break;  // Break on end of segment
+    if (di >= MAX_LFN) // Reject too long name
       return FR_INVALID_NAME;
 
+    //* Convert ANSI/OEM to Unicode
     w &= 0xFF;
-    w = convertToFromUnicode (w, 1);     /* Convert ANSI/OEM to Unicode */
+    w = convertToFromUnicode (w, 1);
     if (!w)
-      return FR_INVALID_NAME; /* Reject invalid code */
+      return FR_INVALID_NAME; // Reject invalid code */
 
-    if (w < 0x80 && strchr ("\"*:<>\?|\x7F", w)) /* Reject illegal characters for LFN */
+    if (w < 0x80 && strchr ("\"*:<>\?|\x7F", w)) // Reject illegal characters for LFN */
       return FR_INVALID_NAME;
-    lfn1[di++] = w;          /* Store the Unicode character */
+    lfn1[di++] = w;   // Store the Unicode character */
     }
 
-  *path = &p[si];           /* Return pointer to the next segment */
-  cf = (w < ' ') ? NS_LAST : 0;   /* Set last segment flag if end of path */
+  *path = &p[si];  // Return pointer to the next segment */
+  cf = (w < ' ') ? NS_LAST : 0;   // Set last segment flag if end of path */
   if ((di == 1 && lfn1[di - 1] == '.') || (di == 2 && lfn1[di - 1] == '.' && lfn1[di - 2] == '.')) {
     lfn1[di] = 0;
     for (i = 0; i < 11; i++)
       fn[i] = (i < di) ? '.' : ' ';
-    fn[i] = cf | NS_DOT;    /* This is a dot entry */
+    fn[i] = cf | NS_DOT;   // This is a dot entry */
     return FR_OK;
     }
 
   while (di) {
-    /* Strip trailing spaces and dots */
+    // Strip trailing spaces and dots */
     w = lfn1[di - 1];
     if (w != ' ' && w != '.')
       break;
@@ -2224,9 +2246,10 @@ FRESULT cDirectory::createName (const TCHAR** path) {
   if (!di)
     return FR_INVALID_NAME;  /* Reject nul string */
 
-  lfn1[di] = 0;            /* LFN is created */
+  // LFN is created
+  lfn1[di] = 0;
 
-  /* Create SFN in directory form */
+  // Create SFN in directory form
   memset(fn, ' ', 11);
   for (si = 0; lfn1[si] == ' ' || lfn1[si] == '.'; si++) ;  /* Strip leading spaces and dots */
   if (si)
@@ -2236,17 +2259,18 @@ FRESULT cDirectory::createName (const TCHAR** path) {
 
   b = i = 0; ni = 8;
   for (;;) {
-    w = lfn1[si++];          /* Get an LFN character */
-    if (!w) /* Break on end of the LFN */
+    w = lfn1[si++];  // Get an LFN character */
+    if (!w) // Break on end of the LFN
       break;
 
     if (w == ' ' || (w == '.' && si != di)) {
-      /* Remove spaces and dots */
+      // Remove spaces and dots */
       cf |= NS_LOSS | NS_LFN;
       continue;
       }
 
-    if (i >= ni || si == di) {    /* Extension or end of SFN */
+    if (i >= ni || si == di) {
+      // Extension or end of SFN
       if (ni == 11) {
         /* Long extension */
         cf |= NS_LOSS | NS_LFN;
@@ -2255,30 +2279,36 @@ FRESULT cDirectory::createName (const TCHAR** path) {
       if (si != di)
         cf |= NS_LOSS | NS_LFN; /* Out of 8.3 format */
       if (si > di)
-        break;     /* No extension */
+        break;  // No extension */
 
       si = di;
       i = 8;
-      ni = 11;  /* Enter extension section */
+      ni = 11;  // Enter extension section */
       b <<= 2;
       continue;
       }
 
-    if (w >= 0x80) {        /* Non ASCII character */
-      w = convertToFromUnicode (w, 0);   /* Unicode -> OEM code */
+    if (w >= 0x80) {
+      // Non ASCII character,  Unicode -> OEM code */
+      w = convertToFromUnicode (w, 0);
       if (w)
         w = kExCvt[w - 0x80]; /* Convert extended character to upper (SBCS) */
-      cf |= NS_LFN;       /* Force create LFN entry */
+
+      // Force create LFN entry
+      cf |= NS_LFN;
       }
 
-    if (!w || strchr ("+,;=[]", w)) { /* Replace illegal characters for SFN */
+    if (!w || strchr ("+,;=[]", w)) {
+      // Replace illegal characters for SFN
       w = '_';
       cf |= NS_LOSS | NS_LFN; /* Lossy conversion */
       }
     else {
-      if (IsUpper(w)) /* ASCII large capital */
+      if (IsUpper(w))
+        // ASCII large capital
         b |= 2;
-      else if (IsLower(w)) { /* ASCII small capital */
+      else if (IsLower(w)) {
+        // ASCII small capital
         b |= 1;
         w -= 0x20;
         }
@@ -2290,16 +2320,19 @@ FRESULT cDirectory::createName (const TCHAR** path) {
     fn[0] = RDDEM; /* If the first character collides with deleted mark, replace it with RDDEM */
 
   if (ni == 8) b <<= 2;
-  if ((b & 0x0C) == 0x0C || (b & 0x03) == 0x03) /* Create LFN entry when there are composite capitals */
+  if ((b & 0x0C) == 0x0C || (b & 0x03) == 0x03)
+    // Create LFN entry when there are composite capitals */
     cf |= NS_LFN;
-  if (!(cf & NS_LFN)) {           /* When LFN is in 8.3 format without extended character, NT flags are created */
+  if (!(cf & NS_LFN)) {
+    // When LFN is in 8.3 format without extended character, NT flags are created */
     if ((b & 0x03) == 0x01)
       cf |= NS_EXT; /* NT flag (Extension has only small capital) */
     if ((b & 0x0C) == 0x04)
       cf |= NS_BODY;  /* NT flag (Filename has only small capital) */
     }
 
-  fn[NSFLAG] = cf;  /* SFN is created */
+  // SFN created
+  fn[NSFLAG] = cf;
 
   return FR_OK;
   }
@@ -3330,16 +3363,16 @@ FRESULT cFile::close() {
 int cFile::putCh (TCHAR c) {
 
   /* Initialize output buffer */
-  cPutBuff pb;
-  pb.file = this;
-  pb.nchr = pb.idx = 0;
+  cPutBuffer putBuffer;
+  putBuffer.file = this;
+  putBuffer.nchr = putBuffer.idx = 0;
 
   /* Put a character */
-  putChBuffered (&pb, c);
+  putChBuffered (&putBuffer, c);
 
   UINT nw;
-  if (pb.idx >= 0 && write (pb.buf, (UINT)pb.idx, &nw) == FR_OK && (UINT)pb.idx == nw)
-    return pb.nchr;
+  if (putBuffer.idx >= 0 && write (putBuffer.buf, (UINT)putBuffer.idx, &nw) == FR_OK && (UINT)putBuffer.idx == nw)
+    return putBuffer.nchr;
 
   return -1;
   }
@@ -3348,17 +3381,17 @@ int cFile::putCh (TCHAR c) {
 int cFile::putStr (const TCHAR* str) {
 
   /* Initialize output buffer */
-  cPutBuff pb;
-  pb.file = this;
-  pb.nchr = pb.idx = 0;
+  cPutBuffer putBuffer;
+  putBuffer.file = this;
+  putBuffer.nchr = putBuffer.idx = 0;
 
   /* Put the string */
   while (*str)
-    putChBuffered(&pb, *str++);
+    putChBuffered (&putBuffer, *str++);
 
   UINT nw;
-  if (pb.idx >= 0 && write (pb.buf, (UINT)pb.idx, &nw) == FR_OK && (UINT)pb.idx == nw)
-    return pb.nchr;
+  if (putBuffer.idx >= 0 && write (putBuffer.buf, (UINT)putBuffer.idx, &nw) == FR_OK && (UINT)putBuffer.idx == nw)
+    return putBuffer.nchr;
 
   return -1;
   }
@@ -3372,9 +3405,9 @@ int cFile::printf (const TCHAR* fmt, ...) {
   TCHAR c, d, s[16], *p;
 
   /* Initialize output buffer */
-  cPutBuff pb;
-  pb.file = this;
-  pb.nchr = pb.idx = 0;
+  cPutBuffer putBuffer;
+  putBuffer.file = this;
+  putBuffer.nchr = putBuffer.idx = 0;
 
   va_list arp;
   va_start (arp, fmt);
@@ -3385,7 +3418,7 @@ int cFile::printf (const TCHAR* fmt, ...) {
       break;      /* End of string */
 
     if (c != '%') {       /* Non escape character */
-      putChBuffered (&pb, c);
+      putChBuffered (&putBuffer, c);
       continue;
       }
 
@@ -3429,17 +3462,17 @@ int cFile::printf (const TCHAR* fmt, ...) {
         for (j = 0; p[j]; j++) ;
         if (!(f & 2)) {
           while (j++ < w)
-            putChBuffered(&pb, ' ');
+            putChBuffered (&putBuffer, ' ');
           }
         while (*p)
-          putChBuffered (&pb, *p++);
+          putChBuffered (&putBuffer, *p++);
         while (j++ < w)
-          putChBuffered (&pb, ' ');
+          putChBuffered (&putBuffer, ' ');
         continue;
       //}}}
       //{{{
       case 'C' :          /* Character */
-        putChBuffered(&pb, (TCHAR)va_arg(arp, int));
+        putChBuffered (&putBuffer, (TCHAR)va_arg(arp, int));
         continue;
       //}}}
       //{{{
@@ -3465,7 +3498,7 @@ int cFile::printf (const TCHAR* fmt, ...) {
       //}}}
       //{{{
       default:          /* Unknown type (pass-through) */
-        putChBuffered(&pb, c);
+        putChBuffered (&putBuffer, c);
         continue;
       //}}}
       }
@@ -3491,20 +3524,20 @@ int cFile::printf (const TCHAR* fmt, ...) {
     d = (f & 1) ? '0' : ' ';
 
     while (!(f & 2) && j++ < w)
-      putChBuffered (&pb, d);
+      putChBuffered (&putBuffer, d);
 
     do
-      putChBuffered (&pb, s[--i]);
+      putChBuffered (&putBuffer, s[--i]);
       while (i);
 
     while (j++ < w)
-      putChBuffered (&pb, d);
+      putChBuffered (&putBuffer, d);
     }
 
   va_end (arp);
 
-  if (pb.idx >= 0 && pb.file->write (pb.buf, (UINT)pb.idx, &nw) == FR_OK && (UINT)pb.idx == nw)
-    return pb.nchr;
+  if (putBuffer.idx >= 0 && putBuffer.file->write (putBuffer.buf, (UINT)putBuffer.idx, &nw) == FR_OK && (UINT)putBuffer.idx == nw)
+    return putBuffer.nchr;
 
   return -1;
   }
@@ -3535,7 +3568,7 @@ TCHAR* cFile::gets (TCHAR* buff, int len) {
   return n ? buff : 0;      /* When no data read (eof or error), return with error. */
   }
 //}}}
-//{{{  other cFile members
+//{{{  cFile private members
 //{{{
 DWORD cFile::clmtCluster (DWORD ofs) {
 
