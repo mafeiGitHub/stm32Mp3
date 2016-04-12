@@ -237,7 +237,7 @@ static DWORD getFatTime() {
 //}}}
 
 //{{{
-static WCHAR ffConvert (WCHAR chr, UINT direction /* 0: Unicode to OEMCP, 1: OEMCP to Unicode */ ) {
+static WCHAR convertToFromUnicode (WCHAR chr, UINT direction /* 0: Unicode to OEMCP, 1: OEMCP to Unicode */ ) {
 // Converted character, Returns zero on error
 
   WCHAR c;
@@ -270,12 +270,6 @@ static WCHAR wideToUpperCase (WCHAR chr) {
 //{{{
 static WCHAR get_achar (const TCHAR** ptr) {
 
-#if _LFN_UNICODE
-
-  return wideToUpperCase (*(*ptr)++); // Get a word and to upper
-
-#else
-
   WCHAR chr = (BYTE)*(*ptr)++;
   if (IsLower (chr))
     chr -= 0x20; // To upper ASCII char
@@ -284,8 +278,6 @@ static WCHAR get_achar (const TCHAR** ptr) {
     chr = kExCvt[chr - 0x80]; // To upper SBCS extended char
 
   return chr;
-
-#endif
   }
 //}}}
 //{{{
@@ -350,40 +342,8 @@ static void putChBuffered (cPutBuff* pb, TCHAR c) {
   if (i < 0)
     return;
 
-#if _LFN_UNICODE
-  #if _STRF_ENCODE == 3     /* Write a character in UTF-8 */
-    if (c < 0x80)        /* 7-bit */
-      pb->buf[i++] = (BYTE)c;
-    else {
-      if (c < 0x800)     /* 11-bit */
-        pb->buf[i++] = (BYTE)(0xC0 | c >> 6);
-      else {        /* 16-bit */
-        pb->buf[i++] = (BYTE)(0xE0 | c >> 12);
-        pb->buf[i++] = (BYTE)(0x80 | (c >> 6 & 0x3F));
-        }
-      pb->buf[i++] = (BYTE)(0x80 | (c & 0x3F));
-      }
-  #elif _STRF_ENCODE == 2
-    // Write a character in UTF-16BE
-    pb->buf[i++] = (BYTE)(c >> 8);
-    pb->buf[i++] = (BYTE)c;
-  #elif _STRF_ENCODE == 1
-    // Write a character in UTF-16LE
-    pb->buf[i++] = (BYTE)c;
-    pb->buf[i++] = (BYTE)(c >> 8);
-  #else
-    // Write a character in ANSI/OEM, Unicode -> OEM
-    c = ffConvert (c, 0);
-    if (!c)
-      c = '?';
-    if (c >= 0x100)
-      pb->buf[i++] = (BYTE)(c >> 8);
-    pb->buf[i++] = (BYTE)c;
-  #endif
-#else
   // Write a character without conversion
   pb->buf[i++] = (BYTE)c;
-#endif
 
   if (i >= (int)(sizeof pb->buf) - 3) {
     // Write buffered characters to the file
@@ -636,7 +596,7 @@ FRESULT cFatFs::getCwd (TCHAR* buff, UINT len) {
     directory.lfn = lfn;
     directory.fn = sfn;
     i = len;      /* Bottom of buffer (directory stack base) */
-    directory.sclust = directory.fs->cdir;      /* Start to follow upper directory from current directory */
+    directory.sclust = cdir;      /* Start to follow upper directory from current directory */
     while ((ccl = directory.sclust) != 0) {  /* Repeat while current directory is a sub-directory */
       res = directory.setIndex (1);      /* Get parent directory */
       if (res != FR_OK)
@@ -646,7 +606,7 @@ FRESULT cFatFs::getCwd (TCHAR* buff, UINT len) {
       if (res != FR_OK)
         break;
 
-      directory.sclust = directory.fs->loadCluster (directory.dir);  /* Goto parent directory */
+      directory.sclust = loadCluster (directory.dir);  /* Goto parent directory */
       res = directory.setIndex (0);
       if (res != FR_OK)
         break;
@@ -655,7 +615,7 @@ FRESULT cFatFs::getCwd (TCHAR* buff, UINT len) {
         res = directory.read (0);
         if (res != FR_OK)
           break;
-        if (ccl == directory.fs->loadCluster (directory.dir))
+        if (ccl == loadCluster (directory.dir))
           break;  /* Found the entry */
         res = directory.next (0);
         } while (res == FR_OK);
@@ -704,10 +664,6 @@ FRESULT cFatFs::getCwd (TCHAR* buff, UINT len) {
 //{{{
 FRESULT cFatFs::getLabel (TCHAR* label, DWORD* vsn) {
 
-#if _LFN_UNICODE
-  WCHAR w;
-#endif
-
   cDirectory directory;
   FRESULT res = findVolume (&directory.fs, 0);
 
@@ -721,16 +677,7 @@ FRESULT cFatFs::getLabel (TCHAR* label, DWORD* vsn) {
       res = directory.read (1);
       if (res == FR_OK) {
         /* A volume label is exist */
-#if _LFN_UNICODE
-        UINT i = 0;
-        UINT j = 0;
-        do {
-          w = (i < 11) ? directory.dir[i++] : ' ';
-          label[j++] = ffConvert (w, 1);  /* OEM -> Unicode */
-          } while (j < 11);
-#else
         memcpy (label, directory.dir, 11);
-#endif
         UINT k = 11;
         do {
           label[k] = 0;
@@ -748,10 +695,10 @@ FRESULT cFatFs::getLabel (TCHAR* label, DWORD* vsn) {
 
   /* Get volume serial number */
   if (res == FR_OK && vsn) {
-    res = directory.fs->moveWindow (directory.fs->volbase);
+    res = moveWindow (volbase);
     if (res == FR_OK) {
-      UINT i = directory.fs->fsType == FS_FAT32 ? BS_VolID32 : BS_VolID;
-      *vsn = LD_DWORD (&directory.fs->win.d8[i]);
+      UINT i = fsType == FS_FAT32 ? BS_VolID32 : BS_VolID;
+      *vsn = LD_DWORD (&win.d8[i]);
       }
     }
 
@@ -781,12 +728,8 @@ FRESULT cFatFs::setLabel (const TCHAR* label) {
   if (sl) { /* Create volume label in directory form */
     i = j = 0;
     do {
-#if LFN_UNICODE
-      w = ffConvert (wideToUpperCase (label[i++]), 0);
-#else
       w = (BYTE)label[i++];
-      w = ffConvert (wideToUpperCase (ffConvert(w, 1)), 0);
-#endif
+      w = convertToFromUnicode (wideToUpperCase (convertToFromUnicode(w, 1)), 0);
       if (!w || strchr ("\"*+,.:;<=>\?[]|\x7F", w) || j >= (UINT)((w >= 0x100) ? 10 : 11)) {
         /* Reject invalid characters for volume label */
         unlock (FR_INVALID_NAME);
@@ -818,8 +761,8 @@ FRESULT cFatFs::setLabel (const TCHAR* label) {
         }
       else
         directory.dir[0] = DDEM;     /* Remove the volume label */
-      directory.fs->wflag = 1;
-      res = directory.fs->syncFs();
+      wflag = 1;
+      res = syncFs();
       }
     else {          /* No volume label is found or error */
       if (res == FR_NO_FILE) {
@@ -832,8 +775,8 @@ FRESULT cFatFs::setLabel (const TCHAR* label) {
             directory.dir[DIR_Attr] = AM_VOL;
             tm = getFatTime();
             ST_DWORD(directory.dir + DIR_WrtTime, tm);
-            directory.fs->wflag = 1;
-            res = directory.fs->syncFs();
+            wflag = 1;
+            res = syncFs();
             }
           }
         }
@@ -866,7 +809,7 @@ FRESULT cFatFs::mkDir (const TCHAR* path) {
       res = FR_INVALID_NAME;
     if (res == FR_NO_FILE) {
       /* Can create a new directory */
-      dcl = directory.fs->createChain (0);   /* Allocate a cluster for the new directory table */
+      dcl = createChain (0);   /* Allocate a cluster for the new directory table */
       res = FR_OK;
       if (dcl == 0)
         res = FR_DENIED;    /* No space to allocate a new cluster */
@@ -875,13 +818,13 @@ FRESULT cFatFs::mkDir (const TCHAR* path) {
       if (dcl == 0xFFFFFFFF)
         res = FR_DISK_ERR;
 
-      if (res == FR_OK)         /* Flush FAT */
-        res = directory.fs->syncWindow();
+      if (res == FR_OK)  /* Flush FAT */
+        res = syncWindow();
 
       if (res == FR_OK) {
         /* Initialize the new directory table */
-        dsc = directory.fs->clusterToSector (dcl);
-        dir = directory.fs->win.d8;
+        dsc = clusterToSector (dcl);
+        dir = win.d8;
         memset(dir, 0, SECTOR_SIZE);
         memset(dir + DIR_Name, ' ', 11); /* Create "." entry */
         dir[DIR_Name] = '.';
@@ -892,13 +835,13 @@ FRESULT cFatFs::mkDir (const TCHAR* path) {
 
         dir[SZ_DIRE + 1] = '.';
         pcl = directory.sclust;
-        if (directory.fs->fsType == FS_FAT32 && pcl == directory.fs->dirbase)
+        if (fsType == FS_FAT32 && pcl == dirbase)
           pcl = 0;
         storeCluster (dir + SZ_DIRE, pcl);
-        for (n = directory.fs->csize; n; n--) {  /* Write dot entries and clear following sectors */
-          directory.fs->winsect = dsc++;
-          directory.fs->wflag = 1;
-          res = directory.fs->syncWindow();
+        for (n = csize; n; n--) {  /* Write dot entries and clear following sectors */
+          winsect = dsc++;
+          wflag = 1;
+          res = syncWindow();
           if (res != FR_OK)
             break;
           memset(dir, 0, SECTOR_SIZE);
@@ -908,14 +851,14 @@ FRESULT cFatFs::mkDir (const TCHAR* path) {
       if (res == FR_OK)
         res = directory.registerNewEntry();
       if (res != FR_OK)
-        directory.fs->removeChain (dcl);     /* Could not register, remove cluster chain */
+        removeChain (dcl);     /* Could not register, remove cluster chain */
       else {
         dir = directory.dir;
         dir[DIR_Attr] = AM_DIR;       /* Attribute */
         ST_DWORD(dir + DIR_WrtTime, tm);  /* Created time */
         storeCluster (dir, dcl);         /* Table start cluster */
-        directory.fs->wflag = 1;
-        res = directory.fs->syncFs();
+        wflag = 1;
+        res = syncFs();
         }
       }
     }
@@ -939,10 +882,10 @@ FRESULT cFatFs::chDir (const TCHAR* path) {
     if (res == FR_OK) {
       /* Follow completed */
       if (!directory.dir)
-        directory.fs->cdir = directory.sclust;  /* Start directory itself */
+        cdir = directory.sclust;  /* Start directory itself */
       else {
         if (directory.dir[DIR_Attr] & AM_DIR)  /* Reached to the directory */
-          directory.fs->cdir = directory.fs->loadCluster (directory.dir);
+          cdir = loadCluster (directory.dir);
         else
           res = FR_NO_PATH;   /* Reached but a file */
         }
@@ -1018,18 +961,18 @@ FRESULT cFatFs::rename (const TCHAR* path_old, const TCHAR* path_new) {
             dir = newDirectory.dir;          /* Copy information about object except name */
             memcpy (dir + 13, buf + 2, 19);
             dir[DIR_Attr] = buf[0] | AM_ARC;
-            oldDirectory.fs->wflag = 1;
+            wflag = 1;
             if ((dir[DIR_Attr] & AM_DIR) && oldDirectory.sclust != newDirectory.sclust) {
               /* Update .. entry in the sub-directory if needed */
-              dw = oldDirectory.fs->clusterToSector (oldDirectory.fs->loadCluster (dir));
+              dw = clusterToSector (loadCluster (dir));
               if (!dw)
                 res = FR_INT_ERR;
               else {
-                res = oldDirectory.fs->moveWindow (dw);
-                dir = oldDirectory.fs->win.d8 + SZ_DIRE * 1; /* Ptr to .. entry */
+                res = moveWindow (dw);
+                dir = win.d8 + SZ_DIRE * 1; /* Ptr to .. entry */
                 if (res == FR_OK && dir[1] == '.') {
                   storeCluster (dir, newDirectory.sclust);
-                  oldDirectory.fs->wflag = 1;
+                  wflag = 1;
                   }
                 }
               }
@@ -1037,7 +980,7 @@ FRESULT cFatFs::rename (const TCHAR* path_old, const TCHAR* path_new) {
             if (res == FR_OK) {
               res = oldDirectory.remove();   /* Remove old entry */
               if (res == FR_OK)
-                res = oldDirectory.fs->syncFs();
+                res = syncFs();
               }
 /* End of critical section */
             }
@@ -1074,8 +1017,8 @@ FRESULT cFatFs::chMod (const TCHAR* path, BYTE attr, BYTE mask) {
       else {            /* File or sub directory */
         mask &= AM_RDO|AM_HID|AM_SYS|AM_ARC;  /* Valid attribute mask */
         dir[DIR_Attr] = (attr & mask) | (dir[DIR_Attr] & (BYTE)~mask);  /* Apply attribute change */
-        directory.fs->wflag = 1;
-        res = directory.fs->syncFs();
+        wflag = 1;
+        res = syncFs();
         }
       }
     }
@@ -1104,8 +1047,8 @@ FRESULT cFatFs::utime (const TCHAR* path, const cFileInfo* fileInfo) {
       else { // file or subDir
         ST_WORD(dir + DIR_WrtTime, fileInfo->ftime);
         ST_WORD(dir + DIR_WrtDate, fileInfo->fdate);
-        directory.fs->wflag = 1;
-        res = directory.fs->syncFs();
+        wflag = 1;
+        res = syncFs();
         }
       }
     }
@@ -1142,9 +1085,9 @@ FRESULT cFatFs::unlink (const TCHAR* path) {
         }
 
       if (res == FR_OK) {
-        dclst = directory.fs->loadCluster (dir);
+        dclst = loadCluster (dir);
         if (dclst && (dir[DIR_Attr] & AM_DIR)) {  /* Is it a sub-directory ? */
-          if (dclst == directory.fs->cdir) {       /* Is it the current directory? */
+          if (dclst == cdir) {       /* Is it the current directory? */
             res = FR_DENIED;
             }
           else {
@@ -1166,9 +1109,9 @@ FRESULT cFatFs::unlink (const TCHAR* path) {
       if (res == FR_OK) {
         res = directory.remove();    /* Remove the directory entry */
         if (res == FR_OK && dclst)  /* Remove the cluster chain if exist */
-          res = directory.fs->removeChain (dclst);
+          res = removeChain (dclst);
         if (res == FR_OK)
-          res = directory.fs->syncFs();
+          res = syncFs();
         }
       }
     }
@@ -2239,12 +2182,10 @@ FRESULT cDirectory::createName (const TCHAR** path) {
     if (di >= MAX_LFN)       /* Reject too long name */
       return FR_INVALID_NAME;
 
-#if !_LFN_UNICODE
     w &= 0xFF;
-    w = ffConvert (w, 1);     /* Convert ANSI/OEM to Unicode */
+    w = convertToFromUnicode (w, 1);     /* Convert ANSI/OEM to Unicode */
     if (!w)
       return FR_INVALID_NAME; /* Reject invalid code */
-#endif
 
     if (w < 0x80 && strchr ("\"*:<>\?|\x7F", w)) /* Reject illegal characters for LFN */
       return FR_INVALID_NAME;
@@ -2312,7 +2253,7 @@ FRESULT cDirectory::createName (const TCHAR** path) {
       }
 
     if (w >= 0x80) {        /* Non ASCII character */
-      w = ffConvert (w, 0);   /* Unicode -> OEM code */
+      w = convertToFromUnicode (w, 0);   /* Unicode -> OEM code */
       if (w)
         w = kExCvt[w - 0x80]; /* Convert extended character to upper (SBCS) */
       cf |= NS_LFN;       /* Force create LFN entry */
@@ -2735,11 +2676,6 @@ void cDirectory::getFileInfo (cFileInfo* fileInfo) {
         *p++ = '.';       // Insert a . if extension is exist
       if (IsUpper(c) && (dir1[DIR_NTres] & (i >= 9 ? NS_EXT : NS_BODY)))
         c += 0x20;  // To lower
-#if _LFN_UNICODE
-      c = ffConvert (c, 1); // OEM -> Unicode
-      if (!c)
-        c = '?';
-#endif
       *p++ = c;
       }
 
@@ -2760,14 +2696,12 @@ void cDirectory::getFileInfo (cFileInfo* fileInfo) {
       WCHAR* lfnPtr = lfn;
       while ((w = *lfnPtr++) != 0) {
         // Get an lfn character
-#if !_LFN_UNICODE
-        w = ffConvert (w, 0);  // Unicode -> OEM
+        w = convertToFromUnicode (w, 0);  // Unicode -> OEM
         if (!w) {
           // No lfn if it could not be converted
           i = 0;
           break;
           }
-#endif
         if (i >= fileInfo->lfsize - 1) {
           // No lfn if buffer overflow
           i = 0;
@@ -3358,10 +3292,10 @@ FRESULT cFile::close() {
       cFatFs* fatFs = fs;
 
       // Decrement file open counter
-      res = fs->decLock (lockid);     
+      res = fs->decLock (lockid);
       if (res == FR_OK)
         // Invalidate file object
-        fs = 0;   
+        fs = 0;
 
       fatFs->unlock (FR_OK);
       }
@@ -3563,60 +3497,10 @@ TCHAR* cFile::gets (TCHAR* buff, int len) {
 
   while (n < len - 1) {
     /* Read characters until buffer gets filled */
-#if _LFN_UNICODE
-#if _STRF_ENCODE == 3
-    /* Read a character in UTF-8 */
-    read (s, 1, &rc);
-    if (rc != 1) break;
-    c = s[0];
-    if (c >= 0x80) {
-      if (c < 0xC0)
-        continue; /* Skip stray trailer */
-      if (c < 0xE0) {     /* Two-byte sequence */
-        read (s, 1, &rc);
-        if (rc != 1)
-          break;
-        c = (c & 0x1F) << 6 | (s[0] & 0x3F);
-        if (c < 0x80)
-          c = '?';
-        }
-      else {
-        if (c < 0xF0) {   /* Three-byte sequence */
-          read (s, 2, &rc);
-          if (rc != 2)
-            break;
-          c = c << 12 | (s[0] & 0x3F) << 6 | (s[1] & 0x3F);
-          if (c < 0x800)
-            c = '?';
-          }
-        else       /* Reject four-byte sequence */
-          c = '?';
-        }
-      }
-#elif _STRF_ENCODE == 2   /* Read a character in UTF-16BE */
-    read (s, 2, &rc);
-    if (rc != 2)
-      break;
-    c = s[1] + (s[0] << 8);
-#elif _STRF_ENCODE == 1   /* Read a character in UTF-16LE */
-    read (s, 2, &rc);
-    if (rc != 2)
-      break;
-    c = s[0] + (s[1] << 8);
-#else           /* Read a character in ANSI/OEM */
     read (s, 1, &rc);
     if (rc != 1)
       break;
     c = s[0];
-    c = ffConvert(c, 1); /* OEM -> Unicode */
-    if (!c) c = '?';
-#endif
-#else           /* Read a character without conversion */
-    read (s, 1, &rc);
-    if (rc != 1)
-      break;
-    c = s[0];
-#endif
     if (c == '\r')
       continue; /* Strip '\r' */
     *p++ = c;
