@@ -214,8 +214,9 @@ static const BYTE kExCvt[] = {
 //{{{
 class cPutBuff {
 public:
-  cFile* fp;
-  int idx, nchr;
+  cFile* file;
+  int idx;
+  int nchr;
   BYTE buf[64];
   };
 //}}}
@@ -334,11 +335,11 @@ static int matchPattern (const TCHAR* pat, const TCHAR* nam, int skip, int inf) 
 //}}}
 
 //{{{
-static void putc_bfd (cPutBuff* pb, TCHAR c) {
+static void putChBuffered (cPutBuff* pb, TCHAR c) {
 
   if (c == '\n')
     /* LF -> CRLF conversion */
-    putc_bfd (pb, '\r');
+    putChBuffered (pb, '\r');
 
   /* Buffer write index (-1:error) */
   int i = pb->idx;
@@ -383,7 +384,7 @@ static void putc_bfd (cPutBuff* pb, TCHAR c) {
   if (i >= (int)(sizeof pb->buf) - 3) {
     // Write buffered characters to the file
     UINT bw;
-    pb->fp->write (pb->buf, (UINT)i, &bw);
+    pb->file->write (pb->buf, (UINT)i, &bw);
     i = (bw == (UINT)i) ? 0 : -1;
     }
 
@@ -2946,7 +2947,8 @@ FRESULT cFile::lseek (DWORD ofs) {
         if (!dsc)
           ABORT(fs, FR_INT_ERR);
         dsc += (ofs - 1) / SECTOR_SIZE & (fs->csize - 1);
-        if (fptr % SECTOR_SIZE && dsc != dsect) {  /* Refill sector cache if needed */
+        if (fptr % SECTOR_SIZE && dsc != dsect) {
+          /* Refill sector cache if needed */
           if (flag & FA__DIRTY) {
             /* Write-back dirty sector cache */
             if (disk_write (fs->drv, buf.d8, dsect, 1) != RES_OK)
@@ -3188,7 +3190,8 @@ FRESULT cFile::write (const void *buff, UINT btw, UINT* bw) {
           sclust = clst; /* Set start cluster if the first write */
         }
 
-      if (flag & FA__DIRTY) {   /* Write-back sector cache */
+      if (flag & FA__DIRTY) {
+        /* Write-back sector cache */
         if (disk_write (fs->drv, buf.d8, dsect, 1) != RES_OK)
           ABORT(fs, FR_DISK_ERR);
         flag &= ~FA__DIRTY;
@@ -3213,24 +3216,30 @@ FRESULT cFile::write (const void *buff, UINT btw, UINT* bw) {
         continue;
         }
 
-      if (dsect != sect) {    /* Fill sector cache with file data */
-        if (fptr < fsize &&
-          disk_read (fs->drv, buf.d8, sect, 1) != RES_OK)
-            ABORT(fs, FR_DISK_ERR);
+      if (dsect != sect) {
+        /* Fill sector cache with file data */
+        if (fptr < fsize && disk_read (fs->drv, buf.d8, sect, 1) != RES_OK)
+          ABORT(fs, FR_DISK_ERR);
         }
       dsect = sect;
       }
 
-    wcnt = SECTOR_SIZE - ((UINT)fptr % SECTOR_SIZE); /* Put partial sector into file I/O buffer */
+    /* Put partial sector into file I/O buffer */
+    wcnt = SECTOR_SIZE - ((UINT)fptr % SECTOR_SIZE);
     if (wcnt > btw)
       wcnt = btw;
-    memcpy (&buf.d8[fptr % SECTOR_SIZE], wbuff, wcnt); /* Fit partial sector */
+
+    /* Fit partial sector */
+    memcpy (&buf.d8[fptr % SECTOR_SIZE], wbuff, wcnt);
     flag |= FA__DIRTY;
     }
 
+  /* Update file size if needed */
   if (fptr > fsize)
-    fsize = fptr;  /* Update file size if needed */
-  flag |= FA__WRITTEN; /* Set file change flag */
+    fsize = fptr;
+
+  /* Set file change flag */
+  flag |= FA__WRITTEN;
 
   LEAVE_FF(fs, FR_OK);
   }
@@ -3346,11 +3355,11 @@ int cFile::putCh (TCHAR c) {
 
   /* Initialize output buffer */
   cPutBuff pb;
-  pb.fp = this;
+  pb.file = this;
   pb.nchr = pb.idx = 0;
 
   /* Put a character */
-  putc_bfd (&pb, c);
+  putChBuffered (&pb, c);
 
   UINT nw;
   if (pb.idx >= 0 && write (pb.buf, (UINT)pb.idx, &nw) == FR_OK && (UINT)pb.idx == nw)
@@ -3364,12 +3373,12 @@ int cFile::putStr (const TCHAR* str) {
 
   /* Initialize output buffer */
   cPutBuff pb;
-  pb.fp = this;
+  pb.file = this;
   pb.nchr = pb.idx = 0;
 
   /* Put the string */
   while (*str)
-    putc_bfd(&pb, *str++);
+    putChBuffered(&pb, *str++);
 
   UINT nw;
   if (pb.idx >= 0 && write (pb.buf, (UINT)pb.idx, &nw) == FR_OK && (UINT)pb.idx == nw)
@@ -3388,7 +3397,7 @@ int cFile::printf (const TCHAR* fmt, ...) {
 
   /* Initialize output buffer */
   cPutBuff pb;
-  pb.fp = this;
+  pb.file = this;
   pb.nchr = pb.idx = 0;
 
   va_list arp;
@@ -3400,7 +3409,7 @@ int cFile::printf (const TCHAR* fmt, ...) {
       break;      /* End of string */
 
     if (c != '%') {       /* Non escape character */
-      putc_bfd (&pb, c);
+      putChBuffered (&pb, c);
       continue;
       }
 
@@ -3444,17 +3453,17 @@ int cFile::printf (const TCHAR* fmt, ...) {
         for (j = 0; p[j]; j++) ;
         if (!(f & 2)) {
           while (j++ < w)
-            putc_bfd(&pb, ' ');
+            putChBuffered(&pb, ' ');
           }
         while (*p)
-          putc_bfd (&pb, *p++);
+          putChBuffered (&pb, *p++);
         while (j++ < w)
-          putc_bfd (&pb, ' ');
+          putChBuffered (&pb, ' ');
         continue;
       //}}}
       //{{{
       case 'C' :          /* Character */
-        putc_bfd(&pb, (TCHAR)va_arg(arp, int));
+        putChBuffered(&pb, (TCHAR)va_arg(arp, int));
         continue;
       //}}}
       //{{{
@@ -3480,7 +3489,7 @@ int cFile::printf (const TCHAR* fmt, ...) {
       //}}}
       //{{{
       default:          /* Unknown type (pass-through) */
-        putc_bfd(&pb, c);
+        putChBuffered(&pb, c);
         continue;
       //}}}
       }
@@ -3506,19 +3515,19 @@ int cFile::printf (const TCHAR* fmt, ...) {
     d = (f & 1) ? '0' : ' ';
 
     while (!(f & 2) && j++ < w)
-      putc_bfd (&pb, d);
+      putChBuffered (&pb, d);
 
     do
-      putc_bfd (&pb, s[--i]);
+      putChBuffered (&pb, s[--i]);
       while (i);
 
     while (j++ < w)
-      putc_bfd (&pb, d);
+      putChBuffered (&pb, d);
     }
 
   va_end (arp);
 
-  if (pb.idx >= 0 && pb.fp->write (pb.buf, (UINT)pb.idx, &nw) == FR_OK && (UINT)pb.idx == nw)
+  if (pb.idx >= 0 && pb.file->write (pb.buf, (UINT)pb.idx, &nw) == FR_OK && (UINT)pb.idx == nw)
     return pb.nchr;
 
   return -1;
