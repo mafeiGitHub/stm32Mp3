@@ -24,9 +24,9 @@
 #define N_ROOTDIR 512  // Number of root directory entries for FAT12/16
 
 // Character code support macros
-#define IsUpper(c)  (((c)>='A')&&((c)<='Z'))
-#define IsLower(c)  (((c)>='a')&&((c)<='z'))
-#define IsDigit(c)  (((c)>='0')&&((c)<='9'))
+#define IsUpper(c)  (((c) >= 'A') && ((c) <= 'Z'))
+#define IsLower(c)  (((c) >= 'a') && ((c) <= 'z'))
+#define IsDigit(c)  (((c) >= '0') && ((c) <= '9'))
 
 // Multi-byte word access macros
 #define LD_WORD(ptr)   (WORD)(((WORD)*((BYTE*)(ptr)+1)<<8)|(WORD)*(BYTE*)(ptr))
@@ -1368,7 +1368,7 @@ FRESULT cFatFs::findVolume (cFatFs** fs, BYTE wmode) {
     *fs = 0;
     return FR_TIMEOUT;
     }
-  *fs = mFatFs;
+  *fs = this;
 
   if (fsType) {
     // check volume mounted
