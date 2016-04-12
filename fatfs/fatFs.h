@@ -159,16 +159,6 @@ public :
   FRESULT mkfs (const TCHAR* path, BYTE sfd, UINT au);           // Create a file system on the volume
 
 private:
-  //{{{
-  class cFileSem {
-  public:
-    cFatFs* fs; // Object ID 1, volume (NULL:blank entry)
-    DWORD clu;  // Object ID 2, directory (0:root)
-    WORD idx;   // Object ID 3, directory index
-    WORD ctr;   // Object open counter, 0:none, 0x01..0xFF:read mode open count, 0x100:write mode
-    };
-  //}}}
-
   FRESULT findVolume (cFatFs** fs, BYTE wmode);
 
   FRESULT syncWindow();
@@ -194,16 +184,22 @@ private:
 
   void unlock (FRESULT res);
 
+  //{{{
+  class cFileSem {
+  public:
+    cFatFs* fs; // Object ID 1, volume (NULL:blank entry)
+    DWORD clu;  // Object ID 2, directory (0:root)
+    WORD idx;   // Object ID 3, directory index
+    WORD ctr;   // Object open counter, 0:none, 0x01..0xFF:read mode open count, 0x100:write mode
+    };
+  //}}}
+
   // static vars
   static cFatFs* mFatFs;
   static cFileSem mFiles[FS_LOCK];
 
   // private vars
-  union {
-    UINT  d32[SECTOR_SIZE/4]; // Force 32bits alignement
-    BYTE   d8[SECTOR_SIZE];   // Disk access window for Directory, FAT (and file data at tiny cfg)
-    } window;
-
+  BYTE* windowBuffer;   // Disk access window for Directory, FAT
   osSemaphoreId semaphore; // Identifier of sync object
 
   BYTE  fsType = 0;     // FAT sub-type (0:Not mounted)
@@ -233,6 +229,8 @@ private:
 class cFile {
 friend class cFatFs;
 public:
+  cFile();
+  ~cFile();
   FRESULT open (const TCHAR* path, BYTE mode);
   int size() { return fsize; }
   FRESULT lseek (DWORD ofs);
@@ -252,10 +250,7 @@ private:
   DWORD clmtCluster (DWORD ofs);
 
   // vars
-  union {
-    UINT  d32[SECTOR_SIZE/4]; // Force 32bits alignement
-    BYTE   d8[SECTOR_SIZE];   // File data read/write buffer
-    } buf;
+  BYTE* fileBuffer = nullptr;  // File data read/write buffer
 
   cFatFs* fs;       // Pointer to the related file system
   WORD id;         // Owner file system mount ID
@@ -299,8 +294,8 @@ private:
   FRESULT remove();
   void getFileInfo (cFileInfo* fileInfo);
 
-  WORD id;          // Owner file system mount ID
-  UINT lockid;      // File lock ID (index of file semaphore table Files[])
+  WORD id;       // Owner file system mount ID
+  UINT lockid;   // File lock ID (index of file semaphore table Files[])
   const TCHAR* pat; // Pointer to the name matching pattern
 
   cFatFs* fs;    // Pointer to the owner file system

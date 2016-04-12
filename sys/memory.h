@@ -7,7 +7,7 @@
 #define AUDIO_BUFFER_SIZE        0x2400  // SIZE = 0x2400 = 1152*8 = 9216 bytes
 
 #define FATFS_BUFFER         0x20002400
-#define FATFS_BUFFER_SIZE         0x238  // SIZE =  0x238 bytes
+#define FATFS_BUFFER_SIZE         0x200  // SIZE =  0x200 = 512 bytes - sector size
 
 #define EthRxDescripSection  0x20003000  // SIZE =   0xA0 bytes
 #define EthRxBUF             0x20003100  // SIZE = 0x1DC4 bytes
