@@ -202,7 +202,7 @@ private:
   union {
     UINT  d32[SECTOR_SIZE/4]; // Force 32bits alignement
     BYTE   d8[SECTOR_SIZE];   // Disk access window for Directory, FAT (and file data at tiny cfg)
-    } win;
+    } window;
 
   osSemaphoreId semaphore; // Identifier of sync object
 

@@ -550,7 +550,7 @@ FRESULT cFatFs::getFree (DWORD* numClusters, DWORD* clusterSize) {
             res = moveWindow (sect++);
             if (res != FR_OK)
               break;
-            p = win.d8;
+            p = window.d8;
             i = SECTOR_SIZE;
             }
 
@@ -698,7 +698,7 @@ FRESULT cFatFs::getLabel (TCHAR* label, DWORD* vsn) {
     res = moveWindow (volbase);
     if (res == FR_OK) {
       UINT i = fsType == FS_FAT32 ? BS_VolID32 : BS_VolID;
-      *vsn = LD_DWORD (&win.d8[i]);
+      *vsn = LD_DWORD (&window.d8[i]);
       }
     }
 
@@ -824,7 +824,7 @@ FRESULT cFatFs::mkDir (const TCHAR* path) {
       if (res == FR_OK) {
         /* Initialize the new directory table */
         dsc = clusterToSector (dcl);
-        dir = win.d8;
+        dir = window.d8;
         memset(dir, 0, SECTOR_SIZE);
         memset(dir + DIR_Name, ' ', 11); /* Create "." entry */
         dir[DIR_Name] = '.';
@@ -969,7 +969,7 @@ FRESULT cFatFs::rename (const TCHAR* path_old, const TCHAR* path_new) {
                 res = FR_INT_ERR;
               else {
                 res = moveWindow (dw);
-                dir = win.d8 + SZ_DIRE * 1; /* Ptr to .. entry */
+                dir = window.d8 + SZ_DIRE * 1; /* Ptr to .. entry */
                 if (res == FR_OK && dir[1] == '.') {
                   storeCluster (dir, newDirectory.sclust);
                   wflag = 1;
@@ -1230,8 +1230,8 @@ FRESULT cFatFs::mkfs (const TCHAR* path, BYTE sfd, UINT au) {
     md = 0xF0;
   else {
     /* Create partition table (FDISK) */
-    memset (win.d8, 0, SECTOR_SIZE);
-    tbl = win.d8 + MBR_Table;  /* Create partition table for single partition in the drive */
+    memset (window.d8, 0, SECTOR_SIZE);
+    tbl = window.d8 + MBR_Table;  /* Create partition table for single partition in the drive */
     tbl[1] = 1;                    /* Partition start head */
     tbl[2] = 1;                    /* Partition start sector */
     tbl[3] = 0;                    /* Partition start cylinder */
@@ -1242,14 +1242,14 @@ FRESULT cFatFs::mkfs (const TCHAR* path, BYTE sfd, UINT au) {
     tbl[7] = (BYTE)n;              /* End cylinder */
     ST_DWORD(tbl + 8, 63);         /* Partition start in LBA */
     ST_DWORD(tbl + 12, n_vol);     /* Partition size in LBA */
-    ST_WORD(win.d8 + BS_55AA, 0xAA55);  /* MBR signature */
-    if (diskWrite (vol, win.d8, 0, 1) != RES_OK) /* Write it to the MBR */
+    ST_WORD(window.d8 + BS_55AA, 0xAA55);  /* MBR signature */
+    if (diskWrite (vol, window.d8, 0, 1) != RES_OK) /* Write it to the MBR */
       return FR_DISK_ERR;
     md = 0xF8;
     }
 
   /* Create BPB in the VBR */
-  tbl = win.d8;             /* Clear sector */
+  tbl = window.d8;             /* Clear sector */
   memset (tbl, 0, SECTOR_SIZE);
   memcpy (tbl, "\xEB\xFE\x90" "MSDOS5.0", 11); /* Boot jump code, OEM name */
 
@@ -1400,7 +1400,7 @@ FRESULT cFatFs::findVolume (cFatFs** fs, BYTE wmode) {
     // Not an FAT boot sector or forced partition number
     for (i = 0; i < 4; i++) {
       // Get partition offset
-      pt = win.d8 + MBR_Table + i * SZ_PTE;
+      pt = window.d8 + MBR_Table + i * SZ_PTE;
       br[i] = pt[4] ? LD_DWORD(&pt[8]) : 0;
       }
 
@@ -1421,38 +1421,38 @@ FRESULT cFatFs::findVolume (cFatFs** fs, BYTE wmode) {
     return FR_NO_FILESYSTEM; // No FAT volume is found
 
   // FAT volume found, code initializes the file system
-  if (LD_WORD(win.d8 + BPB_BytsPerSec) != SECTOR_SIZE) // (BPB_BytsPerSec must be equal to the physical sector size)
+  if (LD_WORD(window.d8 + BPB_BytsPerSec) != SECTOR_SIZE) // (BPB_BytsPerSec must be equal to the physical sector size)
     return FR_NO_FILESYSTEM;
 
   // Number of sectors per FAT
-  fasize = LD_WORD(win.d8 + BPB_FATSz16);
+  fasize = LD_WORD(window.d8 + BPB_FATSz16);
   if (!fasize)
-    fasize = LD_DWORD(win.d8 + BPB_FATSz32);
+    fasize = LD_DWORD(window.d8 + BPB_FATSz32);
   fsize = fasize;
 
   // Number of FAT copies
-  numFatCopies = win.d8[BPB_NumFATs];
+  numFatCopies = window.d8[BPB_NumFATs];
   if (numFatCopies != 1 && numFatCopies != 2) // (Must be 1 or 2)
     return FR_NO_FILESYSTEM;
   fasize *= numFatCopies; // Number of sectors for FAT area
 
   // Number of sectors per cluster
-  csize = win.d8[BPB_SecPerClus];
+  csize = window.d8[BPB_SecPerClus];
   if (!csize || (csize & (csize - 1)))  // (Must be power of 2)
     return FR_NO_FILESYSTEM;
 
   // Number of root directory entries
-  n_rootdir = LD_WORD(win.d8 + BPB_RootEntCnt);
+  n_rootdir = LD_WORD(window.d8 + BPB_RootEntCnt);
   if (n_rootdir % (SECTOR_SIZE / SZ_DIRE)) // (Must be sector aligned)
     return FR_NO_FILESYSTEM;
 
   // Number of sectors on the volume
-  tsect = LD_WORD(win.d8 + BPB_TotSec16);
+  tsect = LD_WORD(window.d8 + BPB_TotSec16);
   if (!tsect)
-    tsect = LD_DWORD(win.d8 + BPB_TotSec32);
+    tsect = LD_DWORD(window.d8 + BPB_TotSec32);
 
   // Number of reserved sectors
-  nrsv = LD_WORD(win.d8 + BPB_RsvdSecCnt);
+  nrsv = LD_WORD(window.d8 + BPB_RsvdSecCnt);
   if (!nrsv)
     return FR_NO_FILESYSTEM; /* (Must not be 0) */
 
@@ -1479,7 +1479,7 @@ FRESULT cFatFs::findVolume (cFatFs** fs, BYTE wmode) {
   if (fmt == FS_FAT32) {
     if (n_rootdir)
       return FR_NO_FILESYSTEM;       // (BPB_RootEntCnt must be 0)
-    dirbase = LD_DWORD(win.d8 + BPB_RootClus);  // Root directory start cluster
+    dirbase = LD_DWORD(window.d8 + BPB_RootClus);  // Root directory start cluster
     szbfat = numFatEntries * 4;   // (Needed FAT size)
     }
   else {
@@ -1498,13 +1498,13 @@ FRESULT cFatFs::findVolume (cFatFs** fs, BYTE wmode) {
 
   // Get fsinfo if available
   fsi_flag = 0x80;
-  if (fmt == FS_FAT32 && LD_WORD(win.d8 + BPB_FSInfo) == 1 && moveWindow (bsect + 1) == FR_OK) {
+  if (fmt == FS_FAT32 && LD_WORD(window.d8 + BPB_FSInfo) == 1 && moveWindow (bsect + 1) == FR_OK) {
     fsi_flag = 0;
-    if (LD_WORD(win.d8 + BS_55AA) == 0xAA55 &&
-        LD_DWORD(win.d8 + FSI_LeadSig) == 0x41615252 &&
-        LD_DWORD(win.d8 + FSI_StrucSig) == 0x61417272) {
-      freeCluster = LD_DWORD(win.d8 + FSI_Free_Count);
-      lastCluster = LD_DWORD(win.d8 + FSI_Nxt_Free);
+    if (LD_WORD(window.d8 + BS_55AA) == 0xAA55 &&
+        LD_DWORD(window.d8 + FSI_LeadSig) == 0x41615252 &&
+        LD_DWORD(window.d8 + FSI_StrucSig) == 0x61417272) {
+      freeCluster = LD_DWORD(window.d8 + FSI_Free_Count);
+      lastCluster = LD_DWORD(window.d8 + FSI_Nxt_Free);
       }
     }
 
@@ -1524,14 +1524,14 @@ FRESULT cFatFs::syncWindow() {
 
   if (wflag) {  /* Write back the sector if it is dirty */
     DWORD wsect = winsect;  /* Current sector number */
-    if (diskWrite (drv, win.d8, wsect, 1) != RES_OK)
+    if (diskWrite (drv, window.d8, wsect, 1) != RES_OK)
       res = FR_DISK_ERR;
     else {
       wflag = 0;
       if (wsect - fatbase < fsize) {    /* Is it in the FAT area? */
         for (UINT nf = numFatCopies; nf >= 2; nf--) {  /* Reflect the change to all FAT copies */
           wsect += fsize;
-          diskWrite (drv, win.d8, wsect, 1);
+          diskWrite (drv, window.d8, wsect, 1);
           }
         }
       }
@@ -1549,7 +1549,7 @@ FRESULT cFatFs::moveWindow (DWORD sector) {
     res = syncWindow();
     if (res == FR_OK) {
       /* Fill sector window with new data */
-      if (diskRead (drv, win.d8, sector, 1) != RES_OK) {
+      if (diskRead (drv, window.d8, sector, 1) != RES_OK) {
         /* Invalidate window if data is not reliable */
         sector = 0xFFFFFFFF;
         res = FR_DISK_ERR;
@@ -1574,15 +1574,15 @@ BYTE cFatFs::checkFs (DWORD sector) {
     return 3;
 
   // Check boot record signature (always placed at offset 510 even if the sector size is >512)
-  if (LD_WORD(&win.d8[BS_55AA]) != 0xAA55)
+  if (LD_WORD(&window.d8[BS_55AA]) != 0xAA55)
     return 2;
 
   // Check "FAT" string
-  if ((LD_DWORD(&win.d8[BS_FilSysType]) & 0xFFFFFF) == 0x544146)
+  if ((LD_DWORD(&window.d8[BS_FilSysType]) & 0xFFFFFF) == 0x544146)
     return 0;
 
   // Check "FAT" string
-  if ((LD_DWORD(&win.d8[BS_FilSysType32]) & 0xFFFFFF) == 0x544146)
+  if ((LD_DWORD(&window.d8[BS_FilSysType32]) & 0xFFFFFF) == 0x544146)
     return 0;
 
   return 1;
@@ -1596,15 +1596,15 @@ FRESULT cFatFs::syncFs() {
     /* Update FSINFO sector if needed */
     if (fsType == FS_FAT32 && fsi_flag == 1) {
       /* Create FSINFO structure */
-      memset (win.d8, 0, SECTOR_SIZE);
-      ST_WORD(win.d8 + BS_55AA, 0xAA55);
-      ST_DWORD(win.d8 + FSI_LeadSig, 0x41615252);
-      ST_DWORD(win.d8 + FSI_StrucSig, 0x61417272);
-      ST_DWORD(win.d8 + FSI_Free_Count, freeCluster);
-      ST_DWORD(win.d8 + FSI_Nxt_Free, lastCluster);
+      memset (window.d8, 0, SECTOR_SIZE);
+      ST_WORD(window.d8 + BS_55AA, 0xAA55);
+      ST_DWORD(window.d8 + FSI_LeadSig, 0x41615252);
+      ST_DWORD(window.d8 + FSI_StrucSig, 0x61417272);
+      ST_DWORD(window.d8 + FSI_Free_Count, freeCluster);
+      ST_DWORD(window.d8 + FSI_Nxt_Free, lastCluster);
       /* Write it into the FSINFO sector */
       winsect = volbase + 1;
-      diskWrite (drv, win.d8, winsect, 1);
+      diskWrite (drv, window.d8, winsect, 1);
       fsi_flag = 0;
       }
 
@@ -1635,25 +1635,25 @@ DWORD cFatFs::getFat (DWORD cluster) {
         if (moveWindow (fatbase + (bc / SECTOR_SIZE)) != FR_OK)
           break;
 
-        wc = win.d8[bc++ % SECTOR_SIZE];
+        wc = window.d8[bc++ % SECTOR_SIZE];
         if (moveWindow (fatbase + (bc / SECTOR_SIZE)) != FR_OK)
           break;
 
-        wc |= win.d8[bc % SECTOR_SIZE] << 8;
+        wc |= window.d8[bc % SECTOR_SIZE] << 8;
         val = cluster & 1 ? wc >> 4 : (wc & 0xFFF);
         break;
 
       case FS_FAT16 :
         if (moveWindow (fatbase + (cluster / (SECTOR_SIZE / 2))) != FR_OK)
           break;
-        p = &win.d8[cluster * 2 % SECTOR_SIZE];
+        p = &window.d8[cluster * 2 % SECTOR_SIZE];
         val = LD_WORD(p);
         break;
 
       case FS_FAT32 :
         if (moveWindow (fatbase + (cluster / (SECTOR_SIZE / 4))) != FR_OK)
           break;
-        p = &win.d8[cluster * 4 % SECTOR_SIZE];
+        p = &window.d8[cluster * 4 % SECTOR_SIZE];
         val = LD_DWORD(p) & 0x0FFFFFFF;
         break;
 
@@ -1681,13 +1681,13 @@ FRESULT cFatFs::putFat (DWORD cluster, DWORD val) {
         res = moveWindow (fatbase + (bc / SECTOR_SIZE));
         if (res != FR_OK)
           break;
-        p = &win.d8[bc++ % SECTOR_SIZE];
+        p = &window.d8[bc++ % SECTOR_SIZE];
         *p = (cluster & 1) ? ((*p & 0x0F) | ((BYTE)val << 4)) : (BYTE)val;
         wflag = 1;
         res = moveWindow (fatbase + (bc / SECTOR_SIZE));
         if (res != FR_OK)
           break;
-        p = &win.d8[bc % SECTOR_SIZE];
+        p = &window.d8[bc % SECTOR_SIZE];
         *p = (cluster & 1) ? (BYTE)(val >> 4) : ((*p & 0xF0) | ((BYTE)(val >> 8) & 0x0F));
         wflag = 1;
         break;
@@ -1696,7 +1696,7 @@ FRESULT cFatFs::putFat (DWORD cluster, DWORD val) {
         res = moveWindow (fatbase + (cluster / (SECTOR_SIZE / 2)));
         if (res != FR_OK)
           break;
-        p = &win.d8[cluster * 2 % SECTOR_SIZE];
+        p = &window.d8[cluster * 2 % SECTOR_SIZE];
         ST_WORD(p, (WORD)val);
         wflag = 1;
         break;
@@ -1705,7 +1705,7 @@ FRESULT cFatFs::putFat (DWORD cluster, DWORD val) {
         res = moveWindow (fatbase + (cluster / (SECTOR_SIZE / 4)));
         if (res != FR_OK)
           break;
-        p = &win.d8[cluster * 4 % SECTOR_SIZE];
+        p = &window.d8[cluster * 4 % SECTOR_SIZE];
         val |= LD_DWORD(p) & 0xF0000000;
         ST_DWORD(p, val);
         wflag = 1;
@@ -2336,7 +2336,7 @@ FRESULT cDirectory::setIndex (UINT idx) {
   sect = sect1 + idx / (SECTOR_SIZE / SZ_DIRE);
 
   // Ptr to the entry in the sector
-  dir = fs->win.d8 + (idx % (SECTOR_SIZE / SZ_DIRE)) * SZ_DIRE;
+  dir = fs->window.d8 + (idx % (SECTOR_SIZE / SZ_DIRE)) * SZ_DIRE;
 
   return FR_OK;
   }
@@ -2381,7 +2381,7 @@ FRESULT cDirectory::next (int stretch) {
             return FR_DISK_ERR;/* Flush disk access window */
 
           /* Clear window buffer */
-          memset (fs->win.d8, 0, SECTOR_SIZE);
+          memset (fs->window.d8, 0, SECTOR_SIZE);
 
           /* Cluster start sector */
           fs->winsect = fs->clusterToSector (cluster);
@@ -2408,7 +2408,7 @@ FRESULT cDirectory::next (int stretch) {
   index = (WORD)i;
 
   /* Current entry in the window */
-  dir = fs->win.d8 + (i % (SECTOR_SIZE / SZ_DIRE)) * SZ_DIRE;
+  dir = fs->window.d8 + (i % (SECTOR_SIZE / SZ_DIRE)) * SZ_DIRE;
 
   return FR_OK;
   }
