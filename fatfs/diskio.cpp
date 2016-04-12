@@ -11,7 +11,7 @@
 static volatile DSTATUS Stat = STA_NOINIT;
 
 //{{{
-DSTATUS disk_status (BYTE pdrv) {
+DSTATUS diskStatus (BYTE pdrv) {
 
   Stat = STA_NOINIT;
 
@@ -22,7 +22,7 @@ DSTATUS disk_status (BYTE pdrv) {
   }
 //}}}
 //{{{
-DSTATUS disk_initialize (BYTE pdrv) {
+DSTATUS diskInitialize (BYTE pdrv) {
 
   Stat = STA_NOINIT;
 
@@ -33,7 +33,7 @@ DSTATUS disk_initialize (BYTE pdrv) {
   }
 //}}}
 //{{{
-DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff) {
+DRESULT diskIoctl (BYTE pdrv, BYTE cmd, void* buff) {
 
   DRESULT res = RES_ERROR;
 
@@ -76,7 +76,7 @@ DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff) {
 //}}}
 
 //{{{
-DRESULT disk_read (BYTE pdrv, BYTE* buff, DWORD sector, UINT count) {
+DRESULT diskRead (BYTE pdrv, BYTE* buff, DWORD sector, UINT count) {
 
   //if ((uint32_t)buff < 0xC0000000U)
   //  cLcd::debug ("diskRead b:" + cLcd::hexStr ((int)buff) + " s:" + cLcd::intStr (sector) + " c:" + cLcd::intStr (count));
@@ -90,7 +90,7 @@ DRESULT disk_read (BYTE pdrv, BYTE* buff, DWORD sector, UINT count) {
   }
 //}}}
 //{{{
-DRESULT disk_write (BYTE pdrv, const BYTE* buff, DWORD sector, UINT count) {
+DRESULT diskWrite (BYTE pdrv, const BYTE* buff, DWORD sector, UINT count) {
   return BSP_SD_WriteBlocks ((uint32_t*)buff, (uint64_t)(sector * BLOCK_SIZE), BLOCK_SIZE, count) == MSD_OK ? RES_OK : RES_ERROR;
   }
 //}}}

@@ -9,11 +9,12 @@ typedef enum {
   RES_PARERR    /* 4: Invalid Parameter */
   } DRESULT;
 
-DSTATUS disk_initialize (BYTE pdrv);
-DSTATUS disk_status (BYTE pdrv);
-DRESULT disk_read (BYTE pdrv, BYTE* buff, DWORD sector, UINT count);
-DRESULT disk_write (BYTE pdrv, const BYTE* buff, DWORD sector, UINT count);
-DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff);
+DSTATUS diskStatus (BYTE pdrv);
+DSTATUS diskInitialize (BYTE pdrv);
+DRESULT diskIoctl (BYTE pdrv, BYTE cmd, void* buff);
+
+DRESULT diskRead (BYTE pdrv, BYTE* buff, DWORD sector, UINT count);
+DRESULT diskWrite (BYTE pdrv, const BYTE* buff, DWORD sector, UINT count);
 
 // Disk Status Bits (DSTATUS)
 #define STA_NOINIT    0x01  /* Drive not initialized */
