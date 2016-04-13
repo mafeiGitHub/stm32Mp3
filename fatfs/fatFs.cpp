@@ -2445,12 +2445,12 @@ FRESULT cDirectory::registerNewEntry() {
     fn1[NSFLAG] = 0;
 
     // Find only SFN
-    lfn = 0;      
+    lfn = 0;
     for (n = 1; n < 100; n++) {
-      generateNumberedName (fn1, sn, lfn1, n);  
+      generateNumberedName (fn1, sn, lfn1, n);
 
       // Check if the name collides with existing SFN
-      res = find();       
+      res = find();
       if (res != FR_OK)
         break;
       }
@@ -2463,7 +2463,7 @@ FRESULT cDirectory::registerNewEntry() {
     lfn = lfn1;
     }
 
-  if (sn[NSFLAG] & NS_LFN) {      
+  if (sn[NSFLAG] & NS_LFN) {
     // When LFN is to be created, allocate entries for an SFN + LFNs
     for (n = 0; lfn1[n]; n++) ;
     nent = (n + 25) / 13;
@@ -2471,12 +2471,12 @@ FRESULT cDirectory::registerNewEntry() {
   else // Otherwise allocate an entry for an SFN
     nent = 1;
 
-  FRESULT res = allocate (nent);  
+  FRESULT res = allocate (nent);
   if (res == FR_OK && --nent) {
     /* Set LFN entry if needed */
     res = setIndex (index - nent);
     if (res == FR_OK) {
-      BYTE sum = sumSfn (fn);  
+      BYTE sum = sumSfn (fn);
       do {
         // Store LFN entries in bottom first
         res = fs->moveWindow (sect);
@@ -2484,7 +2484,7 @@ FRESULT cDirectory::registerNewEntry() {
           break;
         fitLfn (lfn, dir, (BYTE)nent, sum);
         fs->wflag = 1;
-        res = next (0);  
+        res = next (0);
         } while (res == FR_OK && --nent);
       }
     }
@@ -3026,90 +3026,102 @@ FRESULT cFile::lseek (DWORD ofs) {
   }
 //}}}
 //{{{
-FRESULT cFile::read (void* buff, UINT btr, UINT* br) {
+FRESULT cFile::read (void* readBuffer, UINT bytesToRead, UINT* bytesRead) {
 
-  DWORD clst, sect;
-  UINT rcnt, cc;
-  BYTE csect;
-  BYTE* rbuff = (BYTE*)buff;
-
-  *br = 0;
+  *bytesRead = 0;
   FRESULT res = validateFile();
   if (res != FR_OK) {
+    //{{{  error
     fs->unlock (res);
     return res;
     }
+    //}}}
   if (err) {
+    //{{{  error
     fs->unlock ((FRESULT)err);
     return (FRESULT)err;
     }
+    //}}}
   if (!(flag & FA_READ)) {
+    //{{{  error
     fs->unlock (FR_DENIED);
     return FR_DENIED;
     }
+    //}}}
 
+  // truncate bytesToRead by fileSize
   DWORD remain = fsize - fptr;
-  if (btr > remain)
-    btr = (UINT)remain;   /* Truncate btr by remaining bytes */
+  if (bytesToRead > remain)
+    bytesToRead = (UINT)remain;
 
-  for ( ;  btr; /* Repeat until all data read */ rbuff += rcnt, fptr += rcnt, *br += rcnt, btr -= rcnt) {
+  auto readBufferPtr = (BYTE*)readBuffer;
+  UINT readCount;
+  for (; bytesToRead; readBufferPtr += readCount, fptr += readCount, *bytesRead += readCount, bytesToRead -= readCount) {
+    // Repeat until all data read
     if ((fptr % SECTOR_SIZE) == 0) {
-      /* On the sector boundary? */
-      csect = (BYTE)(fptr / SECTOR_SIZE & (fs->csize - 1));  /* Sector offset in the cluster */
+      // On the sector boundary, Sector offset in the cluster
+      BYTE csect = (BYTE)(fptr / SECTOR_SIZE & (fs->csize - 1));
       if (!csect) {
-        /* On the cluster boundary? */
-        if (fptr == 0)
-          /* On the top of the file? */
-          clst = sclust;  /* Follow from the origin */
-        else {
-          /* Middle or end of the file */
-          if (cltbl)
-            clst = clmtCluster (fptr);  /* Get cluster# from the CLMT */
-          else
-            clst = fs->getFat (clust);  /* Follow cluster chain on the FAT */
-          }
+        // On the cluster boundary?
+        DWORD clst;
+        if (fptr == 0) // at the top of the file, Follow from the origin
+          clst = sclust;
+        else if (cltbl) // Get cluster# from the CLMT
+          clst = clmtCluster (fptr);
+        else // Follow cluster chain on the FAT
+          clst = fs->getFat (clust);
+
         if (clst < 2)
           ABORT (FR_INT_ERR);
         if (clst == 0xFFFFFFFF)
           ABORT (FR_DISK_ERR);
-        clust = clst;  /* Update current cluster */
+        // Update current cluster
+        clust = clst;
         }
 
-      sect = fs->clusterToSector (clust); /* Get current sector */
+      // Get current sector
+      DWORD sect = fs->clusterToSector (clust);
       if (!sect)
         ABORT (FR_INT_ERR);
       sect += csect;
-      cc = btr / SECTOR_SIZE; /* When remaining bytes >= sector size, */
+      UINT cc = bytesToRead / SECTOR_SIZE; // When remaining bytes >= sector size
       if (cc) {
-        /* Read maximum contiguous sectors directly */
-        if (csect + cc > fs->csize) /* Clip at cluster boundary */
+        // Read maximum contiguous sectors directly
+        if (csect + cc > fs->csize) // Clip at cluster boundary
           cc = fs->csize - csect;
-        if (diskRead (fs->drv, rbuff, sect, cc) != RES_OK)
+        if (diskRead (fs->drv, readBufferPtr, sect, cc) != RES_OK)
           ABORT (FR_DISK_ERR);
         if ((flag & FA__DIRTY) && dsect - sect < cc)
-          memcpy (rbuff + ((dsect - sect) * SECTOR_SIZE), fileBuffer, SECTOR_SIZE);
-        rcnt = SECTOR_SIZE * cc;     /* Number of bytes transferred */
+          memcpy (readBufferPtr + ((dsect - sect) * SECTOR_SIZE), fileBuffer, SECTOR_SIZE);
+
+        // Number of bytes transferred
+        readCount = SECTOR_SIZE * cc;
         continue;
         }
 
       if (dsect != sect) {
-        /* Load data sector if not in cache */
+        // Load data sector if not in cache
         if (flag & FA__DIRTY) {
-          /* Write-back dirty sector cache */
+          // Write-back dirty sector cache
           if (diskWrite (fs->drv, fileBuffer, dsect, 1) != RES_OK)
             ABORT (FR_DISK_ERR);
           flag &= ~FA__DIRTY;
           }
-        if (diskRead (fs->drv, fileBuffer, sect, 1) != RES_OK)  /* Fill sector cache */
+
+        // Fill sector cache
+        if (diskRead (fs->drv, fileBuffer, sect, 1) != RES_OK)
           ABORT (FR_DISK_ERR);
         }
       dsect = sect;
       }
 
-    rcnt = SECTOR_SIZE - ((UINT)fptr % SECTOR_SIZE);  /* Get partial sector data from sector buffer */
-    if (rcnt > btr)
-      rcnt = btr;
-    memcpy (rbuff, &fileBuffer[fptr % SECTOR_SIZE], rcnt); /* Pick partial sector */
+    // Get partial sector data from sector readBufferPtr
+    readCount = SECTOR_SIZE - ((UINT)fptr % SECTOR_SIZE);
+    if (readCount > bytesToRead)
+      readCount = bytesToRead;
+
+    // Pick partial sector
+    memcpy (readBufferPtr, &fileBuffer[fptr % SECTOR_SIZE], readCount);
     }
 
   fs->unlock (FR_OK);

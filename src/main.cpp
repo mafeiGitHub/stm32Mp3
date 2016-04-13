@@ -68,7 +68,6 @@ static void playFile (string fileName) {
 
   auto lcd = cLcd::instance();
   lcd->setTitle (fileName);
-  lcd->info ("playing " + fileName);
 
   mPlayBytes = 0;
   mPlaySize = 0;
@@ -79,14 +78,14 @@ static void playFile (string fileName) {
   cFile file;
   auto result = file.open (fileName.c_str(), FA_OPEN_EXISTING | FA_READ);
   if (result != FR_OK) {
-    lcd->info ("- load failed " + cLcd::intStr (result));
+    lcd->info ("- open failed " + cLcd::intStr (result) + " " + fileName);
     return;
     }
   mPlaySize = file.size();
-  lcd->info ("- loaded " + cLcd::intStr (mPlaySize));
+  lcd->info ("playing " + cLcd::intStr (mPlaySize) + " " + fileName);
 
-  int chunkSize = 64*SECTOR_SIZE;
-  auto chunkBuffer = (unsigned char*)pvPortMalloc (chunkSize);
+  int chunkSize = 0x8000;
+  auto chunkBuffer = (uint8_t*)pvPortMalloc (chunkSize + 2048);
 
   // play file from fileBuffer
   BSP_AUDIO_OUT_Play ((uint16_t*)AUDIO_BUFFER, AUDIO_BUFFER_SIZE);
@@ -96,34 +95,38 @@ static void playFile (string fileName) {
   while ((playBytesLeft > 0) && !mSkip) {
     auto chunkPtr = chunkBuffer;
     unsigned int chunkBytesLeft;
+    //lcd->info ("read " + cLcd::intStr (chunkSize));
     file.read (chunkPtr, chunkSize, &chunkBytesLeft);
     while ((chunkBytesLeft > 0) && !mSkip) {
       if (osSemaphoreWait (audSem, 50) == osOK) {
         auto bytesSkipped = mp3Decoder->findNextHeader (chunkPtr, chunkBytesLeft);
         if (bytesSkipped < 0) {
-          lcd->info ("findHeader failed");
+          lcd->info ("- findNextHeader failed");
           goto exit;
           }
-        else {
+        if (bytesSkipped > 0) {
           chunkPtr += bytesSkipped;
           chunkBytesLeft -= bytesSkipped;
-          playBytesLeft -= bytesSkipped;
           mPlayBytes += bytesSkipped;
-          lcd->info ("decode " + cLcd::intStr (bytesSkipped) +
-                     " " + cLcd::intStr (mp3Decoder->getFrameSize()) +
-                     " " + cLcd::intStr (chunkBytesLeft));
-          if (mp3Decoder->getFrameSize() <= chunkBytesLeft) {
-            // could load missing bytes
-            mp3Decoder->decodeFoundFrame (&mPower[(mPlayFrame % 480) * 2], (int16_t*)(audBufHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
-            chunkPtr += mp3Decoder->getFrameSize();
-            chunkBytesLeft -= mp3Decoder->getFrameSize();
-            playBytesLeft -= mp3Decoder->getFrameSize();
-            mPlayBytes += mp3Decoder->getFrameSize();
-            mPlayFrame++;
-            }
-          else
-            break;
+          playBytesLeft -= bytesSkipped;
+          lcd->info ("- skip " + cLcd::intStr (bytesSkipped));
           }
+        if (mp3Decoder->getFrameSize() > chunkBytesLeft) {
+          // could load missing bytes
+          unsigned int restOfFrameBytesLeft;
+          file.read (chunkPtr + chunkBytesLeft, mp3Decoder->getFrameSize() - chunkBytesLeft, &restOfFrameBytesLeft);
+          chunkBytesLeft += restOfFrameBytesLeft;
+          //lcd->info ("rest " + cLcd::intStr (mp3Decoder->getFrameSize() - chunkBytesLeft) + " " + cLcd::intStr (restOfFrameBytesLeft));
+          }
+
+        //lcd->info ("decode " + cLcd::intStr (mp3Decoder->getFrameSize()) + " " + cLcd::intStr (chunkBytesLeft));
+        mp3Decoder->decodeFoundFrame (chunkPtr, mp3Decoder->getFrameSize(),
+                                      &mPower[(mPlayFrame % 480) * 2], (int16_t*)(audBufHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
+        chunkPtr += mp3Decoder->getFrameSize();
+        chunkBytesLeft -= mp3Decoder->getFrameSize();
+        playBytesLeft -= mp3Decoder->getFrameSize();
+        mPlayBytes += mp3Decoder->getFrameSize();
+        mPlayFrame++;
         }
       }
     }

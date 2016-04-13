@@ -229,7 +229,7 @@ public:
   FRESULT open (const TCHAR* path, BYTE mode);
   int size() { return fsize; }
   FRESULT lseek (DWORD ofs);
-  FRESULT read (void* buff, UINT btr, UINT* br);
+  FRESULT read (void* readBuffer, UINT bytestoRead, UINT* bytesRead);
   FRESULT write (const void* buff, UINT btw, UINT* bw);
   FRESULT truncate();
   FRESULT sync();

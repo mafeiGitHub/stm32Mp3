@@ -975,7 +975,6 @@ public:
       auto header = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
       if (checkHeader (header)) {
         decodeHeader (header);
-        mFrameBuffer = buf + skipBytes;
         return skipBytes;
         }
 
@@ -984,17 +983,16 @@ public:
       skipBytes++;
       }
 
-    mFrameBuffer = nullptr;
     mFrameSize = 0;
     return -1;
     }
   //}}}
   //{{{
-  void decodeFoundFrame (float* power, int16_t* outSamples) {
+  void decodeFoundFrame (uint8_t* buf, int bufBytes, float* power, int16_t* outSamples) {
   // decode frame after findHeader
 
     // init getBits to after 4 byte header
-    init_get_bits (&mBitstream, mFrameBuffer + 4, (mFrameSize - 4) * 8);
+    init_get_bits (&mBitstream, buf + 4, (bufBytes - 4) * 8);
     if (mErrorProtection)
       get_bits (&mBitstream, 16);
 
@@ -1016,11 +1014,11 @@ public:
     align_get_bits (&mBitstream);
     auto i = (mBitstream.size_in_bits - get_bits_count (&mBitstream)) >> 3;
     if (i < 0 || i > 512 || numFrames < 0) {
-      i = mFrameSize - 4;
+      i = bufBytes - 4;
       if (i > 512)
         i = 512;
       }
-    memcpy (mLastBuf + mLastBufSize, mBitstream.buffer + mFrameSize - 4 - i, i);
+    memcpy (mLastBuf + mLastBufSize, mBitstream.buffer + bufBytes - 4 - i, i);
     mLastBufSize += i;
 
     if (power)
@@ -1047,7 +1045,7 @@ public:
       auto header = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
       if (checkHeader (header)) {
         decodeHeader (header);
-        decodeFoundFrame (power, samples);
+        decodeFoundFrame (buf, bufBytes, power, samples);
         return mFrameSize + extraBytes;
         }
 
@@ -2546,7 +2544,6 @@ private:
   int mLastBufSize = 0;
   uint8_t mLastBuf[2*512 + 24];
 
-  uint8_t* mFrameBuffer = nullptr;
   int mFrameSize = 0;
   int mBitRate = 0;
   int mNumChannels = 0;
