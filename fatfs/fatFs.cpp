@@ -122,7 +122,6 @@
 #define ST_DWORD(ptr,val) *(BYTE*)(ptr)=(BYTE)(val); *((BYTE*)(ptr)+1)=(BYTE)((WORD)(val)>>8); *((BYTE*)(ptr)+2)=(BYTE)((DWORD)(val)>>16); *((BYTE*)(ptr)+3)=(BYTE)((DWORD)(val)>>24)
 
 // unlock macros
-#define LEAVE_FF(fs, res) { fs->unlock (res); return res; }
 #define ABORT(fs, res)    { err = (BYTE)(res); fs->unlock (res); return res; }
 //}}}
 //{{{  static const
@@ -2859,10 +2858,14 @@ FRESULT cFile::lseek (DWORD ofs) {
   DWORD cl, pcl, ncl, tcl, dsc, tlen, ulen, *tbl;
 
   FRESULT res = validateFile();
-  if (res != FR_OK)
-    LEAVE_FF(fs, res);
-  if (err)                 /* Check error */
-    LEAVE_FF(fs, (FRESULT)err);
+  if (res != FR_OK) {
+    fs->unlock (res); 
+    return res;
+    }
+  if (err) {
+    fs->unlock ((FRESULT)err);
+    return (FRESULT)err;
+    }
 
   if (cltbl) {
     /* Fast seek */
@@ -2996,22 +2999,21 @@ FRESULT cFile::lseek (DWORD ofs) {
       }
 
     if (fptr % SECTOR_SIZE && nsect != dsect) {
-      /* Fill sector cache if needed */
       if (flag & FA__DIRTY) {
-        /* Write-back dirty sector cache */
+        // Write-back dirty sector cache
         if (diskWrite (fs->drv, fileBuffer, dsect, 1) != RES_OK)
           ABORT(fs, FR_DISK_ERR);
         flag &= ~FA__DIRTY;
         }
 
+      // Fill sector cache
       if (diskRead (fs->drv, fileBuffer, nsect, 1) != RES_OK)
-        /* Fill sector cache */
         ABORT(fs, FR_DISK_ERR);
       dsect = nsect;
       }
 
     if (fptr > fsize) {
-      /* Set file change flag if the file size is extended */
+      // Set file change flag if the file size is extended
       fsize = fptr;
       flag |= FA__WRITTEN;
       }
@@ -3031,12 +3033,18 @@ FRESULT cFile::read (void* buff, UINT btr, UINT* br) {
 
   *br = 0;
   FRESULT res = validateFile();
-  if (res != FR_OK)
-    LEAVE_FF(fs, res);
-  if (err)
-    LEAVE_FF(fs, (FRESULT)err);
-  if (!(flag & FA_READ))
-    LEAVE_FF(fs, FR_DENIED);
+  if (res != FR_OK) {
+    fs->unlock (res);
+    return res;
+    }
+  if (err) {
+    fs->unlock ((FRESULT)err);
+    return (FRESULT)err;
+    }
+  if (!(flag & FA_READ)) {
+    fs->unlock (FR_DENIED);
+    return FR_DENIED;
+    }
 
   DWORD remain = fsize - fptr;
   if (btr > remain)
@@ -3116,13 +3124,19 @@ FRESULT cFile::write (const void *buff, UINT btw, UINT* bw) {
 
   *bw = 0;  /* Clear write byte counter */
 
-  FRESULT res = validateFile();           /* Check validity */
-  if (res != FR_OK)
-    LEAVE_FF(fs, res);
-  if (err)
-    LEAVE_FF(fs, (FRESULT)err);
-  if (!(flag & FA_WRITE))
-    LEAVE_FF(fs, FR_DENIED);
+  FRESULT res = validateFile();     
+  if (res != FR_OK) {
+    fs->unlock (res);
+    return res;
+    }
+  if (err) {
+    fs->unlock ((FRESULT)err);
+    return (FRESULT)err;
+    }
+  if (!(flag & FA_WRITE)) {
+    fs->unlock (FR_DENIED);
+    return FR_DENIED;
+    }
 
   /* File size cannot reach 4GB */
   if (fptr + btw < fptr)
@@ -3277,24 +3291,25 @@ FRESULT cFile::sync() {
   DWORD tm;
   BYTE* dir;
 
-  FRESULT res = validateFile();         /* Check validity of the object */
+  FRESULT res = validateFile();    
   if (res == FR_OK) {
     if (flag & FA__WRITTEN) {
-      /* Has the file been written? ,  Write-back dirty buffer */
       if (flag & FA__DIRTY) {
-        if (diskWrite (fs->drv, fileBuffer, dsect, 1) != RES_OK)
-          LEAVE_FF(fs, FR_DISK_ERR);
+        if (diskWrite (fs->drv, fileBuffer, dsect, 1) != RES_OK) {
+          fs->unlock (FR_DISK_ERR);
+          return FR_DISK_ERR;
+          }
         flag &= ~FA__DIRTY;
         }
 
-      /* Update the directory entry */
+      // Update the directory entry
       res = fs->moveWindow (dir_sect);
       if (res == FR_OK) {
         dir = dir_ptr;
-        dir[DIR_Attr] |= AM_ARC;          /* Set archive bit */
-        ST_DWORD(dir + DIR_FileSize, fsize);  /* Update file size */
-        storeCluster (dir, sclust);          /* Update start cluster */
-        tm = getFatTime();             /* Update updated time */
+        dir[DIR_Attr] |= AM_ARC;              // Set archive bit
+        ST_DWORD(dir + DIR_FileSize, fsize);  // Update file size
+        storeCluster (dir, sclust);           // Update start cluster
+        tm = getFatTime();                    // Update updated time
         ST_DWORD(dir + DIR_WrtTime, tm);
         ST_WORD(dir + DIR_LstAccDate, 0);
         flag &= ~FA__WRITTEN;
