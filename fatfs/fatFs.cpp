@@ -109,20 +109,17 @@
 #define RDDEM          0x05 // Replacement of the character collides with DDEM
 //}}}
 //{{{  macros
-// Character code support macros
-#define IsUpper(c)  (((c) >= 'A') && ((c) <= 'Z'))
-#define IsLower(c)  (((c) >= 'a') && ((c) <= 'z'))
-#define IsDigit(c)  (((c) >= '0') && ((c) <= '9'))
+#define IS_UPPER(c)  (((c) >= 'A') && ((c) <= 'Z'))
+#define IS_LOWER(c)  (((c) >= 'a') && ((c) <= 'z'))
+#define IS_DIGIT(c)  (((c) >= '0') && ((c) <= '9'))
 
-// Multi-byte word access macros
-#define LD_WORD(ptr)   (WORD)(((WORD)*((BYTE*)(ptr)+1)<<8)|(WORD)*(BYTE*)(ptr))
-#define LD_DWORD(ptr)  (DWORD)(((DWORD)*((BYTE*)(ptr)+3)<<24)|((DWORD)*((BYTE*)(ptr)+2)<<16)|((WORD)*((BYTE*)(ptr)+1)<<8)|*(BYTE*)(ptr))
+#define LD_WORD(ptr)  (WORD)(((WORD)*((BYTE*)(ptr)+1)<<8)|(WORD)*(BYTE*)(ptr))
+#define LD_DWORD(ptr) (DWORD)(((DWORD)*((BYTE*)(ptr)+3)<<24)|((DWORD)*((BYTE*)(ptr)+2)<<16)|((WORD)*((BYTE*)(ptr)+1)<<8)|*(BYTE*)(ptr))
 
 #define ST_WORD(ptr,val)  *(BYTE*)(ptr)=(BYTE)(val); *((BYTE*)(ptr)+1)=(BYTE)((WORD)(val)>>8)
 #define ST_DWORD(ptr,val) *(BYTE*)(ptr)=(BYTE)(val); *((BYTE*)(ptr)+1)=(BYTE)((WORD)(val)>>8); *((BYTE*)(ptr)+2)=(BYTE)((DWORD)(val)>>16); *((BYTE*)(ptr)+3)=(BYTE)((DWORD)(val)>>24)
 
-// unlock macros
-#define ABORT(fs, res)    { err = (BYTE)(res); fs->unlock (res); return res; }
+#define ABORT(res) { err = (BYTE)(res); fs->unlock (res); return res; }
 //}}}
 //{{{  static const
 // Offset of LFN characters in the directory entry
@@ -260,7 +257,7 @@ static WCHAR wideToUpperCase (WCHAR chr) {
 static WCHAR get_achar (const TCHAR** ptr) {
 
   WCHAR chr = (BYTE)*(*ptr)++;
-  if (IsLower (chr))
+  if (IS_LOWER (chr))
     chr -= 0x20; // To upper ASCII char
 
   if (chr >= 0x80)
@@ -818,7 +815,7 @@ FRESULT cFatFs::mkDir (const TCHAR* path) {
         dir[DIR_Attr] = AM_DIR;
         ST_DWORD(dir + DIR_WrtTime, tm);
         storeCluster (dir, dcl);
-        memcpy(dir + SZ_DIRE, dir, SZ_DIRE);   /* Create ".." entry */
+        memcpy (dir + SZ_DIRE, dir, SZ_DIRE);   /* Create ".." entry */
 
         dir[SZ_DIRE + 1] = '.';
         pcl = directory.sclust;
@@ -2274,10 +2271,10 @@ FRESULT cDirectory::createName (const TCHAR** path) {
       cf |= NS_LOSS | NS_LFN; /* Lossy conversion */
       }
     else {
-      if (IsUpper(w))
+      if (IS_UPPER (w))
         // ASCII large capital
         b |= 2;
-      else if (IsLower(w)) {
+      else if (IS_LOWER (w)) {
         // ASCII small capital
         b |= 1;
         w -= 0x20;
@@ -2689,7 +2686,7 @@ void cDirectory::getFileInfo (cFileInfo* fileInfo) {
         c = (TCHAR)DDEM;  // Restore replaced DDEM character
       if (i == 9)
         *p++ = '.';       // Insert a . if extension is exist
-      if (IsUpper(c) && (dir1[DIR_NTres] & (i >= 9 ? NS_EXT : NS_BODY)))
+      if (IS_UPPER (c) && (dir1[DIR_NTres] & (i >= 9 ? NS_EXT : NS_BODY)))
         c += 0x20;  // To lower
       *p++ = c;
       }
@@ -2859,7 +2856,7 @@ FRESULT cFile::lseek (DWORD ofs) {
 
   FRESULT res = validateFile();
   if (res != FR_OK) {
-    fs->unlock (res); 
+    fs->unlock (res);
     return res;
     }
   if (err) {
@@ -2884,9 +2881,9 @@ FRESULT cFile::lseek (DWORD ofs) {
             pcl = cl; ncl++;
             cl = fs->getFat (cl);
             if (cl <= 1)
-              ABORT(fs, FR_INT_ERR);
+              ABORT (FR_INT_ERR);
             if (cl == 0xFFFFFFFF)
-              ABORT(fs, FR_DISK_ERR);
+              ABORT (FR_DISK_ERR);
             } while (cl == pcl + 1);
           if (ulen <= tlen) {
             /* Store the length and top of the fragment */
@@ -2915,18 +2912,18 @@ FRESULT cFile::lseek (DWORD ofs) {
         clust = clmtCluster (ofs - 1);
         dsc = fs->clusterToSector (clust);
         if (!dsc)
-          ABORT(fs, FR_INT_ERR);
+          ABORT (FR_INT_ERR);
         dsc += (ofs - 1) / SECTOR_SIZE & (fs->csize - 1);
         if (fptr % SECTOR_SIZE && dsc != dsect) {
           /* Refill sector cache if needed */
           if (flag & FA__DIRTY) {
             /* Write-back dirty sector cache */
             if (diskWrite (fs->drv, fileBuffer, dsect, 1) != RES_OK)
-              ABORT (fs, FR_DISK_ERR);
+              ABORT (FR_DISK_ERR);
             flag &= ~FA__DIRTY;
             }
           if (diskRead (fs->drv, fileBuffer, dsc, 1) != RES_OK) /* Load current sector */
-            ABORT(fs, FR_DISK_ERR);
+            ABORT (FR_DISK_ERR);
           dsect = dsc;
           }
         }
@@ -2955,9 +2952,9 @@ FRESULT cFile::lseek (DWORD ofs) {
           /* If no cluster chain, create a new chain */
           clst = fs->createChain (0);
           if (clst == 1)
-            ABORT(fs, FR_INT_ERR);
+            ABORT (FR_INT_ERR);
           if (clst == 0xFFFFFFFF)
-            ABORT(fs, FR_DISK_ERR);
+            ABORT (FR_DISK_ERR);
           sclust = clst;
           }
         clust = clst;
@@ -2979,9 +2976,9 @@ FRESULT cFile::lseek (DWORD ofs) {
             clst = fs->getFat (clst); /* Follow cluster chain if not in write mode */
 
           if (clst == 0xFFFFFFFF)
-            ABORT(fs, FR_DISK_ERR);
+            ABORT (FR_DISK_ERR);
           if (clst <= 1 || clst >= fs->numFatEntries)
-            ABORT(fs, FR_INT_ERR);
+            ABORT (FR_INT_ERR);
 
           clust = clst;
           fptr += bcs;
@@ -2992,7 +2989,7 @@ FRESULT cFile::lseek (DWORD ofs) {
         if (ofs % SECTOR_SIZE) {
           nsect = fs->clusterToSector (clst); /* Current sector */
           if (!nsect)
-            ABORT(fs, FR_INT_ERR);
+            ABORT (FR_INT_ERR);
           nsect += ofs / SECTOR_SIZE;
           }
         }
@@ -3002,13 +2999,13 @@ FRESULT cFile::lseek (DWORD ofs) {
       if (flag & FA__DIRTY) {
         // Write-back dirty sector cache
         if (diskWrite (fs->drv, fileBuffer, dsect, 1) != RES_OK)
-          ABORT(fs, FR_DISK_ERR);
+          ABORT (FR_DISK_ERR);
         flag &= ~FA__DIRTY;
         }
 
       // Fill sector cache
       if (diskRead (fs->drv, fileBuffer, nsect, 1) != RES_OK)
-        ABORT(fs, FR_DISK_ERR);
+        ABORT (FR_DISK_ERR);
       dsect = nsect;
       }
 
@@ -3067,15 +3064,15 @@ FRESULT cFile::read (void* buff, UINT btr, UINT* br) {
             clst = fs->getFat (clust);  /* Follow cluster chain on the FAT */
           }
         if (clst < 2)
-          ABORT(fs, FR_INT_ERR);
+          ABORT (FR_INT_ERR);
         if (clst == 0xFFFFFFFF)
-          ABORT(fs, FR_DISK_ERR);
+          ABORT (FR_DISK_ERR);
         clust = clst;  /* Update current cluster */
         }
 
       sect = fs->clusterToSector (clust); /* Get current sector */
       if (!sect)
-        ABORT(fs, FR_INT_ERR);
+        ABORT (FR_INT_ERR);
       sect += csect;
       cc = btr / SECTOR_SIZE; /* When remaining bytes >= sector size, */
       if (cc) {
@@ -3083,9 +3080,9 @@ FRESULT cFile::read (void* buff, UINT btr, UINT* br) {
         if (csect + cc > fs->csize) /* Clip at cluster boundary */
           cc = fs->csize - csect;
         if (diskRead (fs->drv, rbuff, sect, cc) != RES_OK)
-          ABORT(fs, FR_DISK_ERR);
+          ABORT (FR_DISK_ERR);
         if ((flag & FA__DIRTY) && dsect - sect < cc)
-          memcpy(rbuff + ((dsect - sect) * SECTOR_SIZE), fileBuffer, SECTOR_SIZE);
+          memcpy (rbuff + ((dsect - sect) * SECTOR_SIZE), fileBuffer, SECTOR_SIZE);
         rcnt = SECTOR_SIZE * cc;     /* Number of bytes transferred */
         continue;
         }
@@ -3095,11 +3092,11 @@ FRESULT cFile::read (void* buff, UINT btr, UINT* br) {
         if (flag & FA__DIRTY) {
           /* Write-back dirty sector cache */
           if (diskWrite (fs->drv, fileBuffer, dsect, 1) != RES_OK)
-            ABORT(fs, FR_DISK_ERR);
+            ABORT (FR_DISK_ERR);
           flag &= ~FA__DIRTY;
           }
         if (diskRead (fs->drv, fileBuffer, sect, 1) != RES_OK)  /* Fill sector cache */
-          ABORT(fs, FR_DISK_ERR);
+          ABORT (FR_DISK_ERR);
         }
       dsect = sect;
       }
@@ -3124,7 +3121,7 @@ FRESULT cFile::write (const void *buff, UINT btw, UINT* bw) {
 
   *bw = 0;  /* Clear write byte counter */
 
-  FRESULT res = validateFile();     
+  FRESULT res = validateFile();
   if (res != FR_OK) {
     fs->unlock (res);
     return res;
@@ -3168,9 +3165,9 @@ FRESULT cFile::write (const void *buff, UINT btw, UINT* bw) {
         if (clst == 0)
           break;   /* Could not allocate a new cluster (disk full) */
         if (clst == 1)
-          ABORT(fs, FR_INT_ERR);
+          ABORT (FR_INT_ERR);
         if (clst == 0xFFFFFFFF)
-          ABORT(fs, FR_DISK_ERR);
+          ABORT (FR_DISK_ERR);
 
         clust = clst;     /* Update current cluster */
         if (sclust == 0)
@@ -3180,13 +3177,13 @@ FRESULT cFile::write (const void *buff, UINT btw, UINT* bw) {
       if (flag & FA__DIRTY) {
         /* Write-back sector cache */
         if (diskWrite (fs->drv, fileBuffer, dsect, 1) != RES_OK)
-          ABORT(fs, FR_DISK_ERR);
+          ABORT (FR_DISK_ERR);
         flag &= ~FA__DIRTY;
         }
 
       sect = fs->clusterToSector (clust); /* Get current sector */
       if (!sect)
-        ABORT(fs, FR_INT_ERR);
+        ABORT (FR_INT_ERR);
       sect += csect;
 
       cc = btw / SECTOR_SIZE;      /* When remaining bytes >= sector size, */
@@ -3194,7 +3191,7 @@ FRESULT cFile::write (const void *buff, UINT btw, UINT* bw) {
         if (csect + cc > fs->csize) /* Clip at cluster boundary */
           cc = fs->csize - csect;
         if (diskWrite (fs->drv, wbuff, sect, cc) != RES_OK)
-          ABORT(fs, FR_DISK_ERR);
+          ABORT (FR_DISK_ERR);
         if (dsect - sect < cc) { /* Refill sector cache if it gets invalidated by the direct write */
           memcpy (fileBuffer, wbuff + ((dsect - sect) * SECTOR_SIZE), SECTOR_SIZE);
           flag &= ~FA__DIRTY;
@@ -3206,7 +3203,7 @@ FRESULT cFile::write (const void *buff, UINT btw, UINT* bw) {
       if (dsect != sect) {
         /* Fill sector cache with file data */
         if (fptr < fsize && diskRead (fs->drv, fileBuffer, sect, 1) != RES_OK)
-          ABORT(fs, FR_DISK_ERR);
+          ABORT (FR_DISK_ERR);
         }
       dsect = sect;
       }
@@ -3291,7 +3288,7 @@ FRESULT cFile::sync() {
   DWORD tm;
   BYTE* dir;
 
-  FRESULT res = validateFile();    
+  FRESULT res = validateFile();
   if (res == FR_OK) {
     if (flag & FA__WRITTEN) {
       if (flag & FA__DIRTY) {
@@ -3461,7 +3458,7 @@ int cFile::printf (const TCHAR* fmt, ...) {
       c = *fmt++;
       }
       //}}}
-    while (IsDigit(c)) {
+    while (IS_DIGIT (c)) {
       //{{{  Precision
       w = w * 10 + c - '0';
       c = *fmt++;
@@ -3477,7 +3474,7 @@ int cFile::printf (const TCHAR* fmt, ...) {
       break;
 
     d = c;
-    if (IsLower (d))
+    if (IS_LOWER (d))
       d -= 0x20;
 
     switch (d) {        /* Type is... */
