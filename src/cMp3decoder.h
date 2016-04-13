@@ -961,26 +961,94 @@ public:
     }
   //}}}
 
+  unsigned int getFrameSize() { return mFrameSize; }
   int getNumChannels() { return mNumChannels; }
   int getSampleRate() { return mSampleRate; }
   int getBitRate() { return mBitRate; }
   int getMode() { return mModeExt; }
   //{{{
-  int decodeFrame (uint8_t* buf, int bufBytes, float* power, int16_t* samples) {
+  int findNextHeader (uint8_t* buf, int bufBytes) {
+  // find first header from buf, return bytes skipped to header
+
+    int skipBytes = 0;
+    while (bufBytes >= 4) {
+      auto header = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
+      if (checkHeader (header)) {
+        decodeHeader (header);
+        mFrameBuffer = buf + skipBytes;
+        return skipBytes;
+        }
+
+      buf++;
+      bufBytes--;
+      skipBytes++;
+      }
+
+    mFrameBuffer = nullptr;
+    mFrameSize = 0;
+    return -1;
+    }
+  //}}}
+  //{{{
+  void decodeFoundFrame (float* power, int16_t* outSamples) {
+  // decode frame after findHeader
+
+    // init getBits to after 4 byte header
+    init_get_bits (&mBitstream, mFrameBuffer + 4, (mFrameSize - 4) * 8);
+    if (mErrorProtection)
+      get_bits (&mBitstream, 16);
+
+    int32_t subBandSamples [2][36][32];
+    auto numFrames = decodeLayer3 (&subBandSamples[0][0][0]);
+
+    // what does this do ???
+    mLastBufSize = 0;
+    if (mInBitstream.buffer) {
+      align_get_bits (&mBitstream);
+      auto i = (mBitstream.size_in_bits - get_bits_count (&mBitstream)) >> 3;
+      if ((i >= 0) && (i <= 512)){
+        memmove (mLastBuf, mBitstream.buffer + (get_bits_count (&mBitstream) >> 3), i);
+        mLastBufSize = i;
+        }
+      mBitstream = mInBitstream;
+      }
+
+    align_get_bits (&mBitstream);
+    auto i = (mBitstream.size_in_bits - get_bits_count (&mBitstream)) >> 3;
+    if (i < 0 || i > 512 || numFrames < 0) {
+      i = mFrameSize - 4;
+      if (i > 512)
+        i = 512;
+      }
+    memcpy (mLastBuf + mLastBufSize, mBitstream.buffer + mFrameSize - 4 - i, i);
+    mLastBufSize += i;
+
+    if (power)
+      calcPower (&subBandSamples[0][0][0], power);
+
+    if (outSamples) {
+      // synthFilter subBandsamples to outSamples, using synthBuffer
+      for (auto channel = 0; channel < mNumChannels; channel++) {
+        auto outSamplesPtr = outSamples + channel;
+        for (auto frame = 0; frame < numFrames; frame++) {
+          synthFilter (channel, frame, &subBandSamples[0][0][0], outSamplesPtr);
+          outSamplesPtr += 32 * mNumChannels;
+          }
+        }
+      }
+    }
+  //}}}
+  //{{{
+  int decodeNextFrame (uint8_t* buf, int bufBytes, float* power, int16_t* samples) {
   // align bitstream to valid header and decode frame
 
     int extraBytes = 0;
     while (bufBytes >= 4) {
       auto header = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
       if (checkHeader (header)) {
-        auto frame_size = decodeHeader (header);
-        if (frame_size < bufBytes)
-          bufBytes = frame_size;
-        decodeFrameRaw (buf, bufBytes, power, samples);
-        if (bufBytes < 0)
-          return 0;
-        else
-          return frame_size + extraBytes;
+        decodeHeader (header);
+        decodeFoundFrame (power, samples);
+        return mFrameSize + extraBytes;
         }
 
       buf++;
@@ -1307,12 +1375,13 @@ private:
     mNumChannels = (mode == 3) ? 1 : 2; // mono flags
 
     if (bitrate_index != 0) {
-      auto frame_size = mp3_bitrate_tab[mLsf][bitrate_index];
-      mBitRate = frame_size * 1000;
-      return (frame_size * 144000) / (mSampleRate << mLsf) + padding;
+      mBitRate = mp3_bitrate_tab[mLsf][bitrate_index];
+      mFrameSize = (mBitRate * 144000) / (mSampleRate << mLsf) + padding;
       }
     else
-      return 0;
+      mFrameSize = 0;
+
+    return mFrameSize;
     }
   //}}}
 
@@ -2159,8 +2228,7 @@ private:
   int decodeLayer3 (int32_t* subBandSamples) {
 
     int mainDataBegin = get_bits (&mBitstream, mLsf ? 8 : 9);
-    //int privateBits =
-    get_bits (&mBitstream, mLsf ? mNumChannels : mNumChannels == 2 ? 3 : 5);
+    get_bits (&mBitstream, mLsf ? mNumChannels : mNumChannels == 2 ? 3 : 5); // privateBits
     int numGranules = mLsf ? 1 : 2;
 
     granule_t mGranules[2][2];
@@ -2272,13 +2340,10 @@ private:
     //printf ("%d %d - %d %d\n",
     //        mGranules[0][0].global_gain, mGranules[0][1].global_gain, mGranules[1][0].global_gain, mGranules[1][1].global_gain);
 
-    auto ptr = mBitstream.buffer + (get_bits_count (&mBitstream) >> 3);
-
     // get bits from the main_data_begin offset
     if (mainDataBegin > mLastBufSize)
       mLastBufSize = mainDataBegin;
-
-    memcpy (mLastBuf + mLastBufSize, ptr, 24);
+    memcpy (mLastBuf + mLastBufSize, mBitstream.buffer + (get_bits_count (&mBitstream) >> 3), 24);
     mInBitstream = mBitstream;
     init_get_bits (&mBitstream, mLastBuf + mLastBufSize - mainDataBegin, mainDataBegin * 8);
 
@@ -2473,53 +2538,6 @@ private:
     mSynthBufOffset[channel] = (mSynthBufOffset[channel] - 32) & 511;
     }
   //}}}
-  //{{{
-  void decodeFrameRaw (const uint8_t* buf, int bufSize, float* power, int16_t* outSamples) {
-
-    init_get_bits (&mBitstream, buf + 4, (bufSize - 4) * 8);
-    if (mErrorProtection)
-      get_bits (&mBitstream, 16);
-
-    int32_t subBandSamples [2][36][32];
-    auto numFrames = decodeLayer3 (&subBandSamples[0][0][0]);
-
-    // what does this do ???
-    mLastBufSize = 0;
-    if (mInBitstream.buffer) {
-      align_get_bits (&mBitstream);
-      auto i = (mBitstream.size_in_bits - get_bits_count (&mBitstream)) >> 3;
-      if ((i >= 0) && (i <= 512)){
-        memmove (mLastBuf, mBitstream.buffer + (get_bits_count (&mBitstream) >> 3), i);
-        mLastBufSize = i;
-        }
-      mBitstream = mInBitstream;
-      }
-
-    align_get_bits (&mBitstream);
-    auto i = (mBitstream.size_in_bits - get_bits_count (&mBitstream)) >> 3;
-    if (i < 0 || i > 512 || numFrames < 0) {
-      i = bufSize - 4;
-      if (i > 512)
-        i = 512;
-      }
-    memcpy (mLastBuf + mLastBufSize, mBitstream.buffer + bufSize - 4 - i, i);
-    mLastBufSize += i;
-
-    if (power)
-      calcPower (&subBandSamples[0][0][0], power);
-
-    if (outSamples) {
-      // synthFilter subBandsamples to outSamples, using synthBuffer
-      for (auto channel = 0; channel < mNumChannels; channel++) {
-        auto outSamplesPtr = outSamples + channel;
-        for (auto frame = 0; frame < numFrames; frame++) {
-          synthFilter (channel, frame, &subBandSamples[0][0][0], outSamplesPtr);
-          outSamplesPtr += 32 * mNumChannels;
-          }
-        }
-      }
-    }
-  //}}}
 
   //{{{  vars
   bitstream_t mBitstream;
@@ -2528,6 +2546,8 @@ private:
   int mLastBufSize = 0;
   uint8_t mLastBuf[2*512 + 24];
 
+  uint8_t* mFrameBuffer = nullptr;
+  int mFrameSize = 0;
   int mBitRate = 0;
   int mNumChannels = 0;
   int mSampleRate = 0;

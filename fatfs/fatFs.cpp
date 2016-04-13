@@ -223,6 +223,14 @@ static DWORD getFatTime() {
 //}}}
 
 //{{{
+static WCHAR wideToUpperCase (WCHAR chr) {
+
+  int i;
+  for (i = 0; kTableLower[i] && chr != kTableLower[i]; i++);
+  return kTableLower[i] ? kTableUpper[i] : chr;
+  }
+//}}}
+//{{{
 static WCHAR convertToFromUnicode (WCHAR chr, UINT direction /* 0: Unicode to OEMCP, 1: OEMCP to Unicode */ ) {
 // Converted character, Returns zero on error
 
@@ -245,14 +253,7 @@ static WCHAR convertToFromUnicode (WCHAR chr, UINT direction /* 0: Unicode to OE
   return c;
   }
 //}}}
-//{{{
-static WCHAR wideToUpperCase (WCHAR chr) {
 
-  int i;
-  for (i = 0; kTableLower[i] && chr != kTableLower[i]; i++);
-  return kTableLower[i] ? kTableUpper[i] : chr;
-  }
-//}}}
 //{{{
 static WCHAR get_achar (const TCHAR** ptr) {
 
@@ -315,7 +316,6 @@ static int matchPattern (const TCHAR* pat, const TCHAR* nam, int skip, int inf) 
   return 0;
   }
 //}}}
-
 
 //{{{
 static int compareLfn (WCHAR* lfnbuf, BYTE* dir) {
@@ -404,7 +404,7 @@ static BYTE sumSfn (const BYTE* dir) {
 //}}}
 
 //{{{
-static void generateNumName (BYTE* dst, const BYTE* src, const WCHAR* lfn, UINT seq) {
+static void generateNumberedName (BYTE* dst, const BYTE* src, const WCHAR* lfn, UINT seq) {
 
   BYTE ns[8], c;
   UINT i, j;
@@ -414,10 +414,10 @@ static void generateNumName (BYTE* dst, const BYTE* src, const WCHAR* lfn, UINT 
   memcpy (dst, src, 11);
 
   if (seq > 5) {
-    /* On many collisions, generate a hash number instead of sequential number */
+    // On many collisions, generate a hash number instead of sequential number
     sr = seq;
     while (*lfn) {
-      /* Create a CRC */
+      // Create a CRC
       wc = *lfn++;
       for (i = 0; i < 16; i++) {
         sr = (sr << 1) + (wc & 1);
@@ -429,7 +429,7 @@ static void generateNumName (BYTE* dst, const BYTE* src, const WCHAR* lfn, UINT 
     seq = (UINT)sr;
     }
 
-  /* itoa (hexdecimal) */
+  // itoa (hexdecimal)
   i = 7;
   do {
     c = (seq % 16) + '0';
@@ -441,7 +441,7 @@ static void generateNumName (BYTE* dst, const BYTE* src, const WCHAR* lfn, UINT 
 
   ns[i] = '~';
 
-  /* Append the number */
+  // Append the number
   for (j = 0; j < i && dst[j] != ' '; j++);
   do {
     dst[j++] = (i < 8) ? ns[i++] : ' ';
@@ -2439,13 +2439,18 @@ FRESULT cDirectory::registerNewEntry() {
   if (sn[NSFLAG] & NS_DOT)   /* Cannot create dot entry */
     return FR_INVALID_NAME;
 
-  if (sn[NSFLAG] & NS_LOSS) {     /* When LFN is out of 8.3 format, generate a numbered name */
-  FRESULT res;
-  fn1[NSFLAG] = 0;
-    lfn = 0;      /* Find only SFN */
+  if (sn[NSFLAG] & NS_LOSS) {
+    // When LFN is out of 8.3 format, generate a numbered name
+    FRESULT res;
+    fn1[NSFLAG] = 0;
+
+    // Find only SFN
+    lfn = 0;      
     for (n = 1; n < 100; n++) {
-      generateNumName (fn1, sn, lfn1, n);  /* Generate a numbered name */
-      res = find();       /* Check if the name collides with existing SFN */
+      generateNumberedName (fn1, sn, lfn1, n);  
+
+      // Check if the name collides with existing SFN
+      res = find();       
       if (res != FR_OK)
         break;
       }
@@ -2458,39 +2463,39 @@ FRESULT cDirectory::registerNewEntry() {
     lfn = lfn1;
     }
 
-  if (sn[NSFLAG] & NS_LFN) {      /* When LFN is to be created, allocate entries for an SFN + LFNs. */
+  if (sn[NSFLAG] & NS_LFN) {      
+    // When LFN is to be created, allocate entries for an SFN + LFNs
     for (n = 0; lfn1[n]; n++) ;
     nent = (n + 25) / 13;
     }
-  else
-    /* Otherwise allocate an entry for an SFN  */
+  else // Otherwise allocate an entry for an SFN
     nent = 1;
 
-  FRESULT res = allocate (nent);    /* Allocate entries */
+  FRESULT res = allocate (nent);  
   if (res == FR_OK && --nent) {
     /* Set LFN entry if needed */
     res = setIndex (index - nent);
     if (res == FR_OK) {
-      BYTE sum = sumSfn (fn);  /* Sum value of the SFN tied to the LFN */
+      BYTE sum = sumSfn (fn);  
       do {
-        /* Store LFN entries in bottom first */
+        // Store LFN entries in bottom first
         res = fs->moveWindow (sect);
         if (res != FR_OK)
           break;
         fitLfn (lfn, dir, (BYTE)nent, sum);
         fs->wflag = 1;
-        res = next (0);  /* Next entry */
+        res = next (0);  
         } while (res == FR_OK && --nent);
       }
     }
 
   if (res == FR_OK) {
-    /* Set SFN entry */
+    // Set SFN entry
     res = fs->moveWindow (sect);
     if (res == FR_OK) {
-      memset (dir, 0, SZ_DIRE); /* Clean the entry */
-      memcpy (dir, fn, 11); /* Put SFN */
-      dir[DIR_NTres] = fn[NSFLAG] & (NS_BODY | NS_EXT); /* Put NT flag */
+      memset (dir, 0, SZ_DIRE);  // Clean the entry
+      memcpy (dir, fn, 11);      // Put SFN
+      dir[DIR_NTres] = fn[NSFLAG] & (NS_BODY | NS_EXT); // Put NT flag
       fs->wflag = 1;
       }
     }
