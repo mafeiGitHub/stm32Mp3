@@ -341,8 +341,8 @@ static void loadThread (void const* argument) {
     }
   lcd->info ("SD card found");
 
-  cFatFs* fatFs = cFatFs::create();
-
+  // first instance creates fatFs
+  cFatFs* fatFs = cFatFs::instance();
   char label[13];
   DWORD volumeSerialNumber;
   if (fatFs->getLabel (label, &volumeSerialNumber) == FR_OK) {

@@ -593,10 +593,10 @@ void cLcd::endDraw() {
   for (auto lineIndex = (int)mFirstLine; lineIndex <= lastLine; lineIndex++) {
     auto x = 0;
     if (mShowTime) {
-      string (LCD_GREEN, mFontHeight,
-              intStr ((mLines[lineIndex].mTime-mStartTime) / 1000) + "." +
-              intStr ((mLines[lineIndex].mTime-mStartTime) % 1000, 3, '0'), x, y, getWidth(), mLineInc);
-      x += mStringPos;
+      auto xinc = string (LCD_GREEN, mFontHeight,
+                          intStr ((mLines[lineIndex].mTime-mStartTime) / 1000) + "." +
+                          intStr ((mLines[lineIndex].mTime-mStartTime) % 1000, 3, '0'), x, y, getWidth(), mLineInc);
+      x += xinc + 3;
       }
     string (mLines[lineIndex].mColour, mFontHeight, mLines[lineIndex].mString, x, y, getWidth(), mLineInc);
     y += mLineInc;

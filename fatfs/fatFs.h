@@ -132,14 +132,9 @@ friend class cDirectory;
 public :
   cFatFs();
   //{{{
-  static cFatFs* create() {
+  static cFatFs* instance() {
     if (!mFatFs)
       mFatFs = new cFatFs();
-    return mFatFs;
-    }
-  //}}}
-  //{{{
-  static cFatFs* instance() {
     return mFatFs;
     }
   //}}}

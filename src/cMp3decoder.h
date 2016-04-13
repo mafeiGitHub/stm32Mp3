@@ -5,12 +5,16 @@
 #include <stdint.h>
 #include <math.h>
 
-#include "cmsis_os.h"
-
-#include "../Bsp/cLcd.h"
+#ifdef WIN32
+  #define pvPortMalloc malloc
+  #define vPortFree free
+#else
+  #include "cmsis_os.h"
+  #include "../Bsp/cLcd.h"
+#endif
 //}}}
 //{{{  defines
-#define PI 3.141592654
+#define PI 3.141592654f
 #define FRAC_BITS   15
 #define WFRAC_BITS  14
 
@@ -812,14 +816,14 @@ public:
 
       for (auto i = 1; i < (8191 + 16) * 4; i++) {
         int e;
-        float fm = frexpf (powf (i/4, 4.0f/3.0f) * powf (2, (i & 3) * 0.25f), &e);
+        float fm = frexpf (powf (i/4.0f, 4.0f/3.0f) * powf (2.0f, (i & 3) * 0.25f), &e);
         table_4_3_value[i] = (uint32_t)(fm * (1LL << 31) + 0.5f);
         table_4_3_exp[i] = -e - FRAC_BITS + 31 - 5 + 100;
         }
 
       for (auto i = 0; i < 512*16; i++){
         auto exponent = i >> 4;
-        float f = powf (i & 15, 4.0 / 3.0) * powf (2, (exponent - 400) * 0.25f + FRAC_BITS + 5);
+        float f = powf (float(i & 15), 4.0f / 3.0f) * powf (2.0f, (exponent - 400.0f) * 0.25f + FRAC_BITS + 5.0f);
         expval_table[exponent][i & 15] = (uint32_t)f;
         if ((i & 15) == 1)
           exp_table[exponent]= (uint32_t)f;
@@ -939,7 +943,7 @@ public:
             else if (i < 18)
               d = 1;
             }
-          d *= 0.5 / cosf (PI * (2 * i + 19) / 72);
+          d *= 0.5f / cosf (PI * (2.0f * i + 19) / 72.0f);
           if (j == 2)
             mdct_win[j][i/3] = FIXHR((d / (1 << 5)));
           else
