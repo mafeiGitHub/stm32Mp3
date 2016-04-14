@@ -83,7 +83,7 @@ static void playFile (string fileName) {
   mFileSize = file.size();
   lcd->info ("playing " + cLcd::intStr (mFileSize) + " " + fileName);
 
-  int chunkSize = 8192;
+  int chunkSize = 4096;
   auto chunkBuffer = (uint8_t*)pvPortMalloc (chunkSize + 1044);
 
   // play file from fileBuffer
@@ -93,8 +93,8 @@ static void playFile (string fileName) {
   mPlayBytes = 0;
   while (!mSkip && (mPlayBytes < mFileSize)) {
     unsigned int chunkBytesLeft;
-    lcd->info ("readChunk " + cLcd::intStr (chunkSize));
     file.read (chunkBuffer, chunkSize, &chunkBytesLeft);
+    //lcd->info ("readChunk " + cLcd::intStr (chunkSize)+ ":" + cLcd::intStr (chunkBytesLeft));
     if (!chunkBytesLeft)
       break;
 
@@ -109,7 +109,7 @@ static void playFile (string fileName) {
         // load rest of frame
         unsigned int bytesLoaded;
         file.read (chunkPtr + chunkBytesLeft, mMp3Decoder->getFrameBodySize() - chunkBytesLeft, &bytesLoaded);
-        lcd->info ("readRest " + cLcd::intStr (mMp3Decoder->getFrameBodySize() - chunkBytesLeft) + " " + cLcd::intStr (bytesLoaded));
+        //lcd->info ("readRest " + cLcd::intStr (mMp3Decoder->getFrameBodySize() - chunkBytesLeft) + ":" + cLcd::intStr (bytesLoaded));
         if (!bytesLoaded)
           break;
         chunkBytesLeft += bytesLoaded;
@@ -253,8 +253,6 @@ static void uiThread (void const* argument) {
 
   while (true) {
     //{{{  read touch and use it
-    mSkip = false;
-
     TS_StateTypeDef tsState;
     BSP_TS_GetState (&tsState);
     for (auto touch = 0; touch < 5; touch++) {
@@ -312,7 +310,7 @@ static void uiThread (void const* argument) {
     lcd->rect (LCD_YELLOW, cLcd::getWidth()-20, 0, 20, int(mVolume * cLcd::getHeight()));
     //}}}
     //{{{  draw blue play progress
-    lcd->rect (LCD_BLUE, 0, 0, (mPlayBytes * cLcd::getWidth()) / mFileSize, 2);
+    lcd->rect (LCD_BLUE, 0, 0, ((mPlayBytes >> 10) * cLcd::getWidth()) / (mFileSize >> 10), 2);
     //}}}
     //{{{  draw blue waveform
     for (auto x = 0; x < cLcd::getWidth(); x++) {
@@ -426,12 +424,8 @@ static void startThread (void const* argument) {
 //}}}
 
 //{{{
-static void initCpu() {
-// init cpu caches, MPU regions
-
-  SCB_EnableICache();
-  SCB_EnableDCache();
-  HAL_Init();
+static void initMpuRegions() {
+// init MPU regions
 
   // common MPU config for writeThrough
   HAL_MPU_Disable();
@@ -509,7 +503,10 @@ static void initClock() {
 //{{{
 int main() {
 
-  initCpu();
+  SCB_EnableICache();
+  SCB_EnableDCache();
+  HAL_Init();
+  initMpuRegions();
   initClock();
 
   // init freeRTOS heap_5c

@@ -198,7 +198,6 @@ private:
   osSemaphoreId semaphore; // Identifier of sync object
 
   BYTE  fsType = 0;     // FAT sub-type (0:Not mounted)
-  BYTE  drv = 0;        // Physical drive number
   WORD  id = 0;         // File system mount ID
 
   BYTE  csize;          // Sectors per cluster (1,2,4...128)
