@@ -20,24 +20,9 @@ typedef long            LONG;
 typedef unsigned long   DWORD;
 
 // chars
-#define _LFN_UNICODE 0   /* 0:ANSI/OEM or 1:Unicode */
-
-// Type of path name strings on FatFs API
-#if _LFN_UNICODE
-  /* Unicode string */
-  #ifndef _INC_TCHAR
-    typedef WCHAR TCHAR;
-    #define _T(x) L ## x
-    #define _TEXT(x) L ## x
-  #endif
-#else
-  /* ANSI/OEM string */
-  #ifndef _INC_TCHAR
-    typedef char TCHAR;
-    #define _T(x) x
-    #define _TEXT(x) x
-  #endif
-#endif
+typedef char TCHAR;
+#define _T(x) x
+#define _TEXT(x) x
 //}}}
 //{{{  defines
 #define FS_LOCK         2  // 0:Disable or >=1:Enable
@@ -97,32 +82,29 @@ class cDirectory;
 //{{{
 class cFileInfo {
 public:
-  cFileInfo() : mLfname(lfn), mLfnSize(MAX_LFN + 1) {}
+  cFileInfo() : mLongFileNameSize(MAX_LFN + 1) {}
 
-  char* getName() { return mLfname[0] ? mLfname : (char*)&fname; }
-  bool getEmpty() { return fname[0] == 0; }
-  bool getBack() { return fname[0] == '.'; }
-  bool isDirectory() { return fattrib & AM_DIR; }
+  char* getName() { return mLongFileName[0] ? mLongFileName : (char*)&mShortFileName; }
+  bool getEmpty() { return mShortFileName[0] == 0; }
+  bool getBack() { return mShortFileName[0] == '.'; }
+  bool isDirectory() { return mAttribute & AM_DIR; }
   //{{{
   bool matchExtension (const char* extension) {
     auto i = 0;
-    while ((i < 9) && fname[i++] != '.');
-    return (fname[i] == extension[0]) && (fname[i+1] == extension[1]) && (fname[i+2] == extension[2]);
+    while ((i < 9) && mShortFileName[i++] != '.');
+    return (mShortFileName[i] == extension[0]) && (mShortFileName[i+1] == extension[1]) && (mShortFileName[i+2] == extension[2]);
     }
   //}}}
 
   // public var
-  DWORD mFileSize;      // File size
-  WORD  fdate;      // Last modified date
-  WORD  ftime;      // Last modified time
-  BYTE  fattrib;    // Attribute
+  DWORD mFileSize;  // File size
+  WORD  mDate;      // Last modified date
+  WORD  mTime;      // Last modified time
+  BYTE  mAttribute; // Attribute
 
-  TCHAR fname[13];  // Short file name (8.3 format)
-
-  TCHAR* mLfname;    // Pointer to the LFN buffer
-  UINT  mLfnSize;     // Size of LFN buffer in TCHAR
-
-  char lfn [MAX_LFN + 1];
+  TCHAR mShortFileName[13]; // 8.3 format
+  UINT  mLongFileNameSize;
+  TCHAR mLongFileName[MAX_LFN + 1];
   };
 //}}}
 //{{{
@@ -290,20 +272,20 @@ private:
   FRESULT remove();
   void getFileInfo (cFileInfo* fileInfo);
 
-  cFatFs* fs;           // Pointer to the owner file system
-  WORD mMountId;        // Owner file system mount ID
-  UINT mLockId;         // File lock ID (index of file semaphore table Files[])
+  cFatFs* fs;              // Pointer to the owner file system
+  WORD mMountId;           // Owner file system mount ID
+  UINT mLockId;            // File lock ID (index of file semaphore table Files[])
 
-  WORD index;           // Current read/write index number
-  DWORD mStartCluster;  // Table start cluster (0:Root dir)
-  DWORD clust;          // Current cluster
-  DWORD sect;           // Current sector
+  WORD index;              // Current read/write index number
+  DWORD mStartCluster;     // Table start cluster (0:Root dir)
+  DWORD clust;             // Current cluster
+  DWORD sect;              // Current sector
 
-  BYTE* dir;            // Pointer to the current SFN entry in the win[]
-  BYTE* fn;             // Pointer to the SFN (in/out) {file[8],ext[3],status[1]}
-  WCHAR* lfn;           // Pointer to the LFN working buffer
-  WORD lfn_idx;         // Last matched LFN index number (0xFFFF:No LFN)
+  BYTE* dir;               // Pointer to the current SFN entry in the win[]
+  BYTE* mShortFileName;    // Pointer to the SFN (in/out) {file[8],ext[3],status[1]}
+  WCHAR* mLongFileName;    // Pointer to the LFN working buffer
+  WORD mLongFileNameIndex; // Last matched LFN index number (0xFFFF:No LFN)
 
-  const TCHAR* mPattern; // Pointer to the name matching pattern
+  const TCHAR* mPattern;   // Pointer to the name matching pattern
   };
 //}}}
