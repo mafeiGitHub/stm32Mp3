@@ -96,7 +96,7 @@ public:
     }
   //}}}
 
-  // public var
+  // public vars
   DWORD mFileSize;  // File size
   WORD  mDate;      // Last modified date
   WORD  mTime;      // Last modified time
@@ -167,7 +167,7 @@ private:
   //{{{
   class cFileSem {
   public:
-    cFatFs* fs; // Object ID 1, volume (NULL:blank entry)
+    cFatFs* mFs; // Object ID 1, volume (NULL:blank entry)
     DWORD clu;  // Object ID 2, directory (0:root)
     WORD idx;   // Object ID 3, directory index
     WORD ctr;   // Object open counter, 0:none, 0x01..0xFF:read mode open count, 0x100:write mode
@@ -228,24 +228,24 @@ private:
   // vars
   BYTE* fileBuffer = nullptr;  // File data read/write buffer
 
-  cFatFs* fs;          // Pointer to the related file system
+  cFatFs* mFs;         // Pointer to the related file system
   WORD mMountId;       // Owner file system mount ID
   UINT mLockId;        // File lock ID origin from 1 (index of file semaphore table Files[])
 
-  BYTE flag;           // Status flags
-  BYTE err;            // Abort flag (error code)
+  BYTE mFlag;          // Status flags
+  BYTE mError;         // Abort flag (error code)
 
   DWORD mFilePtr;      // File read/write pointer (Zeroed on file open)
   DWORD mFileSize;     // File size
 
   DWORD mStartCluster; // File start cluster (0:no cluster chain, always 0 when fsize is 0)
-  DWORD clust;         // Current cluster of fpter (not valid when fprt is 0)
-  DWORD dsect;         // Sector number appearing in buf[] (0:invalid)
+  DWORD mCluster;      // Current cluster of fpter (not valid when fprt is 0)
+  DWORD mCachedSector; // Sector number appearing in buf[] (0:invalid)
 
   DWORD mDirSectorNum; // Sector number containing the directory entry
   BYTE* mDirPtr;       // Pointer to the directory entry in the win[]
 
-  DWORD* cltbl;        // Pointer to the cluster link map table (Nulled on file open)
+  DWORD* mClusterTable; // Pointer to the cluster link map table (Nulled on file open)
   };
 //}}}
 //{{{
@@ -264,7 +264,7 @@ private:
   FRESULT createName (const TCHAR** path);
   FRESULT find();
   FRESULT followPath (const TCHAR* path);
-  FRESULT setIndex (UINT idx);
+  FRESULT setIndex (UINT index);
   FRESULT next (int stretch);
   FRESULT read (int vol);
   FRESULT registerNewEntry();
@@ -272,16 +272,16 @@ private:
   FRESULT remove();
   void getFileInfo (cFileInfo* fileInfo);
 
-  cFatFs* fs;              // pointer to the owner file system
-  WORD mMountId;           // Owner file system mount ID
-  UINT mLockId;            // File lock ID (index of file semaphore table Files[])
+  cFatFs* mFs;             // pointer to the owner fileSystem
+  WORD mMountId;           // owner fileSystem mountId
+  UINT mLockId;            // file lockId (index of file semaphore table Files[])
 
-  WORD index;              // Current read/write index number
+  WORD mIndex;             // Current read/write index number
   DWORD mStartCluster;     // Table start cluster (0:Root dir)
-  DWORD clust;             // Current cluster
-  DWORD sect;              // Current sector
+  DWORD mCluster;          // Current cluster
+  DWORD mSector;           // Current sector
 
-  BYTE* dir;               // pointer to the current SFN entry in the win[]
+  BYTE* mDirShortFileName; // pointer to the current SFN entry in the win[]
   BYTE mShortFileName[12]; // shortFileName - file[8],ext[3],status[1]
   WCHAR* mLongFileName;    // pointer to longFileName working buffer
   WORD mLongFileNameIndex; // Last matched longFileName index number (0xFFFF:No longFileName)
