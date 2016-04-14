@@ -94,7 +94,6 @@ static void playFile (string fileName) {
   while (!mSkip && (mPlayBytes < mFileSize)) {
     unsigned int chunkBytesLeft;
     file.read (chunkBuffer, chunkSize, &chunkBytesLeft);
-    //lcd->info ("readChunk " + cLcd::intStr (chunkSize)+ ":" + cLcd::intStr (chunkBytesLeft));
     if (!chunkBytesLeft)
       break;
 
@@ -109,7 +108,6 @@ static void playFile (string fileName) {
         // load rest of frame
         unsigned int bytesLoaded;
         file.read (chunkPtr + chunkBytesLeft, mMp3Decoder->getFrameBodySize() - chunkBytesLeft, &bytesLoaded);
-        //lcd->info ("readRest " + cLcd::intStr (mMp3Decoder->getFrameBodySize() - chunkBytesLeft) + ":" + cLcd::intStr (bytesLoaded));
         if (!bytesLoaded)
           break;
         chunkBytesLeft += bytesLoaded;

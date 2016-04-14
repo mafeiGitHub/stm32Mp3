@@ -76,9 +76,9 @@ DRESULT diskIoctl (BYTE cmd, void* buff) {
   }
 //}}}
 //{{{
-DRESULT diskRead (BYTE* buff, DWORD sector, UINT count) {
+DRESULT diskRead (BYTE* buffer, DWORD sector, UINT count) {
 
-  if ((uint32_t)buff & 0x03) {
+  if ((uint32_t)buffer & 0x03) {
     //cLcd::debug ("diskRead align b:" + cLcd::hexStr ((int)buff) + " sec:" + cLcd::intStr (sector) + " num:" + cLcd::intStr (count));
 
     // not 32bit aligned, dma fails,
@@ -88,23 +88,22 @@ DRESULT diskRead (BYTE* buff, DWORD sector, UINT count) {
     auto result = BSP_SD_ReadBlocks (tempBuffer, (uint64_t)(sector * SECTOR_SIZE), SECTOR_SIZE, count) == MSD_OK ? RES_OK : RES_ERROR;
 
     // then cache fails on memcpy after dma read
-    SCB_InvalidateDCache();
-    //SCB_InvalidateDCache_by_Addr ((uint32_t*)tempBuffer, count * SECTOR_SIZE);
-    memcpy (buff, tempBuffer, count * SECTOR_SIZE);
+    SCB_InvalidateDCache_by_Addr ((uint32_t*)((uint32_t)tempBuffer & 0xFFFFFFE0), (count * SECTOR_SIZE) + 32);
+    memcpy (buffer, tempBuffer, count * SECTOR_SIZE);
 
     vPortFree (tempBuffer);
     return result;
     }
 
   else {
-    auto result = BSP_SD_ReadBlocks ((uint32_t*)buff, (uint64_t)(sector * SECTOR_SIZE), SECTOR_SIZE, count) == MSD_OK ? RES_OK : RES_ERROR;
-    SCB_InvalidateDCache_by_Addr ((uint32_t*)buff, count * SECTOR_SIZE);
+    auto result = BSP_SD_ReadBlocks ((uint32_t*)buffer, (uint64_t)(sector * SECTOR_SIZE), SECTOR_SIZE, count) == MSD_OK ? RES_OK : RES_ERROR;
+    SCB_InvalidateDCache_by_Addr ((uint32_t*)((uint32_t)buffer & 0xFFFFFFE0), (count * SECTOR_SIZE) + 32);
     return result;
     }
   }
 //}}}
 //{{{
-DRESULT diskWrite (const BYTE* buff, DWORD sector, UINT count) {
-  return BSP_SD_WriteBlocks ((uint32_t*)buff, (uint64_t)(sector * SECTOR_SIZE), SECTOR_SIZE, count) == MSD_OK ? RES_OK : RES_ERROR;
+DRESULT diskWrite (const BYTE* buffer, DWORD sector, UINT count) {
+  return BSP_SD_WriteBlocks ((uint32_t*)buffer, (uint64_t)(sector * SECTOR_SIZE), SECTOR_SIZE, count) == MSD_OK ? RES_OK : RES_ERROR;
   }
 //}}}

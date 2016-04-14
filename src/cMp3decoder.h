@@ -1042,7 +1042,7 @@ public:
     }
   //}}}
   //{{{
-  int decodeNextFrame (uint8_t* buffer, int bufferBytes, float* powerValues, int16_t* samples) {
+  int decodeNextFrame (uint8_t* buffer, int bufferBytes, float* powerValues, int16_t* outSamples) {
   // find next valid frame header, decode header, decode body
   // - return buffer bytesUsed
   //   - 0 if complete frame not found
@@ -1054,7 +1054,7 @@ public:
       buffer += bytesUsed;
       bufferBytes -= bytesUsed;
       if (mFrameBodySize && (bufferBytes >= mFrameBodySize)) {
-        decodeFrameBody (buffer, powerValues, samples);
+        decodeFrameBody (buffer, powerValues, outSamples);
         return bytesUsed + mFrameBodySize;
         }
       }

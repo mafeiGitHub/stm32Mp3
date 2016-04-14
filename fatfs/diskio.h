@@ -13,8 +13,8 @@ DSTATUS diskStatus();
 DSTATUS diskInitialize();
 
 DRESULT diskIoctl (BYTE cmd, void* buff);
-DRESULT diskRead (BYTE* buff, DWORD sector, UINT count);
-DRESULT diskWrite (const BYTE* buff, DWORD sector, UINT count);
+DRESULT diskRead (BYTE* buffer, DWORD sector, UINT count);
+DRESULT diskWrite (const BYTE* buffer, DWORD sector, UINT count);
 
 // Disk Status Bits (DSTATUS)
 #define STA_NOINIT    0x01  /* Drive not initialized */
