@@ -272,7 +272,7 @@ private:
   FRESULT remove();
   void getFileInfo (cFileInfo* fileInfo);
 
-  cFatFs* fs;              // Pointer to the owner file system
+  cFatFs* fs;              // pointer to the owner file system
   WORD mMountId;           // Owner file system mount ID
   UINT mLockId;            // File lock ID (index of file semaphore table Files[])
 
@@ -281,11 +281,11 @@ private:
   DWORD clust;             // Current cluster
   DWORD sect;              // Current sector
 
-  BYTE* dir;               // Pointer to the current SFN entry in the win[]
-  BYTE* mShortFileName;    // Pointer to the SFN (in/out) {file[8],ext[3],status[1]}
-  WCHAR* mLongFileName;    // Pointer to the LFN working buffer
-  WORD mLongFileNameIndex; // Last matched LFN index number (0xFFFF:No LFN)
+  BYTE* dir;               // pointer to the current SFN entry in the win[]
+  BYTE mShortFileName[12]; // shortFileName - file[8],ext[3],status[1]
+  WCHAR* mLongFileName;    // pointer to longFileName working buffer
+  WORD mLongFileNameIndex; // Last matched longFileName index number (0xFFFF:No longFileName)
 
-  const TCHAR* mPattern;   // Pointer to the name matching pattern
+  const TCHAR* mPattern;   // pointer to the name matching pattern
   };
 //}}}

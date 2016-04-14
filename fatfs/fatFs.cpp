@@ -560,10 +560,8 @@ FRESULT cFatFs::getCwd (TCHAR* buff, UINT len) {
 	cDirectory directory;
 	FRESULT res = findVolume (&directory.fs, 0);
 	if (res == FR_OK) {
-		BYTE sfn[12];
-		WCHAR lfn [(MAX_LFN + 1) * 2];
-		directory.mLongFileName = lfn;
-		directory.mShortFileName = sfn;
+		WCHAR longFileName [(MAX_LFN + 1) * 2];
+		directory.mLongFileName = longFileName;
 		i = len;      /* Bottom of buffer (directory stack base) */
 		directory.mStartCluster = mCurDirSector;      /* Start to follow upper directory from current directory */
 		while ((ccl = directory.mStartCluster) != 0) {
@@ -783,10 +781,8 @@ FRESULT cFatFs::mkDir (const TCHAR* path) {
 	cDirectory directory;
 	FRESULT res = findVolume (&directory.fs, 1);
 	if (res == FR_OK) {
-		BYTE sfn[12];
-		WCHAR lfn [(MAX_LFN + 1) * 2];
-		directory.mLongFileName = lfn;
-		directory.mShortFileName = sfn;
+		WCHAR longFileName [(MAX_LFN + 1) * 2];
+		directory.mLongFileName = longFileName;
 		res = directory.followPath (path);
 		if (res == FR_OK)
 			res = FR_EXIST;   /* Any object with same name is already existing */
@@ -858,10 +854,8 @@ FRESULT cFatFs::chDir (const TCHAR* path) {
 	cDirectory directory;
 	FRESULT res = findVolume (&directory.fs, 0);
 	if (res == FR_OK) {
-		BYTE sfn[12];
-		WCHAR lfn [(MAX_LFN + 1) * 2];
-		directory.mLongFileName = lfn;
-		directory.mShortFileName = sfn;
+		WCHAR longFileName [(MAX_LFN + 1) * 2];
+		directory.mLongFileName = longFileName;
 		res = directory.followPath (path);
 
 		if (res == FR_OK) {
@@ -889,11 +883,8 @@ FRESULT cFatFs::stat (const TCHAR* path, cFileInfo* fileInfo) {
 	cDirectory directory;
 	FRESULT res = findVolume (&directory.fs, 0);
 	if (res == FR_OK) {
-		BYTE sfn[12];
-		WCHAR lfn [(MAX_LFN + 1) * 2];
-		directory.mLongFileName = lfn;
-		directory.mShortFileName = sfn;
-
+		WCHAR longFileName [(MAX_LFN + 1) * 2];
+		directory.mLongFileName = longFileName;
 		res = directory.followPath (path);
 		if (res == FR_OK) {
 			if (directory.dir) {
@@ -922,10 +913,8 @@ FRESULT cFatFs::rename (const TCHAR* path_old, const TCHAR* path_new) {
 		cDirectory newDirectory;
 		newDirectory.fs = oldDirectory.fs;
 
-		BYTE sfn[12];
-		WCHAR lfn [(MAX_LFN + 1) * 2];
-		oldDirectory.mLongFileName = lfn;
-		oldDirectory.mShortFileName = sfn;
+		WCHAR longFileName [(MAX_LFN + 1) * 2];
+		oldDirectory.mLongFileName = longFileName;
 		res = oldDirectory.followPath (path_old);
 		if (res == FR_OK && (oldDirectory.mShortFileName[NSFLAG] & NS_DOT))
 			res = FR_INVALID_NAME;
@@ -989,10 +978,8 @@ FRESULT cFatFs::chMod (const TCHAR* path, BYTE attr, BYTE mask) {
 	cDirectory directory;
 	FRESULT res = findVolume (&directory.fs, 1);
 	if (res == FR_OK) {
-		BYTE sfn[12];
-		WCHAR lfn [(MAX_LFN + 1) * 2];
-		directory.mLongFileName = lfn;
-		directory.mShortFileName = sfn;
+		WCHAR longFileName [(MAX_LFN + 1) * 2];
+		directory.mLongFileName = longFileName;
 		res = directory.followPath (path);
 
 		if (res == FR_OK && (directory.mShortFileName[NSFLAG] & NS_DOT))
@@ -1022,10 +1009,8 @@ FRESULT cFatFs::utime (const TCHAR* path, const cFileInfo* fileInfo) {
 	cDirectory directory;
 	FRESULT res = findVolume (&directory.fs, 1);
 	if (res == FR_OK) {
-		BYTE sfn[12];
-		WCHAR lfn [(MAX_LFN + 1) * 2];
-		directory.mLongFileName = lfn;
-		directory.mShortFileName = sfn;
+		WCHAR longFileName [(MAX_LFN + 1) * 2];
+		directory.mLongFileName = longFileName;
 		res = directory.followPath (path);
 		if (res == FR_OK && (directory.mShortFileName[NSFLAG] & NS_DOT))
 			res = FR_INVALID_NAME;
@@ -1057,10 +1042,8 @@ FRESULT cFatFs::unlink (const TCHAR* path) {
 	cDirectory directory;
 	FRESULT res = findVolume (&directory.fs, 1);
 	if (res == FR_OK) {
-		BYTE sfn[12];
-		WCHAR lfn [(MAX_LFN + 1) * 2];
-		directory.mLongFileName = lfn;
-		directory.mShortFileName = sfn;
+		WCHAR longFileName [(MAX_LFN + 1) * 2];
+		directory.mLongFileName = longFileName;
 		res = directory.followPath (path);
 		if (res == FR_OK && (directory.mShortFileName[NSFLAG] & NS_DOT)) // Cannot remove dot entry */
 			res = FR_INVALID_NAME;
@@ -1952,10 +1935,8 @@ FRESULT cDirectory::open (const TCHAR* path) {
 
 	FRESULT res = cFatFs::instance()->findVolume (&fs, 0);
 	if (res == FR_OK) {
-		BYTE sfn1[12];
-		WCHAR lfn1[(MAX_LFN + 1) * 2];
-		mLongFileName = lfn1;
-		mShortFileName = sfn1;
+		WCHAR longFileName[(MAX_LFN + 1) * 2];
+		mLongFileName = longFileName;
 		res = followPath (path);
 		if (res == FR_OK) {
 			if (dir) {
@@ -2003,10 +1984,8 @@ FRESULT cDirectory::read (cFileInfo* fileInfo) {
 			// Rewind the directory object
 			res = setIndex (0);
 		else {
-			BYTE sfn1[12];
-			WCHAR lfn1 [(MAX_LFN + 1) * 2];
-			mLongFileName = lfn1;
-			mShortFileName = sfn1;
+			WCHAR longFileName [(MAX_LFN + 1) * 2];
+			mLongFileName = longFileName;
 			res = read (0);
 			if (res == FR_NO_FILE) {
 				// Reached end of directory
@@ -2051,7 +2030,7 @@ FRESULT cDirectory::findnext (cFileInfo* fileInfo) {
 		if (res != FR_OK || !fileInfo || !fileInfo->mShortFileName[0])
 			break;
 
-		// match lfn
+		// match longFileName
 		if (matchPattern (mPattern, fileInfo->mLongFileName, 0, 0))
 			break;
 
@@ -2170,10 +2149,10 @@ FRESULT cDirectory::createName (const TCHAR** path) {
 	BYTE b, cf;
 	UINT i, ni;
 
-	// Create LFN in Unicode
+	// Create longFileName in Unicode
 	const TCHAR* p;
 	for (p = *path; *p == '/' || *p == '\\'; p++) ; /* Strip duplicated separator */
-	WCHAR* lfn1 = mLongFileName;
+	WCHAR* longFileName = mLongFileName;
 	UINT si = 0;
 	UINT di = 0;
 	WCHAR w;
@@ -2192,13 +2171,13 @@ FRESULT cDirectory::createName (const TCHAR** path) {
 
 		if (w < 0x80 && strchr ("\"*:<>\?|\x7F", w)) // Reject illegal characters for LFN */
 			return FR_INVALID_NAME;
-		lfn1[di++] = w;   // Store the Unicode character */
+		longFileName[di++] = w;   // Store the Unicode character */
 		}
 
 	*path = &p[si];  // Return pointer to the next segment */
 	cf = (w < ' ') ? NS_LAST : 0;   // Set last segment flag if end of path */
-	if ((di == 1 && lfn1[di - 1] == '.') || (di == 2 && lfn1[di - 1] == '.' && lfn1[di - 2] == '.')) {
-		lfn1[di] = 0;
+	if ((di == 1 && longFileName[di - 1] == '.') || (di == 2 && longFileName[di - 1] == '.' && longFileName[di - 2] == '.')) {
+		longFileName[di] = 0;
 		for (i = 0; i < 11; i++)
 			mShortFileName[i] = (i < di) ? '.' : ' ';
 		mShortFileName[i] = cf | NS_DOT;   // This is a dot entry */
@@ -2207,7 +2186,7 @@ FRESULT cDirectory::createName (const TCHAR** path) {
 
 	while (di) {
 		// Strip trailing spaces and dots */
-		w = lfn1[di - 1];
+		w = longFileName[di - 1];
 		if (w != ' ' && w != '.')
 			break;
 		di--;
@@ -2215,21 +2194,21 @@ FRESULT cDirectory::createName (const TCHAR** path) {
 	if (!di)
 		return FR_INVALID_NAME;  /* Reject nul string */
 
-	// LFN is created
-	lfn1[di] = 0;
+	// longFileName is created
+	longFileName[di] = 0;
 
 	// Create SFN in directory form
 	memset (mShortFileName, ' ', 11);
-	for (si = 0; lfn1[si] == ' ' || lfn1[si] == '.'; si++) ;  /* Strip leading spaces and dots */
+	for (si = 0; longFileName[si] == ' ' || longFileName[si] == '.'; si++) ;  /* Strip leading spaces and dots */
 	if (si)
 		cf |= NS_LOSS | NS_LFN;
-	while (di && lfn1[di - 1] != '.')
+	while (di && longFileName[di - 1] != '.')
 		di--;  /* Find extension (di<=si: no extension) */
 
 	b = i = 0; ni = 8;
 	for (;;) {
-		w = lfn1[si++];  // Get an LFN character */
-		if (!w) // Break on end of the LFN
+		w = longFileName[si++];  // Get an longFileName character */
+		if (!w) // Break on end of the longFileName
 			break;
 
 		if (w == ' ' || (w == '.' && si != di)) {
@@ -2432,24 +2411,22 @@ FRESULT cDirectory::registerNewEntry() {
 
 	UINT n, nent;
 
-	BYTE* fn1 = mShortFileName;
-	WCHAR* lfn1 = mLongFileName;
-
+	WCHAR* longFileName = mLongFileName;
 	BYTE sn[12];
-	memcpy (sn, fn1, 12);
+	memcpy (sn, mShortFileName, 12);
 
 	if (sn[NSFLAG] & NS_DOT)   /* Cannot create dot entry */
 		return FR_INVALID_NAME;
 
 	if (sn[NSFLAG] & NS_LOSS) {
-		// When LFN is out of 8.3 format, generate a numbered name
+		// When longFileName is out of 8.3 format, generate a numbered name
 		FRESULT res;
-		fn1[NSFLAG] = 0;
+		mShortFileName[NSFLAG] = 0;
 
 		// Find only SFN
 		mLongFileName = 0;
 		for (n = 1; n < 100; n++) {
-			generateNumberedName (fn1, sn, lfn1, n);
+			generateNumberedName (mShortFileName, sn, longFileName, n);
 
 			// Check if the name collides with existing SFN
 			res = find();
@@ -2461,13 +2438,13 @@ FRESULT cDirectory::registerNewEntry() {
 		if (res != FR_NO_FILE)
 			return res;  /* Abort if the result is other than 'not collided' */
 
-		fn1[NSFLAG] = sn[NSFLAG];
-		mLongFileName = lfn1;
+		mShortFileName[NSFLAG] = sn[NSFLAG];
+		mLongFileName = longFileName;
 		}
 
 	if (sn[NSFLAG] & NS_LFN) {
-		// When LFN is to be created, allocate entries for an SFN + LFNs
-		for (n = 0; lfn1[n]; n++) ;
+		// When longFileName is to be created, allocate entries for an SFN + longFileNames
+		for (n = 0; longFileName[n]; n++) ;
 		nent = (n + 25) / 13;
 		}
 	else // Otherwise allocate an entry for an SFN
@@ -2475,12 +2452,12 @@ FRESULT cDirectory::registerNewEntry() {
 
 	FRESULT res = allocate (nent);
 	if (res == FR_OK && --nent) {
-		/* Set LFN entry if needed */
+		/* Set longFileName entry if needed */
 		res = setIndex (index - nent);
 		if (res == FR_OK) {
 			BYTE sum = sumSfn (mShortFileName);
 			do {
-				// Store LFN entries in bottom first
+				// Store longFileName entries in bottom first
 				res = fs->moveWindow (sect);
 				if (res != FR_OK)
 					break;
@@ -2544,7 +2521,7 @@ FRESULT cDirectory::find() {
 		return res;
 
 	BYTE ord = sum = 0xFF;
-	mLongFileNameIndex = 0xFFFF; /* Reset LFN sequence */
+	mLongFileNameIndex = 0xFFFF; /* Reset longFileName sequence */
 	do {
 		res = fs->moveWindow (sect);
 		if (res != FR_OK)
@@ -2560,7 +2537,7 @@ FRESULT cDirectory::find() {
 		a = dir1[DIR_Attr] & AM_MASK;
 		if (c == DDEM || ((a & AM_VOL) && a != AM_LFN)) { /* An entry without valid data */
 			ord = 0xFF;
-			mLongFileNameIndex = 0xFFFF; /* Reset LFN sequence */
+			mLongFileNameIndex = 0xFFFF; /* Reset longFileName sequence */
 			}
 		else {
 			if (a == AM_LFN) {      /* An LFN entry is found */
@@ -2568,20 +2545,20 @@ FRESULT cDirectory::find() {
 					if (c & LLEF) {   /* Is it start of LFN sequence? */
 						sum = dir1[LDIR_Chksum];
 						c &= ~LLEF;
-						ord = c;  /* LFN start order */
-						mLongFileNameIndex = index;  /* Start index of LFN */
+						ord = c;  /* longFileName start order */
+						mLongFileNameIndex = index;  /* Start index of longFileName */
 						}
-					/* Check validity of the LFN entry and compare it with given name */
+					/* Check validity of the longFileName entry and compare it with given name */
 					ord = (c == ord && sum == dir1[LDIR_Chksum] && compareLfn (mLongFileName, dir1)) ? ord - 1 : 0xFF;
 					}
 				}
 			else {          /* An SFN entry is found */
 				if (!ord && sum == sumSfn (dir1))
-					break; /* LFN matched? */
+					break; /* longFileName matched? */
 				if (!(mShortFileName[NSFLAG] & NS_LOSS) && !memcmp (dir1, mShortFileName, 11))
 					break;  /* SFN matched? */
 				ord = 0xFF;
-				mLongFileNameIndex = 0xFFFF; /* Reset LFN sequence */
+				mLongFileNameIndex = 0xFFFF; /* Reset longFileName sequence */
 				}
 			}
 
@@ -2615,18 +2592,19 @@ FRESULT cDirectory::read (int vol) {
 			// entry without valid data
 			ord = 0xFF;
 		else {
-			if (a == AM_LFN) {      /* An LFN entry is found */
-				if (c & LLEF) {     /* Is it start of LFN sequence? */
+			if (a == AM_LFN) {      /* An longFileName entry is found */
+				if (c & LLEF) {     /* Is it start of longFileName sequence? */
 					sum = dir1[LDIR_Chksum];
 					c &= ~LLEF; ord = c;
 					mLongFileNameIndex = index;
 					}
-				/* Check LFN validity and capture it */
+				/* Check longFileName validity and capture it */
 				ord = (c == ord && sum == dir1[LDIR_Chksum] && pickLfn (mLongFileName, dir1)) ? ord - 1 : 0xFF;
 				}
-			else {          /* An SFN entry is found */
-				if (ord || sum != sumSfn (dir1)) /* Is there a valid LFN? */
-					mLongFileNameIndex = 0xFFFF;   /* It has no LFN. */
+			else {
+				/* An SFN entry is found */
+				if (ord || sum != sumSfn (dir1)) /* Is there a valid longFileName? */
+					mLongFileNameIndex = 0xFFFF;   /* It has no longFileName. */
 				break;
 				}
 			}
@@ -2648,7 +2626,7 @@ FRESULT cDirectory::remove() {
 	// SFN index
 	UINT i = index;
 
-	FRESULT res = setIndex ((mLongFileNameIndex == 0xFFFF) ? i : mLongFileNameIndex); /* Goto the SFN or top of the LFN entries */
+	FRESULT res = setIndex ((mLongFileNameIndex == 0xFFFF) ? i : mLongFileNameIndex); /* Goto the SFN or top of the longFileName entries */
 	if (res == FR_OK) {
 		do {
 			res = fs->moveWindow (sect);
@@ -2710,25 +2688,25 @@ void cDirectory::getFileInfo (cFileInfo* fileInfo) {
 	i = 0;
 	p = fileInfo->mLongFileName;
 	if (sect && fileInfo->mLongFileNameSize && mLongFileNameIndex != 0xFFFF) {
-		// Get lfn if available
-		WCHAR* lfnPtr = mLongFileName;
-		while ((w = *lfnPtr++) != 0) {
-			// Get an lfn character
+		// get longFileName if available
+		WCHAR* longFileNamePtr = mLongFileName;
+		while ((w = *longFileNamePtr++) != 0) {
+			// Get an longFileName character
 			w = convertToFromUnicode (w, 0);  // Unicode -> OEM
 			if (!w) {
-				// No lfn if it could not be converted
+				// No longFileName if it could not be converted
 				i = 0;
 				break;
 				}
 			if (i >= fileInfo->mLongFileNameSize - 1) {
-				// No lfn if buffer overflow
+				// No longFileName if buffer overflow
 				i = 0;
 				break;
 				}
 			p[i++] = (TCHAR)w;
 			}
 
-		// terminate lfn string
+		// terminate longFileName string
 		p[i] = 0;
 		}
 	}
@@ -2756,10 +2734,8 @@ FRESULT cFile::open (const TCHAR* path, BYTE mode) {
 	mode &= FA_READ | FA_WRITE | FA_CREATE_ALWAYS | FA_OPEN_ALWAYS | FA_CREATE_NEW;
 	FRESULT res = cFatFs::instance()->findVolume (&directory.fs, (BYTE)(mode & ~FA_READ));
 	if (res == FR_OK) {
-		BYTE sfn[12];
-		WCHAR lfn [(MAX_LFN + 1) * 2];
-		directory.mLongFileName = lfn;
-		directory.mShortFileName = sfn;
+		WCHAR longFileName [(MAX_LFN + 1) * 2];
+		directory.mLongFileName = longFileName;
 		res = directory.followPath (path);
 		BYTE* dir = directory.dir;
 		if (res == FR_OK) {
