@@ -88,18 +88,18 @@ DRESULT diskRead (BYTE* buff, DWORD sector, UINT count) {
     auto result = BSP_SD_ReadBlocks (tempBuffer, (uint64_t)(sector * SECTOR_SIZE), SECTOR_SIZE, count) == MSD_OK ? RES_OK : RES_ERROR;
 
     // then cache fails on memcpy after dma read
-    SCB_InvalidateDCache();
-    //SCB_CleanDCache_by_Addr ((uint32_t*)buff, count * SECTOR_SIZE);
-    //SCB_InvalidateDCache_by_Addr ((uint32_t*)buff, count * SECTOR_SIZE);
-    //SCB_CleanInvalidateDCache_by_Addr ((uint32_t*)buff, count * SECTOR_SIZE);
+    SCB_InvalidateDCache_by_Addr ((uint32_t*)tempBuffer, count * SECTOR_SIZE);
     memcpy (buff, tempBuffer, count * SECTOR_SIZE);
 
     vPortFree (tempBuffer);
     return result;
     }
 
-  else
-    return BSP_SD_ReadBlocks ((uint32_t*)buff, (uint64_t)(sector * SECTOR_SIZE), SECTOR_SIZE, count) == MSD_OK ? RES_OK : RES_ERROR;
+  else {
+    auto result = BSP_SD_ReadBlocks ((uint32_t*)buff, (uint64_t)(sector * SECTOR_SIZE), SECTOR_SIZE, count) == MSD_OK ? RES_OK : RES_ERROR;
+    SCB_InvalidateDCache_by_Addr ((uint32_t*)buff, count * SECTOR_SIZE);
+    return result;
+    }
   }
 //}}}
 //{{{
