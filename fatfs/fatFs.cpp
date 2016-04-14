@@ -1845,7 +1845,7 @@ int cFatFs::enquireFileLock() {
 	}
 //}}}
 //{{{
-FRESULT cFatFs::checkFileLock (cDirectory* dp, int acc) {
+FRESULT cFatFs::checkFileLock (cDirectory* directory, int acc) {
 
 	UINT i, be;
 
@@ -1853,7 +1853,7 @@ FRESULT cFatFs::checkFileLock (cDirectory* dp, int acc) {
 	for (i = be = 0; i < FS_LOCK; i++) {
 		if (mFiles[i].mFs) {
 			// Existing entry
-			if (mFiles[i].mFs == dp->mFs && mFiles[i].clu == dp->mStartCluster && mFiles[i].idx == dp->mIndex)
+			if (mFiles[i].mFs == directory->mFs && mFiles[i].clu == directory->mStartCluster && mFiles[i].idx == directory->mIndex)
 				 break;
 			}
 		else
@@ -1870,12 +1870,12 @@ FRESULT cFatFs::checkFileLock (cDirectory* dp, int acc) {
 	}
 //}}}
 //{{{
-UINT cFatFs::incFileLock (cDirectory* dp, int acc) {
+UINT cFatFs::incFileLock (cDirectory* directory, int acc) {
 
 	UINT i;
 	for (i = 0; i < FS_LOCK; i++)
 		// Find the object
-		if (mFiles[i].mFs == dp->mFs && mFiles[i].clu == dp->mStartCluster && mFiles[i].idx == dp->mIndex)
+		if (mFiles[i].mFs == directory->mFs && mFiles[i].clu == directory->mStartCluster && mFiles[i].idx == directory->mIndex)
 			break;
 
 	if (i == FS_LOCK) {
@@ -1884,9 +1884,9 @@ UINT cFatFs::incFileLock (cDirectory* dp, int acc) {
 		if (i == FS_LOCK)
 			return 0;  /* No free entry to register (int err) */
 
-		mFiles[i].mFs = dp->mFs;
-		mFiles[i].clu = dp->mStartCluster;
-		mFiles[i].idx = dp->mIndex;
+		mFiles[i].mFs = directory->mFs;
+		mFiles[i].clu = directory->mStartCluster;
+		mFiles[i].idx = directory->mIndex;
 		mFiles[i].ctr = 0;
 		}
 

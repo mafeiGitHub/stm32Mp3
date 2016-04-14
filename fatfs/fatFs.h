@@ -153,8 +153,8 @@ private:
   FRESULT removeChain (DWORD cluster);
 
   int enquireFileLock();
-  FRESULT checkFileLock (cDirectory* dp, int acc);
-  UINT incFileLock (cDirectory* dp, int acc);
+  FRESULT checkFileLock (cDirectory* directory, int acc);
+  UINT incFileLock (cDirectory* directory, int acc);
   FRESULT decFileLock (UINT i);
   void clearFileLock();
 
