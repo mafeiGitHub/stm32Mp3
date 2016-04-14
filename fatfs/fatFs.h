@@ -18,11 +18,6 @@ typedef unsigned int    UINT;
 // 32 bit
 typedef long            LONG;
 typedef unsigned long   DWORD;
-
-// chars
-typedef char TCHAR;
-#define _T(x) x
-#define _TEXT(x) x
 //}}}
 //{{{  defines
 #define FS_LOCK         2  // 0:Disable or >=1:Enable
@@ -102,9 +97,9 @@ public:
   WORD  mTime;      // Last modified time
   BYTE  mAttribute; // Attribute
 
-  TCHAR mShortFileName[13]; // 8.3 format
+  char mShortFileName[13]; // 8.3 format
   UINT  mLongFileNameSize;
-  TCHAR mLongFileName[MAX_LFN + 1];
+  char mLongFileName[MAX_LFN + 1];
   };
 //}}}
 //{{{
@@ -121,18 +116,18 @@ public :
     }
   //}}}
 
-  FRESULT getLabel (TCHAR* label, DWORD* vsn);                   // Get volume label
+  FRESULT getLabel (char* label, DWORD* vsn);                   // Get volume label
   FRESULT getFree (DWORD* numClusters, DWORD* clusterSize);      // Get number of free clusters on the drive
-  FRESULT getCwd (TCHAR* buff, UINT len);                        // Get current directory
-  FRESULT setLabel (const TCHAR* label);                         // Set volume label
-  FRESULT mkDir (const TCHAR* path);                             // Create a sub directory
-  FRESULT chDir (const TCHAR* path);                             // Change current directory
-  FRESULT stat (const TCHAR* path, cFileInfo* fileInfo);         // Get file status
-  FRESULT rename (const TCHAR* path_old, const TCHAR* path_new); // Rename/Move a file or directory
-  FRESULT chMod (const TCHAR* path, BYTE attr, BYTE mask);       // Change attribute of the file/dir
-  FRESULT utime (const TCHAR* path, const cFileInfo* fileInfo);  // Change timestamp of the file/dir
-  FRESULT unlink (const TCHAR* path);                            // Delete an existing file or directory
-  FRESULT mkfs (const TCHAR* path, BYTE sfd, UINT au);           // Create a file system on the volume
+  FRESULT getCwd (char* buff, UINT len);                        // Get current directory
+  FRESULT setLabel (const char* label);                         // Set volume label
+  FRESULT mkDir (const char* path);                             // Create a sub directory
+  FRESULT chDir (const char* path);                             // Change current directory
+  FRESULT stat (const char* path, cFileInfo* fileInfo);         // Get file status
+  FRESULT rename (const char* path_old, const char* path_new); // Rename/Move a file or directory
+  FRESULT chMod (const char* path, BYTE attr, BYTE mask);       // Change attribute of the file/dir
+  FRESULT utime (const char* path, const cFileInfo* fileInfo);  // Change timestamp of the file/dir
+  FRESULT unlink (const char* path);                            // Delete an existing file or directory
+  FRESULT mkfs (const char* path, BYTE sfd, UINT au);           // Create a file system on the volume
 
 private:
   FRESULT findVolume (cFatFs** fs, BYTE wmode);
@@ -207,7 +202,7 @@ friend class cFatFs;
 public:
   cFile();
   ~cFile();
-  FRESULT open (const TCHAR* path, BYTE mode);
+  FRESULT open (const char* path, BYTE mode);
   int size() { return mFileSize; }
   FRESULT lseek (DWORD fileOffset);
   FRESULT read (void* readBuffer, UINT bytestoRead, UINT* bytesRead);
@@ -216,10 +211,10 @@ public:
   FRESULT sync();
   FRESULT close ();
 
-  int putCh (TCHAR c);
-  int putStr (const TCHAR* str);
-  int printf (const TCHAR* str, ...);
-  TCHAR* gets (TCHAR* buff, int len);
+  int putCh (char c);
+  int putStr (const char* str);
+  int printf (const char* str, ...);
+  char* gets (char* buff, int len);
 
 private:
   FRESULT validateFile();
@@ -253,17 +248,17 @@ class cDirectory {
 friend class cFatFs;
 friend class cFile;
 public:
-  FRESULT open (const TCHAR* path);
+  FRESULT open (const char* path);
   FRESULT read (cFileInfo* fileInfo);
-  FRESULT findfirst (cFileInfo* fileInfo, const TCHAR* path, const TCHAR* pattern);
+  FRESULT findfirst (cFileInfo* fileInfo, const char* path, const char* pattern);
   FRESULT findnext (cFileInfo* fileInfo);
   FRESULT close();
 
 private:
   FRESULT validateDir();
-  FRESULT createName (const TCHAR** path);
+  FRESULT createName (const char** path);
   FRESULT find();
-  FRESULT followPath (const TCHAR* path);
+  FRESULT followPath (const char* path);
   FRESULT setIndex (UINT index);
   FRESULT next (int stretch);
   FRESULT read (int vol);
@@ -286,6 +281,6 @@ private:
   WCHAR* mLongFileName;    // pointer to longFileName working buffer
   WORD mLongFileNameIndex; // Last matched longFileName index number (0xFFFF:No longFileName)
 
-  const TCHAR* mPattern;   // pointer to the name matching pattern
+  const char* mPattern;   // pointer to the name matching pattern
   };
 //}}}

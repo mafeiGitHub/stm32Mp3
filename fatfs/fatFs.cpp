@@ -255,7 +255,7 @@ static WCHAR convertToFromUnicode (WCHAR chr, UINT direction /* 0: Unicode to OE
 //}}}
 
 //{{{
-static WCHAR get_achar (const TCHAR** ptr) {
+static WCHAR get_achar (const char** ptr) {
 
 	WCHAR chr = (BYTE)*(*ptr)++;
 	if (IS_LOWER (chr))
@@ -268,7 +268,7 @@ static WCHAR get_achar (const TCHAR** ptr) {
 	}
 //}}}
 //{{{
-static int matchPattern (const TCHAR* pat, const TCHAR* nam, int skip, int inf) {
+static int matchPattern (const char* pat, const char* nam, int skip, int inf) {
 
 	while (skip--) {
 		// Pre-skip name chars
@@ -280,8 +280,8 @@ static int matchPattern (const TCHAR* pat, const TCHAR* nam, int skip, int inf) 
 
 	WCHAR nc;
 	do {
-		const TCHAR* pp = pat;
-		const TCHAR* np = nam;  // Top of pattern and name to match
+		const char* pp = pat;
+		const char* np = nam;  // Top of pattern and name to match
 		for (;;) {
 			if (*pp == '?' || *pp == '*') {
 				// Wildcard?
@@ -550,11 +550,11 @@ FRESULT cFatFs::getFree (DWORD* numClusters, DWORD* clusterSize) {
 	}
 //}}}
 //{{{
-FRESULT cFatFs::getCwd (TCHAR* buff, UINT len) {
+FRESULT cFatFs::getCwd (char* buff, UINT len) {
 
 	UINT i, n;
 	DWORD ccl;
-	TCHAR *tp;
+	char *tp;
 
 	*buff = 0;
 	cDirectory directory;
@@ -634,7 +634,7 @@ FRESULT cFatFs::getCwd (TCHAR* buff, UINT len) {
 	}
 //}}}
 //{{{
-FRESULT cFatFs::getLabel (TCHAR* label, DWORD* vsn) {
+FRESULT cFatFs::getLabel (char* label, DWORD* vsn) {
 
 	cDirectory directory;
 	FRESULT res = findVolume (&directory.mFs, 0);
@@ -678,7 +678,7 @@ FRESULT cFatFs::getLabel (TCHAR* label, DWORD* vsn) {
 	}
 //}}}
 //{{{
-FRESULT cFatFs::setLabel (const TCHAR* label) {
+FRESULT cFatFs::setLabel (const char* label) {
 
 	cDirectory directory;
 	FRESULT res = findVolume (&directory.mFs, 1);
@@ -771,7 +771,7 @@ FRESULT cFatFs::setLabel (const TCHAR* label) {
 	}
 //}}}
 //{{{
-FRESULT cFatFs::mkDir (const TCHAR* path) {
+FRESULT cFatFs::mkDir (const char* path) {
 
 	BYTE *dir, n;
 	DWORD dsc, dcl, pcl;
@@ -849,7 +849,7 @@ FRESULT cFatFs::mkDir (const TCHAR* path) {
 	}
 //}}}
 //{{{
-FRESULT cFatFs::chDir (const TCHAR* path) {
+FRESULT cFatFs::chDir (const char* path) {
 
 	cDirectory directory;
 	FRESULT res = findVolume (&directory.mFs, 0);
@@ -878,7 +878,7 @@ FRESULT cFatFs::chDir (const TCHAR* path) {
 	}
 //}}}
 //{{{
-FRESULT cFatFs::stat (const TCHAR* path, cFileInfo* fileInfo) {
+FRESULT cFatFs::stat (const char* path, cFileInfo* fileInfo) {
 
 	cDirectory directory;
 	FRESULT res = findVolume (&directory.mFs, 0);
@@ -902,7 +902,7 @@ FRESULT cFatFs::stat (const TCHAR* path, cFileInfo* fileInfo) {
 	}
 //}}}
 //{{{
-FRESULT cFatFs::rename (const TCHAR* path_old, const TCHAR* path_new) {
+FRESULT cFatFs::rename (const char* path_old, const char* path_new) {
 
 	BYTE buf[21], *dir;
 	DWORD dw;
@@ -971,7 +971,7 @@ FRESULT cFatFs::rename (const TCHAR* path_old, const TCHAR* path_new) {
 	}
 //}}}
 //{{{
-FRESULT cFatFs::chMod (const TCHAR* path, BYTE attr, BYTE mask) {
+FRESULT cFatFs::chMod (const char* path, BYTE attr, BYTE mask) {
 
 	BYTE* dir;
 
@@ -1004,7 +1004,7 @@ FRESULT cFatFs::chMod (const TCHAR* path, BYTE attr, BYTE mask) {
 	}
 //}}}
 //{{{
-FRESULT cFatFs::utime (const TCHAR* path, const cFileInfo* fileInfo) {
+FRESULT cFatFs::utime (const char* path, const cFileInfo* fileInfo) {
 
 	cDirectory directory;
 	FRESULT res = findVolume (&directory.mFs, 1);
@@ -1034,7 +1034,7 @@ FRESULT cFatFs::utime (const TCHAR* path, const cFileInfo* fileInfo) {
 	}
 //}}}
 //{{{
-FRESULT cFatFs::unlink (const TCHAR* path) {
+FRESULT cFatFs::unlink (const char* path) {
 
 	BYTE *dir;
 	DWORD dclst = 0;
@@ -1094,7 +1094,7 @@ FRESULT cFatFs::unlink (const TCHAR* path) {
 	}
 //}}}
 //{{{
-FRESULT cFatFs::mkfs (const TCHAR* path, BYTE sfd, UINT au) {
+FRESULT cFatFs::mkfs (const char* path, BYTE sfd, UINT au) {
 
 	BYTE fmt, md, sys, *tbl;
 	DWORD n_clst, vs, n, wsect;
@@ -1931,7 +1931,7 @@ void cFatFs::clearFileLock() {
 
 // cDirectory
 //{{{
-FRESULT cDirectory::open (const TCHAR* path) {
+FRESULT cDirectory::open (const char* path) {
 
 	FRESULT res = cFatFs::instance()->findVolume (&mFs, 0);
 	if (res == FR_OK) {
@@ -2012,7 +2012,7 @@ FRESULT cDirectory::read (cFileInfo* fileInfo) {
 	}
 //}}}
 //{{{
-FRESULT cDirectory::findfirst (cFileInfo* fileInfo, const TCHAR* path, const TCHAR* pattern) {
+FRESULT cDirectory::findfirst (cFileInfo* fileInfo, const char* path, const char* pattern) {
 
 	mPattern = pattern;
 	FRESULT res = open (path);
@@ -2081,7 +2081,7 @@ FRESULT cDirectory::validateDir() {
 	}
 //}}}
 //{{{
-FRESULT cDirectory::followPath (const TCHAR* path) {
+FRESULT cDirectory::followPath (const char* path) {
 
 	FRESULT res;
 	BYTE *dir1, ns;
@@ -2144,13 +2144,13 @@ FRESULT cDirectory::followPath (const TCHAR* path) {
 	}
 //}}}
 //{{{
-FRESULT cDirectory::createName (const TCHAR** path) {
+FRESULT cDirectory::createName (const char** path) {
 
 	BYTE b, cf;
 	UINT i, ni;
 
 	// Create longFileName in Unicode
-	const TCHAR* p;
+	const char* p;
 	for (p = *path; *p == '/' || *p == '\\'; p++) ; /* Strip duplicated separator */
 	WCHAR* longFileName = mLongFileName;
 	UINT si = 0;
@@ -2654,7 +2654,7 @@ FRESULT cDirectory::remove() {
 void cDirectory::getFileInfo (cFileInfo* fileInfo) {
 
 	UINT i;
-	TCHAR *p, c;
+	char *p, c;
 	WCHAR w;
 
 	p = fileInfo->mShortFileName;
@@ -2664,11 +2664,11 @@ void cDirectory::getFileInfo (cFileInfo* fileInfo) {
 		i = 0;
 		while (i < 11) {
 			// Copy name body and extension
-			c = (TCHAR)dir1[i++];
+			c = (char)dir1[i++];
 			if (c == ' ')
 				continue;
 			if (c == RDDEM)
-				c = (TCHAR)DDEM;  // Restore replaced DDEM character
+				c = (char)DDEM;  // Restore replaced DDEM character
 			if (i == 9)
 				*p++ = '.';       // Insert a . if extension is exist
 			if (IS_UPPER (c) && (dir1[DIR_NTres] & (i >= 9 ? NS_EXT : NS_BODY)))
@@ -2703,7 +2703,7 @@ void cDirectory::getFileInfo (cFileInfo* fileInfo) {
 				i = 0;
 				break;
 				}
-			p[i++] = (TCHAR)w;
+			p[i++] = (char)w;
 			}
 
 		// terminate longFileName string
@@ -2725,7 +2725,7 @@ cFile::~cFile() {
 	}
 //}}}
 //{{{
-FRESULT cFile::open (const TCHAR* path, BYTE mode) {
+FRESULT cFile::open (const char* path, BYTE mode) {
 
 	DWORD dw, cl;
 
@@ -3361,7 +3361,7 @@ FRESULT cFile::close() {
 class cPutBuffer {
 public:
 	//{{{
-	void putChBuffered (TCHAR c) {
+	void putChBuffered (char c) {
 
 		if (c == '\n')
 			/* LF -> CRLF conversion */
@@ -3394,7 +3394,7 @@ public:
 	};
 //}}}
 //{{{
-int cFile::putCh (TCHAR c) {
+int cFile::putCh (char c) {
 
 	/* Initialize output buffer */
 	cPutBuffer putBuffer;
@@ -3413,7 +3413,7 @@ int cFile::putCh (TCHAR c) {
 	}
 //}}}
 //{{{
-int cFile::putStr (const TCHAR* str) {
+int cFile::putStr (const char* str) {
 
 	/* Initialize output buffer */
 	cPutBuffer putBuffer;
@@ -3432,12 +3432,12 @@ int cFile::putStr (const TCHAR* str) {
 	}
 //}}}
 //{{{
-int cFile::printf (const TCHAR* fmt, ...) {
+int cFile::printf (const char* fmt, ...) {
 
 	BYTE f, r;
 	UINT nw, i, j, w;
 	DWORD v;
-	TCHAR c, d, s[16], *p;
+	char c, d, s[16], *p;
 
 	/* Initialize output buffer */
 	cPutBuffer putBuffer;
@@ -3494,7 +3494,7 @@ int cFile::printf (const TCHAR* fmt, ...) {
 		switch (d) {        /* Type is... */
 			//{{{
 			case 'S' :          /* String */
-				p = va_arg(arp, TCHAR*);
+				p = va_arg(arp, char*);
 				for (j = 0; p[j]; j++) ;
 				if (!(f & 2)) {
 					while (j++ < w)
@@ -3508,7 +3508,7 @@ int cFile::printf (const TCHAR* fmt, ...) {
 			//}}}
 			//{{{
 			case 'C' :          /* Character */
-				putBuffer.putChBuffered ((TCHAR)va_arg(arp, int));
+				putBuffer.putChBuffered ((char)va_arg(arp, int));
 				continue;
 			//}}}
 			//{{{
@@ -3548,7 +3548,7 @@ int cFile::printf (const TCHAR* fmt, ...) {
 
 		i = 0;
 		do {
-			d = (TCHAR)(v % r); v /= r;
+			d = (char)(v % r); v /= r;
 			if (d > 9)
 				d += (c == 'x') ? 0x27 : 0x07;
 			s[i++] = d + '0';
@@ -3579,10 +3579,10 @@ int cFile::printf (const TCHAR* fmt, ...) {
 	}
 //}}}
 //{{{
-TCHAR* cFile::gets (TCHAR* buff, int len) {
+char* cFile::gets (char* buff, int len) {
 
 	int n = 0;
-	TCHAR c, *p = buff;
+	char c, *p = buff;
 	BYTE s[2];
 	UINT rc;
 
