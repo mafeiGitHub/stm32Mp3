@@ -961,38 +961,42 @@ public:
     }
   //}}}
 
-  unsigned int getFrameSize() { return mFrameSize; }
-  int getNumChannels() { return mNumChannels; }
-  int getSampleRate() { return mSampleRate; }
-  int getBitRate() { return mBitRate; }
   int getMode() { return mModeExt; }
+  int getBitRate() { return mBitRate; }
+  int getSampleRate() { return mSampleRate; }
+  int getNumChannels() { return mNumChannels; }
+  int getFrameBodySize() { return mFrameBodySize; }
+
   //{{{
-  int findNextHeader (uint8_t* buf, int bufBytes) {
-  // find first header from buf, return bytes skipped to header
+  int findNextHeader (uint8_t* buffer, int bufferBytes) {
+  // find next header in buffer
+  // return bytesUsed including header
+  // - 0 if no header found in bufferBytes of buffer
 
-    int skipBytes = 0;
-    while (bufBytes >= 4) {
-      auto header = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
-      if (checkHeader (header)) {
-        decodeHeader (header);
-        return skipBytes;
+    mFrameBodySize = 0;
+
+    int bytesUsed = 0;
+    uint32_t header = 0;
+
+    while (bufferBytes) {
+      bytesUsed++;
+      bufferBytes--;
+      header = (header << 8) | *buffer++;
+      if (isMp3Header (header)) {
+        decodeMp3Header (header);
+        return bytesUsed;
         }
-
-      buf++;
-      bufBytes--;
-      skipBytes++;
       }
 
-    mFrameSize = 0;
-    return -1;
+    return 0;
     }
   //}}}
   //{{{
-  void decodeFoundFrame (uint8_t* buf, int bufBytes, float* power, int16_t* outSamples) {
-  // decode frame after findHeader
+  int decodeFrameBody (uint8_t* frameBodyBuffer, float* powerValues, int16_t* outSamples) {
+  // decode frameBody, use after decodeHeader
 
     // init getBits to after 4 byte header
-    init_get_bits (&mBitstream, buf + 4, (bufBytes - 4) * 8);
+    init_get_bits (&mBitstream, frameBodyBuffer, mFrameBodySize * 8);
     if (mErrorProtection)
       get_bits (&mBitstream, 16);
 
@@ -1014,15 +1018,15 @@ public:
     align_get_bits (&mBitstream);
     auto i = (mBitstream.size_in_bits - get_bits_count (&mBitstream)) >> 3;
     if (i < 0 || i > 512 || numFrames < 0) {
-      i = bufBytes - 4;
+      i = mFrameBodySize;
       if (i > 512)
         i = 512;
       }
-    memcpy (mLastBuf + mLastBufSize, mBitstream.buffer + bufBytes - 4 - i, i);
+    memcpy (mLastBuf + mLastBufSize, mBitstream.buffer + mFrameBodySize - i, i);
     mLastBufSize += i;
 
-    if (power)
-      calcPower (&subBandSamples[0][0][0], power);
+    if (powerValues)
+      calcPowerValues (&subBandSamples[0][0][0], powerValues);
 
     if (outSamples) {
       // synthFilter subBandsamples to outSamples, using synthBuffer
@@ -1034,27 +1038,27 @@ public:
           }
         }
       }
+    return mFrameBodySize;
     }
   //}}}
   //{{{
-  int decodeNextFrame (uint8_t* buf, int bufBytes, float* power, int16_t* samples) {
-  // align bitstream to valid header and decode frame
+  int decodeNextFrame (uint8_t* buffer, int bufferBytes, float* powerValues, int16_t* samples) {
+  // find next valid frame header, decode header, decode body
+  // - return buffer bytesUsed
+  //   - 0 if complete frame not found
+  // - powerValues if not nullptr
+  // - samples if not nullptr
 
-    int extraBytes = 0;
-    while (bufBytes >= 4) {
-      auto header = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
-      if (checkHeader (header)) {
-        decodeHeader (header);
-        decodeFoundFrame (buf, bufBytes, power, samples);
-        return mFrameSize + extraBytes;
+    int bytesUsed = findNextHeader (buffer, bufferBytes);
+    if (bytesUsed) {
+      buffer += bytesUsed;
+      bufferBytes -= bytesUsed;
+      if (mFrameBodySize && (bufferBytes >= mFrameBodySize)) {
+        decodeFrameBody (buffer, powerValues, samples);
+        return bytesUsed + mFrameBodySize;
         }
-
-      buf++;
-      bufBytes--;
-      extraBytes++;
       }
-
-    return -1;
+    return 0;
     }
   //}}}
 
@@ -1327,7 +1331,8 @@ private:
   //}}}
   //}}}
   //{{{
-  bool checkHeader (uint32_t header) {
+  bool isMp3Header (uint32_t header) {
+  // valid mp3 header
 
     // header
     if ((header & 0xffe00000) != 0xffe00000)
@@ -1349,7 +1354,8 @@ private:
     }
   //}}}
   //{{{
-  int decodeHeader (uint32_t header) {
+  void decodeMp3Header (uint32_t header) {
+  // decode mp3 header into fields
 
     int mpeg25;
     if (header & (1 << 20)) {
@@ -1372,14 +1378,12 @@ private:
     mModeExt = (header >> 4) & 3;
     mNumChannels = (mode == 3) ? 1 : 2; // mono flags
 
-    if (bitrate_index != 0) {
+    if (bitrate_index) {
       mBitRate = mp3_bitrate_tab[mLsf][bitrate_index];
-      mFrameSize = (mBitRate * 144000) / (mSampleRate << mLsf) + padding;
+      mFrameBodySize = ((mBitRate * 144000) / (mSampleRate << mLsf)) + padding - 4;
       }
     else
-      mFrameSize = 0;
-
-    return mFrameSize;
+      mFrameBodySize = 0;
     }
   //}}}
 
@@ -2476,7 +2480,7 @@ private:
     }
   //}}}
   //{{{
-  void calcPower (int32_t* subBandSamples, float* power) {
+  void calcPowerValues (int32_t* subBandSamples, float* powerValues) {
   // calc power from subBandSamples
 
     for (auto channel = 0; channel < 2; channel++) {
@@ -2485,7 +2489,7 @@ private:
         value += (*subBandSamples) * (*subBandSamples);
         subBandSamples++;
         }
-      *power++ = (float)sqrt (value / (36 * 32 * 256));
+      *powerValues++ = (float)sqrt (value / (36 * 32 * 256));
       }
     }
   //}}}
@@ -2544,7 +2548,7 @@ private:
   int mLastBufSize = 0;
   uint8_t mLastBuf[2*512 + 24];
 
-  int mFrameSize = 0;
+  int mFrameBodySize = 0;
   int mBitRate = 0;
   int mNumChannels = 0;
   int mSampleRate = 0;

@@ -40,10 +40,10 @@ static float mVolume = 0.8f;
 
 static int mPlayFrame = 0;
 static int mPlayBytes = 0;
-static int mPlaySize = 0;
+static int mFileSize = 0;
 static bool mSkip = false;
 
-static cMp3Decoder* mp3Decoder = nullptr;
+static cMp3Decoder* mMp3Decoder = nullptr;
 static float mPower [480*2];
 
 static osSemaphoreId audSem;
@@ -70,7 +70,6 @@ static void playFile (string fileName) {
   lcd->setTitle (fileName);
 
   mPlayBytes = 0;
-  mPlaySize = 0;
   for (auto i = 0; i < 480*2; i++)
     mPower[i] = 0;
   memset ((void*)AUDIO_BUFFER, 0, AUDIO_BUFFER_SIZE);
@@ -81,60 +80,53 @@ static void playFile (string fileName) {
     lcd->info ("- open failed " + cLcd::intStr (result) + " " + fileName);
     return;
     }
-  mPlaySize = file.size();
-  lcd->info ("playing " + cLcd::intStr (mPlaySize) + " " + fileName);
+  mFileSize = file.size();
+  lcd->info ("playing " + cLcd::intStr (mFileSize) + " " + fileName);
 
-  int chunkSize = 0x8000;
-  auto chunkBuffer = (uint8_t*)pvPortMalloc (chunkSize + 2048);
+  int chunkSize = 8192;
+  auto chunkBuffer = (uint8_t*)pvPortMalloc (chunkSize + 1044);
 
   // play file from fileBuffer
   BSP_AUDIO_OUT_Play ((uint16_t*)AUDIO_BUFFER, AUDIO_BUFFER_SIZE);
 
   mPlayFrame = 0;
-  auto playBytesLeft = mPlaySize;
-  while ((playBytesLeft > 0) && !mSkip) {
-    auto chunkPtr = chunkBuffer;
+  mPlayBytes = 0;
+  while (!mSkip && (mPlayBytes < mFileSize)) {
     unsigned int chunkBytesLeft;
-    //lcd->info ("read " + cLcd::intStr (chunkSize));
-    file.read (chunkPtr, chunkSize, &chunkBytesLeft);
-    while ((chunkBytesLeft > 0) && !mSkip) {
-      if (osSemaphoreWait (audSem, 50) == osOK) {
-        auto bytesSkipped = mp3Decoder->findNextHeader (chunkPtr, chunkBytesLeft);
-        if (bytesSkipped < 0) {
-          lcd->info ("- findNextHeader failed");
-          goto exit;
-          }
-        if (bytesSkipped > 0) {
-          chunkPtr += bytesSkipped;
-          chunkBytesLeft -= bytesSkipped;
-          mPlayBytes += bytesSkipped;
-          playBytesLeft -= bytesSkipped;
-          lcd->info ("- skip " + cLcd::intStr (bytesSkipped));
-          }
-        if (mp3Decoder->getFrameSize() > chunkBytesLeft) {
-          // could load missing bytes
-          unsigned int restOfFrameBytesLeft;
-          file.read (chunkPtr + chunkBytesLeft, mp3Decoder->getFrameSize() - chunkBytesLeft, &restOfFrameBytesLeft);
-          chunkBytesLeft += restOfFrameBytesLeft;
-          //lcd->info ("rest " + cLcd::intStr (mp3Decoder->getFrameSize() - chunkBytesLeft) + " " + cLcd::intStr (restOfFrameBytesLeft));
-          }
+    lcd->info ("readChunk " + cLcd::intStr (chunkSize));
+    file.read (chunkBuffer, chunkSize, &chunkBytesLeft);
+    if (!chunkBytesLeft)
+      break;
 
-        //lcd->info ("decode " + cLcd::intStr (mp3Decoder->getFrameSize()) + " " + cLcd::intStr (chunkBytesLeft));
-        mp3Decoder->decodeFoundFrame (chunkPtr, mp3Decoder->getFrameSize(),
-                                      &mPower[(mPlayFrame % 480) * 2], (int16_t*)(audBufHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
-        chunkPtr += mp3Decoder->getFrameSize();
-        chunkBytesLeft -= mp3Decoder->getFrameSize();
-        playBytesLeft -= mp3Decoder->getFrameSize();
-        mPlayBytes += mp3Decoder->getFrameSize();
-        mPlayFrame++;
+    auto chunkPtr = chunkBuffer;
+    int bytesUsed;
+    while (!mSkip && (bytesUsed = mMp3Decoder->findNextHeader (chunkPtr, chunkBytesLeft))) {
+      chunkPtr += bytesUsed;
+      chunkBytesLeft -= bytesUsed;
+      mPlayBytes += bytesUsed;
+
+      if (mMp3Decoder->getFrameBodySize() > (int)chunkBytesLeft) {
+        // load rest of frame
+        unsigned int bytesLoaded;
+        file.read (chunkPtr + chunkBytesLeft, mMp3Decoder->getFrameBodySize() - chunkBytesLeft, &bytesLoaded);
+        lcd->info ("readRest " + cLcd::intStr (mMp3Decoder->getFrameBodySize() - chunkBytesLeft) + " " + cLcd::intStr (bytesLoaded));
+        if (!bytesLoaded)
+          break;
+        chunkBytesLeft += bytesLoaded;
         }
+
+      osSemaphoreWait (audSem, 50);
+      bytesUsed = mMp3Decoder->decodeFrameBody (chunkPtr, &mPower[(mPlayFrame % 480) * 2], (int16_t*)(audBufHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
+      chunkPtr += bytesUsed;
+      chunkBytesLeft -= bytesUsed;
+      mPlayBytes += bytesUsed;
+      mPlayFrame++;
       }
     }
-exit:
   file.close();
 
   if (mSkip) {
-    lcd->info ("- skipped at " + cLcd::intStr (mPlayBytes) + " of " +  cLcd::intStr (mPlaySize));
+    lcd->info ("- skip file at " + cLcd::intStr (mPlayBytes) + " of " +  cLcd::intStr (mFileSize));
     mSkip = false;
     }
 
@@ -320,7 +312,7 @@ static void uiThread (void const* argument) {
     lcd->rect (LCD_YELLOW, cLcd::getWidth()-20, 0, 20, int(mVolume * cLcd::getHeight()));
     //}}}
     //{{{  draw blue play progress
-    lcd->rect (LCD_BLUE, 0, 0, (mPlayBytes * cLcd::getWidth()) / mPlaySize, 2);
+    lcd->rect (LCD_BLUE, 0, 0, (mPlayBytes * cLcd::getWidth()) / mFileSize, 2);
     //}}}
     //{{{  draw blue waveform
     for (auto x = 0; x < cLcd::getWidth(); x++) {
@@ -389,7 +381,7 @@ static void startThread (void const* argument) {
   osThreadCreate (&osThreadLoad, NULL);
 
   lcd->info ("mp3Decoder create");
-  mp3Decoder = new cMp3Decoder;
+  mMp3Decoder = new cMp3Decoder;
   lcd->info ("mp3Decoder created");
 
   if (true) {
