@@ -472,17 +472,44 @@ cFatFs::cFatFs() {
   }
 //}}}
 //{{{
-FRESULT cFatFs::getFree (DWORD& numClusters, DWORD& clusterSize) {
+FRESULT cFatFs::mount() {
 
-  cFatFs* dummyFs;
-  FRESULT result = findVolume (&dummyFs, 0);
+  cDirectory directory;
+  FRESULT result = findVolume (&directory.mFs, 0);
   if (result == FR_OK) {
-    clusterSize = mSectorsPerCluster;
+    // Open root directory
+    directory.mStartCluster = 0;
+    result = directory.setIndex (0);
+    if (result == FR_OK) {
+      // Get an entry with AM_VOL
+      result = directory.read (1);
+      if (result == FR_OK) {
+        // volume label exists
+        memcpy (mLabel, directory.mDirShortFileName, 11);
+        UINT k = 11;
+        do {
+          mLabel[k] = 0;
+          if (!k)
+            break;
+          } while (mLabel[--k] == ' ');
+        }
+
+      if (result == FR_NO_FILE) {
+        // No label, return empty string
+        mLabel[0] = 0;
+        result = FR_OK;
+        }
+      }
+
+    // Get volume serial number
+    result = moveWindow (mVolBase);
+    if (result == FR_OK) {
+      UINT i = mFsType == FS_FAT32 ? BS_VolID32 : BS_VolID;
+      mVolumeSerialNumber = LD_DWORD (&mWindowBuffer[i]);
+      }
 
     // if mFreeClusters is valid, return it without full cluster scan
-    if (mFreeClusters <= mNumFatEntries - 2)
-      numClusters = mFreeClusters;
-    else {
+    if (mFreeClusters > mNumFatEntries - 2) {
       //{{{  scan number of free clusters
       DWORD n, clst, sect, stat;
       UINT i;
@@ -538,8 +565,6 @@ FRESULT cFatFs::getFree (DWORD& numClusters, DWORD& clusterSize) {
 
       mFreeClusters = n;
       mFsiFlag |= 1;
-
-      numClusters = n;
       }
       //}}}
     }
@@ -625,50 +650,6 @@ FRESULT cFatFs::getCwd (char* buff, UINT len) {
       }
 
     *tp = 0;
-    }
-
-  unlock (result);
-  return result;
-  }
-//}}}
-//{{{
-FRESULT cFatFs::getLabel (char* label, DWORD& volumeSerialNumber) {
-
-  cDirectory directory;
-  FRESULT result = findVolume (&directory.mFs, 0);
-  if (result == FR_OK && label) {
-    // Open root directory
-    directory.mStartCluster = 0;
-    result = directory.setIndex (0);
-    if (result == FR_OK) {
-      // Get an entry with AM_VOL
-      result = directory.read (1);
-      if (result == FR_OK) {
-        // volume label exists
-        memcpy (label, directory.mDirShortFileName, 11);
-        UINT k = 11;
-        do {
-          label[k] = 0;
-          if (!k)
-            break;
-          } while (label[--k] == ' ');
-        }
-
-      if (result == FR_NO_FILE) {
-        // No label, return empty string
-        label[0] = 0;
-        result = FR_OK;
-        }
-      }
-    }
-
-  // Get volume serial number
-  if (result == FR_OK) {
-    result = moveWindow (mVolBase);
-    if (result == FR_OK) {
-      UINT i = mFsType == FS_FAT32 ? BS_VolID32 : BS_VolID;
-      volumeSerialNumber = LD_DWORD (&mWindowBuffer[i]);
-      }
     }
 
   unlock (result);
@@ -1931,13 +1912,13 @@ void cFatFs::clearFileLock() {
 
 // cDirectory
 //{{{
-FRESULT cDirectory::open (const char* path) {
+FRESULT cDirectory::open (std::string path) {
 
   FRESULT result = cFatFs::instance()->findVolume (&mFs, 0);
   if (result == FR_OK) {
     WCHAR longFileName[(MAX_LFN + 1) * 2];
     mLongFileName = longFileName;
-    result = followPath (path);
+    result = followPath (path.c_str());
     if (result == FR_OK) {
       if (mDirShortFileName) {
         // not itself */
@@ -2723,7 +2704,7 @@ cFile::~cFile() {
   }
 //}}}
 //{{{
-FRESULT cFile::open (const char* path, BYTE mode) {
+FRESULT cFile::open (std::string path, BYTE mode) {
 
   DWORD dw, cl;
 
@@ -2734,7 +2715,7 @@ FRESULT cFile::open (const char* path, BYTE mode) {
   if (result == FR_OK) {
     WCHAR longFileName [(MAX_LFN + 1) * 2];
     directory.mLongFileName = longFileName;
-    result = directory.followPath (path);
+    result = directory.followPath (path.c_str());
     BYTE* dir = directory.mDirShortFileName;
     if (result == FR_OK) {
       if (!dir)

@@ -1,6 +1,7 @@
 // fatFs.h
 #pragma once
 //{{{  includes, defines
+#include <string>
 #include "cmsis_os.h"
 
 class cFile;
@@ -82,7 +83,7 @@ class cFileInfo {
 public:
   cFileInfo() : mLongFileNameSize(MAX_LFN + 1) {}
 
-  char* getName() { return mLongFileName[0] ? mLongFileName : (char*)&mShortFileName; }
+  std::string getName() { return mLongFileName[0] ? mLongFileName : (char*)&mShortFileName; }
   bool getEmpty() { return mShortFileName[0] == 0; }
   bool getBack() { return mShortFileName[0] == '.'; }
   bool isDirectory() { return mAttribute & AM_DIR; }
@@ -116,8 +117,11 @@ public :
     return mFatFs;
     }
   //}}}
-  FRESULT getLabel (char* label, DWORD& volumeSerialNumber);    // Get volume label
-  FRESULT getFree (DWORD& numClusters, DWORD& clusterSize);     // Get number of free clusters on the drive
+  std::string getLabel() { return mLabel; }
+  int getVolumeSerialNumber() { return mVolumeSerialNumber; }
+  int getFreeSectors() { return mFreeClusters * mSectorsPerCluster; }
+
+  FRESULT mount();
   FRESULT getCwd (char* buff, UINT len);                        // Get current directory
   FRESULT setLabel (const char* label);                         // Set volume label
   FRESULT mkDir (const char* path);                             // Create a sub directory
@@ -177,6 +181,8 @@ private:
   BYTE* mWindowBuffer;  // Disk access window for Directory, FAT
   osSemaphoreId mSemaphore; // Identifier of sync object
 
+  char  mLabel[13];
+  int   mVolumeSerialNumber;
   BYTE  mFsType = 0;    // FAT sub-type (0:Not mounted)
   WORD  mMountId = 0;   // File system mount ID
 
@@ -205,7 +211,7 @@ public:
   cFile();
   ~cFile();
   int getSize() { return mFileSize; }
-  FRESULT open (const char* path, BYTE mode);
+  FRESULT open (std::string path, BYTE mode);
   FRESULT lseek (DWORD fileOffset);
   FRESULT read (void* readBuffer, int bytestoRead, int& bytesRead);
   FRESULT write (const void* buff, UINT btw, UINT* bw);
@@ -251,7 +257,7 @@ public:
 
 class cDirectory {
 public:
-  FRESULT open (const char* path);
+  FRESULT open (std::string path);
   FRESULT read (cFileInfo& fileInfo);
   FRESULT findfirst (cFileInfo& fileInfo, const char* path, const char* pattern);
   FRESULT findnext (cFileInfo& fileInfo);

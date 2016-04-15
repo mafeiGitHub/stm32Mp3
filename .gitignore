@@ -95,3 +95,5 @@ makefile
 *.~cpp~
 *.~~cpp
 *.~ld
+
+*.~~cpp~
