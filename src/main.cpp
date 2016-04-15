@@ -42,6 +42,7 @@ static int mPlayFrame = 0;
 static int mPlayBytes = 0;
 static int mFileSize = 0;
 static bool mSkip = false;
+static int mDirNest = 0;
 
 static cMp3Decoder* mMp3Decoder = nullptr;
 static float mPower [480*2];
@@ -64,9 +65,46 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 //}}}
 
 //{{{
-static void playFile (string rootDirectory, string fileName) {
+static void listDirectory (string directoryName) {
 
-	string fullName = rootDirectory + "/" + fileName;
+	mDirNest++;
+	string indent;
+	for (auto i = 0; i < mDirNest; i++)
+		indent += " ";
+
+	cLcd::debug ("dir - " + directoryName);
+
+	cDirectory directory;
+	auto result = directory.open (directoryName);
+	if (result != FR_OK)
+		cLcd::debug (LCD_RED, "directory open error:"  + cLcd::intStr (result));
+	else {
+		cFileInfo fileInfo;
+		while ((directory.read (fileInfo) == FR_OK) && !fileInfo.getEmpty()) {
+			if (fileInfo.getBack()) {
+				//cLcd::debug (fileInfo.getName());
+				}
+			else if (fileInfo.isDirectory())
+				listDirectory (directoryName + "/" + fileInfo.getName());
+			else {
+				cFile file;
+				auto result = file.open (directoryName + "/" + fileInfo.getName(), FA_OPEN_EXISTING | FA_READ);
+				if (result == FR_OK) {
+					cLcd::debug (indent + cLcd::intStr (file.getSize()/1000) + "k " + fileInfo.getName());
+					file.close();
+					}
+				}
+			}
+		directory.close();
+		}
+
+	mDirNest--;
+	}
+//}}}
+//{{{
+static void playFile (string directoryName, string fileName) {
+
+	string fullName = directoryName + "/" + fileName;
 	cLcd::instance()->setTitle (fullName);
 
 	mPlayBytes = 0;
@@ -134,51 +172,26 @@ static void playFile (string rootDirectory, string fileName) {
 	}
 //}}}
 //{{{
-static void playDirectory (string rootDirectory, const char* extension) {
+static void playDirectory (string directoryName, const char* extension) {
 
-	cDirectory dir;
-	auto result = dir.open (rootDirectory);
+	cDirectory directory;
+	auto result = directory.open (directoryName);
 	if (result != FR_OK)
 		cLcd::debug (LCD_RED, "directory open error:"  + cLcd::intStr (result));
 	else {
 		cLcd::debug ("directory opened");
 
 		cFileInfo fileInfo;
-		while ((dir.read (fileInfo) == FR_OK) && !fileInfo.getEmpty()) {
+		while ((directory.read (fileInfo) == FR_OK) && !fileInfo.getEmpty()) {
 			if (fileInfo.getBack()) {
 				}
 			else if (fileInfo.isDirectory())
 				cLcd::debug ("directory - " +  fileInfo.getName());
 			else if (!extension || fileInfo.matchExtension (extension))
-				playFile (rootDirectory, fileInfo.getName());
+				playFile (directoryName, fileInfo.getName());
 			}
+		directory.close();
 		}
-	}
-//}}}
-//{{{
-static void listDirectory (string rootDirectory) {
-
-	cLcd::debug ("---------- listDirectory ----------");
-	cDirectory dir;
-	auto result = dir.open (rootDirectory);
-	if (result != FR_OK)
-		cLcd::debug (LCD_RED, "directory open error:"  + cLcd::intStr (result));
-	else {
-		cFileInfo fileInfo;
-		while ((dir.read (fileInfo) == FR_OK) && !fileInfo.getEmpty()) {
-			if (fileInfo.isDirectory())
-				cLcd::debug ("directory - " +  string (fileInfo.getName()));
-			else {
-				cFile file;
-				auto result = file.open (fileInfo.getName(), FA_OPEN_EXISTING | FA_READ);
-				if (result == FR_OK) {
-					cLcd::debug (cLcd::intStr (file.getSize()/1000) + "k " + fileInfo.getName());
-					file.close();
-					}
-				}
-			}
-		}
-	cLcd::debug ("-------------------------------");
 	}
 //}}}
 
@@ -342,7 +355,7 @@ static void loadThread (void const* argument) {
 		cLcd::debug (fatFs->getLabel() +
 								 " vsn:" + cLcd::hexStr (fatFs->getVolumeSerialNumber()) +
 								 " freeSectors:" + cLcd::intStr (fatFs->getFreeSectors()));
-		listDirectory ("/");
+		listDirectory ("");
 		playDirectory ("sub", "MP3");
 		}
 	else

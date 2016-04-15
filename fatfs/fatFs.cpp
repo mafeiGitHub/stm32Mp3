@@ -2650,42 +2650,39 @@ FRESULT cDirectory::remove() {
 //{{{
 void cDirectory::getFileInfo (cFileInfo& fileInfo) {
 
-  UINT i;
-  char *p, c;
-  WCHAR w;
-
-  p = fileInfo.mShortFileName;
+  char* fileInfoPtr = fileInfo.mShortFileName;
   if (mSector) {
-    // Get shortFileName
-    BYTE* dir1 = mDirShortFileName;
-    i = 0;
+    // copy dir shortFileName+info to fileInfo
+    UINT i = 0;
+    BYTE* dirShortFileNamePtr = mDirShortFileName;
     while (i < 11) {
       // Copy name body and extension
-      c = (char)dir1[i++];
+      char c = (char)dirShortFileNamePtr[i++];
       if (c == ' ')
         continue;
-      if (c == RDDEM)
-        c = (char)DDEM;  // Restore replaced DDEM character
-      if (i == 9)
-        *p++ = '.';       // Insert a . if extension is exist
-      if (IS_UPPER (c) && (dir1[DIR_NTres] & (i >= 9 ? NS_EXT : NS_BODY)))
-        c += 0x20;  // To lower
-      *p++ = c;
+      if (c == RDDEM) // Restore replaced DDEM character
+        c = (char)DDEM;
+      if (i == 9) // Insert a . if extension is exist
+        *fileInfoPtr++ = '.';
+      if (IS_UPPER (c) && (dirShortFileNamePtr[DIR_NTres] & (i >= 9 ? NS_EXT : NS_BODY))) // To lower
+        c += 0x20;
+      *fileInfoPtr++ = c;
       }
 
-    fileInfo.mAttribute = dir1[DIR_Attr];              // Attribute
-    fileInfo.mFileSize = LD_DWORD (dir1 + DIR_FileSize); // Size
-    fileInfo.mDate = LD_WORD (dir1 + DIR_WrtDate);   // Date
-    fileInfo.mTime = LD_WORD (dir1 + DIR_WrtTime);   // Time
+    fileInfo.mAttribute = dirShortFileNamePtr[DIR_Attr];                // Attribute
+    fileInfo.mFileSize = LD_DWORD (dirShortFileNamePtr + DIR_FileSize); // Size
+    fileInfo.mDate = LD_WORD (dirShortFileNamePtr + DIR_WrtDate);       // Date
+    fileInfo.mTime = LD_WORD (dirShortFileNamePtr + DIR_WrtTime);       // Time
     }
 
-  // terminate shortFileName string
-  *p = 0;
+  // terminate fileInfo.mShortFileName
+  *fileInfoPtr = 0;
 
-  i = 0;
-  p = fileInfo.mLongFileName;
+  UINT i = 0;
+  fileInfoPtr = fileInfo.mLongFileName;
   if (mSector && fileInfo.mLongFileNameSize && mLongFileNameIndex != 0xFFFF) {
     // get longFileName if available
+    WCHAR w;
     WCHAR* longFileNamePtr = mLongFileName;
     while ((w = *longFileNamePtr++) != 0) {
       // Get an longFileName character
@@ -2700,12 +2697,12 @@ void cDirectory::getFileInfo (cFileInfo& fileInfo) {
         i = 0;
         break;
         }
-      p[i++] = (char)w;
+      fileInfoPtr[i++] = (char)w;
       }
-
-    // terminate longFileName string
-    p[i] = 0;
     }
+
+  // terminate fileInfo.mLongFileName string
+  fileInfoPtr[i] = 0;
   }
 //}}}
 //}}}
