@@ -38,7 +38,7 @@ public:
   ~cLcd() {}
 
   // static members
-  static cLcd* create();
+  static cLcd* create (std::string title, bool buffered = true);
   //{{{
   static cLcd* instance() {
     return mLcd;
@@ -51,7 +51,6 @@ public:
   static void debug (uint32_t colour, std::string str, bool newLine = true) { instance()->info (colour, str, newLine); }
   static void debug (std::string str) { instance()->info (str); }
 
-  void init (std::string title, bool buffered = true);
   void setTitle (std::string title);
   void setShowTime (bool enable);
   void setShowDebug (bool enable);
@@ -80,6 +79,7 @@ public:
   void displayOff();
 
 private:
+  void init (std::string title, bool buffered);
   void ltdcInit (uint32_t frameBufferAddress);
   void layerInit (uint8_t layer, uint32_t frameBufferAddress);
 

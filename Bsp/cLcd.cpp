@@ -193,55 +193,14 @@ cLcd::cLcd (uint32_t buffer0, uint32_t buffer1)  {
 
 // static members
 //{{{
-cLcd* cLcd::create() {
-  if (!mLcd)
+cLcd* cLcd::create (std::string title, bool buffered) {
+
+  if (!mLcd) {
     mLcd = new cLcd (SDRAM_FRAME0, SDRAM_FRAME1);
-  return mLcd;
-  }
-//}}}
-//{{{
-void cLcd::init (std::string title, bool buffered) {
-
-  mBuffered = buffered;
-  mDrawBuffer = !mDrawBuffer;
-  ltdcInit (mBuffer[mDrawBuffer]);
-
-  //  dma2d init
-  // unchanging dma2d regs
-  DMA2D->OPFCCR  = DMA2D_ARGB8888; // bgnd fb ARGB
-  DMA2D->BGPFCCR = DMA2D_ARGB8888;
-  DMA2D->FGPFCCR = CM_A8;          // src alpha
-  DMA2D->FGOR    = 0;              // src stride
-  //DMA2D->AMTCR = 0x1001;
-
-  // zero out first opcode, point past it
-  mDma2dBuf = (uint32_t*)DMA2D_BUFFER; // pvPortMalloc (8192 * 4);
-  mDma2dCurBuf = mDma2dBuf;
-  *mDma2dCurBuf++ = 0;
-  mDma2dHighWater = mDma2dCurBuf;
-  mDma2dIsrBuf = mDma2dBuf;
-  mDma2dTimeouts = 0;
-
-  if (mBuffered) {
-    //{{{  dma2d IRQ init
-    osSemaphoreDef (dma2dSem);
-    mDma2dSem = osSemaphoreCreate (osSemaphore (dma2dSem), -1);
-
-    HAL_NVIC_SetPriority (DMA2D_IRQn, 0x0F, 0);
-    HAL_NVIC_EnableIRQ (DMA2D_IRQn);
+    mLcd->init (title, buffered);
     }
-    //}}}
 
-  clear (LCD_BLACK);
-  sendWait();
-  displayOn();
-
-  // font init
-  setFont (freeSansBold, freeSansBold_len);
-  for (auto i = 0; i < maxChars; i++)
-    chars[i] = nullptr;
-
-  setTitle (title);
+  return mLcd;
   }
 //}}}
 //{{{
@@ -664,6 +623,51 @@ void cLcd::displayOff() {
 //}}}
 
 // private
+//{{{
+void cLcd::init (std::string title, bool buffered) {
+
+  mBuffered = buffered;
+  mDrawBuffer = !mDrawBuffer;
+  ltdcInit (mBuffer[mDrawBuffer]);
+
+  //  dma2d init
+  // unchanging dma2d regs
+  DMA2D->OPFCCR  = DMA2D_ARGB8888; // bgnd fb ARGB
+  DMA2D->BGPFCCR = DMA2D_ARGB8888;
+  DMA2D->FGPFCCR = CM_A8;          // src alpha
+  DMA2D->FGOR    = 0;              // src stride
+  //DMA2D->AMTCR = 0x1001;
+
+  // zero out first opcode, point past it
+  mDma2dBuf = (uint32_t*)DMA2D_BUFFER; // pvPortMalloc (8192 * 4);
+  mDma2dCurBuf = mDma2dBuf;
+  *mDma2dCurBuf++ = 0;
+  mDma2dHighWater = mDma2dCurBuf;
+  mDma2dIsrBuf = mDma2dBuf;
+  mDma2dTimeouts = 0;
+
+  if (mBuffered) {
+    //{{{  dma2d IRQ init
+    osSemaphoreDef (dma2dSem);
+    mDma2dSem = osSemaphoreCreate (osSemaphore (dma2dSem), -1);
+
+    HAL_NVIC_SetPriority (DMA2D_IRQn, 0x0F, 0);
+    HAL_NVIC_EnableIRQ (DMA2D_IRQn);
+    }
+    //}}}
+
+  clear (LCD_BLACK);
+  sendWait();
+  displayOn();
+
+  // font init
+  setFont (freeSansBold, freeSansBold_len);
+  for (auto i = 0; i < maxChars; i++)
+    chars[i] = nullptr;
+
+  setTitle (title);
+  }
+//}}}
 //{{{
 void cLcd::ltdcInit (uint32_t frameBufferAddress) {
 

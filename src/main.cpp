@@ -357,8 +357,7 @@ static void loadThread (void const* argument) {
 //{{{
 static void startThread (void const* argument) {
 
-	auto lcd = cLcd::create();
-	lcd->init (__TIME__ __DATE__);
+	cLcd::create (__TIME__ __DATE__);
 
 	const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 2000 };
 	osThreadCreate (&osThreadUi, NULL);
