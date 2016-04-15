@@ -131,7 +131,7 @@ public:
   FRESULT stat (const char* path, cFileInfo& fileInfo);         // Get file status
   FRESULT utime (const char* path, const cFileInfo& fileInfo);  // Change timestamp of the file/dir
   FRESULT unlink (const char* path);                            // Delete an existing file or directory
-  FRESULT mkfs (const char* path, BYTE sfd, UINT au);           // Create a file system on the volume
+  FRESULT mkfs (BYTE sfd, UINT au);                             // Create a file system on the volume
 //{{{  private
 friend class cFile;
 friend class cDirectory;
