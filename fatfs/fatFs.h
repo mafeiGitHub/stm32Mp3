@@ -108,7 +108,7 @@ public:
 //}}}
 
 class cFatFs {
-public :
+public:
   cFatFs();
   static cFatFs* create();
   //{{{
@@ -126,9 +126,9 @@ public :
   FRESULT setLabel (const char* label);                         // Set volume label
   FRESULT mkDir (const char* path);                             // Create a sub directory
   FRESULT chDir (const char* path);                             // Change current directory
-  FRESULT stat (const char* path, cFileInfo& fileInfo);         // Get file status
   FRESULT rename (const char* path_old, const char* path_new);  // Rename/Move a file or directory
   FRESULT chMod (const char* path, BYTE attr, BYTE mask);       // Change attribute of the file/dir
+  FRESULT stat (const char* path, cFileInfo& fileInfo);         // Get file status
   FRESULT utime (const char* path, const cFileInfo& fileInfo);  // Change timestamp of the file/dir
   FRESULT unlink (const char* path);                            // Delete an existing file or directory
   FRESULT mkfs (const char* path, BYTE sfd, UINT au);           // Create a file system on the volume
@@ -259,8 +259,8 @@ class cDirectory {
 public:
   FRESULT open (std::string path);
   FRESULT read (cFileInfo& fileInfo);
-  FRESULT findfirst (cFileInfo& fileInfo, const char* path, const char* pattern);
-  FRESULT findnext (cFileInfo& fileInfo);
+  FRESULT findFirst (cFileInfo& fileInfo, const char* path, const char* pattern);
+  FRESULT findNext (cFileInfo& fileInfo);
   FRESULT close();
 //{{{  private
 friend class cFatFs;

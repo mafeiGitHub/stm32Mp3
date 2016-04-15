@@ -677,11 +677,9 @@ FRESULT cFatFs::setLabel (const char* label) {
   BYTE volumeName[11];
   volumeName[0] = 0;
 
-  // Get name length
+  // Get name length, Remove trailing spaces
   UINT nameSize;
   for (nameSize = 0; label[nameSize]; nameSize++) ;
-
-  // Remove trailing spaces
   for ( ; nameSize && label[nameSize - 1] == ' '; nameSize--) ;
 
   if (nameSize) {
@@ -692,12 +690,11 @@ FRESULT cFatFs::setLabel (const char* label) {
       WCHAR w = (BYTE)label[i++];
       w = convertToFromUnicode (wideToUpperCase (convertToFromUnicode(w, 1)), 0);
       if (!w || strchr ("\"*+,.:;<=>\?[]|\x7F", w) || j >= (UINT)((w >= 0x100) ? 10 : 11)) {
-        //{{{
-        // Reject invalid characters for volume label
-        unlock (FR_INVALID_NAME);
-        return FR_INVALID_NAME;
-        }
-        //}}}
+     //{{{  reject invalid characters for volume label
+     unlock (FR_INVALID_NAME);
+     return FR_INVALID_NAME;
+     }
+     //}}}
       if (w >= 0x100)
         volumeName[j++] = (BYTE)(w >> 8);
       volumeName[j++] = (BYTE)w;
@@ -719,9 +716,9 @@ FRESULT cFatFs::setLabel (const char* label) {
     //{{{  Get an entry with AM_VOL
     result = directory.read (1);
     if (result == FR_OK) {
-      //{{{  volume label found
+      //  volume label found
       if (volumeName[0]) {
-        // Change the volume label name
+        // change volume label name
         memcpy (directory.mDirShortFileName, volumeName, 11);
         DWORD tm = getFatTime();
         ST_DWORD (directory.mDirShortFileName + DIR_WrtTime, tm);
@@ -731,16 +728,16 @@ FRESULT cFatFs::setLabel (const char* label) {
       mWindowFlag = 1;
       result = syncFs();
       }
-      //}}}
+
     else {
-      //{{{  No volume label is found or error
+      // no volume label found or error
       if (result == FR_NO_FILE) {
         result = FR_OK;
         if (volumeName[0]) {
-          // Create volume label as new, Allocate an entry for volume label
+          // create volume label as new, Allocate an entry for volume label
           result = directory.allocate (1);
           if (result == FR_OK) {
-            // Set volume label
+            // set volume label
             memset (directory.mDirShortFileName, 0, SZ_DIRE);
             memcpy (directory.mDirShortFileName, volumeName, 11);
             directory.mDirShortFileName[DIR_Attr] = AM_VOL;
@@ -752,7 +749,6 @@ FRESULT cFatFs::setLabel (const char* label) {
           }
         }
       }
-      //}}}
     }
     //}}}
 
@@ -868,27 +864,6 @@ FRESULT cFatFs::chDir (const char* path) {
   }
 //}}}
 //{{{
-FRESULT cFatFs::stat (const char* path, cFileInfo& fileInfo) {
-
-  cDirectory directory;
-  FRESULT result = findVolume (&directory.mFs, 0);
-  if (result == FR_OK) {
-    WCHAR longFileName [(MAX_LFN + 1) * 2];
-    directory.mLongFileName = longFileName;
-    result = directory.followPath (path);
-    if (result == FR_OK) {
-      if (directory.mDirShortFileName)
-        directory.getFileInfo (fileInfo);
-      else // root directory
-        result = FR_INVALID_NAME;
-      }
-    }
-
-  unlock (result);
-  return result;
-  }
-//}}}
-//{{{
 FRESULT cFatFs::rename (const char* path_old, const char* path_new) {
 
   BYTE buf[21], *dir;
@@ -979,11 +954,32 @@ FRESULT cFatFs::chMod (const char* path, BYTE attr, BYTE mask) {
         result = FR_INVALID_NAME;
       else {
         // File or sub directory
-        mask &= AM_RDO|AM_HID|AM_SYS|AM_ARC;  /* Valid attribute mask */
+        mask &= AM_RDO | AM_HID | AM_SYS | AM_ARC;  /* Valid attribute mask */
         dir[DIR_Attr] = (attr & mask) | (dir[DIR_Attr] & (BYTE)~mask);  /* Apply attribute change */
         mWindowFlag = 1;
         result = syncFs();
         }
+      }
+    }
+
+  unlock (result);
+  return result;
+  }
+//}}}
+//{{{
+FRESULT cFatFs::stat (const char* path, cFileInfo& fileInfo) {
+
+  cDirectory directory;
+  FRESULT result = findVolume (&directory.mFs, 0);
+  if (result == FR_OK) {
+    WCHAR longFileName [(MAX_LFN + 1) * 2];
+    directory.mLongFileName = longFileName;
+    result = directory.followPath (path);
+    if (result == FR_OK) {
+      if (directory.mDirShortFileName)
+        directory.getFileInfo (fileInfo);
+      else // root directory
+        result = FR_INVALID_NAME;
       }
     }
 
@@ -1004,8 +1000,7 @@ FRESULT cFatFs::utime (const char* path, const cFileInfo& fileInfo) {
       result = FR_INVALID_NAME;
     if (result == FR_OK) {
       BYTE* dir = directory.mDirShortFileName;
-      if (!dir)
-        // root dir
+      if (!dir) // root dir
         result = FR_INVALID_NAME;
       else {
         // file or subDir
@@ -1049,7 +1044,7 @@ FRESULT cFatFs::unlink (const char* path) {
           if (dclst == mCurDirSector) // current directory
             result = FR_DENIED;
           else {
-            // Open the sub-directory
+            // open subDirectory
             cDirectory subDirectory;
             memcpy (&subDirectory, &directory, sizeof (cDirectory));
             subDirectory.mStartCluster = dclst;
@@ -1067,7 +1062,7 @@ FRESULT cFatFs::unlink (const char* path) {
 
       if (result == FR_OK) {
         result = directory.remove();  // Remove the directory entry
-        if (result == FR_OK && dclst)  // Remove the cluster chain if exist
+        if (result == FR_OK && dclst) // Remove the cluster chain if exist
           result = removeChain (dclst);
         if (result == FR_OK)
           result = syncFs();
@@ -1085,8 +1080,8 @@ FRESULT cFatFs::mkfs (const char* path, BYTE sfd, UINT au) {
   BYTE fmt, md, sys, *tbl;
   DWORD n_clst, vs, n, wsect;
   UINT i;
-  DWORD b_vol, b_fat, b_dir, b_data;  /* LBA */
-  DWORD n_vol, n_rsv, n_fat, n_dir; /* Size */
+  DWORD b_vol, b_fat, b_dir, b_data;  // LBA
+  DWORD n_vol, n_rsv, n_fat, n_dir;   // Size
 
 #if USE_TRIM
   DWORD eb[2];
@@ -1097,36 +1092,36 @@ FRESULT cFatFs::mkfs (const char* path, BYTE sfd, UINT au) {
 
   mFsType = 0;
 
-  /* Get disk statics */
+  // Get disk statics
   DSTATUS stat = diskInitialize();
   if (stat & STA_NOINIT)
     return FR_NOT_READY;
   if (stat & STA_PROTECT)
     return FR_WRITE_PROTECTED;
 
-  /* Create a partition in this function */
+  // Create a partition in this function
   if (diskIoctl (GET_SECTOR_COUNT, &n_vol) != RES_OK || n_vol < 128)
     return FR_DISK_ERR;
-   b_vol = (sfd) ? 0 : 63;   /* Volume start sector */
-  n_vol -= b_vol;       /* Volume size */
+  b_vol = (sfd) ? 0 : 63; // Volume start sector
+  n_vol -= b_vol;         // Volume size
 
   if (au & (au - 1))
     au = 0;
   if (!au) {
-    /* AU auto selection */
+    // AU auto selection
     vs = n_vol / 2000;
     for (i = 0; vs < kVst[i]; i++) ;
     au = kCst[i];
     }
 
-  /* Number of sectors per cluster */
+  // Number of sectors per cluster
   au /= SECTOR_SIZE;
   if (!au)
     au = 1;
   if (au > 128)
     au = 128;
 
-  /* Pre-compute number of clusters and FAT sub-type */
+  // Pre-compute number of clusters and FAT sub-type
   n_clst = n_vol / au;
   fmt = FS_FAT12;
   if (n_clst >= MIN_FAT16)
@@ -1134,7 +1129,7 @@ FRESULT cFatFs::mkfs (const char* path, BYTE sfd, UINT au) {
   if (n_clst >= MIN_FAT32)
     fmt = FS_FAT32;
 
-  /* Determine offset and size of FAT structure */
+  // Determine offset and size of FAT structure
   if (fmt == FS_FAT32) {
     n_fat = ((n_clst * 4) + 8 + SECTOR_SIZE - 1) / SECTOR_SIZE;
     n_rsv = 32;
@@ -1147,166 +1142,175 @@ FRESULT cFatFs::mkfs (const char* path, BYTE sfd, UINT au) {
     n_dir = (DWORD)N_ROOTDIR * SZ_DIRE / SECTOR_SIZE;
     }
 
-  b_fat = b_vol + n_rsv;           /* FAT area start sector */
-  b_dir = b_fat + n_fat * N_FATS;  /* Directory area start sector */
-  b_data = b_dir + n_dir;          /* Data area start sector */
+  b_fat = b_vol + n_rsv;           // FAT area start sector
+  b_dir = b_fat + n_fat * N_FATS;  // Directory area start sector
+  b_data = b_dir + n_dir;          // Data area start sector
   if (n_vol < b_data + au - b_vol)
-    return FR_MKFS_ABORTED;  /* Too small volume */
+    return FR_MKFS_ABORTED;  // Too small volume
 
-  /* Align data start sector to erase block boundary (for flash memory media) */
+  // Align data start sector to erase block boundary (for flash memory media)
   if (diskIoctl (GET_BLOCK_SIZE, &n) != RES_OK || !n || n > 32768)
     n = 1;
-  n = (b_data + n - 1) & ~(n - 1);  /* Next nearest erase block from current data start */
+  n = (b_data + n - 1) & ~(n - 1);  // Next nearest erase block from current data start
   n = (n - b_data) / N_FATS;
   if (fmt == FS_FAT32) {
-    /* FAT32: Move FAT offset */
+    // FAT32: Move FAT offset
     n_rsv += n;
     b_fat += n;
     }
-  else
-    /* FAT12/16: Expand FAT size */
+  else // FAT12/16: Expand FAT size
     n_fat += n;
 
-  /* Determine number of clusters and final check of validity of the FAT sub-type */
+  // Determine number of clusters and final check of validity of the FAT sub-type
   n_clst = (n_vol - n_rsv - n_fat * N_FATS - n_dir) / au;
   if ((fmt == FS_FAT16 && n_clst < MIN_FAT16) || (fmt == FS_FAT32 && n_clst < MIN_FAT32))
     return FR_MKFS_ABORTED;
 
-  /* Determine system ID in the partition table */
+  // Determine system ID in the partition table
   if (fmt == FS_FAT32)
-    sys = 0x0C;   /* FAT32X */
+    sys = 0x0C;   // FAT32X
   else {
     if (fmt == FS_FAT12 && n_vol < 0x10000)
-      sys = 0x01; /* FAT12(<65536) */
+      sys = 0x01; // FAT12(<65536)
     else
-      sys = (n_vol < 0x10000) ? 0x04 : 0x06;  /* FAT16(<65536) : FAT12/16(>=65536) */
+      sys = (n_vol < 0x10000) ? 0x04 : 0x06;  // FAT16(<65536) : FAT12/16(>=65536)
     }
 
   if (sfd)
-    /* No partition table (SFD) */
+    // No partition table SFD
     md = 0xF0;
   else {
-    /* Create partition table (FDISK) */
+    // Create partition table FDISK
     memset (mWindowBuffer, 0, SECTOR_SIZE);
-    tbl = mWindowBuffer + MBR_Table;  /* Create partition table for single partition in the drive */
-    tbl[1] = 1;                    /* Partition start head */
-    tbl[2] = 1;                    /* Partition start sector */
-    tbl[3] = 0;                    /* Partition start cylinder */
-    tbl[4] = sys;                  /* System type */
-    tbl[5] = 254;                  /* Partition end head */
+
+    // Create partition table for single partition in the drive
+    tbl = mWindowBuffer + MBR_Table;
+    tbl[1] = 1;                                // Partition start head
+    tbl[2] = 1;                                // Partition start sector
+    tbl[3] = 0;                                // Partition start cylinder
+    tbl[4] = sys;                              // System type
+    tbl[5] = 254;                              // Partition end head
+
     n = (b_vol + n_vol) / 63 / 255;
-    tbl[6] = (BYTE)(n >> 2 | 63);  /* Partition end sector */
-    tbl[7] = (BYTE)n;              /* End cylinder */
-    ST_DWORD (tbl + 8, 63);         /* Partition start in LBA */
-    ST_DWORD (tbl + 12, n_vol);     /* Partition size in LBA */
-    ST_WORD (mWindowBuffer + BS_55AA, 0xAA55);  /* MBR signature */
-    if (diskWrite (mWindowBuffer, 0, 1) != RES_OK) /* Write it to the MBR */
+    tbl[6] = (BYTE)(n >> 2 | 63);              // Partition end sector
+    tbl[7] = (BYTE)n;                          // End cylinder
+
+    ST_DWORD (tbl + 8, 63);                    // Partition start in LBA
+    ST_DWORD (tbl + 12, n_vol);                // Partition size in LBA
+    ST_WORD (mWindowBuffer + BS_55AA, 0xAA55); // MBR signature
+
+    // Write it to the MBR
+    if (diskWrite (mWindowBuffer, 0, 1) != RES_OK)
       return FR_DISK_ERR;
     md = 0xF8;
     }
 
-  /* Create BPB in the VBR */
-  tbl = mWindowBuffer;             /* Clear sector */
-  memset (tbl, 0, SECTOR_SIZE);
-  memcpy (tbl, "\xEB\xFE\x90" "MSDOS5.0", 11); /* Boot jump code, OEM name */
+  // Create BPB in the VBR
+  tbl = mWindowBuffer;
 
-  i = SECTOR_SIZE; /* Sector size */
+  // Clear sector
+  memset (tbl, 0, SECTOR_SIZE);
+  memcpy (tbl, "\xEB\xFE\x90" "MSDOS5.0", 11); // Boot jump code, OEM name
+
+  i = SECTOR_SIZE;
   ST_WORD (tbl + BPB_BytsPerSec, i);
 
-  tbl[BPB_SecPerClus] = (BYTE)au;        /* Sectors per cluster */
-  ST_WORD (tbl + BPB_RsvdSecCnt, n_rsv);  /* Reserved sectors */
-  tbl[BPB_NumFATs] = N_FATS;             /* Number of FATs */
+  tbl[BPB_SecPerClus] = (BYTE)au;        // Sectors per cluster
+  ST_WORD (tbl + BPB_RsvdSecCnt, n_rsv); // Reserved sectors
+  tbl[BPB_NumFATs] = N_FATS;             // Number of FATs
 
-  i = (fmt == FS_FAT32) ? 0 : N_ROOTDIR; /* Number of root directory entries */
+  i = (fmt == FS_FAT32) ? 0 : N_ROOTDIR; // Number of root directory entries
   ST_WORD (tbl + BPB_RootEntCnt, i);
-  if (n_vol < 0x10000) {                 /* Number of total sectors */
+  if (n_vol < 0x10000) {                 // Number of total sectors
     ST_WORD (tbl + BPB_TotSec16, n_vol);
     }
   else {
     ST_DWORD (tbl + BPB_TotSec32, n_vol);
     }
-  tbl[BPB_Media] = md;                   /* Media descriptor */
+  tbl[BPB_Media] = md;                   // Media descriptor
 
-  ST_WORD (tbl + BPB_SecPerTrk, 63);      /* Number of sectors per track */
-  ST_WORD (tbl + BPB_NumHeads, 255);      /* Number of heads */
-  ST_DWORD (tbl + BPB_HiddSec, b_vol);    /* Hidden sectors */
+  ST_WORD (tbl + BPB_SecPerTrk, 63);     // Number of sectors per track
+  ST_WORD (tbl + BPB_NumHeads, 255);     // Number of heads
+  ST_DWORD (tbl + BPB_HiddSec, b_vol);   // Hidden sectors
 
-  n = getFatTime();                     /* Use current time as VSN */
+  n = getFatTime();                      // Use current time as VSN
   if (fmt == FS_FAT32) {
-    ST_DWORD (tbl + BS_VolID32, n);       /* VSN */
-    ST_DWORD (tbl + BPB_FATSz32, n_fat);  /* Number of sectors per FAT */
-    ST_DWORD (tbl + BPB_RootClus, 2);     /* Root directory start cluster (2) */
-    ST_WORD (tbl + BPB_FSInfo, 1);        /* FSINFO record offset (VBR + 1) */
-    ST_WORD (tbl + BPB_BkBootSec, 6);     /* Backup boot record offset (VBR + 6) */
-    tbl[BS_DrvNum32] = 0x80;             /* Drive number */
-    tbl[BS_BootSig32] = 0x29;            /* Extended boot signature */
-    memcpy (tbl + BS_VolLab32, "NO NAME    " "FAT32   ", 19); /* Volume label, FAT signature */
+    ST_DWORD (tbl + BS_VolID32, n);      // VSN
+    ST_DWORD (tbl + BPB_FATSz32, n_fat); // Number of sectors per FAT
+    ST_DWORD (tbl + BPB_RootClus, 2);    // Root directory start cluster (2)
+    ST_WORD (tbl + BPB_FSInfo, 1);       // FSINFO record offset (VBR + 1)
+    ST_WORD (tbl + BPB_BkBootSec, 6);    // Backup boot record offset (VBR + 6)
+    tbl[BS_DrvNum32] = 0x80;             // Drive number
+    tbl[BS_BootSig32] = 0x29;            // Extended boot signature
+    memcpy (tbl + BS_VolLab32, "NO NAME    " "FAT32   ", 19); // Volume label, FAT signature
     }
   else {
-    ST_DWORD (tbl + BS_VolID, n);          /* VSN */
-    ST_WORD (tbl + BPB_FATSz16, n_fat);    /* Number of sectors per FAT */
-    tbl[BS_DrvNum] = 0x80;                /* Drive number */
-    tbl[BS_BootSig] = 0x29;               /* Extended boot signature */
-    memcpy (tbl + BS_VolLab, "NO NAME    " "FAT     ", 19); /* Volume label, FAT signature */
+    ST_DWORD (tbl + BS_VolID, n);        // VSN
+    ST_WORD (tbl + BPB_FATSz16, n_fat);  // Number of sectors per FAT
+    tbl[BS_DrvNum] = 0x80;               // Drive number
+    tbl[BS_BootSig] = 0x29;              // Extended boot signature
+    memcpy (tbl + BS_VolLab, "NO NAME    " "FAT     ", 19); // Volume label, FAT signature
     }
 
-  ST_WORD (tbl + BS_55AA, 0xAA55);         /* Signature (Offset is fixed here regardless of sector size) */
-  if (diskWrite (tbl, b_vol, 1) != RES_OK)  /* Write it to the VBR sector */
+  ST_WORD (tbl + BS_55AA, 0xAA55);        // Signature (Offset is fixed here regardless of sector size)
+  if (diskWrite (tbl, b_vol, 1) != RES_OK)  // Write it to the VBR sector
     return FR_DISK_ERR;
-  if (fmt == FS_FAT32)          /* Write backup VBR if needed (VBR + 6) */
+  if (fmt == FS_FAT32)                    // Write backup VBR if needed (VBR + 6)
     diskWrite (tbl, b_vol + 6, 1);
 
-  /* Initialize FAT area */
+  // Initialize FAT area
   wsect = b_fat;
   for (i = 0; i < N_FATS; i++) {
-    /* Initialize each FAT copy */
-    memset (tbl, 0, SECTOR_SIZE);   /* 1st sector of the FAT  */
-    n = md;                     /* Media descriptor byte */
+    // Initialize each FAT copy
+    memset (tbl, 0, SECTOR_SIZE);   // 1st sector of the FAT
+    n = md;                         // Media descriptor byte
     if (fmt != FS_FAT32) {
       n |= (fmt == FS_FAT12) ? 0x00FFFF00 : 0xFFFFFF00;
-      ST_DWORD (tbl + 0, n);     /* Reserve cluster #0-1 (FAT12/16) */
+      ST_DWORD (tbl + 0, n);        // Reserve cluster #0-1 (FAT12/16)
       }
     else {
       n |= 0xFFFFFF00;
-      ST_DWORD (tbl + 0, n);     /* Reserve cluster #0-1 (FAT32) */
+      ST_DWORD (tbl + 0, n);           // Reserve cluster #0-1 (FAT32)
       ST_DWORD (tbl + 4, 0xFFFFFFFF);
-      ST_DWORD (tbl + 8, 0x0FFFFFFF);  /* Reserve cluster #2 for root directory */
+      ST_DWORD (tbl + 8, 0x0FFFFFFF);  // Reserve cluster #2 for root directory
       }
 
     if (diskWrite (tbl, wsect++, 1) != RES_OK)
       return FR_DISK_ERR;
 
-    memset (tbl, 0, SECTOR_SIZE); /* Fill following FAT entries with zero */
-    for (n = 1; n < n_fat; n++) {
-      /* This loop may take a time on FAT32 volume due to many single sector writes */
+    // Fill following FAT entries with zero
+    memset (tbl, 0, SECTOR_SIZE);
+
+    // This loop may take a time on FAT32 volume due to many single sector writes
+    for (n = 1; n < n_fat; n++)
       if (diskWrite (tbl, wsect++, 1) != RES_OK)
         return FR_DISK_ERR;
-      }
     }
 
-  /* Initialize root directory */
+  // Initialize root directory
   i = (fmt == FS_FAT32) ? au : (UINT)n_dir;
   do {
     if (diskWrite (tbl, wsect++, 1) != RES_OK)
       return FR_DISK_ERR;
     } while (--i);
 
-#if USE_TRIM /* Erase data area if needed */
+#if USE_TRIM // Erase data area if needed
   {
-    eb[0] = wsect; eb[1] = wsect + (n_clst - ((fmt == FS_FAT32) ? 1 : 0)) * au - 1;
+    eb[0] = wsect;
+    eb[1] = wsect + (n_clst - ((fmt == FS_FAT32) ? 1 : 0)) * au - 1;
     diskIoctl (vol, CTRL_TRIM, eb);
   }
 #endif
 
-  /* Create FSINFO if needed */
+  // Create FSINFO if needed
   if (fmt == FS_FAT32) {
     ST_DWORD (tbl + FSI_LeadSig, 0x41615252);
     ST_DWORD (tbl + FSI_StrucSig, 0x61417272);
-    ST_DWORD (tbl + FSI_Free_Count, n_clst - 1); /* Number of free clusters */
-    ST_DWORD (tbl + FSI_Nxt_Free, 2);            /* Last allocated cluster# */
+    ST_DWORD (tbl + FSI_Free_Count, n_clst - 1); // Number of free clusters
+    ST_DWORD (tbl + FSI_Nxt_Free, 2);            // Last allocated cluster#
     ST_WORD (tbl + BS_55AA, 0xAA55);
-    diskWrite (tbl, b_vol + 1, 1);        /* Write original (VBR + 1) */
-    diskWrite (tbl, b_vol + 7, 1);        /* Write backup (VBR + 7) */
+    diskWrite (tbl, b_vol + 1, 1);               // Write original (VBR + 1)
+    diskWrite (tbl, b_vol + 7, 1);               // Write backup (VBR + 7)
     }
 
   return (diskIoctl (CTRL_SYNC, 0) == RES_OK) ? FR_OK : FR_DISK_ERR;
@@ -1995,19 +1999,19 @@ FRESULT cDirectory::read (cFileInfo& fileInfo) {
   }
 //}}}
 //{{{
-FRESULT cDirectory::findfirst (cFileInfo& fileInfo, const char* path, const char* pattern) {
+FRESULT cDirectory::findFirst (cFileInfo& fileInfo, const char* path, const char* pattern) {
 
   mPattern = pattern;
 
   FRESULT result = open (path);
   if (result == FR_OK)
-    result = findnext (fileInfo);
+    result = findNext (fileInfo);
 
   return result;
   }
 //}}}
 //{{{
-FRESULT cDirectory::findnext (cFileInfo& fileInfo) {
+FRESULT cDirectory::findNext (cFileInfo& fileInfo) {
 
   FRESULT result;
 
@@ -3571,7 +3575,7 @@ char* cFile::gets (char* buff, int len) {
   int rc;
 
   while (n < len - 1) {
-    // Read characters until buffer gets filled */
+    // Read characters until buffer gets filled
     read (s, 1, rc);
     if (rc != 1)
       break;
@@ -3585,7 +3589,9 @@ char* cFile::gets (char* buff, int len) {
     }
 
   *p = 0;
-  return n ? buff : 0; // When no data read (eof or error), return with error
+
+  // When no data read (eof or error), return with error
+  return n ? buff : 0;
   }
 //}}}
 //{{{  cFile private members
