@@ -2,7 +2,7 @@
 #pragma once
 #include "cmsis_os.h"
 
-//{{{  integer.h typedefs
+//{{{  basic types
 // 8 bit
 typedef unsigned char   BYTE;
 
@@ -97,9 +97,9 @@ public:
   WORD  mTime;      // Last modified time
   BYTE  mAttribute; // Attribute
 
-  char mShortFileName[13]; // 8.3 format
+  char  mShortFileName[13]; // 8.3 format
   UINT  mLongFileNameSize;
-  char mLongFileName[MAX_LFN + 1];
+  char  mLongFileName[MAX_LFN + 1];
   };
 //}}}
 //{{{
@@ -154,7 +154,7 @@ private:
   void clearFileLock();
 
   bool lock();
-  void unlock (FRESULT res);
+  void unlock (FRESULT result);
 
   // static vars
   static cFatFs* mFatFs;
