@@ -80,7 +80,7 @@ static void playFile (string fileName) {
     lcd->info ("- open failed " + cLcd::intStr (result) + " " + fileName);
     return;
     }
-  mFileSize = file.size();
+  mFileSize = file.getSize();
   lcd->info ("playing " + cLcd::intStr (mFileSize) + " " + fileName);
 
   int chunkSize = 4096;
@@ -92,8 +92,8 @@ static void playFile (string fileName) {
   mPlayFrame = 0;
   mPlayBytes = 0;
   while (!mSkip && (mPlayBytes < mFileSize)) {
-    unsigned int chunkBytesLeft;
-    file.read (chunkBuffer, chunkSize, &chunkBytesLeft);
+    int chunkBytesLeft;
+    file.read (chunkBuffer, chunkSize, chunkBytesLeft);
     if (!chunkBytesLeft)
       break;
 
@@ -104,10 +104,10 @@ static void playFile (string fileName) {
       chunkBytesLeft -= bytesUsed;
       mPlayBytes += bytesUsed;
 
-      if (mMp3Decoder->getFrameBodySize() > (int)chunkBytesLeft) {
+      if (mMp3Decoder->getFrameBodySize() > chunkBytesLeft) {
         // load rest of frame
-        unsigned int bytesLoaded;
-        file.read (chunkPtr + chunkBytesLeft, mMp3Decoder->getFrameBodySize() - chunkBytesLeft, &bytesLoaded);
+        int bytesLoaded;
+        file.read (chunkPtr + chunkBytesLeft, mMp3Decoder->getFrameBodySize() - chunkBytesLeft, bytesLoaded);
         if (!bytesLoaded)
           break;
         chunkBytesLeft += bytesLoaded;
@@ -146,7 +146,7 @@ static void playDir (const char* extension) {
     lcd->info ("directory opened");
 
     cFileInfo fileInfo;
-    while ((dir.read (&fileInfo) == FR_OK) && !fileInfo.getEmpty()) {
+    while ((dir.read (fileInfo) == FR_OK) && !fileInfo.getEmpty()) {
       if (fileInfo.getBack()) {
         }
       else if (fileInfo.isDirectory())
@@ -168,7 +168,7 @@ static void listDir (const char* extension) {
     lcd->info (LCD_RED, "directory open error:"  + cLcd::intStr (result));
   else {
     cFileInfo fileInfo;
-    while ((dir.read (&fileInfo) == FR_OK) && !fileInfo.getEmpty()) {
+    while ((dir.read (fileInfo) == FR_OK) && !fileInfo.getEmpty()) {
       if (fileInfo.getBack()) {
         }
       else if (fileInfo.isDirectory())
@@ -177,7 +177,7 @@ static void listDir (const char* extension) {
         cFile file;
         auto result = file.open (fileInfo.getName(), FA_OPEN_EXISTING | FA_READ);
         if (result == FR_OK) {
-          lcd->info (cLcd::intStr (file.size()) + " " + fileInfo.getName());
+          lcd->info (cLcd::intStr (file.getSize()) + " " + fileInfo.getName());
           file.close();
           }
         }
@@ -346,10 +346,10 @@ static void loadThread (void const* argument) {
   cFatFs* fatFs = cFatFs::instance();
   char label[13];
   DWORD volumeSerialNumber;
-  if (fatFs->getLabel (label, &volumeSerialNumber) == FR_OK) {
+  if (fatFs->getLabel (label, volumeSerialNumber) == FR_OK) {
     DWORD freeClusters;
     DWORD clusterSize;
-    fatFs->getFree (&freeClusters, &clusterSize);
+    fatFs->getFree (freeClusters, clusterSize);
     lcd->info (string (label) + " mounted " + cLcd::intStr (freeClusters) + " free " + cLcd::intStr (clusterSize));
     listDir (nullptr);
     playDir ("MP3");

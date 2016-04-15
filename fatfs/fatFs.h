@@ -1,6 +1,10 @@
 // fatFs.h
 #pragma once
+//{{{  includes, defines
 #include "cmsis_os.h"
+
+class cFile;
+class cDirectory;
 
 //{{{  basic types
 // 8 bit
@@ -47,6 +51,8 @@ typedef unsigned long   DWORD;
 #define AM_ARC  0x20  // Archive
 #define AM_MASK 0x3F  // Mask of defined bits
 //}}}
+//}}}
+
 //{{{  enum FRESULT
 typedef enum {
   FR_OK = 0,              //  0  Succeeded
@@ -71,9 +77,6 @@ typedef enum {
   FR_INVALID_PARAMETER    // 19  Given parameter is invalid
   } FRESULT;
 //}}}
-
-class cFile;
-class cDirectory;
 //{{{
 class cFileInfo {
 public:
@@ -90,8 +93,7 @@ public:
     return (mShortFileName[i] == extension[0]) && (mShortFileName[i+1] == extension[1]) && (mShortFileName[i+2] == extension[2]);
     }
   //}}}
-
-  // public vars
+  //{{{  public vars
   DWORD mFileSize;  // File size
   WORD  mDate;      // Last modified date
   WORD  mTime;      // Last modified time
@@ -100,12 +102,11 @@ public:
   char  mShortFileName[13]; // 8.3 format
   UINT  mLongFileNameSize;
   char  mLongFileName[MAX_LFN + 1];
+  //}}}
   };
 //}}}
-//{{{
+
 class cFatFs {
-friend class cFile;
-friend class cDirectory;
 public :
   cFatFs();
   //{{{
@@ -115,19 +116,21 @@ public :
     return mFatFs;
     }
   //}}}
-
-  FRESULT getLabel (char* label, DWORD* vsn);                   // Get volume label
-  FRESULT getFree (DWORD* numClusters, DWORD* clusterSize);      // Get number of free clusters on the drive
+  FRESULT getLabel (char* label, DWORD& vsn);                   // Get volume label
+  FRESULT getFree (DWORD& numClusters, DWORD& clusterSize);     // Get number of free clusters on the drive
   FRESULT getCwd (char* buff, UINT len);                        // Get current directory
   FRESULT setLabel (const char* label);                         // Set volume label
   FRESULT mkDir (const char* path);                             // Create a sub directory
   FRESULT chDir (const char* path);                             // Change current directory
-  FRESULT stat (const char* path, cFileInfo* fileInfo);         // Get file status
-  FRESULT rename (const char* path_old, const char* path_new); // Rename/Move a file or directory
+  FRESULT stat (const char* path, cFileInfo& fileInfo);         // Get file status
+  FRESULT rename (const char* path_old, const char* path_new);  // Rename/Move a file or directory
   FRESULT chMod (const char* path, BYTE attr, BYTE mask);       // Change attribute of the file/dir
-  FRESULT utime (const char* path, const cFileInfo* fileInfo);  // Change timestamp of the file/dir
+  FRESULT utime (const char* path, const cFileInfo& fileInfo);  // Change timestamp of the file/dir
   FRESULT unlink (const char* path);                            // Delete an existing file or directory
   FRESULT mkfs (const char* path, BYTE sfd, UINT au);           // Create a file system on the volume
+//{{{  private
+friend class cFile;
+friend class cDirectory;
 
 private:
   FRESULT findVolume (cFatFs** fs, BYTE wmode);
@@ -194,65 +197,68 @@ private:
   DWORD mDirBase;       // Root directory start sector (FAT32:Cluster#)
   DWORD mDataBase;      // Data start sector
   DWORD mWindowSector;  // Current sector appearing in the win[]
-  };
 //}}}
-//{{{
+  };
+
 class cFile {
-friend class cFatFs;
 public:
   cFile();
   ~cFile();
+  int getSize() { return mFileSize; }
   FRESULT open (const char* path, BYTE mode);
-  int size() { return mFileSize; }
   FRESULT lseek (DWORD fileOffset);
-  FRESULT read (void* readBuffer, UINT bytestoRead, UINT* bytesRead);
+  FRESULT read (void* readBuffer, int bytestoRead, int& bytesRead);
   FRESULT write (const void* buff, UINT btw, UINT* bw);
   FRESULT truncate();
   FRESULT sync();
   FRESULT close ();
-
+  //{{{  stream
   int putCh (char c);
   int putStr (const char* str);
   int printf (const char* str, ...);
   char* gets (char* buff, int len);
+  //}}}
+ //{{{  private
+ friend class cFatFs;
 
-private:
-  FRESULT validateFile();
-  DWORD clmtCluster (DWORD ofs);
+ private:
+   FRESULT validateFile();
+   DWORD clmtCluster (DWORD ofs);
 
-  // vars
-  BYTE* fileBuffer = nullptr;  // File data read/write buffer
+   // vars
+   BYTE* fileBuffer = nullptr;  // File data read/write buffer
 
-  cFatFs* mFs;         // Pointer to the related file system
-  WORD mMountId;       // Owner file system mount ID
-  UINT mLockId;        // File lock ID origin from 1 (index of file semaphore table Files[])
+   cFatFs* mFs;         // Pointer to the related file system
+   WORD mMountId;       // Owner file system mount ID
+   UINT mLockId;        // File lock ID origin from 1 (index of file semaphore table Files[])
 
-  BYTE mFlag;          // Status flags
-  BYTE mError;         // Abort flag (error code)
+   BYTE mFlag;          // Status flags
+   BYTE mError;         // Abort flag (error code)
 
-  DWORD mFilePtr;      // File read/write pointer (Zeroed on file open)
-  DWORD mFileSize;     // File size
+   DWORD mFilePtr;      // File read/write pointer (Zeroed on file open)
+   DWORD mFileSize;     // File size
 
-  DWORD mStartCluster; // File start cluster (0:no cluster chain, always 0 when fsize is 0)
-  DWORD mCluster;      // Current cluster of fpter (not valid when fprt is 0)
-  DWORD mCachedSector; // Sector number appearing in buf[] (0:invalid)
+   DWORD mStartCluster; // File start cluster (0:no cluster chain, always 0 when fsize is 0)
+   DWORD mCluster;      // Current cluster of fpter (not valid when fprt is 0)
+   DWORD mCachedSector; // Sector number appearing in buf[] (0:invalid)
 
-  DWORD mDirSectorNum; // Sector number containing the directory entry
-  BYTE* mDirPtr;       // Pointer to the directory entry in the win[]
+   DWORD mDirSectorNum; // Sector number containing the directory entry
+   BYTE* mDirPtr;       // Pointer to the directory entry in the win[]
 
-  DWORD* mClusterTable; // Pointer to the cluster link map table (Nulled on file open)
+   DWORD* mClusterTable; // Pointer to the cluster link map table (Nulled on file open)
+ //}}}
   };
-//}}}
-//{{{
+
 class cDirectory {
-friend class cFatFs;
-friend class cFile;
 public:
   FRESULT open (const char* path);
-  FRESULT read (cFileInfo* fileInfo);
-  FRESULT findfirst (cFileInfo* fileInfo, const char* path, const char* pattern);
-  FRESULT findnext (cFileInfo* fileInfo);
+  FRESULT read (cFileInfo& fileInfo);
+  FRESULT findfirst (cFileInfo& fileInfo, const char* path, const char* pattern);
+  FRESULT findnext (cFileInfo& fileInfo);
   FRESULT close();
+//{{{  private
+friend class cFatFs;
+friend class cFile;
 
 private:
   FRESULT validateDir();
@@ -265,7 +271,7 @@ private:
   FRESULT registerNewEntry();
   FRESULT allocate (UINT nent);
   FRESULT remove();
-  void getFileInfo (cFileInfo* fileInfo);
+  void getFileInfo (cFileInfo& fileInfo);
 
   cFatFs* mFs;             // pointer to the owner fileSystem
   WORD mMountId;           // owner fileSystem mountId
@@ -282,5 +288,5 @@ private:
   WORD mLongFileNameIndex; // Last matched longFileName index number (0xFFFF:No longFileName)
 
   const char* mPattern;   // pointer to the name matching pattern
-  };
 //}}}
+  };
