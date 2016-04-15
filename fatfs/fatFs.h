@@ -116,7 +116,7 @@ public :
     return mFatFs;
     }
   //}}}
-  FRESULT getLabel (char* label, DWORD& vsn);                   // Get volume label
+  FRESULT getLabel (char* label, DWORD& volumeSerialNumber);    // Get volume label
   FRESULT getFree (DWORD& numClusters, DWORD& clusterSize);     // Get number of free clusters on the drive
   FRESULT getCwd (char* buff, UINT len);                        // Get current directory
   FRESULT setLabel (const char* label);                         // Set volume label

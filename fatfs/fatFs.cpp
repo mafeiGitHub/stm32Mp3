@@ -632,7 +632,7 @@ FRESULT cFatFs::getCwd (char* buff, UINT len) {
   }
 //}}}
 //{{{
-FRESULT cFatFs::getLabel (char* label, DWORD& vsn) {
+FRESULT cFatFs::getLabel (char* label, DWORD& volumeSerialNumber) {
 
   cDirectory directory;
   FRESULT result = findVolume (&directory.mFs, 0);
@@ -663,11 +663,11 @@ FRESULT cFatFs::getLabel (char* label, DWORD& vsn) {
     }
 
   // Get volume serial number
-  if (result == FR_OK && vsn) {
+  if (result == FR_OK) {
     result = moveWindow (mVolBase);
     if (result == FR_OK) {
       UINT i = mFsType == FS_FAT32 ? BS_VolID32 : BS_VolID;
-      vsn = LD_DWORD (&mWindowBuffer[i]);
+      volumeSerialNumber = LD_DWORD (&mWindowBuffer[i]);
       }
     }
 
