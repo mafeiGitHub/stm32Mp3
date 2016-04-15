@@ -847,13 +847,13 @@ FRESULT cFatFs::chDir (const char* path) {
     result = directory.followPath (path);
 
     if (result == FR_OK) {
-      if (!directory.mDirShortFileName) 
+      if (!directory.mDirShortFileName)
         // start directory itself
-        mCurDirSector = directory.mStartCluster;  
-      else if (directory.mDirShortFileName[DIR_Attr] & AM_DIR)  
+        mCurDirSector = directory.mStartCluster;
+      else if (directory.mDirShortFileName[DIR_Attr] & AM_DIR)
         // reached directory
         mCurDirSector = loadCluster (directory.mDirShortFileName);
-      else 
+      else
         // reached file
         result = FR_NO_PATH;
       }
@@ -2783,7 +2783,7 @@ FRESULT cFile::open (std::string path, BYTE mode) {
             result = directory.mFs->moveWindow (dw);
             }
           }
-        }     
+        }
         //}}}
       }
 
@@ -2801,8 +2801,8 @@ FRESULT cFile::open (std::string path, BYTE mode) {
       //}}}
 
     if (result == FR_OK) {
-      //{{{  Set file change flag if created or overwritten 
-      if (mode & FA_CREATE_ALWAYS) 
+      //{{{  Set file change flag if created or overwritten
+      if (mode & FA_CREATE_ALWAYS)
         mode |= FA__WRITTEN;
 
       mDirSectorNum = directory.mFs->mWindowSector;  /* Pointer to the directory entry */
@@ -3044,9 +3044,8 @@ FRESULT cFile::read (void* readBuffer, int bytesToRead, int& bytesRead) {
     //}}}
 
   // truncate bytesToRead by fileSize
-  int remain = mFileSize - mFilePtr;
-  if (bytesToRead > remain)
-    bytesToRead = remain;
+  if (bytesToRead > int(mFileSize - mFilePtr))
+    bytesToRead = mFileSize - mFilePtr;
 
   auto readBufferPtr = (BYTE*)readBuffer;
   int readCount;
@@ -3251,7 +3250,7 @@ FRESULT cFile::truncate() {
   DWORD ncl;
   FRESULT result = validateFile();
   if (result == FR_OK) {
-    if (mError) 
+    if (mError)
       result = (FRESULT)mError;
     else if (!(mFlag & FA_WRITE))
       result = FR_DENIED;
@@ -3260,16 +3259,16 @@ FRESULT cFile::truncate() {
   if (result == FR_OK) {
     if (mFileSize > mFilePtr) {
       /* Set file size to current R/W point */
-      mFileSize = mFilePtr; 
+      mFileSize = mFilePtr;
       mFlag |= FA__WRITTEN;
       if (mFilePtr == 0) {
-        //{{{  When set file size to zero, remove entire cluster chain 
+        //{{{  When set file size to zero, remove entire cluster chain
         result = mFs->removeChain (mStartCluster);
         mStartCluster = 0;
         }
         //}}}
       else {
-        //{{{  When truncate a part of the file, remove remaining clusters 
+        //{{{  When truncate a part of the file, remove remaining clusters
         ncl = mFs->getFat (mCluster);
         result = FR_OK;
         if (ncl == 0xFFFFFFFF)

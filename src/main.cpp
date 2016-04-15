@@ -64,9 +64,10 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 //}}}
 
 //{{{
-static void playFile (string fileName) {
+static void playFile (string rootDirectory, string fileName) {
 
-	cLcd::instance()->setTitle (fileName);
+	string fullName = rootDirectory + "/" + fileName;
+	cLcd::instance()->setTitle (fullName);
 
 	mPlayBytes = 0;
 	for (auto i = 0; i < 480*2; i++)
@@ -74,13 +75,13 @@ static void playFile (string fileName) {
 	memset ((void*)AUDIO_BUFFER, 0, AUDIO_BUFFER_SIZE);
 
 	cFile file;
-	auto result = file.open (fileName, FA_OPEN_EXISTING | FA_READ);
+	auto result = file.open (fullName, FA_OPEN_EXISTING | FA_READ);
 	if (result != FR_OK) {
-		cLcd::debug ("- open failed " + cLcd::intStr (result) + " " + fileName);
+		cLcd::debug ("- open failed " + cLcd::intStr (result) + " " + fullName);
 		return;
 		}
 	mFileSize = file.getSize();
-	cLcd::debug ("playing " + cLcd::intStr (mFileSize) + " " + fileName);
+	cLcd::debug ("playing " + cLcd::intStr (mFileSize) + " " + fullName);
 
 	int chunkSize = 2048;
 	auto chunkBuffer = (uint8_t*)pvPortMalloc (chunkSize + 1044);
@@ -133,10 +134,10 @@ static void playFile (string fileName) {
 	}
 //}}}
 //{{{
-static void playDir (const char* extension) {
+static void playDirectory (string rootDirectory, const char* extension) {
 
 	cDirectory dir;
-	auto result = dir.open ("/");
+	auto result = dir.open (rootDirectory);
 	if (result != FR_OK)
 		cLcd::debug (LCD_RED, "directory open error:"  + cLcd::intStr (result));
 	else {
@@ -149,26 +150,25 @@ static void playDir (const char* extension) {
 			else if (fileInfo.isDirectory())
 				cLcd::debug ("directory - " +  fileInfo.getName());
 			else if (!extension || fileInfo.matchExtension (extension))
-				playFile (fileInfo.getName());
+				playFile (rootDirectory, fileInfo.getName());
 			}
 		}
 	}
 //}}}
 //{{{
-static void listDir (const char* extension) {
+static void listDirectory (string rootDirectory) {
 
+	cLcd::debug ("---------- listDirectory ----------");
 	cDirectory dir;
-	auto result = dir.open ("/");
+	auto result = dir.open (rootDirectory);
 	if (result != FR_OK)
 		cLcd::debug (LCD_RED, "directory open error:"  + cLcd::intStr (result));
 	else {
 		cFileInfo fileInfo;
 		while ((dir.read (fileInfo) == FR_OK) && !fileInfo.getEmpty()) {
-			if (fileInfo.getBack()) {
-				}
-			else if (fileInfo.isDirectory())
+			if (fileInfo.isDirectory())
 				cLcd::debug ("directory - " +  string (fileInfo.getName()));
-			else if (!extension || fileInfo.matchExtension (extension)) {
+			else {
 				cFile file;
 				auto result = file.open (fileInfo.getName(), FA_OPEN_EXISTING | FA_READ);
 				if (result == FR_OK) {
@@ -178,6 +178,7 @@ static void listDir (const char* extension) {
 				}
 			}
 		}
+	cLcd::debug ("-------------------------------");
 	}
 //}}}
 
@@ -341,8 +342,8 @@ static void loadThread (void const* argument) {
 		cLcd::debug (fatFs->getLabel() +
 								 " vsn:" + cLcd::hexStr (fatFs->getVolumeSerialNumber()) +
 								 " freeSectors:" + cLcd::intStr (fatFs->getFreeSectors()));
-		listDir (nullptr);
-		playDir ("MP3");
+		listDirectory ("/");
+		playDirectory ("sub", "MP3");
 		}
 	else
 		cLcd::debug ("fatFs mount problem");
