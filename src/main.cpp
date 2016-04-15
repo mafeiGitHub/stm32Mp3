@@ -42,7 +42,6 @@ static int mPlayFrame = 0;
 static int mPlayBytes = 0;
 static int mFileSize = 0;
 static bool mSkip = false;
-static int mDirNest = 0;
 
 static cMp3Decoder* mMp3Decoder = nullptr;
 static float mPower [480*2];
@@ -65,14 +64,9 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 //}}}
 
 //{{{
-static void listDirectory (string directoryName) {
+static void listDirectory (string directoryName, string indent) {
 
-	mDirNest++;
-	string indent;
-	for (auto i = 0; i < mDirNest; i++)
-		indent += " ";
-
-	cLcd::debug ("dir - " + directoryName);
+	cLcd::debug ("dir " + directoryName);
 
 	cDirectory directory;
 	auto result = directory.open (directoryName);
@@ -85,7 +79,7 @@ static void listDirectory (string directoryName) {
 				//cLcd::debug (fileInfo.getName());
 				}
 			else if (fileInfo.isDirectory())
-				listDirectory (directoryName + "/" + fileInfo.getName());
+				listDirectory (directoryName + "/" + fileInfo.getName(), indent + "-");
 			else {
 				cFile file;
 				auto result = file.open (directoryName + "/" + fileInfo.getName(), FA_OPEN_EXISTING | FA_READ);
@@ -97,8 +91,6 @@ static void listDirectory (string directoryName) {
 			}
 		directory.close();
 		}
-
-	mDirNest--;
 	}
 //}}}
 //{{{
@@ -179,14 +171,14 @@ static void playDirectory (string directoryName, const char* extension) {
 	if (result != FR_OK)
 		cLcd::debug (LCD_RED, "directory open error:"  + cLcd::intStr (result));
 	else {
-		cLcd::debug ("directory opened");
-
 		cFileInfo fileInfo;
 		while ((directory.read (fileInfo) == FR_OK) && !fileInfo.getEmpty()) {
 			if (fileInfo.getBack()) {
 				}
-			else if (fileInfo.isDirectory())
-				cLcd::debug ("directory - " +  fileInfo.getName());
+			else if (fileInfo.isDirectory()) {
+				//cLcd::debug ("playSubDirectory - " +  fileInfo.getName());
+				playDirectory (directoryName + "/" + fileInfo.getName(), extension);
+				}
 			else if (!extension || fileInfo.matchExtension (extension))
 				playFile (directoryName, fileInfo.getName());
 			}
@@ -355,8 +347,8 @@ static void loadThread (void const* argument) {
 		cLcd::debug (fatFs->getLabel() +
 								 " vsn:" + cLcd::hexStr (fatFs->getVolumeSerialNumber()) +
 								 " freeSectors:" + cLcd::intStr (fatFs->getFreeSectors()));
-		listDirectory ("");
-		playDirectory ("sub", "MP3");
+		listDirectory ("", "");
+		playDirectory ("", "MP3");
 		}
 	else
 		cLcd::debug ("fatFs mount problem");
