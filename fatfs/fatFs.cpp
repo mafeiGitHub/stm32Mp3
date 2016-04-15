@@ -122,10 +122,10 @@
 //}}}
 //{{{  static const
 // Offset of LFN characters in the directory entry
-static const BYTE LfnOfs[] = { 1,3,5,7,9,14,16,18,20,22,24,28,30 };
+static const BYTE kLongFileNameOffset[] = { 1, 3, 5, 7, 9, 14, 16, 18, 20, 22, 24, 28, 30 };
 
-static const WORD vst[] = {  1024,   512,  256,  128,   64,    32,   16,    8,    4,    2,   0 };
-static const WORD cst[] = { 32768, 16384, 8192, 4096, 2048, 16384, 8192, 4096, 2048, 1024, 512 };
+static const WORD kVst[] = {  1024,   512,  256,  128,   64,    32,   16,    8,    4,    2,   0 };
+static const WORD kCst[] = { 32768, 16384, 8192, 4096, 2048, 16384, 8192, 4096, 2048, 1024, 512 };
 
 //{{{
 //  CP1252(0x80-0xFF) to Unicode conversion table
@@ -323,7 +323,7 @@ static int compareLfn (WCHAR* lfnbuf, BYTE* dir) {
   UINT s = 0;
   WCHAR wc = 1;
   do {
-    WCHAR uc = LD_WORD (dir + LfnOfs[s]);  /* Pick an LFN character from the entry */
+    WCHAR uc = LD_WORD (dir + kLongFileNameOffset[s]);  /* Pick an LFN character from the entry */
     if (wc) { /* Last character has not been processed */
       wc = wideToUpperCase (uc);   /* Convert it to upper case */
       if (i >= MAX_LFN || wc != wideToUpperCase (lfnbuf[i++]))  /* Compare it */
@@ -346,7 +346,7 @@ static int pickLfn (WCHAR* lfnbuf, BYTE* dir) {
   UINT s = 0;
   WCHAR wc = 1;
   do {
-    WCHAR uc = LD_WORD (dir + LfnOfs[s]);    /* Pick an LFN character from the entry */
+    WCHAR uc = LD_WORD (dir + kLongFileNameOffset[s]);    /* Pick an LFN character from the entry */
     if (wc) { /* Last character has not been processed */
       if (i >= MAX_LFN) return 0;  /* Buffer overflow? */
       lfnbuf[i++] = wc = uc;      /* Store it */
@@ -378,7 +378,7 @@ static void fitLfn (const WCHAR* lfnbuf, BYTE* dir, BYTE ord, BYTE sum) {
   do {
     if (wc != 0xFFFF)
       wc = lfnbuf[i++];  /* Get an effective character */
-    ST_WORD (dir+LfnOfs[s], wc);  /* Put it */
+    ST_WORD (dir + kLongFileNameOffset[s], wc);  /* Put it */
     if (!wc)
       wc = 0xFFFF;  /* Padding characters following last character */
     } while (++s < 13);
@@ -1108,8 +1108,8 @@ FRESULT cFatFs::mkfs (const char* path, BYTE sfd, UINT au) {
   if (!au) {
     /* AU auto selection */
     vs = n_vol / 2000;
-    for (i = 0; vs < vst[i]; i++) ;
-    au = cst[i];
+    for (i = 0; vs < kVst[i]; i++) ;
+    au = kCst[i];
     }
 
   /* Number of sectors per cluster */

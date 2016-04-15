@@ -75,7 +75,7 @@ static void playFile (string fileName) {
 	memset ((void*)AUDIO_BUFFER, 0, AUDIO_BUFFER_SIZE);
 
 	cFile file;
-	auto result = file.open (fileName.c_str(), FA_OPEN_EXISTING | FA_READ);
+	auto result = file.open (fileName, FA_OPEN_EXISTING | FA_READ);
 	if (result != FR_OK) {
 		lcd->info ("- open failed " + cLcd::intStr (result) + " " + fileName);
 		return;
@@ -177,7 +177,7 @@ static void listDir (const char* extension) {
 				cFile file;
 				auto result = file.open (fileInfo.getName(), FA_OPEN_EXISTING | FA_READ);
 				if (result == FR_OK) {
-					lcd->info (cLcd::intStr (file.getSize()) + " " + fileInfo.getName());
+					lcd->info (cLcd::intStr (file.getSize()/1000) + "k " + fileInfo.getName());
 					file.close();
 					}
 				}
@@ -352,7 +352,7 @@ static void loadThread (void const* argument) {
 		playDir ("MP3");
 		}
 	else
-		lcd->info ("fatFs getLabel error");
+		lcd->info ("fatFs mount problem");
 
 	int tick = 0;
 	while (true) {
