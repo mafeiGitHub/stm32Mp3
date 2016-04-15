@@ -463,6 +463,13 @@ cFatFs* cFatFs::mFatFs = nullptr;
 cFatFs::cFileSem cFatFs::mFiles[FS_LOCK];
 //}}}
 //{{{
+cFatFs* cFatFs::create() {
+  if (!mFatFs)
+    mFatFs = new cFatFs();
+  return mFatFs;
+  }
+//}}}
+//{{{
 cFatFs::cFatFs() {
 
   osSemaphoreDef (fatfs);

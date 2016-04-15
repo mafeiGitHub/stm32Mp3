@@ -66,8 +66,7 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 //{{{
 static void playFile (string fileName) {
 
-	auto lcd = cLcd::instance();
-	lcd->setTitle (fileName);
+	cLcd::instance()->setTitle (fileName);
 
 	mPlayBytes = 0;
 	for (auto i = 0; i < 480*2; i++)
@@ -77,13 +76,13 @@ static void playFile (string fileName) {
 	cFile file;
 	auto result = file.open (fileName, FA_OPEN_EXISTING | FA_READ);
 	if (result != FR_OK) {
-		lcd->info ("- open failed " + cLcd::intStr (result) + " " + fileName);
+		cLcd::debug ("- open failed " + cLcd::intStr (result) + " " + fileName);
 		return;
 		}
 	mFileSize = file.getSize();
-	lcd->info ("playing " + cLcd::intStr (mFileSize) + " " + fileName);
+	cLcd::debug ("playing " + cLcd::intStr (mFileSize) + " " + fileName);
 
-	int chunkSize = 4096;
+	int chunkSize = 2048;
 	auto chunkBuffer = (uint8_t*)pvPortMalloc (chunkSize + 1044);
 
 	// play file from fileBuffer
@@ -124,7 +123,7 @@ static void playFile (string fileName) {
 	file.close();
 
 	if (mSkip) {
-		lcd->info ("- skip file at " + cLcd::intStr (mPlayBytes) + " of " +  cLcd::intStr (mFileSize));
+		cLcd::debug ("- skip file at " + cLcd::intStr (mPlayBytes) + " of " +  cLcd::intStr (mFileSize));
 		mSkip = false;
 		}
 
@@ -136,21 +135,19 @@ static void playFile (string fileName) {
 //{{{
 static void playDir (const char* extension) {
 
-	auto lcd = cLcd::instance();
-
 	cDirectory dir;
 	auto result = dir.open ("/");
 	if (result != FR_OK)
-		lcd->info (LCD_RED, "directory open error:"  + cLcd::intStr (result));
+		cLcd::debug (LCD_RED, "directory open error:"  + cLcd::intStr (result));
 	else {
-		lcd->info ("directory opened");
+		cLcd::debug ("directory opened");
 
 		cFileInfo fileInfo;
 		while ((dir.read (fileInfo) == FR_OK) && !fileInfo.getEmpty()) {
 			if (fileInfo.getBack()) {
 				}
 			else if (fileInfo.isDirectory())
-				lcd->info ("directory - " +  fileInfo.getName());
+				cLcd::debug ("directory - " +  fileInfo.getName());
 			else if (!extension || fileInfo.matchExtension (extension))
 				playFile (fileInfo.getName());
 			}
@@ -160,24 +157,22 @@ static void playDir (const char* extension) {
 //{{{
 static void listDir (const char* extension) {
 
-	auto lcd = cLcd::instance();
-
 	cDirectory dir;
 	auto result = dir.open ("/");
 	if (result != FR_OK)
-		lcd->info (LCD_RED, "directory open error:"  + cLcd::intStr (result));
+		cLcd::debug (LCD_RED, "directory open error:"  + cLcd::intStr (result));
 	else {
 		cFileInfo fileInfo;
 		while ((dir.read (fileInfo) == FR_OK) && !fileInfo.getEmpty()) {
 			if (fileInfo.getBack()) {
 				}
 			else if (fileInfo.isDirectory())
-				lcd->info ("directory - " +  string (fileInfo.getName()));
+				cLcd::debug ("directory - " +  string (fileInfo.getName()));
 			else if (!extension || fileInfo.matchExtension (extension)) {
 				cFile file;
 				auto result = file.open (fileInfo.getName(), FA_OPEN_EXISTING | FA_READ);
 				if (result == FR_OK) {
-					lcd->info (cLcd::intStr (file.getSize()/1000) + "k " + fileInfo.getName());
+					cLcd::debug (cLcd::intStr (file.getSize()/1000) + "k " + fileInfo.getName());
 					file.close();
 					}
 				}
@@ -236,8 +231,8 @@ static void listDir (const char* extension) {
 //{{{
 static void uiThread (void const* argument) {
 
+	cLcd::debug ("uiThread started");
 	auto lcd = cLcd::instance();
-	lcd->info ("uiThread started");
 
 	const int kInfo = 150;
 	const int kVolume = 440;
@@ -266,14 +261,14 @@ static void uiThread (void const* argument) {
 						//}}}
 					else if (x < kVolume) {
 						//{{{  pressed middle
-						//lcd->info (cLcd::intStr (x) + "," + cLcd::intStr (y) + "," + cLcd::intStr (tsState.touchWeight[touch]));
+						//cLcd::debug (cLcd::intStr (x) + "," + cLcd::intStr (y) + "," + cLcd::intStr (tsState.touchWeight[touch]));
 						if (y < 20)
 							mSkip = true;
 						}
 						//}}}
 					else {
 						//{{{  pressed volume
-						auto volume = pressed[touch] ? mVolume + float(y - lasty[touch]) / lcd->getHeight(): float(y) / lcd->getHeight();
+						auto volume = pressed[touch] ? mVolume + float(y - lasty[touch]) / cLcd::getHeight(): float(y) / cLcd::getHeight();
 
 						if (volume < 0)
 							volume = 0;
@@ -315,8 +310,8 @@ static void uiThread (void const* argument) {
 			int frame = mPlayFrame - cLcd::getWidth() + x;
 			if (frame > 0) {
 				auto index = (frame % 480) * 2;
-				uint8_t top = (lcd->getHeight()/2) - (int)mPower[index]/2;
-				uint8_t ylen = (lcd->getHeight()/2) + (int)mPower[index+1]/2 - top;
+				uint8_t top = (cLcd::getHeight()/2) - (int)mPower[index]/2;
+				uint8_t ylen = (cLcd::getHeight()/2) + (int)mPower[index+1]/2 - top;
 				lcd->rectClipped (LCD_BLUE, x, top, 1, ylen);
 				}
 			}
@@ -329,34 +324,32 @@ static void uiThread (void const* argument) {
 //{{{
 static void loadThread (void const* argument) {
 
-	auto lcd = cLcd::instance();
-	lcd->info ("loadThread started");
+	cLcd::debug ("loadThread started");
 
 	BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 44100);  // OUTPUT_DEVICE_HEADPHONE
 	BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);             // CODEC_AUDIOFRAME_SLOT_02
 
 	BSP_SD_Init();
 	while (BSP_SD_IsDetected() != SD_PRESENT) {
-		lcd->info (LCD_RED, "no SD card");
+		cLcd::debug (LCD_RED, "no SD card");
 		osDelay (1000);
 		}
-	lcd->info ("SD card found");
+	cLcd::debug ("SD card found");
 
-	// first instance creates fatFs
-	cFatFs* fatFs = cFatFs::instance();
+	cFatFs* fatFs = cFatFs::create();
 	if (fatFs->mount() == FR_OK) {
-		lcd->info (fatFs->getLabel() +
-							 " vsn:" + cLcd::hexStr (fatFs->getVolumeSerialNumber()) +
-							 " freeSectors:" + cLcd::intStr (fatFs->getFreeSectors()));
+		cLcd::debug (fatFs->getLabel() +
+								 " vsn:" + cLcd::hexStr (fatFs->getVolumeSerialNumber()) +
+								 " freeSectors:" + cLcd::intStr (fatFs->getFreeSectors()));
 		listDir (nullptr);
 		playDir ("MP3");
 		}
 	else
-		lcd->info ("fatFs mount problem");
+		cLcd::debug ("fatFs mount problem");
 
 	int tick = 0;
 	while (true) {
-		lcd->info ("load tick" + cLcd::intStr (tick++));
+		cLcd::debug ("load tick" + cLcd::intStr (tick++));
 		osDelay (10000);
 		}
 	}
@@ -364,7 +357,7 @@ static void loadThread (void const* argument) {
 //{{{
 static void startThread (void const* argument) {
 
-	auto lcd = cLcd::instance();
+	auto lcd = cLcd::create();
 	lcd->init (__TIME__ __DATE__);
 
 	const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 2000 };
@@ -373,9 +366,9 @@ static void startThread (void const* argument) {
 	const osThreadDef_t osThreadLoad =  { (char*)"Load", loadThread, osPriorityNormal, 0, 10000 };
 	osThreadCreate (&osThreadLoad, NULL);
 
-	lcd->info ("mp3Decoder create");
+	cLcd::debug ("mp3Decoder create");
 	mMp3Decoder = new cMp3Decoder;
-	lcd->info ("mp3Decoder created");
+	cLcd::debug ("mp3Decoder created");
 
 	if (true) {
 		tcpip_init (NULL, NULL);

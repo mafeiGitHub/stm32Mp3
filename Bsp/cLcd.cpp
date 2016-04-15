@@ -105,8 +105,6 @@ static FT_Face FTface;
 static FT_GlyphSlot FTglyphSlot;
 //}}}
 
-cLcd mLcd (SDRAM_FRAME0, SDRAM_FRAME1);
-
 LTDC_HandleTypeDef hLtdc;
 //{{{
 void LCD_LTDC_IRQHandler() {
@@ -178,6 +176,8 @@ void LCD_DMA2D_IRQHandler() {
   }
 //}}}
 
+cLcd* cLcd::mLcd = nullptr;
+
 // cLcd
 //{{{
 cLcd::cLcd (uint32_t buffer0, uint32_t buffer1)  {
@@ -193,8 +193,10 @@ cLcd::cLcd (uint32_t buffer0, uint32_t buffer1)  {
 
 // static members
 //{{{
-cLcd* cLcd::instance() {
-  return &mLcd;
+cLcd* cLcd::create() {
+  if (!mLcd)
+    mLcd = new cLcd (SDRAM_FRAME0, SDRAM_FRAME1);
+  return mLcd;
   }
 //}}}
 //{{{

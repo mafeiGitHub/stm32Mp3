@@ -38,7 +38,12 @@ public:
   ~cLcd() {}
 
   // static members
-  static cLcd* instance();
+  static cLcd* create();
+  //{{{
+  static cLcd* instance() {
+    return mLcd;
+    }
+  //}}}
   static int getWidth() { return 480; }
   static int getHeight() { return 272; }
   static std::string hexStr (int value, int width = 0);
@@ -93,6 +98,9 @@ private:
   void displayTop();
   void displayTail();
   void updateNumDrawLines();
+
+  // static vars
+  static cLcd* mLcd;
 
   //{{{  vars
   bool mBuffered = true;

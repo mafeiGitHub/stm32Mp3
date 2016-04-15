@@ -110,13 +110,13 @@ public:
 class cFatFs {
 public :
   cFatFs();
+  static cFatFs* create();
   //{{{
   static cFatFs* instance() {
-    if (!mFatFs)
-      mFatFs = new cFatFs();
     return mFatFs;
     }
   //}}}
+
   std::string getLabel() { return mLabel; }
   int getVolumeSerialNumber() { return mVolumeSerialNumber; }
   int getFreeSectors() { return mFreeClusters * mSectorsPerCluster; }
