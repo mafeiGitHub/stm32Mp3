@@ -501,7 +501,7 @@ void cLcd::pressed (int pressCount, int x, int y, int xinc, int yinc) {
     }
   else {
     // inc firstLine
-    float value = mFirstLine - (yinc / 2.0f);
+    float value = mFirstLine - ((2.0f * yinc) / mLineInc);
 
     if (value < 0)
       mFirstLine = 0;
