@@ -668,7 +668,7 @@ FRESULT cFatFs::setLabel (const char* label) {
 
   cDirectory directory;
   FRESULT result = findVolume (&directory.mFs, 1);
-  if (result) {
+  if (result != FR_OK) {
     unlock (result);
     return result;
     }
@@ -725,6 +725,7 @@ FRESULT cFatFs::setLabel (const char* label) {
         }
       else // Remove the volume label
         directory.mDirShortFileName[0] = DDEM;
+
       mWindowFlag = 1;
       result = syncFs();
       }
@@ -733,6 +734,7 @@ FRESULT cFatFs::setLabel (const char* label) {
       // no volume label found or error
       if (result == FR_NO_FILE) {
         result = FR_OK;
+
         if (volumeName[0]) {
           // create volume label as new, Allocate an entry for volume label
           result = directory.allocate (1);

@@ -80,14 +80,8 @@ static void listDirectory (string directoryName, string indent) {
 				}
 			else if (fileInfo.isDirectory())
 				listDirectory (directoryName + "/" + fileInfo.getName(), indent + "-");
-			else {
-				cFile file;
-				auto result = file.open (directoryName + "/" + fileInfo.getName(), FA_OPEN_EXISTING | FA_READ);
-				if (result == FR_OK) {
-					cLcd::debug (indent + cLcd::intStr (file.getSize()/1000) + "k " + fileInfo.getName());
-					file.close();
-					}
-				}
+			else 
+				cLcd::debug (indent + fileInfo.getName());
 			}
 		directory.close();
 		}
@@ -110,8 +104,7 @@ static void playFile (string directoryName, string fileName) {
 		cLcd::debug ("- open failed " + cLcd::intStr (result) + " " + fullName);
 		return;
 		}
-	mFileSize = file.getSize();
-	cLcd::debug ("playing " + cLcd::intStr (mFileSize) + " " + fullName);
+	cLcd::debug ("play " + fullName);
 
 	int chunkSize = 2048;
 	auto chunkBuffer = (uint8_t*)pvPortMalloc (chunkSize + 1044);
@@ -121,7 +114,7 @@ static void playFile (string directoryName, string fileName) {
 
 	mPlayFrame = 0;
 	mPlayBytes = 0;
-	while (!mSkip && (mPlayBytes < mFileSize)) {
+	while (!mSkip && (mPlayBytes < file.getSize())) {
 		int chunkBytesLeft;
 		file.read (chunkBuffer, chunkSize, chunkBytesLeft);
 		if (!chunkBytesLeft)
@@ -153,10 +146,7 @@ static void playFile (string directoryName, string fileName) {
 		}
 	file.close();
 
-	if (mSkip) {
-		cLcd::debug ("- skip file at " + cLcd::intStr (mPlayBytes) + " of " +  cLcd::intStr (mFileSize));
-		mSkip = false;
-		}
+	mSkip = false;
 
 	vPortFree (chunkBuffer);
 
