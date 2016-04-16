@@ -3092,12 +3092,12 @@ FRESULT cFile::seek (DWORD position) {
         mPosition = position;
         if (position) {
           mCluster = clmtCluster (position - 1);
-          DWORD dsc = cFatFs::instance()->clusterToSector (mCluster);
-          if (!dsc)
+          DWORD sector = cFatFs::instance()->clusterToSector (mCluster);
+          if (!sector)
             ABORT (FR_INT_ERR);
-          dsc += (position - 1) / SECTOR_SIZE & (cFatFs::instance()->mSectorsPerCluster - 1);
+          sector += (position - 1) / SECTOR_SIZE & (cFatFs::instance()->mSectorsPerCluster - 1);
 
-          if ((mPosition % SECTOR_SIZE) && (dsc != mCachedSector)) {
+          if ((mPosition % SECTOR_SIZE) && (sector != mCachedSector)) {
             // Refill sector cache if needed
             if (mFlag & FA__DIRTY) {
               // Write-back dirty sector cache
@@ -3107,10 +3107,9 @@ FRESULT cFile::seek (DWORD position) {
               }
 
             // Load current sector
-            if (diskRead (fileBuffer, dsc, 1) != RES_OK)
+            if (diskRead (fileBuffer, sector, 1) != RES_OK)
               ABORT (FR_DISK_ERR);
-
-            mCachedSector = dsc;
+            mCachedSector = sector;
             }
           }
         }
@@ -3180,10 +3179,8 @@ FRESULT cFile::seek (DWORD position) {
             position -= bytesPerCluster;
             }
             //}}}
-
           mPosition += position;
           if (position % SECTOR_SIZE) {
-            // Current sector
             sector = cFatFs::instance()->clusterToSector (cluster);
             if (!sector)
               ABORT (FR_INT_ERR);
@@ -3203,7 +3200,6 @@ FRESULT cFile::seek (DWORD position) {
         // Fill sector cache
         if (diskRead (fileBuffer, sector, 1) != RES_OK)
           ABORT (FR_DISK_ERR);
-
         mCachedSector = sector;
         }
 

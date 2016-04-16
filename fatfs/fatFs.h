@@ -7,23 +7,22 @@
 class cFile;
 class cDirectory;
 
-//{{{  basic types
-// 8 bit
+// 8 bit type
 typedef unsigned char   BYTE;
 
-// 16 bit
+// 16 bit type
 typedef short           SHORT;
 typedef unsigned short  WORD;
 typedef unsigned short  WCHAR;
 
-// 16 bit or 32 bit
+// 16 bit or 32 bit type
 typedef int             INT;
 typedef unsigned int    UINT;
 
-// 32 bit
+// 32 bit type
 typedef long            LONG;
 typedef unsigned long   DWORD;
-//}}}
+
 //{{{  defines
 #define FS_LOCK         2  // 0:Disable or >=1:Enable
 #define SECTOR_SIZE   512
@@ -53,7 +52,6 @@ typedef unsigned long   DWORD;
 #define AM_MASK 0x3F  // Mask of defined bits
 //}}}
 //}}}
-
 //{{{  enum FRESULT
 typedef enum {
   FR_OK = 0,              //  0  Succeeded
@@ -79,6 +77,7 @@ typedef enum {
   FR_UNUSED,              // 20  initialised but unused
   } FRESULT;
 //}}}
+
 //{{{
 class cFileInfo {
 public:
