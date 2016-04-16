@@ -221,9 +221,11 @@ public:
   //{{{  gets
   bool isOk() { return mResult == FR_OK; }
   FRESULT getResult() { return mResult; }
+
+  int getPosition() { return mFilePtr; }
   int getSize() { return mFileSize; }
   //}}}
-  FRESULT lseek (DWORD fileOffset);
+  FRESULT seek (DWORD fileOffset);
   FRESULT read (void* readBuffer, int bytestoRead, int& bytesRead);
   FRESULT write (const void* buff, UINT btw, UINT* bw);
   FRESULT truncate();
