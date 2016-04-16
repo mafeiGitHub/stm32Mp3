@@ -581,7 +581,7 @@ FRESULT cFatFs::mount() {
   }
 //}}}
 //{{{
-FRESULT cFatFs::getCwd (char* buff, UINT len) {
+FRESULT cFatFs::getCurrentDirectory (char* buff, UINT len) {
 
   UINT i, n;
   DWORD ccl;
@@ -759,7 +759,7 @@ FRESULT cFatFs::setLabel (const char* label) {
   }
 //}}}
 //{{{
-FRESULT cFatFs::mkDir (const char* path) {
+FRESULT cFatFs::makeSubDirectory (const char* path) {
 
   BYTE *dir, n;
   DWORD dsc, dcl, pcl;
@@ -838,7 +838,7 @@ FRESULT cFatFs::mkDir (const char* path) {
   }
 //}}}
 //{{{
-FRESULT cFatFs::chDir (const char* path) {
+FRESULT cFatFs::changeDirectory (const char* path) {
 
   cDirectory directory;
   mResult = findVolume (&directory.mFatFs, 0);
@@ -937,7 +937,7 @@ FRESULT cFatFs::rename (const char* path_old, const char* path_new) {
   }
 //}}}
 //{{{
-FRESULT cFatFs::chMod (const char* path, BYTE attr, BYTE mask) {
+FRESULT cFatFs::changeAttributes (const char* path, BYTE attr, BYTE mask) {
 
   cDirectory directory;
   mResult = findVolume (&directory.mFatFs, 1);
@@ -1073,7 +1073,7 @@ FRESULT cFatFs::unlink (const char* path) {
   }
 //}}}
 //{{{
-FRESULT cFatFs::mkfs (BYTE sfd, UINT au) {
+FRESULT cFatFs::makeFileSystem (BYTE sfd, UINT au) {
 
   UINT i;
   BYTE fmt, md, sys, *tbl;
@@ -1987,7 +1987,7 @@ cDirectory::~cDirectory() {
   }
 //}}}
 //{{{
-FRESULT cDirectory::read (cFileInfo& fileInfo) {
+FRESULT cDirectory::find (cFileInfo& fileInfo) {
 
   if (validate()) {
     WCHAR longFileName [(MAX_LFN + 1) * 2];
@@ -2017,7 +2017,7 @@ FRESULT cDirectory::read (cFileInfo& fileInfo) {
   }
 //}}}
 //{{{
-FRESULT cDirectory::findFirst (cFileInfo& fileInfo, const char* path, const char* pattern) {
+FRESULT cDirectory::findMatch (cFileInfo& fileInfo, const char* path, const char* pattern) {
 
   mPattern = pattern;
 
@@ -2030,7 +2030,7 @@ FRESULT cDirectory::findFirst (cFileInfo& fileInfo, const char* path, const char
 FRESULT cDirectory::findNext (cFileInfo& fileInfo) {
 
   for (;;) {
-    mResult = read (fileInfo);
+    mResult = find (fileInfo);
     if (!isOk() || !fileInfo.mShortFileName[0])
       break;
 

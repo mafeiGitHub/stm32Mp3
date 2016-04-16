@@ -126,16 +126,16 @@ public:
   int getFreeSectors() { return mFreeClusters * mSectorsPerCluster; }
   //}}}
   FRESULT mount();
-  FRESULT getCwd (char* buff, UINT len);                        // Get current directory
+  FRESULT getCurrentDirectory (char* buff, UINT len);           // Get current directory
   FRESULT setLabel (const char* label);                         // Set volume label
-  FRESULT mkDir (const char* path);                             // Create a sub directory
-  FRESULT chDir (const char* path);                             // Change current directory
+  FRESULT makeSubDirectory (const char* path);                  // Create a sub directory
+  FRESULT changeDirectory (const char* path);                   // Change current directory
   FRESULT rename (const char* path_old, const char* path_new);  // Rename/Move a file or directory
-  FRESULT chMod (const char* path, BYTE attr, BYTE mask);       // Change attribute of the file/dir
+  FRESULT changeAttributes (const char* path, BYTE attr, BYTE mask); // Change attribute of the file/dir
   FRESULT stat (const char* path, cFileInfo& fileInfo);         // Get file status
   FRESULT utime (const char* path, const cFileInfo& fileInfo);  // Change timestamp of the file/dir
   FRESULT unlink (const char* path);                            // Delete an existing file or directory
-  FRESULT mkfs (BYTE sfd, UINT au);                             // Create a file system on the volume
+  FRESULT makeFileSystem (BYTE sfd, UINT au);                   // Create a file system on the volume
 //{{{  private
 friend class cFile;
 friend class cDirectory;
@@ -222,8 +222,8 @@ public:
   bool isOk() { return mResult == FR_OK; }
   FRESULT getResult() { return mResult; }
   //}}}
-  FRESULT read (cFileInfo& fileInfo);
-  FRESULT findFirst (cFileInfo& fileInfo, const char* path, const char* pattern);
+  FRESULT find (cFileInfo& fileInfo);
+  FRESULT findMatch (cFileInfo& fileInfo, const char* path, const char* pattern);
   FRESULT findNext (cFileInfo& fileInfo);
 //{{{  private
 friend class cFatFs;

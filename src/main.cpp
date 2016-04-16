@@ -70,7 +70,7 @@ static void listDirectory (string directoryName, string indent) {
   cDirectory directory (directoryName);
   if (directory.isOk()) {
     cFileInfo fileInfo;
-    while ((directory.read (fileInfo) == FR_OK) && !fileInfo.getEmpty()) {
+    while ((directory.find (fileInfo) == FR_OK) && !fileInfo.getEmpty()) {
       if (fileInfo.getBack()) {
         //cLcd::debug (fileInfo.getName());
         }
@@ -108,11 +108,13 @@ static void playFile (string directoryName, string fileName) {
   memset ((void*)AUDIO_BUFFER, 0, AUDIO_BUFFER_SIZE);
   BSP_AUDIO_OUT_Play ((uint16_t*)AUDIO_BUFFER, AUDIO_BUFFER_SIZE);
 
+  auto lastSkip = mSkip;
   mPlayFrame = 0;
   while (file.getPosition() < mFileSize) {
-    if (mSkip > 0)
+    if ((mSkip > 0) && (mSkip != lastSkip)) {
+      lastSkip = mSkip;
       file.seek (int(mSkip * file.getSize()) & 0xFFFFFFE0);
-    mPlayBytes = file.getPosition();
+      }
 
     auto chunkPtr = chunkBuffer;
     int chunkBytesLeft;
@@ -120,14 +122,15 @@ static void playFile (string directoryName, string fileName) {
     if (!chunkBytesLeft)
       goto exit;
 
+    int headerBytes = 0;
     do {
-      auto headerBytes = mMp3Decoder->findNextHeader (chunkPtr, chunkBytesLeft);
+      headerBytes = mMp3Decoder->findNextHeader (chunkPtr, chunkBytesLeft);
       if (!headerBytes)
         break;
       chunkPtr += headerBytes;
       chunkBytesLeft -= headerBytes;
       if (chunkBytesLeft < mMp3Decoder->getFrameBodySize()) {
-        if (mSkip > 0)
+        if ((mSkip > 0) && (mSkip != lastSkip))
           break;
         else {
           //{{{  frame partially loaded, copy it to front of chunkBuffer with offset so that next dmaRead is 32bit aligned
@@ -145,17 +148,20 @@ static void playFile (string directoryName, string fileName) {
           }
           //}}}
         }
-      osSemaphoreWait (audSem, 50);
-      auto frameBytes = mMp3Decoder->decodeFrameBody (chunkPtr, &mPower[(mPlayFrame % 480) * 2], (int16_t*)(audBufHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
-      if (!frameBytes)
-        goto exit;
 
-      chunkPtr += frameBytes;
-      chunkBytesLeft -= frameBytes;
-      mPlayFrame++;
+      if (headerBytes) {
+        osSemaphoreWait (audSem, 50);
+        auto frameBytes = mMp3Decoder->decodeFrameBody (chunkPtr, &mPower[(mPlayFrame % 480) * 2], (int16_t*)(audBufHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
+        if (!frameBytes)
+          goto exit;
+        chunkPtr += frameBytes;
+        chunkBytesLeft -= frameBytes;
+        mPlayBytes = file.getPosition();
+        mPlayFrame++;
+        }
       } while (chunkBytesLeft > 0);
     }
-  exit:
+  exit:;
 
   vPortFree (chunkBuffer);
   BSP_AUDIO_OUT_Stop (CODEC_PDWN_SW);
@@ -167,7 +173,7 @@ static void playDirectory (string directoryName, const char* extension) {
   cDirectory directory (directoryName);
   if (directory.isOk()) {
     cFileInfo fileInfo;
-    while ((directory.read (fileInfo) == FR_OK) && !fileInfo.getEmpty()) {
+    while ((directory.find (fileInfo) == FR_OK) && !fileInfo.getEmpty()) {
       if (fileInfo.getBack()) {
         }
       else if (fileInfo.isDirectory()) {
