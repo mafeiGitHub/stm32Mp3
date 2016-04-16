@@ -238,6 +238,7 @@ public:
  friend class cFatFs;
 
  private:
+   bool validate();
    DWORD clmtCluster (DWORD ofs);
 
    // vars
@@ -283,6 +284,7 @@ friend class cFatFs;
 friend class cFile;
 
 private:
+  bool validate();
   bool followPath (const char* path);
   FRESULT createName (const char** path);
 

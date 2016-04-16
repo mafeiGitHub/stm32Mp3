@@ -79,7 +79,7 @@ DRESULT diskIoctl (BYTE cmd, void* buff) {
 DRESULT diskRead (BYTE* buffer, DWORD sector, UINT count) {
 
   if ((uint32_t)buffer & 0x03) {
-    //cLcd::debug ("diskRead align b:" + cLcd::hexStr ((int)buff) + " sec:" + cLcd::intStr (sector) + " num:" + cLcd::intStr (count));
+    cLcd::debug ("diskRead align b:" + cLcd::hexStr ((int)buffer) + " sec:" + cLcd::intStr (sector) + " num:" + cLcd::intStr (count));
 
     // not 32bit aligned, dma fails,
     auto tempBuffer = (uint32_t*)pvPortMalloc (count * SECTOR_SIZE);

@@ -104,7 +104,7 @@ static void playFile (string directoryName, string fileName) {
   cLcd::debug ("play " + fullName);
 
   int chunkSize = 2048;
-  auto chunkBuffer = (uint8_t*)pvPortMalloc (chunkSize + 1044);
+  auto chunkBuffer = (uint8_t*)pvPortMalloc (1044 + chunkSize); // chunkSize + biggest possible partial frame, 32bit aligned
 
   // play file from fileBuffer
   BSP_AUDIO_OUT_Play ((uint16_t*)AUDIO_BUFFER, AUDIO_BUFFER_SIZE);
@@ -124,12 +124,17 @@ static void playFile (string directoryName, string fileName) {
       chunkBytesLeft -= bytesUsed;
       mPlayBytes += bytesUsed;
 
-      if (mMp3Decoder->getFrameBodySize() > chunkBytesLeft) {
-        // load rest of frame
+      if (chunkBytesLeft < mMp3Decoder->getFrameBodySize()) {
+        // frame partially loaded, copy it to front of chunkBuffer with offset so that next dmaRead is 32bit aligned
+        auto nextChunkPtr = chunkBuffer + ((4 - (chunkBytesLeft & 3)) & 3);
+        memcpy (nextChunkPtr, chunkPtr, chunkBytesLeft);
+
+        // read next chunks worth, including rest of frame, 32bit aligned
         int bytesLoaded;
-        file.read (chunkPtr + chunkBytesLeft, mMp3Decoder->getFrameBodySize() - chunkBytesLeft, bytesLoaded);
+        file.read (nextChunkPtr + chunkBytesLeft, chunkSize, bytesLoaded);
         if (!bytesLoaded)
           break;
+        chunkPtr = nextChunkPtr;
         chunkBytesLeft += bytesLoaded;
         }
 
