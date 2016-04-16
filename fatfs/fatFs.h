@@ -182,32 +182,83 @@ private:
   static cFileSem mFiles[FS_LOCK];
 
   // private vars
-  BYTE* mWindowBuffer;  // Disk access window for Directory, FAT
-  osSemaphoreId mSemaphore; // Identifier of sync object
-  FRESULT mResult = FR_UNUSED; // Pointer to the related file system
+  BYTE* mWindowBuffer = nullptr; // Disk access window for Directory, FAT
+  osSemaphoreId mSemaphore;      // Identifier of sync object
+  FRESULT mResult = FR_UNUSED;   // Pointer to the related file system
 
   char  mLabel[13];
-  int   mVolumeSerialNumber;
-  BYTE  mFsType = 0;    // FAT sub-type (0:Not mounted)
-  WORD  mMountId = 0;   // File system mount ID
+  int   mVolumeSerialNumber = 0;
+  BYTE  mFsType = 0;             // FAT sub-type (0:Not mounted)
+  WORD  mMountId = 0;            // File system mount ID
 
-  BYTE  mSectorsPerCluster; // Sectors per cluster (1,2,4...128)
-  BYTE  mNumFatCopies;  // Number of FAT copies (1 or 2)
-  BYTE  mWindowFlag;    // win[] flag (b0:dirty)
-  BYTE  mFsiFlag;       // FSINFO flags (b7:disabled, b0:dirty)
+  BYTE  mSectorsPerCluster = 0;  // Sectors per cluster (1,2,4...128)
+  BYTE  mNumFatCopies = 0;       // Number of FAT copies (1 or 2)
+  BYTE  mWindowFlag = 0;         // win[] flag (b0:dirty)
+  BYTE  mFsiFlag = 0;            // FSINFO flags (b7:disabled, b0:dirty)
 
-  WORD  mNumRootdir;    // Number of root directory entries (FAT12/16)
-  DWORD mLastCluster;   // Last allocated cluster
-  DWORD mFreeClusters;  // Number of free clusters
-  DWORD mCurDirSector;  // Current directory start cluster (0:root)
-  DWORD mNumFatEntries; // Number of FAT entries, = number of clusters + 2
-  DWORD mSectorsPerFAT; // Sectors per FAT
+  WORD  mNumRootdir = 0;         // Number of root directory entries (FAT12/16)
+  DWORD mLastCluster = 0;        // Last allocated cluster
+  DWORD mFreeClusters = 0;       // Number of free clusters
+  DWORD mCurDirSector = 0;       // Current directory start cluster (0:root)
+  DWORD mNumFatEntries = 0;      // Number of FAT entries, = number of clusters + 2
+  DWORD mSectorsPerFAT = 0;      // Sectors per FAT
 
-  DWORD mVolBase;       // Volume start sector
-  DWORD mFatBase;       // FAT start sector
-  DWORD mDirBase;       // Root directory start sector (FAT32:Cluster#)
-  DWORD mDataBase;      // Data start sector
-  DWORD mWindowSector;  // Current sector appearing in the win[]
+  DWORD mVolBase = 0;            // Volume start sector
+  DWORD mFatBase = 0;            // FAT start sector
+  DWORD mDirBase = 0;            // Root directory start sector (FAT32:Cluster#)
+  DWORD mDataBase = 0;           // Data start sector
+  DWORD mWindowSector = 0;       // Current sector appearing in the win[]
+//}}}
+  };
+
+class cDirectory {
+public:
+  //{{{  constructor, destructor
+  cDirectory() {}
+  cDirectory (std::string path);
+  ~cDirectory();
+  //}}}
+  //{{{  gets
+  bool isOk() { return mResult == FR_OK; }
+  FRESULT getResult() { return mResult; }
+  //}}}
+  FRESULT read (cFileInfo& fileInfo);
+  FRESULT findFirst (cFileInfo& fileInfo, const char* path, const char* pattern);
+  FRESULT findNext (cFileInfo& fileInfo);
+//{{{  private
+friend class cFatFs;
+friend class cFile;
+
+private:
+  bool validate();
+  bool followPath (const char* path);
+  FRESULT createName (const char** path);
+
+  FRESULT find();
+  FRESULT setIndex (UINT index);
+  FRESULT next (int stretch);
+  FRESULT read (int vol);
+  FRESULT registerNewEntry();
+  FRESULT allocate (UINT nent);
+  FRESULT remove();
+  void getFileInfo (cFileInfo& fileInfo);
+
+  FRESULT mResult = FR_UNUSED;       // Pointer to the related file system
+  cFatFs* mFs = 0;                   // pointer to the owner fileSystem
+  WORD mMountId = 0;                 // owner fileSystem mountId
+  UINT mLockId = 0;                  // file lockId (index of file semaphore table Files[])
+
+  WORD mIndex = 0;                   // Current read/write index number
+  DWORD mStartCluster = 0;           // Table start cluster (0:Root dir)
+  DWORD mCluster = 0;                // Current cluster
+  DWORD mSector = 0;                 // Current sector
+
+  BYTE* mDirShortFileName = nullptr; // pointer to the current SFN entry in the win[]
+  BYTE mShortFileName[12];           // shortFileName - file[8],ext[3],status[1]
+  WCHAR* mLongFileName = nullptr;    // pointer to longFileName working buffer
+  WORD mLongFileNameIndex = 0;       // Last matched longFileName index number (0xFFFF:No longFileName)
+
+  const char* mPattern = nullptr;    // pointer to the name matching pattern
 //}}}
   };
 
@@ -246,73 +297,23 @@ public:
    BYTE* fileBuffer = nullptr;  // File data read/write buffer
    FRESULT mResult = FR_UNUSED; // Pointer to the related file system
 
-   cFatFs* mFs;         // Pointer to the related file system
-   WORD mMountId;       // Owner file system mount ID
-   UINT mLockId;        // File lock ID origin from 1 (index of file semaphore table Files[])
+   cFatFs* mFs = 0;             // Pointer to the related file system
+   WORD mMountId = 0;           // Owner file system mount ID
+   UINT mLockId = 0;            // File lock ID origin from 1 (index of file semaphore table Files[])
 
-   BYTE mFlag;          // Status flags
+   BYTE mFlag = 0;              // Status flags
 
-   DWORD mPosition;     // File read/write pointer (Zeroed on file open)
-   DWORD mFileSize;     // File size
+   DWORD mPosition = 0;         // File read/write pointer (Zeroed on file open)
+   DWORD mFileSize = 0;         // File size
 
-   DWORD mStartCluster; // File start cluster (0:no cluster chain, always 0 when fsize is 0)
-   DWORD mCluster;      // Current cluster of fpter (not valid when fprt is 0)
-   DWORD mCachedSector; // Sector number appearing in buf[] (0:invalid)
+   DWORD mStartCluster = 0;     // File start cluster (0:no cluster chain, always 0 when fsize is 0)
+   DWORD mCluster= 0;           // Current cluster of fpter (not valid when fprt is 0)
+   DWORD mCachedSector = 0;     // Sector number appearing in buf[] (0:invalid)
 
-   DWORD mDirSectorNum; // Sector number containing the directory entry
-   BYTE* mDirPtr;       // Pointer to the directory entry in the win[]
+   DWORD mDirSectorNum = 0;     // Sector number containing the directory entry
+   BYTE* mDirPtr = 0;           // Pointer to the directory entry in the win[]
 
-   DWORD* mClusterTable; // Pointer to the cluster link map table (Nulled on file open)
+   DWORD* mClusterTable = nullptr; // Pointer to the cluster link map table (Nulled on file open)
  //}}}
   };
 
-class cDirectory {
-public:
-  //{{{  constructor, destructor
-  cDirectory() {}
-  cDirectory (std::string path);
-  ~cDirectory();
-  //}}}
-  //{{{  gets
-  bool isOk() { return mResult == FR_OK; }
-  FRESULT getResult() { return mResult; }
-  //}}}
-  FRESULT read (cFileInfo& fileInfo);
-  FRESULT findFirst (cFileInfo& fileInfo, const char* path, const char* pattern);
-  FRESULT findNext (cFileInfo& fileInfo);
-//{{{  private
-friend class cFatFs;
-friend class cFile;
-
-private:
-  bool validate();
-  bool followPath (const char* path);
-  FRESULT createName (const char** path);
-
-  FRESULT find();
-  FRESULT setIndex (UINT index);
-  FRESULT next (int stretch);
-  FRESULT read (int vol);
-  FRESULT registerNewEntry();
-  FRESULT allocate (UINT nent);
-  FRESULT remove();
-  void getFileInfo (cFileInfo& fileInfo);
-
-  FRESULT mResult = FR_UNUSED; // Pointer to the related file system
-  cFatFs* mFs;             // pointer to the owner fileSystem
-  WORD mMountId;           // owner fileSystem mountId
-  UINT mLockId;            // file lockId (index of file semaphore table Files[])
-
-  WORD mIndex;             // Current read/write index number
-  DWORD mStartCluster;     // Table start cluster (0:Root dir)
-  DWORD mCluster;          // Current cluster
-  DWORD mSector;           // Current sector
-
-  BYTE* mDirShortFileName; // pointer to the current SFN entry in the win[]
-  BYTE mShortFileName[12]; // shortFileName - file[8],ext[3],status[1]
-  WCHAR* mLongFileName;    // pointer to longFileName working buffer
-  WORD mLongFileNameIndex; // Last matched longFileName index number (0xFFFF:No longFileName)
-
-  const char* mPattern;   // pointer to the name matching pattern
-//}}}
-  };
