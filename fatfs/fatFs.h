@@ -75,7 +75,8 @@ typedef enum {
   FR_LOCKED,              // 16  The operation is rejected according to the file sharing policy
   FR_NOT_ENOUGH_CORE,     // 17  LFN working buffer could not be allocated
   FR_TOO_MANY_OPEN_FILES, // 18  Number of open files > _FS_SHARE
-  FR_INVALID_PARAMETER    // 19  Given parameter is invalid
+  FR_INVALID_PARAMETER,   // 19  Given parameter is invalid
+  FR_UNUSED,              // 20  initialised but unused
   } FRESULT;
 //}}}
 //{{{
@@ -109,18 +110,22 @@ public:
 
 class cFatFs {
 public:
-  cFatFs();
+  //{{{  singleton create, instance, constructor
   static cFatFs* create();
   //{{{
   static cFatFs* instance() {
     return mFatFs;
     }
   //}}}
-
+  cFatFs();
+  //}}}
+  //{{{  gets
+  bool isOk() { return mResult == FR_OK; }
+  FRESULT getResult() { return mResult; }
   std::string getLabel() { return mLabel; }
   int getVolumeSerialNumber() { return mVolumeSerialNumber; }
   int getFreeSectors() { return mFreeClusters * mSectorsPerCluster; }
-
+  //}}}
   FRESULT mount();
   FRESULT getCwd (char* buff, UINT len);                        // Get current directory
   FRESULT setLabel (const char* label);                         // Set volume label
@@ -180,6 +185,7 @@ private:
   // private vars
   BYTE* mWindowBuffer;  // Disk access window for Directory, FAT
   osSemaphoreId mSemaphore; // Identifier of sync object
+  FRESULT mResult = FR_UNUSED; // Pointer to the related file system
 
   char  mLabel[13];
   int   mVolumeSerialNumber;
@@ -208,16 +214,20 @@ private:
 
 class cFile {
 public:
-  cFile();
+  //{{{  constructor, destructor
+  cFile (std::string path, BYTE mode);
   ~cFile();
+  //}}}
+  //{{{  gets
+  bool isOk() { return mResult == FR_OK; }
+  FRESULT getResult() { return mResult; }
   int getSize() { return mFileSize; }
-  FRESULT open (std::string path, BYTE mode);
+  //}}}
   FRESULT lseek (DWORD fileOffset);
   FRESULT read (void* readBuffer, int bytestoRead, int& bytesRead);
   FRESULT write (const void* buff, UINT btw, UINT* bw);
   FRESULT truncate();
   FRESULT sync();
-  FRESULT close ();
   //{{{  stream
   int putCh (char c);
   int putStr (const char* str);
@@ -233,13 +243,13 @@ public:
 
    // vars
    BYTE* fileBuffer = nullptr;  // File data read/write buffer
+   FRESULT mResult = FR_UNUSED; // Pointer to the related file system
 
    cFatFs* mFs;         // Pointer to the related file system
    WORD mMountId;       // Owner file system mount ID
    UINT mLockId;        // File lock ID origin from 1 (index of file semaphore table Files[])
 
    BYTE mFlag;          // Status flags
-   BYTE mError;         // Abort flag (error code)
 
    DWORD mFilePtr;      // File read/write pointer (Zeroed on file open)
    DWORD mFileSize;     // File size
@@ -257,11 +267,18 @@ public:
 
 class cDirectory {
 public:
-  FRESULT open (std::string path);
+  //{{{  constructor, destructor
+  cDirectory() {}
+  cDirectory (std::string path);
+  ~cDirectory();
+  //}}}
+  //{{{  gets
+  bool isOk() { return mResult == FR_OK; }
+  FRESULT getResult() { return mResult; }
+  //}}}
   FRESULT read (cFileInfo& fileInfo);
   FRESULT findFirst (cFileInfo& fileInfo, const char* path, const char* pattern);
   FRESULT findNext (cFileInfo& fileInfo);
-  FRESULT close();
 //{{{  private
 friend class cFatFs;
 friend class cFile;
@@ -279,6 +296,7 @@ private:
   FRESULT remove();
   void getFileInfo (cFileInfo& fileInfo);
 
+  FRESULT mResult = FR_UNUSED; // Pointer to the related file system
   cFatFs* mFs;             // pointer to the owner fileSystem
   WORD mMountId;           // owner fileSystem mountId
   UINT mLockId;            // file lockId (index of file semaphore table Files[])
