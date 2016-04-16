@@ -3269,30 +3269,30 @@ FRESULT cFile::truncate() {
 //{{{
 FRESULT cFile::sync() {
 
-  DWORD tm;
-  BYTE* dir;
-
   if (validate()) {
     if (mFlag & FA__WRITTEN) {
       if (mFlag & FA__DIRTY) {
         if (diskWrite (fileBuffer, mCachedSector, 1) != RES_OK) {
-          cFatFs::instance()->unlock (FR_DISK_ERR);
-          return FR_DISK_ERR;
+          mResult = FR_DISK_ERR;
+          cFatFs::instance()->unlock (mResult);
+          return mResult;
           }
         mFlag &= ~FA__DIRTY;
         }
 
-      // Update the directory entry
+      // update directory entry
       mResult = cFatFs::instance()->moveWindow (mDirSectorNum);
       if (mResult == FR_OK) {
-        dir = mDirPtr;
-        dir[DIR_Attr] |= AM_ARC;                   // Set archive bit
-        ST_DWORD (dir + DIR_FileSize, mFileSize);  // Update file size
-        storeCluster (dir, mStartCluster);         // Update start cluster
-        tm = getFatTime();                         // Update updated time
+        BYTE* dir = mDirPtr;
+        dir[DIR_Attr] |= AM_ARC;                  // Set archive bit
+        ST_DWORD (dir + DIR_FileSize, mFileSize); // Update file size
+        storeCluster (dir, mStartCluster);        // Update start cluster
+
+        DWORD tm = getFatTime();                  // Update updated time
         ST_DWORD (dir + DIR_WrtTime, tm);
         ST_WORD (dir + DIR_LstAccDate, 0);
         mFlag &= ~FA__WRITTEN;
+
         cFatFs::instance()->mWindowFlag = 1;
         mResult = cFatFs::instance()->syncFs();
         }

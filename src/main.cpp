@@ -91,10 +91,8 @@ static void playFile (string directoryName, string fileName) {
   string fullName = directoryName + "/" + fileName;
   cLcd::instance()->setTitle (fullName);
 
-  mPlayBytes = 0;
   for (auto i = 0; i < 480*2; i++)
     mPower[i] = 0;
-  memset ((void*)AUDIO_BUFFER, 0, AUDIO_BUFFER_SIZE);
 
   cFile file (fullName, FA_OPEN_EXISTING | FA_READ);
   if (!file.isOk()) {
@@ -107,6 +105,7 @@ static void playFile (string directoryName, string fileName) {
   auto chunkBuffer = (uint8_t*)pvPortMalloc (1044 + chunkSize); // chunkSize + biggest possible partial frame, 32bit aligned
 
   // play file from fileBuffer
+  memset ((void*)AUDIO_BUFFER, 0, AUDIO_BUFFER_SIZE);
   BSP_AUDIO_OUT_Play ((uint16_t*)AUDIO_BUFFER, AUDIO_BUFFER_SIZE);
 
   mPlayFrame = 0;
@@ -120,12 +119,11 @@ static void playFile (string directoryName, string fileName) {
     auto chunkPtr = chunkBuffer;
     int bytesUsed;
     while (!mSkip && (bytesUsed = mMp3Decoder->findNextHeader (chunkPtr, chunkBytesLeft))) {
+      mPlayBytes += bytesUsed;
       chunkPtr += bytesUsed;
       chunkBytesLeft -= bytesUsed;
-      mPlayBytes += bytesUsed;
-
       if (chunkBytesLeft < mMp3Decoder->getFrameBodySize()) {
-        // frame partially loaded, copy it to front of chunkBuffer with offset so that next dmaRead is 32bit aligned
+        //{{{  frame partially loaded, copy it to front of chunkBuffer with offset so that next dmaRead is 32bit aligned
         auto nextChunkPtr = chunkBuffer + ((4 - (chunkBytesLeft & 3)) & 3);
         memcpy (nextChunkPtr, chunkPtr, chunkBytesLeft);
 
@@ -134,15 +132,17 @@ static void playFile (string directoryName, string fileName) {
         file.read (nextChunkPtr + chunkBytesLeft, chunkSize, bytesLoaded);
         if (!bytesLoaded)
           break;
+
         chunkPtr = nextChunkPtr;
         chunkBytesLeft += bytesLoaded;
         }
+        //}}}
 
       osSemaphoreWait (audSem, 50);
       bytesUsed = mMp3Decoder->decodeFrameBody (chunkPtr, &mPower[(mPlayFrame % 480) * 2], (int16_t*)(audBufHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
+      mPlayBytes += bytesUsed;
       chunkPtr += bytesUsed;
       chunkBytesLeft -= bytesUsed;
-      mPlayBytes += bytesUsed;
       mPlayFrame++;
       }
     }
