@@ -38,8 +38,8 @@ static osSemaphoreId dhcpSem;
 
 static float mSkip = 0;
 static float mVolume = 0.8f;
-static int mPlayBytes = 0;
 static int mPlayFrame = 0;
+static int mPlayBytes = 0;
 static int mFileSize = 0;
 
 static cMp3Decoder* mMp3Decoder = nullptr;
@@ -99,6 +99,7 @@ static void playFile (string directoryName, string fileName) {
     return;
     }
   cLcd::debug ("play " + fullName);
+  mFileSize = file.getSize();
 
   int chunkSize = 2048;
   auto chunkBuffer = (uint8_t*)pvPortMalloc (1044 + chunkSize); // chunkSize + biggest possible partial frame, 32bit aligned
@@ -108,13 +109,9 @@ static void playFile (string directoryName, string fileName) {
   BSP_AUDIO_OUT_Play ((uint16_t*)AUDIO_BUFFER, AUDIO_BUFFER_SIZE);
 
   mPlayFrame = 0;
-  while (file.getPosition() < file.getSize()) {
-    if (mSkip > 0) {
-      cLcd::debug ("skip:" + cLcd::intStr (int(mSkip * file.getSize())) +
-                   " pos:" + cLcd::intStr (file.getPosition()) +
-                   " size" + cLcd::intStr (file.getSize()));
+  while (file.getPosition() < mFileSize) {
+    if (mSkip > 0)
       file.seek (int(mSkip * file.getSize()) & 0xFFFFFFE0);
-      }
     mPlayBytes = file.getPosition();
 
     auto chunkPtr = chunkBuffer;
@@ -123,28 +120,31 @@ static void playFile (string directoryName, string fileName) {
     if (!chunkBytesLeft)
       goto exit;
 
-    while (mSkip == 0) {
+    do {
       auto headerBytes = mMp3Decoder->findNextHeader (chunkPtr, chunkBytesLeft);
       if (!headerBytes)
         break;
       chunkPtr += headerBytes;
       chunkBytesLeft -= headerBytes;
       if (chunkBytesLeft < mMp3Decoder->getFrameBodySize()) {
-        //{{{  frame partially loaded, copy it to front of chunkBuffer with offset so that next dmaRead is 32bit aligned
-        auto nextChunkPtr = chunkBuffer + ((4 - (chunkBytesLeft & 3)) & 3);
-        memcpy (nextChunkPtr, chunkPtr, chunkBytesLeft);
+        if (mSkip > 0)
+          break;
+        else {
+          //{{{  frame partially loaded, copy it to front of chunkBuffer with offset so that next dmaRead is 32bit aligned
+          auto nextChunkPtr = chunkBuffer + ((4 - (chunkBytesLeft & 3)) & 3);
+          memcpy (nextChunkPtr, chunkPtr, chunkBytesLeft);
 
-        // read next chunks worth, including rest of frame, 32bit aligned
-        int bytesLoaded;
-        file.read (nextChunkPtr + chunkBytesLeft, chunkSize, bytesLoaded);
-        if (!bytesLoaded)
-          goto exit;
+          // read next chunks worth, including rest of frame, 32bit aligned
+          int bytesLoaded;
+          file.read (nextChunkPtr + chunkBytesLeft, chunkSize, bytesLoaded);
+          if (!bytesLoaded)
+            goto exit;
 
-        chunkPtr = nextChunkPtr;
-        chunkBytesLeft += bytesLoaded;
+          chunkPtr = nextChunkPtr;
+          chunkBytesLeft += bytesLoaded;
+          }
+          //}}}
         }
-        //}}}
-
       osSemaphoreWait (audSem, 50);
       auto frameBytes = mMp3Decoder->decodeFrameBody (chunkPtr, &mPower[(mPlayFrame % 480) * 2], (int16_t*)(audBufHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
       if (!frameBytes)
@@ -153,7 +153,7 @@ static void playFile (string directoryName, string fileName) {
       chunkPtr += frameBytes;
       chunkBytesLeft -= frameBytes;
       mPlayFrame++;
-      }
+      } while (chunkBytesLeft > 0);
     }
   exit:
 
@@ -300,7 +300,10 @@ static void uiThread (void const* argument) {
     lcd->startDraw();
     //{{{  draw touch
     for (auto touch = 0; (touch < 5) && pressed[touch]; touch++)
-      lcd->ellipse (touch > 0 ? LCD_LIGHTGREY : lastx[0] < kInfo ? LCD_GREEN : lastx[0] < kVolume ? LCD_MAGENTA : LCD_YELLOW,
+      lcd->ellipse (touch > 0 ? LCD_LIGHTGREY :
+                      lasty[0] < 30 ? LCD_BLUE :
+                        lastx[0] < kInfo ? LCD_GREEN :
+                          lastx[0] < kVolume ? LCD_MAGENTA : LCD_YELLOW,
                     lastx[touch], lasty[touch], lastz[touch], lastz[touch]);
     //}}}
     //{{{  draw yellow volume

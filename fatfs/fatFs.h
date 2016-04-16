@@ -222,12 +222,12 @@ public:
   bool isOk() { return mResult == FR_OK; }
   FRESULT getResult() { return mResult; }
 
-  int getPosition() { return mFilePtr; }
+  int getPosition() { return mPosition; }
   int getSize() { return mFileSize; }
   //}}}
-  FRESULT seek (DWORD fileOffset);
   FRESULT read (void* readBuffer, int bytestoRead, int& bytesRead);
   FRESULT write (const void* buff, UINT btw, UINT* bw);
+  FRESULT seek (DWORD position);
   FRESULT truncate();
   FRESULT sync();
   //{{{  stream
@@ -253,7 +253,7 @@ public:
 
    BYTE mFlag;          // Status flags
 
-   DWORD mFilePtr;      // File read/write pointer (Zeroed on file open)
+   DWORD mPosition;     // File read/write pointer (Zeroed on file open)
    DWORD mFileSize;     // File size
 
    DWORD mStartCluster; // File start cluster (0:no cluster chain, always 0 when fsize is 0)

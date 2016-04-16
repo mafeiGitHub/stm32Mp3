@@ -2788,7 +2788,7 @@ cFile::cFile (std::string path, BYTE mode) {
       mFlag = mode;                                      // File access mode
       mStartCluster = cFatFs::instance()->loadCluster (dir);  // File start cluster
       mFileSize = LD_DWORD (dir + DIR_FileSize);         // File size
-      mFilePtr = 0;                                      // File pointer
+      mPosition = 0;                                     // File position
       mCachedSector = 0;
       mClusterTable = 0;                                 // Normal seek mode
       mFs = directory.mFs;                               // Validate file object
@@ -2819,185 +2819,6 @@ cFile::~cFile() {
   }
 //}}}
 //{{{
-FRESULT cFile::seek (DWORD fileOffset) {
-
-  DWORD clst, bcs, nsect, ifptr;
-  DWORD cl, pcl, ncl, tcl, dsc, tlen, ulen, *tbl;
-
-  if (validate()) {
-    if (mClusterTable) {
-      // fast seek
-      if (fileOffset == CREATE_LINKMAP) {
-        //{{{  create CLMT
-        tbl = mClusterTable;
-        tlen = *tbl++;
-        ulen = 2;  // Given table size and required table size */
-
-        // Top of the chain */
-        cl = mStartCluster;
-        if (cl) {
-          do {
-            // Get a fragment */
-            tcl = cl;
-            ncl = 0;
-            ulen += 2; // Top, length and used items */
-            do {
-              pcl = cl; ncl++;
-              cl = cFatFs::instance()->getFat (cl);
-              if (cl <= 1)
-                ABORT (FR_INT_ERR);
-              if (cl == 0xFFFFFFFF)
-                ABORT (FR_DISK_ERR);
-              } while (cl == pcl + 1);
-
-            if (ulen <= tlen) {
-              // Store the length and top of the fragment */
-              *tbl++ = ncl;
-              *tbl++ = tcl;
-              }
-            } while (cl < cFatFs::instance()->mNumFatEntries);  // Repeat until end of chain
-          }
-
-        // Number of items used
-        *mClusterTable = ulen;
-        if (ulen <= tlen) // Terminate table
-          *tbl = 0;
-        else // Given table size is smaller than required
-        mResult = FR_NOT_ENOUGH_CORE;
-        }
-        //}}}
-      else {
-        //{{{  fast seek
-        if (fileOffset > mFileSize)    /* Clip offset at the file size */
-          fileOffset = mFileSize;
-
-        mFilePtr = fileOffset;       /* Set file pointer */
-        if (fileOffset) {
-          mCluster = clmtCluster (fileOffset - 1);
-          dsc = cFatFs::instance()->clusterToSector (mCluster);
-          if (!dsc)
-            ABORT (FR_INT_ERR);
-          dsc += (fileOffset - 1) / SECTOR_SIZE & (cFatFs::instance()->mSectorsPerCluster - 1);
-          if (mFilePtr % SECTOR_SIZE && dsc != mCachedSector) {
-            /* Refill sector cache if needed */
-            if (mFlag & FA__DIRTY) {
-              /* Write-back dirty sector cache */
-              if (diskWrite (fileBuffer, mCachedSector, 1) != RES_OK)
-                ABORT (FR_DISK_ERR);
-              mFlag &= ~FA__DIRTY;
-              }
-            if (diskRead (fileBuffer, dsc, 1) != RES_OK) /* Load current sector */
-              ABORT (FR_DISK_ERR);
-            mCachedSector = dsc;
-            }
-          }
-        }
-        //}}}
-      }
-
-    else {
-      //{{{  normal seek
-      if (fileOffset > mFileSize && !(mFlag & FA_WRITE))
-        fileOffset = mFileSize;
-
-      ifptr = mFilePtr;
-      mFilePtr = nsect = 0;
-
-      if (fileOffset) {
-        // Cluster size (byte)
-        bcs = (DWORD)cFatFs::instance()->mSectorsPerCluster * SECTOR_SIZE;
-        if (ifptr > 0 && (fileOffset - 1) / bcs >= (ifptr - 1) / bcs) {
-          //{{{  seek to same or following cluster
-          // start from the current cluster
-          mFilePtr = (ifptr - 1) & ~(bcs - 1);  
-          fileOffset -= mFilePtr;
-          clst = mCluster;
-          }
-          //}}}
-        else {
-          //{{{  seek to back cluster, start from the first cluster
-          clst = mStartCluster;
-          if (clst == 0) {
-            // If no cluster chain, create a new chain
-            clst = cFatFs::instance()->createChain (0);
-            if (clst == 1)
-              ABORT (FR_INT_ERR);
-            if (clst == 0xFFFFFFFF)
-              ABORT (FR_DISK_ERR);
-
-            mStartCluster = clst;
-            }
-
-          mCluster = clst;
-          }
-          //}}}
-
-        if (clst != 0) {
-          while (fileOffset > bcs) {
-            //{{{  cluster following loop
-            if (mFlag & FA_WRITE) {
-              /* Check if in write mode or not */
-              clst = cFatFs::instance()->createChain (clst);  /* Force stretch if in write mode */
-              if (clst == 0) {
-                /* When disk gets full, clip file size */
-                fileOffset = bcs;
-                break;
-                }
-              }
-            else
-              clst = cFatFs::instance()->getFat (clst); /* Follow cluster chain if not in write mode */
-
-            if (clst == 0xFFFFFFFF)
-              ABORT (FR_DISK_ERR);
-            if (clst <= 1 || clst >= cFatFs::instance()->mNumFatEntries)
-              ABORT (FR_INT_ERR);
-
-            mCluster = clst;
-            mFilePtr += bcs;
-            fileOffset -= bcs;
-            }
-            //}}}
-
-          mFilePtr += fileOffset;
-          if (fileOffset % SECTOR_SIZE) {
-            // Current sector
-            nsect = cFatFs::instance()->clusterToSector (clst);
-            if (!nsect)
-              ABORT (FR_INT_ERR);
-            nsect += fileOffset / SECTOR_SIZE;
-            }
-          }
-        }
-
-      if (mFilePtr % SECTOR_SIZE && nsect != mCachedSector) {
-        if (mFlag & FA__DIRTY) {
-           // writeBack dirty sector cache
-          if (diskWrite (fileBuffer, mCachedSector, 1) != RES_OK)
-            ABORT (FR_DISK_ERR);
-
-          mFlag &= ~FA__DIRTY;
-          }
-
-        // Fill sector cache
-        if (diskRead (fileBuffer, nsect, 1) != RES_OK)
-          ABORT (FR_DISK_ERR);
-        mCachedSector = nsect;
-        }
-
-      if (mFilePtr > mFileSize) {
-        // Set file change flag if the file size is extended
-        mFileSize = mFilePtr;
-        mFlag |= FA__WRITTEN;
-        }
-      }
-      //}}}
-    }
-
-  cFatFs::instance()->unlock (mResult);
-  return mResult;
-  }
-//}}}
-//{{{
 FRESULT cFile::read (void* readBuffer, int bytesToRead, int& bytesRead) {
 
   bytesRead = 0;
@@ -3015,23 +2836,23 @@ FRESULT cFile::read (void* readBuffer, int bytesToRead, int& bytesRead) {
     //}}}
 
   // truncate bytesToRead by fileSize
-  if (bytesToRead > int(mFileSize - mFilePtr))
-    bytesToRead = mFileSize - mFilePtr;
+  if (bytesToRead > int(mFileSize - mPosition))
+    bytesToRead = mFileSize - mPosition;
 
   auto readBufferPtr = (BYTE*)readBuffer;
   int readCount;
-  for (; bytesToRead; readBufferPtr += readCount, mFilePtr += readCount, bytesRead += readCount, bytesToRead -= readCount) {
+  for (; bytesToRead; readBufferPtr += readCount, mPosition += readCount, bytesRead += readCount, bytesToRead -= readCount) {
     // repeat until all bytesToRead read
-    if ((mFilePtr % SECTOR_SIZE) == 0) {
+    if ((mPosition % SECTOR_SIZE) == 0) {
       // on sector boundary, sector offset in cluster
-      BYTE csect = (BYTE)(mFilePtr / SECTOR_SIZE & (cFatFs::instance()->mSectorsPerCluster - 1));
+      BYTE csect = (BYTE)(mPosition / SECTOR_SIZE & (cFatFs::instance()->mSectorsPerCluster - 1));
       if (!csect) {
       //{{{  on cluster boundary
       DWORD readCluster;
-      if (mFilePtr == 0) // at the top of the file, Follow from the origin
+      if (mPosition == 0) // at the top of the file, Follow from the origin
         readCluster = mStartCluster;
       else if (mClusterTable) // get cluster# from the CLMT
-        readCluster = clmtCluster (mFilePtr);
+        readCluster = clmtCluster (mPosition);
       else // follow cluster chain on the FAT
         readCluster = cFatFs::instance()->getFat (mCluster);
 
@@ -3087,10 +2908,10 @@ FRESULT cFile::read (void* readBuffer, int bytesToRead, int& bytesRead) {
       }
 
     // copy partialSector from fileBuffer cache, can be top or tail
-    readCount = SECTOR_SIZE - ((UINT)mFilePtr % SECTOR_SIZE);
+    readCount = SECTOR_SIZE - ((UINT)mPosition % SECTOR_SIZE);
     if (readCount > bytesToRead)
       readCount = bytesToRead;
-    memcpy (readBufferPtr, &fileBuffer[mFilePtr % SECTOR_SIZE], readCount);
+    memcpy (readBufferPtr, &fileBuffer[mPosition % SECTOR_SIZE], readCount);
     }
 
   cFatFs::instance()->unlock (FR_OK);
@@ -3121,17 +2942,17 @@ FRESULT cFile::write (const void *buff, UINT btw, UINT* bw) {
     //}}}
 
   /* File size cannot reach 4GB */
-  if (mFilePtr + btw < mFilePtr)
+  if (mPosition + btw < mPosition)
     btw = 0;
 
-  for ( ;  btw; wbuff += wcnt, mFilePtr += wcnt, *bw += wcnt, btw -= wcnt) {
+  for ( ;  btw; wbuff += wcnt, mPosition += wcnt, *bw += wcnt, btw -= wcnt) {
     /* Repeat until all data written */
-    if ((mFilePtr % SECTOR_SIZE) == 0) {
+    if ((mPosition % SECTOR_SIZE) == 0) {
       /* On the sector boundary? , Sector offset in the cluster */
-      csect = (BYTE)(mFilePtr / SECTOR_SIZE & (cFatFs::instance()->mSectorsPerCluster - 1));
+      csect = (BYTE)(mPosition / SECTOR_SIZE & (cFatFs::instance()->mSectorsPerCluster - 1));
       if (!csect) {
         /* On the cluster boundary? */
-        if (mFilePtr == 0) {
+        if (mPosition == 0) {
           /* On the top of the file? */
           clst = mStartCluster;
           /* Follow from the origin */
@@ -3142,7 +2963,7 @@ FRESULT cFile::write (const void *buff, UINT btw, UINT* bw) {
         else {
           /* Middle or end of the file */
           if (mClusterTable)
-            clst = clmtCluster (mFilePtr);  /* Get cluster# from the CLMT */
+            clst = clmtCluster (mPosition);  /* Get cluster# from the CLMT */
           else
             clst = cFatFs::instance()->createChain (mCluster); /* Follow or stretch cluster chain on the FAT */
           }
@@ -3187,31 +3008,216 @@ FRESULT cFile::write (const void *buff, UINT btw, UINT* bw) {
 
       if (mCachedSector != sect) {
         /* Fill sector cache with file data */
-        if (mFilePtr < mFileSize && diskRead (fileBuffer, sect, 1) != RES_OK)
+        if (mPosition < mFileSize && diskRead (fileBuffer, sect, 1) != RES_OK)
           ABORT (FR_DISK_ERR);
         }
       mCachedSector = sect;
       }
 
     /* Put partial sector into file I/O buffer */
-    wcnt = SECTOR_SIZE - ((UINT)mFilePtr % SECTOR_SIZE);
+    wcnt = SECTOR_SIZE - ((UINT)mPosition % SECTOR_SIZE);
     if (wcnt > btw)
       wcnt = btw;
 
     /* Fit partial sector */
-    memcpy (&fileBuffer[mFilePtr % SECTOR_SIZE], wbuff, wcnt);
+    memcpy (&fileBuffer[mPosition % SECTOR_SIZE], wbuff, wcnt);
     mFlag |= FA__DIRTY;
     }
 
   /* Update file size if needed */
-  if (mFilePtr > mFileSize)
-    mFileSize = mFilePtr;
+  if (mPosition > mFileSize)
+    mFileSize = mPosition;
 
   /* Set file change flag */
   mFlag |= FA__WRITTEN;
 
   cFatFs::instance()->unlock (FR_OK);
   return FR_OK;
+  }
+//}}}
+//{{{
+FRESULT cFile::seek (DWORD position) {
+
+  if (validate()) {
+
+    if (mClusterTable) {
+      // fast seek
+      if (position == CREATE_LINKMAP) {
+        //{{{  create CLMT
+        DWORD* tbl = mClusterTable;
+        DWORD tlen = *tbl++;
+        DWORD ulen = 2;  // Given table size and required table size */
+
+        // Top of the chain */
+        DWORD cl = mStartCluster;
+        if (cl) {
+          do {
+            // Get a fragment */
+            DWORD tcl = cl;
+            DWORD ncl = 0;
+            ulen += 2; // Top, length and used items */
+
+            DWORD pcl;
+            do {
+              pcl = cl;
+              ncl++;
+              cl = cFatFs::instance()->getFat (cl);
+              if (cl <= 1)
+                ABORT (FR_INT_ERR);
+              if (cl == 0xFFFFFFFF)
+                ABORT (FR_DISK_ERR);
+              } while (cl == pcl + 1);
+
+            if (ulen <= tlen) {
+              // Store the length and top of the fragment */
+              *tbl++ = ncl;
+              *tbl++ = tcl;
+              }
+            } while (cl < cFatFs::instance()->mNumFatEntries);  // Repeat until end of chain
+          }
+
+        // Number of items used
+        *mClusterTable = ulen;
+        if (ulen <= tlen) // Terminate table
+          *tbl = 0;
+        else // Given table size is smaller than required
+          mResult = FR_NOT_ENOUGH_CORE;
+        }
+        //}}}
+      else {
+        //{{{  fast seek
+        if (position > mFileSize) // clip position to file size
+          position = mFileSize;
+
+        mPosition = position;
+        if (position) {
+          mCluster = clmtCluster (position - 1);
+          DWORD dsc = cFatFs::instance()->clusterToSector (mCluster);
+          if (!dsc)
+            ABORT (FR_INT_ERR);
+          dsc += (position - 1) / SECTOR_SIZE & (cFatFs::instance()->mSectorsPerCluster - 1);
+
+          if ((mPosition % SECTOR_SIZE) && (dsc != mCachedSector)) {
+            // Refill sector cache if needed
+            if (mFlag & FA__DIRTY) {
+              // Write-back dirty sector cache
+              if (diskWrite (fileBuffer, mCachedSector, 1) != RES_OK)
+                ABORT (FR_DISK_ERR);
+              mFlag &= ~FA__DIRTY;
+              }
+
+            // Load current sector
+            if (diskRead (fileBuffer, dsc, 1) != RES_OK)
+              ABORT (FR_DISK_ERR);
+
+            mCachedSector = dsc;
+            }
+          }
+        }
+        //}}}
+      }
+
+    else {
+      //{{{  normal seek
+      if (position > mFileSize && !(mFlag & FA_WRITE))
+        position = mFileSize;
+
+      DWORD iPosition = mPosition;
+      mPosition = 0;
+      DWORD sector = 0;
+
+      if (position) {
+        DWORD cluster;
+        DWORD bytesPerCluster = (DWORD)cFatFs::instance()->mSectorsPerCluster * SECTOR_SIZE;
+        if ((iPosition > 0) && ((position - 1) / bytesPerCluster >= (iPosition - 1) / bytesPerCluster)) {
+          //{{{  seek to same or following cluster
+          // start from the current cluster
+          mPosition = (iPosition - 1) & ~(bytesPerCluster - 1);
+          position -= mPosition;
+          cluster = mCluster;
+          }
+          //}}}
+        else {
+          //{{{  seek to back cluster, start from the first cluster
+          cluster = mStartCluster;
+          if (cluster == 0) {
+            // If no cluster chain, create a new chain
+            cluster = cFatFs::instance()->createChain (0);
+            if (cluster == 1)
+              ABORT (FR_INT_ERR);
+            if (cluster == 0xFFFFFFFF)
+              ABORT (FR_DISK_ERR);
+
+            mStartCluster = cluster;
+            }
+
+          mCluster = cluster;
+          }
+          //}}}
+
+        if (cluster != 0) {
+          while (position > bytesPerCluster) {
+            //{{{  cluster following loop
+            if (mFlag & FA_WRITE) {
+              // Check if in write mode or not, Force stretch if in write mode
+              cluster = cFatFs::instance()->createChain (cluster);
+              if (cluster == 0) {
+                // When disk gets full, clip file size
+                position = bytesPerCluster;
+                break;
+                }
+              }
+            else // Follow cluster chain if not in write mode
+              cluster = cFatFs::instance()->getFat (cluster);
+
+            if (cluster == 0xFFFFFFFF)
+              ABORT (FR_DISK_ERR);
+            if (cluster <= 1 || cluster >= cFatFs::instance()->mNumFatEntries)
+              ABORT (FR_INT_ERR);
+            mCluster = cluster;
+
+            mPosition += bytesPerCluster;
+            position -= bytesPerCluster;
+            }
+            //}}}
+
+          mPosition += position;
+          if (position % SECTOR_SIZE) {
+            // Current sector
+            sector = cFatFs::instance()->clusterToSector (cluster);
+            if (!sector)
+              ABORT (FR_INT_ERR);
+            sector += position / SECTOR_SIZE;
+            }
+          }
+        }
+
+      if (mPosition % SECTOR_SIZE && sector != mCachedSector) {
+        if (mFlag & FA__DIRTY) {
+           // writeBack dirty sector cache
+          if (diskWrite (fileBuffer, mCachedSector, 1) != RES_OK)
+            ABORT (FR_DISK_ERR);
+          mFlag &= ~FA__DIRTY;
+          }
+
+        // Fill sector cache
+        if (diskRead (fileBuffer, sector, 1) != RES_OK)
+          ABORT (FR_DISK_ERR);
+
+        mCachedSector = sector;
+        }
+
+      if (mPosition > mFileSize) {
+        // Set file change flag if the file size is extended
+        mFileSize = mPosition;
+        mFlag |= FA__WRITTEN;
+        }
+      }
+      //}}}
+    }
+
+  cFatFs::instance()->unlock (mResult);
+  return mResult;
   }
 //}}}
 //{{{
@@ -3224,11 +3230,11 @@ FRESULT cFile::truncate() {
     }
 
   if (isOk()) {
-    if (mFileSize > mFilePtr) {
+    if (mFileSize > mPosition) {
       /* Set file size to current R/W point */
-      mFileSize = mFilePtr;
+      mFileSize = mPosition;
       mFlag |= FA__WRITTEN;
-      if (mFilePtr == 0) {
+      if (mPosition == 0) {
         //{{{  When set file size to zero, remove entire cluster chain
         mResult = cFatFs::instance()->removeChain (mStartCluster);
         mStartCluster = 0;
