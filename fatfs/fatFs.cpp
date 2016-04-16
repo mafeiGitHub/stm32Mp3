@@ -482,7 +482,7 @@ cFatFs::cFatFs() {
 FRESULT cFatFs::mount() {
 
   cDirectory directory;
-  mResult = findVolume (&directory.mFs, 0);
+  mResult = findVolume (&directory.mFatFs, 0);
   if (isOk()) {
     // Open root directory
     directory.mStartCluster = 0;
@@ -589,7 +589,7 @@ FRESULT cFatFs::getCwd (char* buff, UINT len) {
 
   *buff = 0;
   cDirectory directory;
-  mResult = findVolume (&directory.mFs, 0);
+  mResult = findVolume (&directory.mFatFs, 0);
   if (isOk()) {
     WCHAR longFileName [(MAX_LFN + 1) * 2];
     directory.mLongFileName = longFileName;
@@ -667,7 +667,7 @@ FRESULT cFatFs::getCwd (char* buff, UINT len) {
 FRESULT cFatFs::setLabel (const char* label) {
 
   cDirectory directory;
-  mResult = findVolume (&directory.mFs, 1);
+  mResult = findVolume (&directory.mFatFs, 1);
   if (!isOk()) {
     unlock (mResult);
     return mResult;
@@ -767,7 +767,7 @@ FRESULT cFatFs::mkDir (const char* path) {
   DWORD tm = getFatTime();
 
   cDirectory directory;
-  mResult = findVolume (&directory.mFs, 1);
+  mResult = findVolume (&directory.mFatFs, 1);
   if (isOk()) {
     WCHAR longFileName [(MAX_LFN + 1) * 2];
     directory.mLongFileName = longFileName;
@@ -841,7 +841,7 @@ FRESULT cFatFs::mkDir (const char* path) {
 FRESULT cFatFs::chDir (const char* path) {
 
   cDirectory directory;
-  mResult = findVolume (&directory.mFs, 0);
+  mResult = findVolume (&directory.mFatFs, 0);
   if (isOk()) {
     WCHAR longFileName [(MAX_LFN + 1) * 2];
     directory.mLongFileName = longFileName;
@@ -872,10 +872,10 @@ FRESULT cFatFs::rename (const char* path_old, const char* path_new) {
   DWORD dw;
 
   cDirectory oldDirectory;
-  mResult = findVolume (&oldDirectory.mFs, 1);
+  mResult = findVolume (&oldDirectory.mFatFs, 1);
   if (isOk()) {
     cDirectory newDirectory;
-    newDirectory.mFs = oldDirectory.mFs;
+    newDirectory.mFatFs = oldDirectory.mFatFs;
 
     WCHAR longFileName [(MAX_LFN + 1) * 2];
     oldDirectory.mLongFileName = longFileName;
@@ -940,7 +940,7 @@ FRESULT cFatFs::rename (const char* path_old, const char* path_new) {
 FRESULT cFatFs::chMod (const char* path, BYTE attr, BYTE mask) {
 
   cDirectory directory;
-  mResult = findVolume (&directory.mFs, 1);
+  mResult = findVolume (&directory.mFatFs, 1);
   if (isOk()) {
     WCHAR longFileName [(MAX_LFN + 1) * 2];
     directory.mLongFileName = longFileName;
@@ -969,7 +969,7 @@ FRESULT cFatFs::chMod (const char* path, BYTE attr, BYTE mask) {
 FRESULT cFatFs::stat (const char* path, cFileInfo& fileInfo) {
 
   cDirectory directory;
-  mResult = findVolume (&directory.mFs, 0);
+  mResult = findVolume (&directory.mFatFs, 0);
   if (isOk()) {
     WCHAR longFileName [(MAX_LFN + 1) * 2];
     directory.mLongFileName = longFileName;
@@ -989,7 +989,7 @@ FRESULT cFatFs::stat (const char* path, cFileInfo& fileInfo) {
 FRESULT cFatFs::utime (const char* path, const cFileInfo& fileInfo) {
 
   cDirectory directory;
-  mResult = findVolume (&directory.mFs, 1);
+  mResult = findVolume (&directory.mFatFs, 1);
   if (isOk()) {
     WCHAR longFileName [(MAX_LFN + 1) * 2];
     directory.mLongFileName = longFileName;
@@ -1018,7 +1018,7 @@ FRESULT cFatFs::utime (const char* path, const cFileInfo& fileInfo) {
 FRESULT cFatFs::unlink (const char* path) {
 
   cDirectory directory;
-  mResult = findVolume (&directory.mFs, 1);
+  mResult = findVolume (&directory.mFatFs, 1);
   if (isOk()) {
     WCHAR longFileName [(MAX_LFN + 1) * 2];
     directory.mLongFileName = longFileName;
@@ -1833,7 +1833,7 @@ void cFatFs::unlock (FRESULT result) {
 int cFatFs::enquireFileLock() {
 
   UINT i;
-  for (i = 0; i < FS_LOCK && mFiles[i].mFs; i++) ;
+  for (i = 0; i < FS_LOCK && mFiles[i].mFatFs; i++) ;
   return (i == FS_LOCK) ? 0 : 1;
   }
 //}}}
@@ -1843,9 +1843,9 @@ FRESULT cFatFs::checkFileLock (cDirectory* directory, int acc) {
   // Search file semaphore table
   UINT i, be;
   for (i = be = 0; i < FS_LOCK; i++) {
-    if (mFiles[i].mFs) {
+    if (mFiles[i].mFatFs) {
       // Existing entry
-      if (mFiles[i].mFs == directory->mFs &&
+      if (mFiles[i].mFatFs == directory->mFatFs &&
           mFiles[i].clu == directory->mStartCluster &&
           mFiles[i].idx == directory->mIndex)
          break;
@@ -1868,18 +1868,18 @@ UINT cFatFs::incFileLock (cDirectory* directory, int acc) {
   UINT i;
   for (i = 0; i < FS_LOCK; i++)
     // Find the object
-    if (mFiles[i].mFs == directory->mFs &&
+    if (mFiles[i].mFatFs == directory->mFatFs &&
         mFiles[i].clu == directory->mStartCluster &&
         mFiles[i].idx == directory->mIndex)
       break;
 
   if (i == FS_LOCK) {
     // Not opened, register it as new
-    for (i = 0; i < FS_LOCK && mFiles[i].mFs; i++) ;
+    for (i = 0; i < FS_LOCK && mFiles[i].mFatFs; i++) ;
     if (i == FS_LOCK)
       return 0;  // No free entry to register (int err)
 
-    mFiles[i].mFs = directory->mFs;
+    mFiles[i].mFatFs = directory->mFatFs;
     mFiles[i].clu = directory->mStartCluster;
     mFiles[i].idx = directory->mIndex;
     mFiles[i].ctr = 0;
@@ -1907,7 +1907,7 @@ FRESULT cFatFs::decFileLock (UINT i) {
 
     mFiles[i].ctr = n;
     if (!n)
-      mFiles[i].mFs = 0;  // Delete the entry if open count gets zero
+      mFiles[i].mFatFs = 0;  // Delete the entry if open count gets zero
 
     return FR_OK;
     }
@@ -1919,8 +1919,8 @@ FRESULT cFatFs::decFileLock (UINT i) {
 void cFatFs::clearFileLock() {
 
   for (UINT i = 0; i < FS_LOCK; i++)
-    if (mFiles[i].mFs == this)
-      mFiles[i].mFs = 0;
+    if (mFiles[i].mFatFs == this)
+      mFiles[i].mFatFs = 0;
   }
 //}}}
 //}}}
@@ -1929,7 +1929,7 @@ void cFatFs::clearFileLock() {
 //{{{
 cDirectory::cDirectory (std::string path) {
 
-  mResult = cFatFs::instance()->findVolume (&mFs, 0);
+  mResult = cFatFs::instance()->findVolume (&mFatFs, 0);
   if (isOk()) {
     WCHAR longFileName[(MAX_LFN + 1) * 2];
     mLongFileName = longFileName;
@@ -1937,19 +1937,19 @@ cDirectory::cDirectory (std::string path) {
       if (mDirShortFileName) {
         // not itself */
         if (mDirShortFileName[DIR_Attr] & AM_DIR) // subDir
-          mStartCluster = mFs->loadCluster (mDirShortFileName);
+          mStartCluster = mFatFs->loadCluster (mDirShortFileName);
         else // file
           mResult = FR_NO_PATH;
         }
 
       if (isOk()) {
-        mMountId = mFs->mMountId;
+        mMountId = mFatFs->mMountId;
         // Rewind directory
         mResult = setIndex (0);
         if (isOk()) {
           if (mStartCluster) {
             // lock subDir
-            mLockId = mFs->incFileLock (this, 0);
+            mLockId = mFatFs->incFileLock (this, 0);
             if (!mLockId)
               mResult = FR_TOO_MANY_OPEN_FILES;
             }
@@ -1964,7 +1964,7 @@ cDirectory::cDirectory (std::string path) {
     }
 
   if (!isOk())
-    mFs = 0;
+    mFatFs = 0;
 
   cFatFs::instance()->unlock (mResult);
   }
@@ -1976,11 +1976,11 @@ cDirectory::~cDirectory() {
   if (validate()) {
     if (mLockId)
       // Decrement sub-directory open counter
-      mResult = mFs->decFileLock (mLockId);
+      mResult = mFatFs->decFileLock (mLockId);
 
     if (isOk())
       // Invalidate directory object
-      mFs = 0;
+      mFatFs = 0;
 
     cFatFs::instance()->unlock (FR_OK);
     }
@@ -2012,7 +2012,7 @@ FRESULT cDirectory::read (cFileInfo& fileInfo) {
       }
     }
 
-  mFs->unlock (mResult);
+  mFatFs->unlock (mResult);
   return mResult;
   }
 //}}}
@@ -2051,12 +2051,12 @@ FRESULT cDirectory::findNext (cFileInfo& fileInfo) {
 bool cDirectory::validate() {
 // validate dir and lock fileSystem if ok
 
-  if (!mFs ||
-      !mFs->mFsType ||
-      mFs->mMountId != mMountId ||
+  if (!mFatFs ||
+      !mFatFs->mFsType ||
+      mFatFs->mMountId != mMountId ||
       (diskStatus() & STA_NOINIT))
     mResult = FR_INVALID_OBJECT;
-  else if (!mFs->lock())
+  else if (!mFatFs->lock())
     mResult = FR_TIMEOUT;
   else
     mResult = FR_OK;
@@ -2076,7 +2076,7 @@ bool cDirectory::followPath (const char* path) {
     }
   else
     // No heading separator
-    mStartCluster = mFs->mCurDirSector;      /* Start from the current directory */
+    mStartCluster = mFatFs->mCurDirSector;      /* Start from the current directory */
 
   if ((UINT)*path < ' ') {
     // Null path name is the origin directory itself
@@ -2119,7 +2119,7 @@ bool cDirectory::followPath (const char* path) {
         break;
         }
 
-      mStartCluster = mFs->loadCluster(dir1);
+      mStartCluster = mFatFs->loadCluster(dir1);
       }
     }
 
@@ -2282,31 +2282,31 @@ FRESULT cDirectory::setIndex (UINT index) {
 
   // Table start cluster (0:root)
   DWORD cluster = mStartCluster;
-  if (cluster == 1 || cluster >= mFs->mNumFatEntries)  /* Check start cluster range */
+  if (cluster == 1 || cluster >= mFatFs->mNumFatEntries)  /* Check start cluster range */
     return FR_INT_ERR;
-  if (!cluster && mFs->mFsType == FS_FAT32) /* Replace cluster# 0 with root cluster# if in FAT32 */
-    cluster = mFs->mDirBase;
+  if (!cluster && mFatFs->mFsType == FS_FAT32) /* Replace cluster# 0 with root cluster# if in FAT32 */
+    cluster = mFatFs->mDirBase;
 
   DWORD sect1;
   if (cluster == 0) {
     // static table (root-directory in FAT12/16)
-    if (index >= mFs->mNumRootdir) // index out of range
+    if (index >= mFatFs->mNumRootdir) // index out of range
       return FR_INT_ERR;
-    sect1 = mFs->mDirBase;
+    sect1 = mFatFs->mDirBase;
     }
   else {
     // dynamic table (root-directory in FAT32 or sub-directory)
-    UINT ic = SECTOR_SIZE / SZ_DIRE * mFs->mSectorsPerCluster;  // entries per cluster
+    UINT ic = SECTOR_SIZE / SZ_DIRE * mFatFs->mSectorsPerCluster;  // entries per cluster
     while (index >= ic) {
       // follow cluster chain,  get next cluster
-      cluster = mFs->getFat (cluster);
+      cluster = mFatFs->getFat (cluster);
       if (cluster == 0xFFFFFFFF)
         return FR_DISK_ERR;
-      if (cluster < 2 || cluster >= mFs->mNumFatEntries) // reached end of table or internal error
+      if (cluster < 2 || cluster >= mFatFs->mNumFatEntries) // reached end of table or internal error
         return FR_INT_ERR;
       index -= ic;
       }
-    sect1 = mFs->clusterToSector (cluster);
+    sect1 = mFatFs->clusterToSector (cluster);
     }
 
   mCluster = cluster;
@@ -2317,7 +2317,7 @@ FRESULT cDirectory::setIndex (UINT index) {
   mSector = sect1 + index / (SECTOR_SIZE / SZ_DIRE);
 
   // Ptr to the entry in the sector
-  mDirShortFileName = mFs->mWindowBuffer + (index % (SECTOR_SIZE / SZ_DIRE)) * SZ_DIRE;
+  mDirShortFileName = mFatFs->mWindowBuffer + (index % (SECTOR_SIZE / SZ_DIRE)) * SZ_DIRE;
 
   return FR_OK;
   }
@@ -2333,23 +2333,23 @@ FRESULT cDirectory::next (int stretch) {
     mSector++;
     if (!mCluster) {
       /* Static table */
-      if (i >= mFs->mNumRootdir) /* Report EOT if it reached end of static table */
+      if (i >= mFatFs->mNumRootdir) /* Report EOT if it reached end of static table */
         return FR_NO_FILE;
       }
     else {
       /* Dynamic table */
-      if (((i / (SECTOR_SIZE / SZ_DIRE)) & (mFs->mSectorsPerCluster - 1)) == 0) {
+      if (((i / (SECTOR_SIZE / SZ_DIRE)) & (mFatFs->mSectorsPerCluster - 1)) == 0) {
         /* Cluster changed? */
-        DWORD cluster = mFs->getFat (mCluster);        /* Get next cluster */
+        DWORD cluster = mFatFs->getFat (mCluster);        /* Get next cluster */
         if (cluster <= 1)
           return FR_INT_ERR;
         if (cluster == 0xFFFFFFFF)
           return FR_DISK_ERR;
-        if (cluster >= mFs->mNumFatEntries) {
+        if (cluster >= mFatFs->mNumFatEntries) {
           /* If it reached end of dynamic table, */
           if (!stretch)
             return FR_NO_FILE;      /* If do not stretch, report EOT */
-          cluster = mFs->createChain (mCluster);   /* Stretch cluster chain */
+          cluster = mFatFs->createChain (mCluster);   /* Stretch cluster chain */
           if (cluster == 0)
             return FR_DENIED;      /* No free cluster */
           if (cluster == 1)
@@ -2358,29 +2358,29 @@ FRESULT cDirectory::next (int stretch) {
             return FR_DISK_ERR;
 
           /* Clean-up stretched table */
-          if (mFs->syncWindow())
+          if (mFatFs->syncWindow())
             return FR_DISK_ERR;/* Flush disk access window */
 
           /* Clear window buffer */
-          memset (mFs->mWindowBuffer, 0, SECTOR_SIZE);
+          memset (mFatFs->mWindowBuffer, 0, SECTOR_SIZE);
 
           /* Cluster start sector */
-          mFs->mWindowSector = mFs->clusterToSector (cluster);
+          mFatFs->mWindowSector = mFatFs->clusterToSector (cluster);
 
           UINT c;
-          for (c = 0; c < mFs->mSectorsPerCluster; c++) {
+          for (c = 0; c < mFatFs->mSectorsPerCluster; c++) {
             /* Fill the new cluster with 0 */
-            mFs->mWindowFlag = 1;
-            if (mFs->syncWindow())
+            mFatFs->mWindowFlag = 1;
+            if (mFatFs->syncWindow())
               return FR_DISK_ERR;
-            mFs->mWindowSector++;
+            mFatFs->mWindowSector++;
             }
-          mFs->mWindowSector -= c;           /* Rewind window offset */
+          mFatFs->mWindowSector -= c;           /* Rewind window offset */
           }
 
         /* Initialize data for new cluster */
         mCluster = cluster;
-        mSector = mFs->clusterToSector (cluster);
+        mSector = mFatFs->clusterToSector (cluster);
         }
       }
     }
@@ -2389,7 +2389,7 @@ FRESULT cDirectory::next (int stretch) {
   mIndex = (WORD)i;
 
   /* Current entry in the window */
-  mDirShortFileName = mFs->mWindowBuffer + (i % (SECTOR_SIZE / SZ_DIRE)) * SZ_DIRE;
+  mDirShortFileName = mFatFs->mWindowBuffer + (i % (SECTOR_SIZE / SZ_DIRE)) * SZ_DIRE;
 
   return FR_OK;
   }
@@ -2445,11 +2445,11 @@ FRESULT cDirectory::registerNewEntry() {
       BYTE sum = sumShortFileName (mShortFileName);
       do {
         // Store longFileName entries in bottom first
-        mResult = mFs->moveWindow (mSector);
+        mResult = mFatFs->moveWindow (mSector);
         if (!isOk())
           break;
         fitLongFileName (mLongFileName, mDirShortFileName, (BYTE)nent, sum);
-        mFs->mWindowFlag = 1;
+        mFatFs->mWindowFlag = 1;
         mResult = next (0);
         } while (isOk() && --nent);
       }
@@ -2457,12 +2457,12 @@ FRESULT cDirectory::registerNewEntry() {
 
   if (isOk()) {
     // Set shortFileName entry
-    mResult = mFs->moveWindow (mSector);
+    mResult = mFatFs->moveWindow (mSector);
     if (isOk()) {
       memset (mDirShortFileName, 0, SZ_DIRE);  // Clean the entry
       memcpy (mDirShortFileName, mShortFileName, 11);      // Put shortFileName
       mDirShortFileName[DIR_NTres] = mShortFileName[NSFLAG] & (NS_BODY | NS_EXT); // Put NT flag
-      mFs->mWindowFlag = 1;
+      mFatFs->mWindowFlag = 1;
       }
     }
 
@@ -2477,7 +2477,7 @@ FRESULT cDirectory::allocate (UINT nent) {
   if (isOk()) {
     n = 0;
     do {
-      mResult = mFs->moveWindow (mSector);
+      mResult = mFatFs->moveWindow (mSector);
       if (!isOk())
         break;
       if (mDirShortFileName[0] == DDEM || mDirShortFileName[0] == 0) {
@@ -2510,7 +2510,7 @@ FRESULT cDirectory::find() {
   BYTE ord = sum = 0xFF;
   mLongFileNameIndex = 0xFFFF; /* Reset longFileName sequence */
   do {
-    mResult = mFs->moveWindow (mSector);
+    mResult = mFatFs->moveWindow (mSector);
     if (!isOk())
       break;
 
@@ -2565,7 +2565,7 @@ FRESULT cDirectory::read (int vol) {
 
   mResult = FR_NO_FILE;
   while (mSector) {
-    mResult = mFs->moveWindow (mSector);
+    mResult = mFatFs->moveWindow (mSector);
     if (!isOk())
       break;
     dir1 = mDirShortFileName;          /* Ptr to the directory entry of current index */
@@ -2617,13 +2617,13 @@ FRESULT cDirectory::remove() {
   mResult = setIndex ((mLongFileNameIndex == 0xFFFF) ? i : mLongFileNameIndex); /* Goto the shortFileName or top of the longFileName entries */
   if (isOk()) {
     do {
-      mResult = mFs->moveWindow (mSector);
+      mResult = mFatFs->moveWindow (mSector);
       if (!isOk())
         break;
       memset (mDirShortFileName, 0, SZ_DIRE); /* Clear and mark the entry "deleted" */
 
       *mDirShortFileName = DDEM;
-      mFs->mWindowFlag = 1;
+      mFatFs->mWindowFlag = 1;
       if (mIndex >= i)
         break;  /* When reached shortFileName, all entries of the object has been deleted. */
 
@@ -2706,7 +2706,7 @@ cFile::cFile (std::string path, BYTE mode) {
 
   cDirectory directory;
   mode &= FA_READ | FA_WRITE | FA_CREATE_ALWAYS | FA_OPEN_ALWAYS | FA_CREATE_NEW;
-  mResult = cFatFs::instance()->findVolume (&directory.mFs, (BYTE)(mode & ~FA_READ));
+  mResult = cFatFs::instance()->findVolume (&directory.mFatFs, (BYTE)(mode & ~FA_READ));
   if (isOk()) {
     WCHAR longFileName [(MAX_LFN + 1) * 2];
     directory.mLongFileName = longFileName;
@@ -2716,7 +2716,7 @@ cFile::cFile (std::string path, BYTE mode) {
       if (!dir) // Default directory itself
         mResult = FR_INVALID_NAME;
       else
-        mResult = mFs->checkFileLock (&directory, (mode & ~FA_READ) ? 1 : 0);
+        mResult = mFatFs->checkFileLock (&directory, (mode & ~FA_READ) ? 1 : 0);
       }
 
     // Create or Open a file
@@ -2725,7 +2725,7 @@ cFile::cFile (std::string path, BYTE mode) {
         //{{{  No file, create new
         if (mResult == FR_NO_FILE)
           // There is no file to open, create a new entry
-          mResult = mFs->enquireFileLock() ? directory.registerNewEntry() : FR_TOO_MANY_OPEN_FILES;
+          mResult = mFatFs->enquireFileLock() ? directory.registerNewEntry() : FR_TOO_MANY_OPEN_FILES;
 
         mode |= FA_CREATE_ALWAYS;           // File is created
         dir = directory.mDirShortFileName;  // New entry
@@ -2741,17 +2741,17 @@ cFile::cFile (std::string path, BYTE mode) {
         ST_DWORD (dir + DIR_CrtTime, dw);
         dir[DIR_Attr] = 0;                     // result attribute
         ST_DWORD (dir + DIR_FileSize, 0);      // size = 0
-        DWORD cl = mFs->loadCluster (dir); // Get start cluster
+        DWORD cl = mFatFs->loadCluster (dir); // Get start cluster
         storeCluster (dir, 0);                 // cluster = 0
-        mFs->mWindowFlag = 1;
+        mFatFs->mWindowFlag = 1;
         if (cl) {
           // Remove the cluster chain if exist
-          dw = mFs->mWindowSector;
-          mResult = mFs->removeChain (cl);
+          dw = mFatFs->mWindowSector;
+          mResult = mFatFs->removeChain (cl);
           if (isOk()) {
-            mFs->mLastCluster = cl - 1;
+            mFatFs->mLastCluster = cl - 1;
             // Reuse the cluster hole
-            mResult = mFs->moveWindow (dw);
+            mResult = mFatFs->moveWindow (dw);
             }
           }
         }
@@ -2774,24 +2774,24 @@ cFile::cFile (std::string path, BYTE mode) {
       if (mode & FA_CREATE_ALWAYS)
         mode |= FA__WRITTEN;
 
-      mDirSectorNum = mFs->mWindowSector;  /* Pointer to the directory entry */
+      mDirSectorNum = mFatFs->mWindowSector;  /* Pointer to the directory entry */
       mDirPtr = dir;
 
-      mLockId = mFs->incFileLock (&directory, (mode & ~FA_READ) ? 1 : 0);
+      mLockId = mFatFs->incFileLock (&directory, (mode & ~FA_READ) ? 1 : 0);
       if (!mLockId)
         mResult = FR_INT_ERR;
       }
       //}}}
 
     if (isOk()) {
-      mFlag = mode;                                      // File access mode
-      mStartCluster = mFs->loadCluster (dir);  // File start cluster
-      mFileSize = LD_DWORD (dir + DIR_FileSize);         // File size
-      mPosition = 0;                                     // File position
+      mFlag = mode;                               // File access mode
+      mStartCluster = mFatFs->loadCluster (dir);  // File start cluster
+      mFileSize = LD_DWORD (dir + DIR_FileSize);  // File size
+      mPosition = 0;                              // File position
       mCachedSector = 0;
-      mClusterTable = 0;                                 // Normal seek mode
-      mFs = directory.mFs;                               // Validate file object
-      mMountId = mFs->mMountId;
+      mClusterTable = 0;                          // Normal seek mode
+      mFatFs = directory.mFatFs;                  // Validate file object
+      mMountId = mFatFs->mMountId;
       }
     }
 
@@ -2806,11 +2806,11 @@ cFile::~cFile() {
   if (isOk()) {
     if (validate()) {
       // Decrement file open counter
-      mResult = mFs->decFileLock (mLockId);
+      mResult = mFatFs->decFileLock (mLockId);
       if (isOk()) // Invalidate file object
-        mFs = 0;
+        mFatFs = 0;
 
-      mFs->unlock (FR_OK);
+      mFatFs->unlock (FR_OK);
       }
     }
 
@@ -2829,7 +2829,7 @@ FRESULT cFile::read (void* readBuffer, int bytesToRead, int& bytesRead) {
     //}}}
   if (!(mFlag & FA_READ)) {
     //{{{  error
-    mFs->unlock (FR_DENIED);
+    mFatFs->unlock (FR_DENIED);
     return FR_DENIED;
     }
     //}}}
@@ -2844,7 +2844,7 @@ FRESULT cFile::read (void* readBuffer, int bytesToRead, int& bytesRead) {
     // repeat until all bytesToRead read
     if ((mPosition % SECTOR_SIZE) == 0) {
       // on sector boundary, sector offset in cluster
-      BYTE csect = (BYTE)(mPosition / SECTOR_SIZE & (mFs->mSectorsPerCluster - 1));
+      BYTE csect = (BYTE)(mPosition / SECTOR_SIZE & (mFatFs->mSectorsPerCluster - 1));
       if (!csect) {
       //{{{  on cluster boundary
       DWORD readCluster;
@@ -2853,7 +2853,7 @@ FRESULT cFile::read (void* readBuffer, int bytesToRead, int& bytesRead) {
       else if (mClusterTable) // get cluster# from the CLMT
         readCluster = clmtCluster (mPosition);
       else // follow cluster chain on the FAT
-        readCluster = mFs->getFat (mCluster);
+        readCluster = mFatFs->getFat (mCluster);
 
       if (readCluster < 2)
         ABORT (FR_INT_ERR);
@@ -2866,7 +2866,7 @@ FRESULT cFile::read (void* readBuffer, int bytesToRead, int& bytesRead) {
       //}}}
 
       // get current sector
-      DWORD readSector = mFs->clusterToSector (mCluster);
+      DWORD readSector = mFatFs->clusterToSector (mCluster);
       if (!readSector)
         ABORT (FR_INT_ERR);
 
@@ -2874,8 +2874,8 @@ FRESULT cFile::read (void* readBuffer, int bytesToRead, int& bytesRead) {
       UINT contiguousClusters = bytesToRead / SECTOR_SIZE;
       if (contiguousClusters) {
         //{{{  read contiguousClusters sectors directly into readBuffer
-        if (csect + contiguousClusters > mFs->mSectorsPerCluster) // Clip at cluster boundary
-          contiguousClusters = mFs->mSectorsPerCluster - csect;
+        if (csect + contiguousClusters > mFatFs->mSectorsPerCluster) // Clip at cluster boundary
+          contiguousClusters = mFatFs->mSectorsPerCluster - csect;
 
         if (diskRead (readBufferPtr, readSector, contiguousClusters) != RES_OK)
           ABORT (FR_DISK_ERR);
@@ -2913,7 +2913,7 @@ FRESULT cFile::read (void* readBuffer, int bytesToRead, int& bytesRead) {
     memcpy (readBufferPtr, &fileBuffer[mPosition % SECTOR_SIZE], readCount);
     }
 
-  mFs->unlock (FR_OK);
+  mFatFs->unlock (FR_OK);
   return FR_OK;
   }
 //}}}
@@ -2935,7 +2935,7 @@ FRESULT cFile::write (const void *buff, UINT btw, UINT* bw) {
     //}}}
   if (!(mFlag & FA_WRITE)) {
     //{{{  return FR_DENIED
-    mFs->unlock (FR_DENIED);
+    mFatFs->unlock (FR_DENIED);
     return FR_DENIED;
     }
     //}}}
@@ -2948,7 +2948,7 @@ FRESULT cFile::write (const void *buff, UINT btw, UINT* bw) {
     /* Repeat until all data written */
     if ((mPosition % SECTOR_SIZE) == 0) {
       /* On the sector boundary? , Sector offset in the cluster */
-      csect = (BYTE)(mPosition / SECTOR_SIZE & (mFs->mSectorsPerCluster - 1));
+      csect = (BYTE)(mPosition / SECTOR_SIZE & (mFatFs->mSectorsPerCluster - 1));
       if (!csect) {
         /* On the cluster boundary? */
         if (mPosition == 0) {
@@ -2957,14 +2957,14 @@ FRESULT cFile::write (const void *buff, UINT btw, UINT* bw) {
           /* Follow from the origin */
           if (clst == 0)
             /* When no cluster is allocated, */
-            clst = mFs->createChain (0); /* Create a new cluster chain */
+            clst = mFatFs->createChain (0); /* Create a new cluster chain */
           }
         else {
           /* Middle or end of the file */
           if (mClusterTable)
             clst = clmtCluster (mPosition);  /* Get cluster# from the CLMT */
           else
-            clst = mFs->createChain (mCluster); /* Follow or stretch cluster chain on the FAT */
+            clst = mFatFs->createChain (mCluster); /* Follow or stretch cluster chain on the FAT */
           }
 
         if (clst == 0)
@@ -2986,15 +2986,16 @@ FRESULT cFile::write (const void *buff, UINT btw, UINT* bw) {
         mFlag &= ~FA__DIRTY;
         }
 
-      sect = mFs->clusterToSector (mCluster); /* Get current sector */
+      sect = mFatFs->clusterToSector (mCluster); /* Get current sector */
       if (!sect)
         ABORT (FR_INT_ERR);
       sect += csect;
 
-      cc = btw / SECTOR_SIZE;      /* When remaining bytes >= sector size, */
-      if (cc) {           /* Write maximum contiguous sectors directly */
-        if (csect + cc > mFs->mSectorsPerCluster) /* Clip at cluster boundary */
-          cc = mFs->mSectorsPerCluster - csect;
+      cc = btw / SECTOR_SIZE;  // When remaining bytes >= sector size,
+      if (cc) {
+        // Write maximum contiguous sectors directly
+        if (csect + cc > mFatFs->mSectorsPerCluster) // Clip at cluster boundary
+          cc = mFatFs->mSectorsPerCluster - csect;
         if (diskWrite (wbuff, sect, cc) != RES_OK)
           ABORT (FR_DISK_ERR);
         if (mCachedSector - sect < cc) { /* Refill sector cache if it gets invalidated by the direct write */
@@ -3030,7 +3031,7 @@ FRESULT cFile::write (const void *buff, UINT btw, UINT* bw) {
   /* Set file change flag */
   mFlag |= FA__WRITTEN;
 
-  mFs->unlock (FR_OK);
+  mFatFs->unlock (FR_OK);
   return FR_OK;
   }
 //}}}
@@ -3060,7 +3061,7 @@ FRESULT cFile::seek (DWORD position) {
             do {
               pcl = cl;
               ncl++;
-              cl = mFs->getFat (cl);
+              cl = mFatFs->getFat (cl);
               if (cl <= 1)
                 ABORT (FR_INT_ERR);
               if (cl == 0xFFFFFFFF)
@@ -3072,7 +3073,7 @@ FRESULT cFile::seek (DWORD position) {
               *tbl++ = ncl;
               *tbl++ = tcl;
               }
-            } while (cl < mFs->mNumFatEntries);  // Repeat until end of chain
+            } while (cl < mFatFs->mNumFatEntries);  // Repeat until end of chain
           }
 
         // Number of items used
@@ -3091,10 +3092,10 @@ FRESULT cFile::seek (DWORD position) {
         mPosition = position;
         if (position) {
           mCluster = clmtCluster (position - 1);
-          DWORD sector = mFs->clusterToSector (mCluster);
+          DWORD sector = mFatFs->clusterToSector (mCluster);
           if (!sector)
             ABORT (FR_INT_ERR);
-          sector += (position - 1) / SECTOR_SIZE & (mFs->mSectorsPerCluster - 1);
+          sector += (position - 1) / SECTOR_SIZE & (mFatFs->mSectorsPerCluster - 1);
 
           if ((mPosition % SECTOR_SIZE) && (sector != mCachedSector)) {
             // Refill sector cache if needed
@@ -3126,7 +3127,7 @@ FRESULT cFile::seek (DWORD position) {
 
       if (position) {
         DWORD cluster;
-        DWORD bytesPerCluster = (DWORD)mFs->mSectorsPerCluster * SECTOR_SIZE;
+        DWORD bytesPerCluster = (DWORD)mFatFs->mSectorsPerCluster * SECTOR_SIZE;
         if ((iPosition > 0) && ((position - 1) / bytesPerCluster >= (iPosition - 1) / bytesPerCluster)) {
           //{{{  seek to same or following cluster
           // start from the current cluster
@@ -3140,7 +3141,7 @@ FRESULT cFile::seek (DWORD position) {
           cluster = mStartCluster;
           if (cluster == 0) {
             // If no cluster chain, create a new chain
-            cluster = mFs->createChain (0);
+            cluster = mFatFs->createChain (0);
             if (cluster == 1)
               ABORT (FR_INT_ERR);
             if (cluster == 0xFFFFFFFF)
@@ -3158,7 +3159,7 @@ FRESULT cFile::seek (DWORD position) {
             //{{{  cluster following loop
             if (mFlag & FA_WRITE) {
               // Check if in write mode or not, Force stretch if in write mode
-              cluster = mFs->createChain (cluster);
+              cluster = mFatFs->createChain (cluster);
               if (cluster == 0) {
                 // When disk gets full, clip file size
                 position = bytesPerCluster;
@@ -3166,11 +3167,11 @@ FRESULT cFile::seek (DWORD position) {
                 }
               }
             else // Follow cluster chain if not in write mode
-              cluster = mFs->getFat (cluster);
+              cluster = mFatFs->getFat (cluster);
 
             if (cluster == 0xFFFFFFFF)
               ABORT (FR_DISK_ERR);
-            if (cluster <= 1 || cluster >= mFs->mNumFatEntries)
+            if (cluster <= 1 || cluster >= mFatFs->mNumFatEntries)
               ABORT (FR_INT_ERR);
             mCluster = cluster;
 
@@ -3180,7 +3181,7 @@ FRESULT cFile::seek (DWORD position) {
             //}}}
           mPosition += position;
           if (position % SECTOR_SIZE) {
-            sector = mFs->clusterToSector (cluster);
+            sector = mFatFs->clusterToSector (cluster);
             if (!sector)
               ABORT (FR_INT_ERR);
             sector += position / SECTOR_SIZE;
@@ -3211,7 +3212,7 @@ FRESULT cFile::seek (DWORD position) {
       //}}}
     }
 
-  mFs->unlock (mResult);
+  mFatFs->unlock (mResult);
   return mResult;
   }
 //}}}
@@ -3231,22 +3232,22 @@ FRESULT cFile::truncate() {
       mFlag |= FA__WRITTEN;
       if (mPosition == 0) {
         //{{{  When set file size to zero, remove entire cluster chain
-        mResult = mFs->removeChain (mStartCluster);
+        mResult = mFatFs->removeChain (mStartCluster);
         mStartCluster = 0;
         }
         //}}}
       else {
         //{{{  When truncate a part of the file, remove remaining clusters
-        ncl = mFs->getFat (mCluster);
+        ncl = mFatFs->getFat (mCluster);
         mResult = FR_OK;
         if (ncl == 0xFFFFFFFF)
           mResult = FR_DISK_ERR;
         if (ncl == 1)
           mResult = FR_INT_ERR;
-        if (isOk() && ncl < mFs->mNumFatEntries) {
-          mResult = mFs->putFat (mCluster, 0x0FFFFFFF);
+        if (isOk() && ncl < mFatFs->mNumFatEntries) {
+          mResult = mFatFs->putFat (mCluster, 0x0FFFFFFF);
           if (isOk())
-            mResult = mFs->removeChain (ncl);
+            mResult = mFatFs->removeChain (ncl);
           }
         }
         //}}}
@@ -3260,7 +3261,7 @@ FRESULT cFile::truncate() {
       }
     }
 
-  mFs->unlock (mResult);
+  mFatFs->unlock (mResult);
   return mResult;
   }
 //}}}
@@ -3272,14 +3273,14 @@ FRESULT cFile::sync() {
       if (mFlag & FA__DIRTY) {
         if (diskWrite (fileBuffer, mCachedSector, 1) != RES_OK) {
           mResult = FR_DISK_ERR;
-          mFs->unlock (mResult);
+          mFatFs->unlock (mResult);
           return mResult;
           }
         mFlag &= ~FA__DIRTY;
         }
 
       // update directory entry
-      mResult = mFs->moveWindow (mDirSectorNum);
+      mResult = mFatFs->moveWindow (mDirSectorNum);
       if (mResult == FR_OK) {
         BYTE* dir = mDirPtr;
         dir[DIR_Attr] |= AM_ARC;                  // Set archive bit
@@ -3291,13 +3292,13 @@ FRESULT cFile::sync() {
         ST_WORD (dir + DIR_LstAccDate, 0);
         mFlag &= ~FA__WRITTEN;
 
-        mFs->mWindowFlag = 1;
+        mFatFs->mWindowFlag = 1;
         mResult = cFatFs::instance()->syncFs();
         }
       }
     }
 
-  mFs->unlock (mResult);
+  mFatFs->unlock (mResult);
   return mResult;
   }
 //}}}
@@ -3555,14 +3556,14 @@ char* cFile::gets (char* buff, int len) {
 //{{{
 bool cFile::validate() {
 
-  if (!mFs ||
-      !mFs->mFsType ||
-      mFs->mMountId != mMountId ||
+  if (!mFatFs ||
+      !mFatFs->mFsType ||
+      mFatFs->mMountId != mMountId ||
       (diskStatus() & STA_NOINIT))
     mResult = FR_INVALID_OBJECT;
 
   // lock access to file system
-  else if (!mFs->lock())
+  else if (!mFatFs->lock())
     mResult = FR_TIMEOUT;
 
   else
@@ -3579,7 +3580,7 @@ DWORD cFile::clmtCluster (DWORD ofs) {
   DWORD* tbl = mClusterTable + 1;
 
   // Cluster order from top of the file
-  DWORD cl = ofs / SECTOR_SIZE / mFs->mSectorsPerCluster;
+  DWORD cl = ofs / SECTOR_SIZE / mFatFs->mSectorsPerCluster;
   for (;;) {
     // Number of cluters in the fragment
     DWORD ncl = *tbl++;

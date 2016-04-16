@@ -173,10 +173,10 @@ private:
   //{{{
   class cFileSem {
   public:
-    cFatFs* mFs; // Object ID 1, volume (NULL:blank entry)
-    DWORD clu;  // Object ID 2, directory (0:root)
-    WORD idx;   // Object ID 3, directory index
-    WORD ctr;   // Object open counter, 0:none, 0x01..0xFF:read mode open count, 0x100:write mode
+    cFatFs* mFatFs; // Object ID 1, volume (NULL:blank entry)
+    DWORD clu;      // Object ID 2, directory (0:root)
+    WORD idx;       // Object ID 3, directory index
+    WORD ctr;       // Object open counter, 0:none, 0x01..0xFF:read mode open count, 0x100:write mode
     };
   //}}}
   static cFileSem mFiles[FS_LOCK];
@@ -243,8 +243,8 @@ private:
   FRESULT remove();
   void getFileInfo (cFileInfo& fileInfo);
 
-  FRESULT mResult = FR_UNUSED;       // Pointer to the related file system
-  cFatFs* mFs = 0;                   // pointer to the owner fileSystem
+  FRESULT mResult = FR_UNUSED;
+  cFatFs* mFatFs = nullptr;          // pointer to owner fileSystem
   WORD mMountId = 0;                 // owner fileSystem mountId
   UINT mLockId = 0;                  // file lockId (index of file semaphore table Files[])
 
@@ -297,7 +297,7 @@ public:
    BYTE* fileBuffer = nullptr;  // File data read/write buffer
    FRESULT mResult = FR_UNUSED; // Pointer to the related file system
 
-   cFatFs* mFs = 0;             // Pointer to the related file system
+   cFatFs* mFatFs = nullptr;    // pointer to owner fileSystem
    WORD mMountId = 0;           // Owner file system mount ID
    UINT mLockId = 0;            // File lock ID origin from 1 (index of file semaphore table Files[])
 
