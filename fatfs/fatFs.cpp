@@ -771,9 +771,8 @@ FRESULT cFatFs::mkDir (const char* path) {
   if (isOk()) {
     WCHAR longFileName [(MAX_LFN + 1) * 2];
     directory.mLongFileName = longFileName;
-    mResult = directory.followPath (path);
-    if (isOk())
-      mResult = FR_EXIST;   /* Any object with same name is already existing */
+    if (directory.followPath (path))
+      mResult = FR_EXIST;   // Any object with same name is already existing
     if (mResult == FR_NO_FILE && (directory.mShortFileName[NSFLAG] & NS_DOT))
       mResult = FR_INVALID_NAME;
 
@@ -846,9 +845,7 @@ FRESULT cFatFs::chDir (const char* path) {
   if (isOk()) {
     WCHAR longFileName [(MAX_LFN + 1) * 2];
     directory.mLongFileName = longFileName;
-    mResult = directory.followPath (path);
-
-    if (isOk()) {
+    if (directory.followPath (path)) {
       if (!directory.mDirShortFileName)
         // start directory itself
         mCurDirSector = directory.mStartCluster;
@@ -882,8 +879,7 @@ FRESULT cFatFs::rename (const char* path_old, const char* path_new) {
 
     WCHAR longFileName [(MAX_LFN + 1) * 2];
     oldDirectory.mLongFileName = longFileName;
-    mResult = oldDirectory.followPath (path_old);
-    if (isOk() && (oldDirectory.mShortFileName[NSFLAG] & NS_DOT))
+    if (oldDirectory.followPath (path_old) && (oldDirectory.mShortFileName[NSFLAG] & NS_DOT))
       mResult = FR_INVALID_NAME;
     if (isOk())
       mResult = checkFileLock (&oldDirectory, 2);
@@ -896,8 +892,7 @@ FRESULT cFatFs::rename (const char* path_old, const char* path_new) {
         memcpy (buf, oldDirectory.mDirShortFileName + DIR_Attr, 21);
         // Duplicate the directory object
         memcpy (&newDirectory, &oldDirectory, sizeof (cDirectory));
-        mResult = newDirectory.followPath (path_new);
-        if (isOk()) // new object name already exists
+        if (newDirectory.followPath (path_new)) // new object name already exists
           mResult = FR_EXIST;
         if (mResult == FR_NO_FILE) {
           // valid path, no name collision
@@ -949,8 +944,7 @@ FRESULT cFatFs::chMod (const char* path, BYTE attr, BYTE mask) {
   if (isOk()) {
     WCHAR longFileName [(MAX_LFN + 1) * 2];
     directory.mLongFileName = longFileName;
-    mResult = directory.followPath (path);
-    if (isOk() && (directory.mShortFileName[NSFLAG] & NS_DOT))
+    if (directory.followPath (path) && (directory.mShortFileName[NSFLAG] & NS_DOT))
       mResult = FR_INVALID_NAME;
 
     if (isOk()) {
@@ -979,9 +973,7 @@ FRESULT cFatFs::stat (const char* path, cFileInfo& fileInfo) {
   if (isOk()) {
     WCHAR longFileName [(MAX_LFN + 1) * 2];
     directory.mLongFileName = longFileName;
-    mResult = directory.followPath (path);
-
-    if (isOk()) {
+    if (directory.followPath (path)) {
       if (directory.mDirShortFileName)
         directory.getFileInfo (fileInfo);
       else // root directory
@@ -1001,8 +993,7 @@ FRESULT cFatFs::utime (const char* path, const cFileInfo& fileInfo) {
   if (isOk()) {
     WCHAR longFileName [(MAX_LFN + 1) * 2];
     directory.mLongFileName = longFileName;
-    mResult = directory.followPath (path);
-    if (isOk() && (directory.mShortFileName[NSFLAG] & NS_DOT))
+    if (directory.followPath (path) && (directory.mShortFileName[NSFLAG] & NS_DOT))
       mResult = FR_INVALID_NAME;
 
     if (isOk()) {
@@ -1031,8 +1022,7 @@ FRESULT cFatFs::unlink (const char* path) {
   if (isOk()) {
     WCHAR longFileName [(MAX_LFN + 1) * 2];
     directory.mLongFileName = longFileName;
-    mResult = directory.followPath (path);
-    if (isOk() && (directory.mShortFileName[NSFLAG] & NS_DOT)) // Cannot remove dot entry
+    if (directory.followPath (path) && (directory.mShortFileName[NSFLAG] & NS_DOT)) // Cannot remove dot entry
       mResult = FR_INVALID_NAME;
     if (isOk())  // Cannot remove open object
       mResult = checkFileLock (&directory, 2);
@@ -1943,8 +1933,7 @@ cDirectory::cDirectory (std::string path) {
   if (isOk()) {
     WCHAR longFileName[(MAX_LFN + 1) * 2];
     mLongFileName = longFileName;
-    mResult = followPath (path.c_str());
-    if (isOk()) {
+    if (followPath (path.c_str())) {
       if (mDirShortFileName) {
         // not itself */
         if (mDirShortFileName[DIR_Attr] & AM_DIR) // subDir
@@ -2077,7 +2066,7 @@ FRESULT cDirectory::validateDir() {
   }
 //}}}
 //{{{
-FRESULT cDirectory::followPath (const char* path) {
+bool cDirectory::followPath (const char* path) {
 
   BYTE *dir1, ns;
 
@@ -2135,7 +2124,7 @@ FRESULT cDirectory::followPath (const char* path) {
       }
     }
 
-  return mResult;
+  return isOk();
   }
 //}}}
 //{{{
@@ -2718,7 +2707,7 @@ cFile::cFile (std::string path, BYTE mode) {
   if (isOk()) {
     WCHAR longFileName [(MAX_LFN + 1) * 2];
     directory.mLongFileName = longFileName;
-    mResult = directory.followPath (path.c_str());
+    directory.followPath (path.c_str());
     BYTE* dir = directory.mDirShortFileName;
     if (isOk()) {
       if (!dir) // Default directory itself

@@ -285,9 +285,10 @@ friend class cFile;
 
 private:
   FRESULT validateDir();
+  bool followPath (const char* path);
   FRESULT createName (const char** path);
+
   FRESULT find();
-  FRESULT followPath (const char* path);
   FRESULT setIndex (UINT index);
   FRESULT next (int stretch);
   FRESULT read (int vol);
