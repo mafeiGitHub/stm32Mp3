@@ -1973,8 +1973,7 @@ cDirectory::cDirectory (std::string path) {
 cDirectory::~cDirectory() {
 
   // close directory
-  mResult = validateDir();
-  if (isOk()) {
+  if (validate()) {
     if (mLockId)
       // Decrement sub-directory open counter
       mResult = mFs->decFileLock (mLockId);
@@ -1990,8 +1989,7 @@ cDirectory::~cDirectory() {
 //{{{
 FRESULT cDirectory::read (cFileInfo& fileInfo) {
 
-  mResult = validateDir();
-  if (isOk()) {
+  if (validate()) {
     WCHAR longFileName [(MAX_LFN + 1) * 2];
     mLongFileName = longFileName;
     mResult = read (0);
@@ -2050,19 +2048,20 @@ FRESULT cDirectory::findNext (cFileInfo& fileInfo) {
 //}}}
 //{{{  cDirectory private members
 //{{{
-FRESULT cDirectory::validateDir() {
+bool cDirectory::validate() {
+// validate dir and lock fileSystem if ok
 
   if (!mFs ||
       !cFatFs::instance()->mFsType ||
       cFatFs::instance()->mMountId != mMountId ||
       (diskStatus() & STA_NOINIT))
-    return FR_INVALID_OBJECT;
+    mResult = FR_INVALID_OBJECT;
+  else if (!cFatFs::instance()->lock())
+    mResult = FR_TIMEOUT;
+  else
+    mResult = FR_OK;
 
-  // lock access to file system
-  if (!cFatFs::instance()->lock())
-    return FR_TIMEOUT;
-
-  return FR_OK;
+  return isOk();
   }
 //}}}
 //{{{
@@ -2127,6 +2126,7 @@ bool cDirectory::followPath (const char* path) {
   return isOk();
   }
 //}}}
+
 //{{{
 FRESULT cDirectory::createName (const char** path) {
 
@@ -2136,10 +2136,12 @@ FRESULT cDirectory::createName (const char** path) {
   // Create longFileName in Unicode
   const char* p;
   for (p = *path; *p == '/' || *p == '\\'; p++) ; /* Strip duplicated separator */
+
   WCHAR* longFileName = mLongFileName;
   UINT si = 0;
   UINT di = 0;
   WCHAR w;
+
   for (;;) {
     w = p[si++]; // Get a character
     if (w < ' ' || w == '/' || w == '\\')
@@ -2169,12 +2171,14 @@ FRESULT cDirectory::createName (const char** path) {
     }
 
   while (di) {
+    //{{{
     // Strip trailing spaces and dots */
     w = longFileName[di - 1];
     if (w != ' ' && w != '.')
       break;
     di--;
     }
+    //}}}
   if (!di)
     return FR_INVALID_NAME;  /* Reject nul string */
 
@@ -2194,15 +2198,14 @@ FRESULT cDirectory::createName (const char** path) {
     w = longFileName[si++];  // Get an longFileName character */
     if (!w) // Break on end of the longFileName
       break;
-
     if (w == ' ' || (w == '.' && si != di)) {
-      // Remove spaces and dots */
-      cf |= NS_LOSS | NS_LFN;
-      continue;
-      }
-
+     //{{{  Remove spaces and dots
+     cf |= NS_LOSS | NS_LFN;
+     continue;
+     }
+     //}}}
     if (i >= ni || si == di) {
-      // Extension or end of shortFileName
+      //{{{  Extension or end of shortFileName
       if (ni == 11) {
         /* Long extension */
         cf |= NS_LOSS | NS_LFN;
@@ -2219,9 +2222,9 @@ FRESULT cDirectory::createName (const char** path) {
       b <<= 2;
       continue;
       }
-
+      //}}}
     if (w >= 0x80) {
-      // Non ASCII character,  Unicode -> OEM code */
+      //{{{  Non ASCII character,  Unicode -> OEM code */
       w = convertToFromUnicode (w, 0);
       if (w)
         w = kExCvt[w - 0x80]; /* Convert extended character to upper (SBCS) */
@@ -2229,22 +2232,24 @@ FRESULT cDirectory::createName (const char** path) {
       // Force create LFN entry
       cf |= NS_LFN;
       }
-
+      //}}}
     if (!w || strchr ("+,;=[]", w)) {
+      //{{{
       // Replace illegal characters for shortFileName
       w = '_';
       cf |= NS_LOSS | NS_LFN; /* Lossy conversion */
       }
-    else {
-      if (IS_UPPER (w))
-        // ASCII large capital
-        b |= 2;
-      else if (IS_LOWER (w)) {
-        // ASCII small capital
-        b |= 1;
-        w -= 0x20;
-        }
+      //}}}
+    else if (IS_UPPER (w))
+      //{{{  ASCII large capital
+      b |= 2;
+      //}}}
+    else if (IS_LOWER (w)) {
+      //{{{  ASCII small capital
+      b |= 1;
+      w -= 0x20;
       }
+      //}}}
     mShortFileName[i++] = (BYTE)w;
     }
 
@@ -2269,7 +2274,6 @@ FRESULT cDirectory::createName (const char** path) {
   return FR_OK;
   }
 //}}}
-
 //{{{
 FRESULT cDirectory::setIndex (UINT index) {
 
@@ -2801,8 +2805,7 @@ cFile::~cFile() {
   // close file
   mResult = sync();
   if (isOk()) {
-    mResult = validateFile();
-    if (isOk()) {
+    if (validate()) {
       // Decrement file open counter
       mResult = cFatFs::instance()->decFileLock (mLockId);
       if (isOk()) // Invalidate file object
@@ -2821,11 +2824,10 @@ FRESULT cFile::lseek (DWORD fileOffset) {
   DWORD clst, bcs, nsect, ifptr;
   DWORD cl, pcl, ncl, tcl, dsc, tlen, ulen, *tbl;
 
-  FRESULT result = validateFile();
-  if (result != FR_OK) {
+  if (!validate()) {
     //{{{  error
-    cFatFs::instance()->unlock (result);
-    return result;
+    cFatFs::instance()->unlock (mResult);
+    return mResult;
     }
     //}}}
 
@@ -2867,7 +2869,7 @@ FRESULT cFile::lseek (DWORD fileOffset) {
       if (ulen <= tlen) // Terminate table
         *tbl = 0;
       else // Given table size is smaller than required
-        result = FR_NOT_ENOUGH_CORE;
+      mResult = FR_NOT_ENOUGH_CORE;
       }
       //}}}
     else {
@@ -2994,19 +2996,18 @@ FRESULT cFile::lseek (DWORD fileOffset) {
     }
     //}}}
 
-  cFatFs::instance()->unlock (result);
-  return result;
+  cFatFs::instance()->unlock (mResult);
+  return mResult;
   }
 //}}}
 //{{{
 FRESULT cFile::read (void* readBuffer, int bytesToRead, int& bytesRead) {
 
   bytesRead = 0;
-  FRESULT result = validateFile();
-  if (result != FR_OK) {
+  if (!validate()) {
     //{{{  error
-    cFatFs::instance()->unlock (result);
-    return result;
+    cFatFs::instance()->unlock (mResult);
+    return mResult;
     }
     //}}}
   if (!(mFlag & FA_READ)) {
@@ -3109,11 +3110,10 @@ FRESULT cFile::write (const void *buff, UINT btw, UINT* bw) {
 
   *bw = 0;  /* Clear write byte counter */
 
-  FRESULT result = validateFile();
-  if (result != FR_OK) {
+  if (!validate()) {
     //{{{  error
-    cFatFs::instance()->unlock (result);
-    return result;
+    cFatFs::instance()->unlock (mResult);
+    return mResult;
     }
     //}}}
   if (!(mFlag & FA_WRITE)) {
@@ -3221,8 +3221,7 @@ FRESULT cFile::write (const void *buff, UINT btw, UINT* bw) {
 FRESULT cFile::truncate() {
 
   DWORD ncl;
-  mResult = validateFile();
-  if (isOk()) {
+  if (validate()) {
     if (!(mFlag & FA_WRITE))
       mResult = FR_DENIED;
     }
@@ -3273,8 +3272,7 @@ FRESULT cFile::sync() {
   DWORD tm;
   BYTE* dir;
 
-  FRESULT result = validateFile();
-  if (result == FR_OK) {
+  if (validate()) {
     if (mFlag & FA__WRITTEN) {
       if (mFlag & FA__DIRTY) {
         if (diskWrite (fileBuffer, mCachedSector, 1) != RES_OK) {
@@ -3285,8 +3283,8 @@ FRESULT cFile::sync() {
         }
 
       // Update the directory entry
-      result = cFatFs::instance()->moveWindow (mDirSectorNum);
-      if (result == FR_OK) {
+      mResult = cFatFs::instance()->moveWindow (mDirSectorNum);
+      if (mResult == FR_OK) {
         dir = mDirPtr;
         dir[DIR_Attr] |= AM_ARC;                   // Set archive bit
         ST_DWORD (dir + DIR_FileSize, mFileSize);  // Update file size
@@ -3296,13 +3294,13 @@ FRESULT cFile::sync() {
         ST_WORD (dir + DIR_LstAccDate, 0);
         mFlag &= ~FA__WRITTEN;
         cFatFs::instance()->mWindowFlag = 1;
-        result = cFatFs::instance()->syncFs();
+        mResult = cFatFs::instance()->syncFs();
         }
       }
     }
 
-  cFatFs::instance()->unlock (result);
-  return result;
+  cFatFs::instance()->unlock (mResult);
+  return mResult;
   }
 //}}}
 
@@ -3557,19 +3555,22 @@ char* cFile::gets (char* buff, int len) {
 //}}}
 //{{{  cFile private members
 //{{{
-FRESULT cFile::validateFile() {
+bool cFile::validate() {
 
   if (!mFs ||
       !cFatFs::instance()->mFsType ||
       cFatFs::instance()->mMountId != mMountId ||
       (diskStatus() & STA_NOINIT))
-    return FR_INVALID_OBJECT;
+    mResult = FR_INVALID_OBJECT;
 
   // lock access to file system
-  if (!cFatFs::instance()->lock())
-    return FR_TIMEOUT;
+  else if (!cFatFs::instance()->lock())
+    mResult = FR_TIMEOUT;
 
-  return FR_OK;
+  else
+    mResult = FR_OK;
+
+  return isOk();
   }
 //}}}
 
