@@ -111,17 +111,18 @@ static void playFile (string directoryName, string fileName) {
   mPlayFrame = 0;
   mPlayBytes = 0;
   while (!mSkip && (mPlayBytes < file.getSize())) {
+    auto chunkPtr = chunkBuffer;
     int chunkBytesLeft;
-    file.read (chunkBuffer, chunkSize, chunkBytesLeft);
+    file.read (chunkPtr, chunkSize, chunkBytesLeft);
     if (!chunkBytesLeft)
       break;
 
-    auto chunkPtr = chunkBuffer;
-    int bytesUsed;
-    while (!mSkip && (bytesUsed = mMp3Decoder->findNextHeader (chunkPtr, chunkBytesLeft))) {
-      mPlayBytes += bytesUsed;
-      chunkPtr += bytesUsed;
-      chunkBytesLeft -= bytesUsed;
+    while (!mSkip) {
+      auto headerBytes = mMp3Decoder->findNextHeader (chunkPtr, chunkBytesLeft);
+      if (!headerBytes)
+        break;
+      chunkPtr += headerBytes;
+      chunkBytesLeft -= headerBytes;
       if (chunkBytesLeft < mMp3Decoder->getFrameBodySize()) {
         //{{{  frame partially loaded, copy it to front of chunkBuffer with offset so that next dmaRead is 32bit aligned
         auto nextChunkPtr = chunkBuffer + ((4 - (chunkBytesLeft & 3)) & 3);
@@ -139,10 +140,11 @@ static void playFile (string directoryName, string fileName) {
         //}}}
 
       osSemaphoreWait (audSem, 50);
-      bytesUsed = mMp3Decoder->decodeFrameBody (chunkPtr, &mPower[(mPlayFrame % 480) * 2], (int16_t*)(audBufHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
-      mPlayBytes += bytesUsed;
-      chunkPtr += bytesUsed;
-      chunkBytesLeft -= bytesUsed;
+      auto frameBytes = mMp3Decoder->decodeFrameBody (chunkPtr, &mPower[(mPlayFrame % 480) * 2], (int16_t*)(audBufHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
+      chunkPtr += frameBytes;
+      chunkBytesLeft -= frameBytes;
+
+      mPlayBytes += headerBytes + frameBytes;
       mPlayFrame++;
       }
     }
