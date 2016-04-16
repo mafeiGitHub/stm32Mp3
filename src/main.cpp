@@ -36,12 +36,11 @@ using namespace std;
 static struct netif gNetif;
 static osSemaphoreId dhcpSem;
 
+static float mSkip = 0;
 static float mVolume = 0.8f;
-
-static int mPlayFrame = 0;
 static int mPlayBytes = 0;
+static int mPlayFrame = 0;
 static int mFileSize = 0;
-static bool mSkip = false;
 
 static cMp3Decoder* mMp3Decoder = nullptr;
 static float mPower [480*2];
@@ -109,15 +108,22 @@ static void playFile (string directoryName, string fileName) {
   BSP_AUDIO_OUT_Play ((uint16_t*)AUDIO_BUFFER, AUDIO_BUFFER_SIZE);
 
   mPlayFrame = 0;
-  mPlayBytes = 0;
-  while (!mSkip && (mPlayBytes < file.getSize())) {
+  while (file.getPosition() < file.getSize()) {
+    if (mSkip > 0) {
+      cLcd::debug ("skip:" + cLcd::intStr (int(mSkip * file.getSize())) +
+                   " pos:" + cLcd::intStr (file.getPosition()) +
+                   " size" + cLcd::intStr (file.getSize()));
+      file.seek (int(mSkip * file.getSize()) & 0xFFFFFFE0);
+      }
+    mPlayBytes = file.getPosition();
+
     auto chunkPtr = chunkBuffer;
     int chunkBytesLeft;
     file.read (chunkPtr, chunkSize, chunkBytesLeft);
     if (!chunkBytesLeft)
-      break;
+      goto exit;
 
-    while (!mSkip) {
+    while (mSkip == 0) {
       auto headerBytes = mMp3Decoder->findNextHeader (chunkPtr, chunkBytesLeft);
       if (!headerBytes)
         break;
@@ -132,7 +138,7 @@ static void playFile (string directoryName, string fileName) {
         int bytesLoaded;
         file.read (nextChunkPtr + chunkBytesLeft, chunkSize, bytesLoaded);
         if (!bytesLoaded)
-          break;
+          goto exit;
 
         chunkPtr = nextChunkPtr;
         chunkBytesLeft += bytesLoaded;
@@ -141,15 +147,15 @@ static void playFile (string directoryName, string fileName) {
 
       osSemaphoreWait (audSem, 50);
       auto frameBytes = mMp3Decoder->decodeFrameBody (chunkPtr, &mPower[(mPlayFrame % 480) * 2], (int16_t*)(audBufHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
+      if (!frameBytes)
+        goto exit;
+
       chunkPtr += frameBytes;
       chunkBytesLeft -= frameBytes;
-
-      mPlayBytes += headerBytes + frameBytes;
       mPlayFrame++;
       }
     }
-
-  mSkip = false;
+  exit:
 
   vPortFree (chunkBuffer);
   BSP_AUDIO_OUT_Stop (CODEC_PDWN_SW);
@@ -244,6 +250,8 @@ static void uiThread (void const* argument) {
     //{{{  read touch and use it
     TS_StateTypeDef tsState;
     BSP_TS_GetState (&tsState);
+
+    mSkip = 0;
     for (auto touch = 0; touch < 5; touch++) {
       if ((touch < tsState.touchDetected) && tsState.touchWeight[touch]) {
         auto x = tsState.touchX[touch];
@@ -251,15 +259,15 @@ static void uiThread (void const* argument) {
         auto z = tsState.touchWeight[touch];
 
         if (touch == 0) {
-          if (x < kInfo)
+          if (y < 30)
+            mSkip = float(x) / cLcd::getWidth();
+          else if (x < kInfo)
             //{{{  pressed lcd info
             lcd->pressed (pressed[touch], x, y, pressed[touch] ? x - lastx[touch] : 0, pressed[touch] ? y - lasty[touch] : 0);
             //}}}
           else if (x < kVolume) {
             //{{{  pressed middle
             //cLcd::debug (cLcd::intStr (x) + "," + cLcd::intStr (y) + "," + cLcd::intStr (tsState.touchWeight[touch]));
-            if (y < 20)
-              mSkip = true;
             }
             //}}}
           else {
@@ -299,7 +307,7 @@ static void uiThread (void const* argument) {
     lcd->rect (LCD_YELLOW, cLcd::getWidth()-20, 0, 20, int(mVolume * cLcd::getHeight()));
     //}}}
     //{{{  draw blue play progress
-    lcd->rect (LCD_BLUE, 0, 0, ((mPlayBytes >> 10) * cLcd::getWidth()) / (mFileSize >> 10), 2);
+    lcd->rect (LCD_BLUE, 0, 0, ((mPlayBytes >> 8) * cLcd::getWidth()) / (mFileSize >> 8), 2);
     //}}}
     //{{{  draw blue waveform
     for (auto x = 0; x < cLcd::getWidth(); x++) {
