@@ -46,18 +46,18 @@ static cMp3Decoder* mMp3Decoder = nullptr;
 static float mPower [480*2];
 
 static osSemaphoreId audSem;
-static bool audBufHalf = false;
+static bool mAudHalf = false;
 //}}}
 
 //{{{
 void BSP_AUDIO_OUT_HalfTransfer_CallBack() {
-  audBufHalf = true;
+  mAudHalf = true;
   osSemaphoreRelease (audSem);
   }
 //}}}
 //{{{
 void BSP_AUDIO_OUT_TransferComplete_CallBack() {
-  audBufHalf = false;
+  mAudHalf = false;
   osSemaphoreRelease (audSem);
   }
 //}}}
@@ -97,11 +97,13 @@ static void playFile (string directoryName, string fileName) {
     return;
     }
     //}}}
-  cLcd::debug ("play " + fullName);
   mFileSize = file.getSize();
+  cLcd::debug ("play " + fullName + " " + cLcd::intStr (mFileSize));
+
   //{{{  chunkSize and buffer
   int chunkSize = 4096;
   int fullChunkSize = 2048 + chunkSize;
+
   auto chunkBuffer = (uint8_t*)pvPortMalloc (fullChunkSize);
   //}}}
   //{{{  bsp play
@@ -142,7 +144,7 @@ static void playFile (string directoryName, string fileName) {
             //}}}
           if (bytesLeft >= mMp3Decoder->getFrameBodySize()) {
             osSemaphoreWait (audSem, 100);
-            auto frameBytes = mMp3Decoder->decodeFrameBody (chunkPtr, &mPower[(mPlayFrame % 480) * 2], (int16_t*)(audBufHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
+            auto frameBytes = mMp3Decoder->decodeFrameBody (chunkPtr, &mPower[(mPlayFrame % 480) * 2], (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
             if (frameBytes) {
               chunkPtr += frameBytes;
               bytesLeft -= frameBytes;

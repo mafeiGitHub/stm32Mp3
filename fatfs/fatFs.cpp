@@ -118,7 +118,7 @@
 #define ST_WORD(ptr,val)  *(BYTE*)(ptr)=(BYTE)(val); *((BYTE*)(ptr)+1)=(BYTE)((WORD)(val)>>8)
 #define ST_DWORD(ptr,val) *(BYTE*)(ptr)=(BYTE)(val); *((BYTE*)(ptr)+1)=(BYTE)((WORD)(val)>>8); *((BYTE*)(ptr)+2)=(BYTE)((DWORD)(val)>>16); *((BYTE*)(ptr)+3)=(BYTE)((DWORD)(val)>>24)
 
-#define ABORT(result) { mResult = result; cFatFs::instance()->unlock (mResult); return mResult; }
+#define ABORT(result) { mResult = result; mFatFs->unlock (mResult); return mResult; }
 //}}}
 //{{{  static const
 // Offset of LFN characters in the directory entry
@@ -1980,7 +1980,6 @@ cDirectory::cDirectory (std::string path) {
 
   if (!isOk())
     mFatFs = 0;
-
   cFatFs::instance()->unlock (mResult);
   }
 //}}}
