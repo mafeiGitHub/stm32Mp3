@@ -90,78 +90,78 @@ static void playFile (string directoryName, string fileName) {
   string fullName = directoryName + "/" + fileName;
   cLcd::instance()->setTitle (fullName);
 
-  for (auto i = 0; i < 480*2; i++)
-    mPower[i] = 0;
-
   cFile file (fullName, FA_OPEN_EXISTING | FA_READ);
   if (!file.isOk()) {
+    //{{{  error, return
     cLcd::debug ("- open failed " + cLcd::intStr (file.getResult()) + " " + fullName);
     return;
     }
+    //}}}
   cLcd::debug ("play " + fullName);
   mFileSize = file.getSize();
-
-  int chunkSize = 2048;
-  auto chunkBuffer = (uint8_t*)pvPortMalloc (1044 + chunkSize); // chunkSize + biggest possible partial frame, 32bit aligned
-
-  // play file from fileBuffer
+  //{{{  chunkSize and buffer
+  int chunkSize = 4096;
+  int fullChunkSize = 2048 + chunkSize;
+  auto chunkBuffer = (uint8_t*)pvPortMalloc (fullChunkSize);
+  //}}}
+  //{{{  bsp play
+  for (auto i = 0; i < 480*2; i++)
+    mPower[i] = 0;
   memset ((void*)AUDIO_BUFFER, 0, AUDIO_BUFFER_SIZE);
   BSP_AUDIO_OUT_Play ((uint16_t*)AUDIO_BUFFER, AUDIO_BUFFER_SIZE);
+  //}}}
 
-  auto lastSkip = mSkip;
   mPlayFrame = 0;
-  while (file.getPosition() < mFileSize) {
-    if ((mSkip > 0) && (mSkip != lastSkip)) {
-      lastSkip = mSkip;
-      file.seek (int(mSkip * file.getSize()) & 0xFFFFFFE0);
-      }
+  int chunkBytesLeft;
+  do {
+    auto lastSkip = mSkip;
+    file.read (chunkBuffer, fullChunkSize, chunkBytesLeft);
+    if (chunkBytesLeft) {
+      auto chunkPtr = chunkBuffer;
+      int headerBytes;
+      do {
+        headerBytes = mMp3Decoder->findNextHeader (chunkPtr, chunkBytesLeft);
+        if (headerBytes) {
+          chunkPtr += headerBytes;
+          chunkBytesLeft -= headerBytes;
+          if (chunkBytesLeft < mMp3Decoder->getFrameBodySize() + 4) {
+            //{{{  partial frame left, move to front, read partial buffer 32bit aligned
+            auto nextChunkPtr = chunkBuffer + ((4 - (chunkBytesLeft & 3)) & 3);
+            memcpy (nextChunkPtr, chunkPtr, chunkBytesLeft);
 
-    auto chunkPtr = chunkBuffer;
-    int chunkBytesLeft;
-    file.read (chunkPtr, chunkSize, chunkBytesLeft);
-    if (!chunkBytesLeft)
-      goto exit;
-
-    int headerBytes = 0;
-    do {
-      headerBytes = mMp3Decoder->findNextHeader (chunkPtr, chunkBytesLeft);
-      if (!headerBytes)
-        break;
-      chunkPtr += headerBytes;
-      chunkBytesLeft -= headerBytes;
-      if (chunkBytesLeft < mMp3Decoder->getFrameBodySize()) {
-        if ((mSkip > 0) && (mSkip != lastSkip))
-          break;
-        else {
-          //{{{  frame partially loaded, copy it to front of chunkBuffer with offset so that next dmaRead is 32bit aligned
-          auto nextChunkPtr = chunkBuffer + ((4 - (chunkBytesLeft & 3)) & 3);
-          memcpy (nextChunkPtr, chunkPtr, chunkBytesLeft);
-
-          // read next chunks worth, including rest of frame, 32bit aligned
-          int bytesLoaded;
-          file.read (nextChunkPtr + chunkBytesLeft, chunkSize, bytesLoaded);
-          if (!bytesLoaded)
-            goto exit;
-
-          chunkPtr = nextChunkPtr;
-          chunkBytesLeft += bytesLoaded;
+            // read next chunks worth, including rest of frame, 32bit aligned
+            int bytesLoaded;
+            file.read (nextChunkPtr + chunkBytesLeft, chunkSize, bytesLoaded);
+            if (bytesLoaded) {
+              chunkPtr = nextChunkPtr;
+              chunkBytesLeft += bytesLoaded;
+              }
+            else
+              chunkBytesLeft = 0;
+            }
+            //}}}
+          if (chunkBytesLeft >= mMp3Decoder->getFrameBodySize()) {
+            osSemaphoreWait (audSem, 100);
+            auto frameBytes = mMp3Decoder->decodeFrameBody (chunkPtr, &mPower[(mPlayFrame % 480) * 2], (int16_t*)(audBufHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
+            if (frameBytes) {
+              chunkPtr += frameBytes;
+              chunkBytesLeft -= frameBytes;
+              mPlayBytes = file.getPosition();
+              mPlayFrame++;
+              }
+            else
+              chunkBytesLeft = 0;
+            }
+          }
+        if ((mSkip > 0) && (mSkip != lastSkip)) {
+          //{{{  skip
+          file.seek (int(mSkip * file.getSize()) & 0xFFFFFFE0);
+          headerBytes = 0;
           }
           //}}}
-        }
-
-      if (headerBytes) {
-        osSemaphoreWait (audSem, 50);
-        auto frameBytes = mMp3Decoder->decodeFrameBody (chunkPtr, &mPower[(mPlayFrame % 480) * 2], (int16_t*)(audBufHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
-        if (!frameBytes)
-          goto exit;
-        chunkPtr += frameBytes;
-        chunkBytesLeft -= frameBytes;
-        mPlayBytes = file.getPosition();
-        mPlayFrame++;
-        }
-      } while (chunkBytesLeft > 0);
-    }
-  exit:;
+        } while (headerBytes && (chunkBytesLeft > 0));
+      }
+    } while (chunkBytesLeft > 0);
 
   vPortFree (chunkBuffer);
   BSP_AUDIO_OUT_Stop (CODEC_PDWN_SW);
@@ -190,87 +190,6 @@ static void playDirectory (string directoryName, const char* extension) {
 //}}}
 
 // threads
-//{{{
-static void dhcpThread (void const* argument) {
-
-  auto netif = (struct netif*)argument;
-
-  tcpip_init (NULL, NULL);
-  cLcd::debug ("configuring ethernet");
-
-  // init LwIP stack
-  struct ip_addr ipAddr;
-  IP4_ADDR (&ipAddr, 192, 168, 1, 67);
-  struct ip_addr netmask;
-  IP4_ADDR (&netmask, 255, 255 , 255, 0);
-  struct ip_addr gateway;
-  IP4_ADDR (&gateway, 192, 168, 0, 1);
-  netif_add (netif, &ipAddr, &netmask, &gateway, NULL, &ethernetif_init, &tcpip_input);
-  netif_set_default (netif);
-
-  if (netif_is_link_up (netif)) {
-    netif_set_up (netif);
-    cLcd::debug (LCD_YELLOW, "ethernet static ip " + cLcd::intStr ((int) (netif->ip_addr.addr & 0xFF)) + "." +
-                                                     cLcd::intStr ((int)((netif->ip_addr.addr >> 16) & 0xFF)) + "." +
-                                                     cLcd::intStr ((int)((netif->ip_addr.addr >> 8) & 0xFF)) + "." +
-                                                     cLcd::intStr ((int) (netif->ip_addr.addr >> 24)));
-    if (false) {
-      cLcd::debug  ("dhcpThread started");
-
-      struct ip_addr nullIpAddr;
-      IP4_ADDR (&nullIpAddr, 0, 0, 0, 0);
-      netif->ip_addr = nullIpAddr;
-      netif->netmask = nullIpAddr;
-      netif->gw = nullIpAddr;
-      dhcp_start (netif);
-
-      while (true) {
-        if (netif->ip_addr.addr) {
-          //{{{  dhcp allocated
-          cLcd::debug (LCD_YELLOW, "dhcp allocated " + cLcd::intStr ( (int)(netif->ip_addr.addr & 0xFF)) + "." +
-                                                       cLcd::intStr ((int)((netif->ip_addr.addr >> 16) & 0xFF)) + "." +
-                                                       cLcd::intStr ((int)((netif->ip_addr.addr >> 8) & 0xFF)) + "." +
-                                                       cLcd::intStr ( (int)(netif->ip_addr.addr >> 24)));
-          dhcp_stop (netif);
-          osSemaphoreRelease (dhcpSem);
-          break;
-          }
-          //}}}
-        else if (netif->dhcp->tries > 4) {
-          //{{{  dhcp timeout
-          cLcd::debug (LCD_RED, "dhcp timeout");
-          dhcp_stop (netif);
-
-          // use static address
-          struct ip_addr ipAddr;
-          IP4_ADDR (&ipAddr, 192 ,168 , 1 , 67 );
-          struct ip_addr netmask;
-          IP4_ADDR (&netmask, 255, 255, 255, 0);
-          struct ip_addr gateway;
-          IP4_ADDR (&gateway, 192, 168, 0, 1);
-          netif_set_addr (netif, &ipAddr , &netmask, &gateway);
-          osSemaphoreRelease (dhcpSem);
-          break;
-          }
-          //}}}
-        osDelay (250);
-        }
-      }
-
-    httpServerInit();
-    cLcd::debug ("httpServer started");
-    }
-
-  else {
-    //{{{  no ethernet
-    netif_set_down (&gNetif);
-    cLcd::debug (LCD_RED, "no ethernet");
-    }
-    //}}}
-
-  osThreadTerminate (NULL);
-  }
-//}}}
 //{{{
 static void uiThread (void const* argument) {
 
@@ -301,7 +220,7 @@ static void uiThread (void const* argument) {
 
         if (touch == 0) {
           if (y < 30)
-            mSkip = float(x) / cLcd::getWidth();
+            mSkip = float(x) / (cLcd::getWidth()-1);
           else if (x < kInfo)
             //{{{  pressed lcd info
             lcd->pressed (pressed[touch], x, y, pressed[touch] ? x - lastx[touch] : 0, pressed[touch] ? y - lasty[touch] : 0);
@@ -400,6 +319,87 @@ static void loadThread (void const* argument) {
     cLcd::debug ("load tick" + cLcd::intStr (tick++));
     osDelay (10000);
     }
+  }
+//}}}
+//{{{
+static void dhcpThread (void const* argument) {
+
+  auto netif = (struct netif*)argument;
+
+  tcpip_init (NULL, NULL);
+  cLcd::debug ("configuring ethernet");
+
+  // init LwIP stack
+  struct ip_addr ipAddr;
+  IP4_ADDR (&ipAddr, 192, 168, 1, 67);
+  struct ip_addr netmask;
+  IP4_ADDR (&netmask, 255, 255 , 255, 0);
+  struct ip_addr gateway;
+  IP4_ADDR (&gateway, 192, 168, 0, 1);
+  netif_add (netif, &ipAddr, &netmask, &gateway, NULL, &ethernetif_init, &tcpip_input);
+  netif_set_default (netif);
+
+  if (netif_is_link_up (netif)) {
+    netif_set_up (netif);
+    if (true)
+      // static ip
+      cLcd::debug (LCD_YELLOW, "ethernet static ip " + cLcd::intStr ((int) (netif->ip_addr.addr & 0xFF)) + "." +
+                                                       cLcd::intStr ((int)((netif->ip_addr.addr >> 16) & 0xFF)) + "." +
+                                                       cLcd::intStr ((int)((netif->ip_addr.addr >> 8) & 0xFF)) + "." +
+                                                       cLcd::intStr ((int) (netif->ip_addr.addr >> 24)));
+    else {
+      struct ip_addr nullIpAddr;
+      IP4_ADDR (&nullIpAddr, 0, 0, 0, 0);
+      netif->ip_addr = nullIpAddr;
+      netif->netmask = nullIpAddr;
+      netif->gw = nullIpAddr;
+      dhcp_start (netif);
+
+      while (true) {
+        if (netif->ip_addr.addr) {
+          //{{{  dhcp allocated
+          cLcd::debug (LCD_YELLOW, "dhcp allocated " + cLcd::intStr ( (int)(netif->ip_addr.addr & 0xFF)) + "." +
+                                                       cLcd::intStr ((int)((netif->ip_addr.addr >> 16) & 0xFF)) + "." +
+                                                       cLcd::intStr ((int)((netif->ip_addr.addr >> 8) & 0xFF)) + "." +
+                                                       cLcd::intStr ( (int)(netif->ip_addr.addr >> 24)));
+          dhcp_stop (netif);
+          osSemaphoreRelease (dhcpSem);
+          break;
+          }
+          //}}}
+        else if (netif->dhcp->tries > 4) {
+          //{{{  dhcp timeout
+          cLcd::debug (LCD_RED, "dhcp timeout");
+          dhcp_stop (netif);
+
+          // use static address
+          struct ip_addr ipAddr;
+          IP4_ADDR (&ipAddr, 192 ,168 , 1 , 67 );
+          struct ip_addr netmask;
+          IP4_ADDR (&netmask, 255, 255, 255, 0);
+          struct ip_addr gateway;
+          IP4_ADDR (&gateway, 192, 168, 0, 1);
+          netif_set_addr (netif, &ipAddr , &netmask, &gateway);
+          osSemaphoreRelease (dhcpSem);
+          break;
+          }
+          //}}}
+        osDelay (250);
+        }
+      }
+
+    httpServerInit();
+    cLcd::debug ("httpServer started");
+    }
+
+  else {
+    //{{{  no ethernet
+    netif_set_down (&gNetif);
+    cLcd::debug (LCD_RED, "no ethernet");
+    }
+    //}}}
+
+  osThreadTerminate (NULL);
   }
 //}}}
 //{{{
