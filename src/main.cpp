@@ -191,50 +191,85 @@ static void playDirectory (string directoryName, const char* extension) {
 
 // threads
 //{{{
-//static void dhcpThread (void const* argument) {
+static void dhcpThread (void const* argument) {
 
-  //cLcd::debug  ("dhcpThread started");
-  //auto netif = (struct netif*)argument;
+  auto netif = (struct netif*)argument;
 
-  //struct ip_addr nullIpAddr;
-  //IP4_ADDR (&nullIpAddr, 0, 0, 0, 0);
-  //netif->ip_addr = nullIpAddr;
-  //netif->netmask = nullIpAddr;
-  //netif->gw = nullIpAddr;
-  //dhcp_start (netif);
+  tcpip_init (NULL, NULL);
+  cLcd::debug ("configuring ethernet");
 
-  //while (true) {
-    //if (netif->ip_addr.addr) {
-      //cLcd::debug (LCD_YELLOW, "dhcp allocated " + cLcd::intStr ( (int)(netif->ip_addr.addr & 0xFF)) + "." +
-                                                   //cLcd::intStr ((int)((netif->ip_addr.addr >> 16) & 0xFF)) + "." +
-                                                   //cLcd::intStr ((int)((netif->ip_addr.addr >> 8) & 0xFF)) + "." +
-                                                   //cLcd::intStr ( (int)(netif->ip_addr.addr >> 24)));
-      //dhcp_stop (netif);
-      //osSemaphoreRelease (dhcpSem);
-      //break;
-      //}
+  // init LwIP stack
+  struct ip_addr ipAddr;
+  IP4_ADDR (&ipAddr, 192, 168, 1, 67);
+  struct ip_addr netmask;
+  IP4_ADDR (&netmask, 255, 255 , 255, 0);
+  struct ip_addr gateway;
+  IP4_ADDR (&gateway, 192, 168, 0, 1);
+  netif_add (netif, &ipAddr, &netmask, &gateway, NULL, &ethernetif_init, &tcpip_input);
+  netif_set_default (netif);
 
-    //else if (netif->dhcp->tries > 4) {
-      //cLcd::debug (LCD_RED, "dhcp timeout");
-      //dhcp_stop (netif);
+  if (netif_is_link_up (netif)) {
+    netif_set_up (netif);
+    cLcd::debug (LCD_YELLOW, "ethernet static ip " + cLcd::intStr ((int) (netif->ip_addr.addr & 0xFF)) + "." +
+                                                     cLcd::intStr ((int)((netif->ip_addr.addr >> 16) & 0xFF)) + "." +
+                                                     cLcd::intStr ((int)((netif->ip_addr.addr >> 8) & 0xFF)) + "." +
+                                                     cLcd::intStr ((int) (netif->ip_addr.addr >> 24)));
+    if (false) {
+      cLcd::debug  ("dhcpThread started");
 
-      //// use static address
-      //struct ip_addr ipAddr;
-      //IP4_ADDR (&ipAddr, 192 ,168 , 1 , 67 );
-      //struct ip_addr netmask;
-      //IP4_ADDR (&netmask, 255, 255, 255, 0);
-      //struct ip_addr gateway;
-      //IP4_ADDR (&gateway, 192, 168, 0, 1);
-      //netif_set_addr (netif, &ipAddr , &netmask, &gateway);
-      //osSemaphoreRelease (dhcpSem);
-      //break;
-      //}
+      struct ip_addr nullIpAddr;
+      IP4_ADDR (&nullIpAddr, 0, 0, 0, 0);
+      netif->ip_addr = nullIpAddr;
+      netif->netmask = nullIpAddr;
+      netif->gw = nullIpAddr;
+      dhcp_start (netif);
 
-    //osDelay (250);
-    //}
+      while (true) {
+        if (netif->ip_addr.addr) {
+          //{{{  dhcp allocated
+          cLcd::debug (LCD_YELLOW, "dhcp allocated " + cLcd::intStr ( (int)(netif->ip_addr.addr & 0xFF)) + "." +
+                                                       cLcd::intStr ((int)((netif->ip_addr.addr >> 16) & 0xFF)) + "." +
+                                                       cLcd::intStr ((int)((netif->ip_addr.addr >> 8) & 0xFF)) + "." +
+                                                       cLcd::intStr ( (int)(netif->ip_addr.addr >> 24)));
+          dhcp_stop (netif);
+          osSemaphoreRelease (dhcpSem);
+          break;
+          }
+          //}}}
+        else if (netif->dhcp->tries > 4) {
+          //{{{  dhcp timeout
+          cLcd::debug (LCD_RED, "dhcp timeout");
+          dhcp_stop (netif);
 
-  //osThreadTerminate (NULL);
-  //}
+          // use static address
+          struct ip_addr ipAddr;
+          IP4_ADDR (&ipAddr, 192 ,168 , 1 , 67 );
+          struct ip_addr netmask;
+          IP4_ADDR (&netmask, 255, 255, 255, 0);
+          struct ip_addr gateway;
+          IP4_ADDR (&gateway, 192, 168, 0, 1);
+          netif_set_addr (netif, &ipAddr , &netmask, &gateway);
+          osSemaphoreRelease (dhcpSem);
+          break;
+          }
+          //}}}
+        osDelay (250);
+        }
+      }
+
+    httpServerInit();
+    cLcd::debug ("httpServer started");
+    }
+
+  else {
+    //{{{  no ethernet
+    netif_set_down (&gNetif);
+    cLcd::debug (LCD_RED, "no ethernet");
+    }
+    //}}}
+
+  osThreadTerminate (NULL);
+  }
 //}}}
 //{{{
 static void uiThread (void const* argument) {
@@ -378,45 +413,12 @@ static void startThread (void const* argument) {
   const osThreadDef_t osThreadLoad =  { (char*)"Load", loadThread, osPriorityNormal, 0, 10000 };
   osThreadCreate (&osThreadLoad, NULL);
 
+  const osThreadDef_t osThreadDHCP =  { (char*)"DHCP", dhcpThread, osPriorityBelowNormal, 0, 1024 };
+  osThreadCreate (&osThreadDHCP, &gNetif);
+
   cLcd::debug ("mp3Decoder create");
   mMp3Decoder = new cMp3Decoder;
   cLcd::debug ("mp3Decoder created");
-
-  if (true) {
-    tcpip_init (NULL, NULL);
-    cLcd::debug ("configuring ethernet");
-
-    // init LwIP stack
-    struct ip_addr ipAddr;
-    IP4_ADDR (&ipAddr, 192, 168, 1, 67);
-    struct ip_addr netmask;
-    IP4_ADDR (&netmask, 255, 255 , 255, 0);
-    struct ip_addr gateway;
-    IP4_ADDR (&gateway, 192, 168, 0, 1);
-    netif_add (&gNetif, &ipAddr, &netmask, &gateway, NULL, &ethernetif_init, &tcpip_input);
-    netif_set_default (&gNetif);
-
-    if (netif_is_link_up (&gNetif)) {
-      netif_set_up (&gNetif);
-      cLcd::debug (LCD_YELLOW, "ethernet static ip " + cLcd::intStr ((int) (gNetif.ip_addr.addr & 0xFF)) + "." +
-                                                       cLcd::intStr ((int)((gNetif.ip_addr.addr >> 16) & 0xFF)) + "." +
-                                                       cLcd::intStr ((int)((gNetif.ip_addr.addr >> 8) & 0xFF)) + "." +
-                                                       cLcd::intStr ((int) (gNetif.ip_addr.addr >> 24)));
-
-      //const osThreadDef_t osThreadDHCP =  { (char*)"DHCP", dhcpThread, osPriorityBelowNormal, 0, 1024 };
-      //osThreadCreate (&osThreadDHCP, &gNetif);
-      //while (osSemaphoreWait (dhcpSem, 1000) == osOK)
-      //  osDelay (1000);
-
-      httpServerInit();
-      cLcd::debug ("httpServer started");
-      }
-    else {
-      // no ethernet
-      netif_set_down (&gNetif);
-      cLcd::debug (LCD_RED, "no ethernet");
-      }
-    }
 
   for (;;)
     osThreadTerminate (NULL);
