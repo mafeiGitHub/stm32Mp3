@@ -165,7 +165,6 @@ static void playFile (string directoryName, string fileName) {
         } while (headerBytes && (bytesLeft > 0));
       }
     } while (bytesLeft > 0);
-  cLcd::debug ("exit");
 
   vPortFree (chunkBuffer);
   BSP_AUDIO_OUT_Stop (CODEC_PDWN_SW);
