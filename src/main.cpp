@@ -112,45 +112,45 @@ static void playFile (string directoryName, string fileName) {
   //}}}
 
   mPlayFrame = 0;
-  int chunkBytesLeft;
+  int bytesLeft;
   do {
     auto lastSkip = mSkip;
-    file.read (chunkBuffer, fullChunkSize, chunkBytesLeft);
-    if (chunkBytesLeft) {
+    file.read (chunkBuffer, fullChunkSize, bytesLeft);
+    if (bytesLeft) {
       auto chunkPtr = chunkBuffer;
       int headerBytes;
       do {
-        headerBytes = mMp3Decoder->findNextHeader (chunkPtr, chunkBytesLeft);
+        headerBytes = mMp3Decoder->findNextHeader (chunkPtr, bytesLeft);
         if (headerBytes) {
           chunkPtr += headerBytes;
-          chunkBytesLeft -= headerBytes;
-          if (chunkBytesLeft < mMp3Decoder->getFrameBodySize() + 4) {
+          bytesLeft -= headerBytes;
+          if (bytesLeft < mMp3Decoder->getFrameBodySize() + 4) {
             //{{{  partial frame left, move to front, read partial buffer 32bit aligned
-            auto nextChunkPtr = chunkBuffer + ((4 - (chunkBytesLeft & 3)) & 3);
-            memcpy (nextChunkPtr, chunkPtr, chunkBytesLeft);
+            auto nextChunkPtr = chunkBuffer + ((4 - (bytesLeft & 3)) & 3);
+            memcpy (nextChunkPtr, chunkPtr, bytesLeft);
 
             // read next chunks worth, including rest of frame, 32bit aligned
             int bytesLoaded;
-            file.read (nextChunkPtr + chunkBytesLeft, chunkSize, bytesLoaded);
+            file.read (nextChunkPtr + bytesLeft, chunkSize, bytesLoaded);
             if (bytesLoaded) {
               chunkPtr = nextChunkPtr;
-              chunkBytesLeft += bytesLoaded;
+              bytesLeft += bytesLoaded;
               }
             else
-              chunkBytesLeft = 0;
+              bytesLeft = 0;
             }
             //}}}
-          if (chunkBytesLeft >= mMp3Decoder->getFrameBodySize()) {
+          if (bytesLeft >= mMp3Decoder->getFrameBodySize()) {
             osSemaphoreWait (audSem, 100);
             auto frameBytes = mMp3Decoder->decodeFrameBody (chunkPtr, &mPower[(mPlayFrame % 480) * 2], (int16_t*)(audBufHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
             if (frameBytes) {
               chunkPtr += frameBytes;
-              chunkBytesLeft -= frameBytes;
+              bytesLeft -= frameBytes;
               mPlayBytes = file.getPosition();
               mPlayFrame++;
               }
             else
-              chunkBytesLeft = 0;
+              bytesLeft = 0;
             }
           }
         if ((mSkip > 0) && (mSkip != lastSkip)) {
@@ -159,9 +159,9 @@ static void playFile (string directoryName, string fileName) {
           headerBytes = 0;
           }
           //}}}
-        } while (headerBytes && (chunkBytesLeft > 0));
+        } while (headerBytes && (bytesLeft > 0));
       }
-    } while (chunkBytesLeft > 0);
+    } while (bytesLeft > 0);
 
   vPortFree (chunkBuffer);
   BSP_AUDIO_OUT_Stop (CODEC_PDWN_SW);
