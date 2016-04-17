@@ -1707,13 +1707,13 @@ DWORD cFatFs::loadCluster (BYTE* dir) {
 DWORD cFatFs::createChain (DWORD cluster) {
 
   DWORD scl;
-  if (cluster == 0) {    
+  if (cluster == 0) {
     // Create a new chain
     scl = mLastCluster;  // Get suggested start point
-    if (!scl || scl >= mNumFatEntries) 
+    if (!scl || scl >= mNumFatEntries)
       scl = 1;
     }
-  else {          
+  else {
     // Stretch the current chain, Check the cluster status
     DWORD cs = getFat (cluster);
     if (cs < 2)  // Invalid value
@@ -1726,35 +1726,35 @@ DWORD cFatFs::createChain (DWORD cluster) {
     }
 
  // Start cluster
- DWORD ncl = scl;        
+ DWORD ncl = scl;
   for (;;) {
     // Next cluster
-    ncl++;              
-    if (ncl >= mNumFatEntries) {    
+    ncl++;
+    if (ncl >= mNumFatEntries) {
       // Check wrap around
       ncl = 2;
-      if (ncl > scl) 
+      if (ncl > scl)
         return 0;  // No free cluster
       }
 
     // Get the cluster status
-    DWORD cs = getFat (ncl);      
+    DWORD cs = getFat (ncl);
     if (cs == 0) // Found a free cluster
-      break;   
+      break;
     if (cs == 0xFFFFFFFF || cs == 1)// An error occurred
       return cs;
     if (ncl == scl) // No free cluster
-      return 0;   
+      return 0;
     }
 
   // Mark the new cluster "last link"
   FRESULT result = putFat (ncl, 0x0FFFFFFF);
   if (result == FR_OK && cluster != 0) // Link it to the previous one if needed
-    result = putFat (cluster, ncl); 
+    result = putFat (cluster, ncl);
 
   if (result == FR_OK) {
     // Update FSINFO
-    mLastCluster = ncl;  
+    mLastCluster = ncl;
     if (mFreeClusters != 0xFFFFFFFF) {
       mFreeClusters--;
       mFsiFlag |= 1;
@@ -1764,7 +1764,7 @@ DWORD cFatFs::createChain (DWORD cluster) {
     ncl = (result == FR_DISK_ERR) ? 0xFFFFFFFF : 1;
 
   // Return new cluster number or error code
-  return ncl;   
+  return ncl;
   }
 //}}}
 //{{{
@@ -1780,7 +1780,7 @@ FRESULT cFatFs::removeChain (DWORD cluster) {
     result = FR_INT_ERR;
   else {
     result = FR_OK;
-    while (cluster < mNumFatEntries) {    
+    while (cluster < mNumFatEntries) {
       /* Not a last link? */
       DWORD nxt = getFat (cluster); /* Get cluster status */
       if (nxt == 0)
@@ -1800,7 +1800,7 @@ FRESULT cFatFs::removeChain (DWORD cluster) {
 
       result = putFat (cluster, 0);     /* Mark the cluster "empty" */
       if (result != FR_OK) break;
-      if (mFreeClusters != 0xFFFFFFFF) { 
+      if (mFreeClusters != 0xFFFFFFFF) {
         /* Update FSINFO */
         mFreeClusters++;
         mFsiFlag |= 1;
@@ -1810,7 +1810,7 @@ FRESULT cFatFs::removeChain (DWORD cluster) {
       if (ecl + 1 == nxt)
         /* Is next cluster contiguous? */
         ecl = nxt;
-      else {        
+      else {
         /* End of contiguous clusters */
         rt[0] = clust2sect(fs, scl);                           /* Start sector */
         rt[1] = clust2sect(fs, ecl) + mSectorsPerCluster - 1;  /* End sector */
@@ -2825,7 +2825,7 @@ cFile::~cFile() {
       if (isOk()) // Invalidate file object
         mFatFs = 0;
 
-      mFatFs->unlock (FR_OK);
+      cFatFs::instance()->unlock (FR_OK);
       }
     }
 

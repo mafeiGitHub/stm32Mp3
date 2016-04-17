@@ -155,13 +155,17 @@ static void playFile (string directoryName, string fileName) {
           }
         if ((mSkip > 0) && (mSkip != lastSkip)) {
           //{{{  skip
-          file.seek (int(mSkip * file.getSize()) & 0xFFFFFFE0);
+          if (mSkip < 99.0f)
+            file.seek (int(mSkip * file.getSize()) & 0xFFFFFFE0);
+          else
+            bytesLeft = 0;
           headerBytes = 0;
           }
           //}}}
         } while (headerBytes && (bytesLeft > 0));
       }
     } while (bytesLeft > 0);
+  cLcd::debug ("exit");
 
   vPortFree (chunkBuffer);
   BSP_AUDIO_OUT_Stop (CODEC_PDWN_SW);
