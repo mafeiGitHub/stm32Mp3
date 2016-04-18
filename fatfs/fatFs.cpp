@@ -664,95 +664,28 @@ FRESULT cFatFs::getCurrentDirectory (char* buff, UINT len) {
   }
 //}}}
 //{{{
-FRESULT cFatFs::setLabel (const char* label) {
+FRESULT cFatFs::changeDirectory (const char* path) {
 
   cDirectory directory;
-  mResult = findVolume (&directory.mFatFs, 1);
-  if (!isOk()) {
-    unlock (mResult);
-    return mResult;
-    }
-
-  // Create a volume label in directory form
-  BYTE volumeName[11];
-  volumeName[0] = 0;
-
-  // Get name length, Remove trailing spaces
-  UINT nameSize;
-  for (nameSize = 0; label[nameSize]; nameSize++) ;
-  for ( ; nameSize && label[nameSize - 1] == ' '; nameSize--) ;
-
-  if (nameSize) {
-    // Create volume label in directory form
-    UINT i = 0;
-    UINT j = 0;
-    do {
-      WCHAR w = (BYTE)label[i++];
-      w = convertToFromUnicode (wideToUpperCase (convertToFromUnicode(w, 1)), 0);
-      if (!w || strchr ("\"*+,.:;<=>\?[]|\x7F", w) || j >= (UINT)((w >= 0x100) ? 10 : 11)) {
-     //{{{  reject invalid characters for volume label
-     unlock (FR_INVALID_NAME);
-     return FR_INVALID_NAME;
-     }
-     //}}}
-      if (w >= 0x100)
-        volumeName[j++] = (BYTE)(w >> 8);
-      volumeName[j++] = (BYTE)w;
-      } while (i < nameSize);
-
-    // Fill remaining name field
-    while (j < 11) volumeName[j++] = ' ';
-    if (volumeName[0] == DDEM) {
-      // Reject illegal name (heading DDEM)
-      unlock (FR_INVALID_NAME);
-      return FR_INVALID_NAME;
-      }
-    }
-
-  // Open root directory
-  directory.mStartCluster = 0;
-  mResult = directory.setIndex (0);
+  mResult = findVolume (&directory.mFatFs, 0);
   if (isOk()) {
-    //{{{  Get an entry with AM_VOL
-    mResult = directory.read (1);
-    if (isOk()) {
-      //  volume label found
-      if (volumeName[0]) {
-        // change volume label name
-        memcpy (directory.mDirShortFileName, volumeName, 11);
-        DWORD tm = getFatTime();
-        ST_DWORD (directory.mDirShortFileName + DIR_WrtTime, tm);
-        }
-      else // Remove the volume label
-        directory.mDirShortFileName[0] = DDEM;
-
-      mWindowFlag = 1;
-      mResult = syncFs();
+    WCHAR longFileName [(MAX_LFN + 1) * 2];
+    directory.mLongFileName = longFileName;
+    if (directory.followPath (path)) {
+      if (!directory.mDirShortFileName)
+        // start directory itself
+        mCurDirSector = directory.mStartCluster;
+      else if (directory.mDirShortFileName[DIR_Attr] & AM_DIR)
+        // reached directory
+        mCurDirSector = loadCluster (directory.mDirShortFileName);
+      else
+        // reached file
+        mResult = FR_NO_PATH;
       }
 
-    else {
-      // no volume label found or error
-      if (mResult == FR_NO_FILE) {
-        mResult = FR_OK;
-
-        if (volumeName[0]) {
-          // create volume label as new, Allocate an entry for volume label
-          mResult = directory.allocate (1);
-          if (isOk()) {
-            // set volume label
-            memset (directory.mDirShortFileName, 0, SZ_DIRE);
-            memcpy (directory.mDirShortFileName, volumeName, 11);
-            directory.mDirShortFileName[DIR_Attr] = AM_VOL;
-            DWORD tm = getFatTime();
-            ST_DWORD (directory.mDirShortFileName + DIR_WrtTime, tm);
-            mWindowFlag = 1;
-            mResult = syncFs();
-            }
-          }
-        }
-      }
+    if (mResult == FR_NO_FILE)
+      mResult = FR_NO_PATH;
     }
-    //}}}
 
   unlock (mResult);
   return mResult;
@@ -831,34 +764,6 @@ FRESULT cFatFs::makeSubDirectory (const char* path) {
         mResult = syncFs();
         }
       }
-    }
-
-  unlock (mResult);
-  return mResult;
-  }
-//}}}
-//{{{
-FRESULT cFatFs::changeDirectory (const char* path) {
-
-  cDirectory directory;
-  mResult = findVolume (&directory.mFatFs, 0);
-  if (isOk()) {
-    WCHAR longFileName [(MAX_LFN + 1) * 2];
-    directory.mLongFileName = longFileName;
-    if (directory.followPath (path)) {
-      if (!directory.mDirShortFileName)
-        // start directory itself
-        mCurDirSector = directory.mStartCluster;
-      else if (directory.mDirShortFileName[DIR_Attr] & AM_DIR)
-        // reached directory
-        mCurDirSector = loadCluster (directory.mDirShortFileName);
-      else
-        // reached file
-        mResult = FR_NO_PATH;
-      }
-
-    if (mResult == FR_NO_FILE)
-      mResult = FR_NO_PATH;
     }
 
   unlock (mResult);
@@ -1067,6 +972,101 @@ FRESULT cFatFs::unlink (const char* path) {
         }
       }
     }
+
+  unlock (mResult);
+  return mResult;
+  }
+//}}}
+//{{{
+FRESULT cFatFs::setLabel (const char* label) {
+
+  cDirectory directory;
+  mResult = findVolume (&directory.mFatFs, 1);
+  if (!isOk()) {
+    unlock (mResult);
+    return mResult;
+    }
+
+  // Create a volume label in directory form
+  BYTE volumeName[11];
+  volumeName[0] = 0;
+
+  // Get name length, Remove trailing spaces
+  UINT nameSize;
+  for (nameSize = 0; label[nameSize]; nameSize++) ;
+  for ( ; nameSize && label[nameSize - 1] == ' '; nameSize--) ;
+
+  if (nameSize) {
+    // Create volume label in directory form
+    UINT i = 0;
+    UINT j = 0;
+    do {
+      WCHAR w = (BYTE)label[i++];
+      w = convertToFromUnicode (wideToUpperCase (convertToFromUnicode(w, 1)), 0);
+      if (!w || strchr ("\"*+,.:;<=>\?[]|\x7F", w) || j >= (UINT)((w >= 0x100) ? 10 : 11)) {
+     //{{{  reject invalid characters for volume label
+     unlock (FR_INVALID_NAME);
+     return FR_INVALID_NAME;
+     }
+     //}}}
+      if (w >= 0x100)
+        volumeName[j++] = (BYTE)(w >> 8);
+      volumeName[j++] = (BYTE)w;
+      } while (i < nameSize);
+
+    // Fill remaining name field
+    while (j < 11) volumeName[j++] = ' ';
+    if (volumeName[0] == DDEM) {
+      // Reject illegal name (heading DDEM)
+      unlock (FR_INVALID_NAME);
+      return FR_INVALID_NAME;
+      }
+    }
+
+  // Open root directory
+  directory.mStartCluster = 0;
+  mResult = directory.setIndex (0);
+  if (isOk()) {
+    //{{{  Get an entry with AM_VOL
+    mResult = directory.read (1);
+    if (isOk()) {
+      //  volume label found
+      if (volumeName[0]) {
+        // change volume label name
+        memcpy (directory.mDirShortFileName, volumeName, 11);
+        DWORD tm = getFatTime();
+        ST_DWORD (directory.mDirShortFileName + DIR_WrtTime, tm);
+        }
+      else // Remove the volume label
+        directory.mDirShortFileName[0] = DDEM;
+
+      mWindowFlag = 1;
+      mResult = syncFs();
+      }
+
+    else {
+      // no volume label found or error
+      if (mResult == FR_NO_FILE) {
+        mResult = FR_OK;
+
+        if (volumeName[0]) {
+          // create volume label as new, Allocate an entry for volume label
+          mResult = directory.allocate (1);
+          if (isOk()) {
+            // set volume label
+            memset (directory.mDirShortFileName, 0, SZ_DIRE);
+            memcpy (directory.mDirShortFileName, volumeName, 11);
+            directory.mDirShortFileName[DIR_Attr] = AM_VOL;
+            DWORD tm = getFatTime();
+            ST_DWORD (directory.mDirShortFileName + DIR_WrtTime, tm);
+            mWindowFlag = 1;
+            mResult = syncFs();
+            }
+          }
+        }
+      }
+    }
+    //}}}
 
   unlock (mResult);
   return mResult;

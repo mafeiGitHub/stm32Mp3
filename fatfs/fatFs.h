@@ -127,14 +127,14 @@ public:
   //}}}
   FRESULT mount();
   FRESULT getCurrentDirectory (char* buff, UINT len);           // Get current directory
-  FRESULT setLabel (const char* label);                         // Set volume label
-  FRESULT makeSubDirectory (const char* path);                  // Create a sub directory
   FRESULT changeDirectory (const char* path);                   // Change current directory
+  FRESULT makeSubDirectory (const char* path);                  // Create a sub directory
   FRESULT rename (const char* path_old, const char* path_new);  // Rename/Move a file or directory
   FRESULT changeAttributes (const char* path, BYTE attr, BYTE mask); // Change attribute of the file/dir
   FRESULT stat (const char* path, cFileInfo& fileInfo);         // Get file status
   FRESULT utime (const char* path, const cFileInfo& fileInfo);  // Change timestamp of the file/dir
   FRESULT unlink (const char* path);                            // Delete an existing file or directory
+  FRESULT setLabel (const char* label);                         // Set volume label
   FRESULT makeFileSystem (BYTE sfd, UINT au);                   // Create a file system on the volume
 //{{{  private
 friend class cFile;

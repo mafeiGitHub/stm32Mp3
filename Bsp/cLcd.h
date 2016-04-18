@@ -1,6 +1,9 @@
 #pragma once
+//{{{  includes
 #include <string>
-
+#include <vector>
+class cWidget;
+//}}}
 //{{{  LCD colour defines
 #define LCD_BLACK         0xFF000000
 #define LCD_BLUE          0xFF0000FF
@@ -51,6 +54,8 @@ public:
   static void debug (uint32_t colour, std::string str, bool newLine = true) { instance()->info (colour, str, newLine); }
   static void debug (std::string str) { instance()->info (str); }
 
+  int getFontHeight() { return mFontHeight; }
+
   void setTitle (std::string title);
   void setShowTime (bool enable);
   void setShowDebug (bool enable);
@@ -58,6 +63,7 @@ public:
 
   void info (uint32_t colour, std::string str, bool newLine = true);
   void info (std::string str, bool newLine = true);
+  int string (uint32_t col, int fontHeight, std::string str, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen);
 
   void pixel (uint32_t col, int16_t x, int16_t y);
   void pixelClipped (uint32_t col, int16_t x, int16_t y);
@@ -72,11 +78,14 @@ public:
   void pressed (int pressCount, int x, int y, int xinc, int yinc);
 
   void startDraw();
+  void drawWidgets();
   void endDraw();
   void draw();
 
   void displayOn();
   void displayOff();
+
+  void addWidget (cWidget* widget);
 
 private:
   void init (std::string title, bool buffered);
@@ -88,7 +97,6 @@ private:
   void showLayer (uint8_t layer, uint32_t frameBufferAddress, uint8_t alpha);
 
   void stamp (uint32_t col, uint8_t* src, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen);
-  int string (uint32_t col, int fontHeight, std::string str, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen);
 
   void send();
   void wait();
@@ -108,8 +116,8 @@ private:
 
   float mFirstLine = 0;
   int mNumDrawLines = 0;
-  int mFontHeight = 16;
   int mLineInc = 18;
+  int mFontHeight = 16;
   int mStringPos = 0;
 
   bool mShowTime = true;
@@ -150,5 +158,7 @@ private:
   uint32_t* mDma2dCurBuf = nullptr;
   uint32_t* mDma2dHighWater = nullptr;
   uint32_t mDma2dTimeouts= 0;
+
+  std::vector <cWidget*> mWidgets;
   //}}}
   };

@@ -22,6 +22,8 @@
 #include "../Bsp/stm32746g_discovery_ts.h"
 #include "../Bsp/stm32746g_discovery_audio.h"
 #include "../Bsp/cLcd.h"
+#include "../Bsp/cWidget.h"
+#include "../Bsp/cTextBox.h"
 
 #include "../Bsp/stm32746g_discovery_sd.h"
 #include "../fatfs/fatFs.h"
@@ -31,6 +33,9 @@
 #include "cMp3decoder.h"
 
 using namespace std;
+//}}}
+//{{{  static const
+static bool kStaticIp = true;
 //}}}
 //{{{  static vars
 static struct netif gNetif;
@@ -126,8 +131,8 @@ static void playFile (string directoryName, string fileName) {
         if (headerBytes) {
           chunkPtr += headerBytes;
           bytesLeft -= headerBytes;
-          if (bytesLeft < mMp3Decoder->getFrameBodySize() + 4) {
-            //{{{  partial frame left, move to front, read partial buffer 32bit aligned
+          if (bytesLeft < mMp3Decoder->getFrameBodySize() + 4) { // not enough for frameBody and next header
+            //{{{  move bytesLeft to front of chunkBuffer,  next read partial buffer 32bit aligned
             auto nextChunkPtr = chunkBuffer + ((4 - (bytesLeft & 3)) & 3);
             memcpy (nextChunkPtr, chunkPtr, bytesLeft);
 
@@ -161,9 +166,11 @@ static void playFile (string directoryName, string fileName) {
             file.seek (int(mSkip * file.getSize()) & 0xFFFFFFE0);
           else
             bytesLeft = 0;
+
           headerBytes = 0;
           }
           //}}}
+        lastSkip = mSkip;
         } while (headerBytes && (bytesLeft > 0));
       }
     } while (bytesLeft > 0);
@@ -200,6 +207,11 @@ static void uiThread (void const* argument) {
 
   cLcd::debug ("uiThread started");
   auto lcd = cLcd::instance();
+
+  lcd->addWidget (new cWidget (LCD_LIGHTGREY, 160, 100, 200, 20));
+  lcd->addWidget (new cTextBox ("testBox1", LCD_LIGHTGREY, 160, 122, 200, 20));
+  lcd->addWidget (new cTextBox ("testBox2", LCD_LIGHTGREY, 160, 144, 200, 20));
+  lcd->addWidget (new cTextBox ("testBox3", LCD_LIGHTGREY, 160, 166, 200, 20));
 
   const int kInfo = 150;
   const int kVolume = 440;
@@ -263,6 +275,7 @@ static void uiThread (void const* argument) {
     //}}}
 
     lcd->startDraw();
+    lcd->drawWidgets();
     //{{{  draw touch
     for (auto touch = 0; (touch < 5) && pressed[touch]; touch++)
       lcd->ellipse (touch > 0 ? LCD_LIGHTGREY :
@@ -346,8 +359,7 @@ static void dhcpThread (void const* argument) {
 
   if (netif_is_link_up (netif)) {
     netif_set_up (netif);
-    if (true)
-      // static ip
+    if (kStaticIp)
       cLcd::debug (LCD_YELLOW, "ethernet static ip " + cLcd::intStr ((int) (netif->ip_addr.addr & 0xFF)) + "." +
                                                        cLcd::intStr ((int)((netif->ip_addr.addr >> 16) & 0xFF)) + "." +
                                                        cLcd::intStr ((int)((netif->ip_addr.addr >> 8) & 0xFF)) + "." +

@@ -9,6 +9,7 @@
 #include "stm32746g_discovery.h"
 #include "cLcd.h"
 #include "cLcdPrivate.h"
+#include "cWidget.h"
 
 #include "cmsis_os.h"
 #include "../sys/cpuUsage.h"
@@ -272,6 +273,45 @@ void cLcd::info (std::string str, bool newLine) {
   info (LCD_WHITE, str, newLine);
   }
 //}}}
+//{{{
+int cLcd::string (uint32_t col, int fontHeight, std::string str, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
+
+  for (unsigned int i = 0; i < str.size(); i++) {
+    if ((str[i] >= 0x20) && (str[i] <= 0x7F)) {
+      auto fontChar = chars[str[i] - 0x20];
+      if (!fontChar) {
+        FT_Set_Pixel_Sizes (FTface, 0, fontHeight);
+        FT_Load_Char (FTface, str[i], FT_LOAD_RENDER);
+
+        // cache char info
+        fontChar = (tFontChar*)pvPortMalloc (sizeof(tFontChar));
+        chars[str[i] - 0x20] = fontChar;
+        fontChar->left = FTglyphSlot->bitmap_left;
+        fontChar->top = FTglyphSlot->bitmap_top;
+        fontChar->pitch = FTglyphSlot->bitmap.pitch;
+        fontChar->rows = FTglyphSlot->bitmap.rows;
+        fontChar->advance = FTglyphSlot->advance.x / 64;
+        fontChar->bitmap = nullptr;
+
+        if (FTglyphSlot->bitmap.buffer) {
+          // cache char bitmap
+          fontChar->bitmap = (uint8_t*)pvPortMalloc (FTglyphSlot->bitmap.pitch * FTglyphSlot->bitmap.rows);
+          memcpy (fontChar->bitmap, FTglyphSlot->bitmap.buffer, FTglyphSlot->bitmap.pitch * FTglyphSlot->bitmap.rows);
+          }
+        }
+
+      if (x + fontChar->left + fontChar->pitch > getWidth())
+        break;
+      else if (fontChar->bitmap)
+        stamp (col, fontChar->bitmap, x + fontChar->left, y + fontHeight - fontChar->top, fontChar->pitch, fontChar->rows);
+
+      x += fontChar->advance;
+      }
+    }
+
+  return x;
+  }
+//}}}
 
 //{{{
 void cLcd::pixel (uint32_t col, int16_t x, int16_t y) {
@@ -533,6 +573,13 @@ void cLcd::startDraw() {
   }
 //}}}
 //{{{
+void cLcd::drawWidgets() {
+
+  for (auto widget : mWidgets)
+    (widget->draw (this));
+  }
+//}}}
+//{{{
 void cLcd::endDraw() {
 
   auto y = 0;
@@ -619,6 +666,12 @@ void cLcd::displayOff() {
 
   // turn off backlight
   HAL_GPIO_WritePin (LCD_BL_CTRL_GPIO_PORT, LCD_BL_CTRL_PIN, GPIO_PIN_RESET);/* De-assert LCD_BL_CTRL pin */
+  }
+//}}}
+
+//{{{
+void cLcd::addWidget (cWidget* widget) {
+  mWidgets.push_back (widget);
   }
 //}}}
 
@@ -904,45 +957,6 @@ void cLcd::stamp (uint32_t col, uint8_t* src, int16_t x, int16_t y, uint16_t xle
                      DMA2D_IFSR_CCAEIF | DMA2D_IFSR_CCTCIF | DMA2D_IFSR_CCEIF;
       }
     }
-  }
-//}}}
-//{{{
-int cLcd::string (uint32_t col, int fontHeight, std::string str, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
-
-  for (unsigned int i = 0; i < str.size(); i++) {
-    if ((str[i] >= 0x20) && (str[i] <= 0x7F)) {
-      auto fontChar = chars[str[i] - 0x20];
-      if (!fontChar) {
-        FT_Set_Pixel_Sizes (FTface, 0, fontHeight);
-        FT_Load_Char (FTface, str[i], FT_LOAD_RENDER);
-
-        // cache char info
-        fontChar = (tFontChar*)pvPortMalloc (sizeof(tFontChar));
-        chars[str[i] - 0x20] = fontChar;
-        fontChar->left = FTglyphSlot->bitmap_left;
-        fontChar->top = FTglyphSlot->bitmap_top;
-        fontChar->pitch = FTglyphSlot->bitmap.pitch;
-        fontChar->rows = FTglyphSlot->bitmap.rows;
-        fontChar->advance = FTglyphSlot->advance.x / 64;
-        fontChar->bitmap = nullptr;
-
-        if (FTglyphSlot->bitmap.buffer) {
-          // cache char bitmap
-          fontChar->bitmap = (uint8_t*)pvPortMalloc (FTglyphSlot->bitmap.pitch * FTglyphSlot->bitmap.rows);
-          memcpy (fontChar->bitmap, FTglyphSlot->bitmap.buffer, FTglyphSlot->bitmap.pitch * FTglyphSlot->bitmap.rows);
-          }
-        }
-
-      if (x + fontChar->left + fontChar->pitch > getWidth())
-        break;
-      else if (fontChar->bitmap)
-        stamp (col, fontChar->bitmap, x + fontChar->left, y + fontHeight - fontChar->top, fontChar->pitch, fontChar->rows);
-
-      x += fontChar->advance;
-      }
-    }
-
-  return x;
   }
 //}}}
 
