@@ -58,22 +58,14 @@ class cVolumeBox : public cValueBox {
 public:
   cVolumeBox (float value, uint32_t colour, int16_t xorg, int16_t yorg, uint16_t xlen, uint16_t ylen) :
     cValueBox (value, colour, xorg, yorg, xlen, ylen){}
-  ~cVolumeBox() {}
+  virtual ~cVolumeBox() {}
 
   virtual void setValue (float value) {
-    if (value < 0.0f)
-      value = 0.0f;
-    else if (value > 1.0f)
-      value = 1.0f;
-
-    if (value != getValue()) {
-      cValueBox::setValue (value);
-      BSP_AUDIO_OUT_SetVolume (value * 100);
-      }
+    if (cValueBox::setValue (value, 0.0f, 1.0f))
+      BSP_AUDIO_OUT_SetVolume (getValue() * 100);
     }
   };
 //}}}
-static cVolumeBox* mVolumeBox = nullptr;
 
 //{{{
 void BSP_AUDIO_OUT_HalfTransfer_CallBack() {
@@ -227,23 +219,19 @@ static void uiThread (void const* argument) {
   cLcd::debug ("uiThread started");
   auto lcd = cLcd::instance();
 
-  lcd->addWidget (new cWidget (LCD_LIGHTGREY, 160, 100, 200, 20));
-  lcd->addWidget (new cTextBox ("testBox1", LCD_LIGHTGREY, 160, 122, 200, 20));
-  lcd->addWidget (new cTextBox ("testBox2", LCD_LIGHTGREY, 160, 144, 200, 20));
-  lcd->addWidget (new cTextBox ("testBox3", LCD_LIGHTGREY, 160, 166, 200, 20));
-
-  mVolumeBox = new cVolumeBox (mVolume, LCD_YELLOW, cLcd::getWidth()-20, 0, 20, cLcd::getHeight());
-  lcd->addWidget (mVolumeBox);
-
+  lcd->addWidget (new cWidget (LCD_LIGHTGREY, 200, 0, 150, 20));
+  for (auto i = 22; i < 260; i += 22)
+    lcd->addWidget (new cTextBox ("testBox " + cLcd::intStr(i/22), LCD_LIGHTGREY, 200, i, 140, 20));
+  lcd->addWidget (new cVolumeBox (mVolume, LCD_YELLOW, cLcd::getWidth()-20, 0, 20, cLcd::getHeight()));
   mProgressBox = new cValueBox (0, LCD_DARKBLUE, 0, 0, cLcd::getWidth(), 20);
   lcd->addWidget (mProgressBox);
 
   // init touch
   BSP_TS_Init (cLcd::getWidth(), cLcd::getHeight());
-  int pressed [5] = {0, 0, 0, 0, 0};
-  int lastx [5];
-  int lasty [5];
-  int lastz [5];
+  int pressed[5] = {0, 0, 0, 0, 0};
+  int lastx[5];
+  int lasty[5];
+  int lastz[5];
 
   while (true) {
     //{{{  read touch and use it

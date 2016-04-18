@@ -9,7 +9,7 @@ class cValueBox : public cWidget {
 public:
   cValueBox (float value, uint32_t colour, int16_t xorg, int16_t yorg, uint16_t xlen, uint16_t ylen) :
     cWidget (colour, xorg, yorg, xlen, ylen), mValue(value) {}
-  ~cValueBox() {}
+  virtual ~cValueBox() {}
 
   //{{{
   float getValue() {
@@ -19,6 +19,21 @@ public:
   //{{{
   virtual void setValue (float value) {
     mValue = value;
+    }
+  //}}}
+  //{{{
+  virtual bool setValue (float value, float minValue, float maxValue) {
+
+    if (value < 0.0f)
+      value = 0.0f;
+    else if (value > 1.0f)
+      value = 1.0f;
+
+    bool changed = value != mValue;
+    if (changed)
+      mValue = value;
+
+    return changed;
     }
   //}}}
 

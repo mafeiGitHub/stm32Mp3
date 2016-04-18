@@ -6,7 +6,7 @@ class cWidget {
 public:
   cWidget (uint32_t colour, int16_t xorg, int16_t yorg, uint16_t xlen, uint16_t ylen) :
     mColour(colour), mXorg(xorg), mYorg(yorg), mXlen(xlen), mYlen(ylen) {}
-  ~cWidget() {}
+  virtual ~cWidget() {}
 
   int16_t getXorg() { return mXorg; }
   int16_t getYorg() { return mYorg; }
