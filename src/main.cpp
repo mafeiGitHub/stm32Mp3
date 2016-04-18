@@ -24,6 +24,7 @@
 #include "../Bsp/cLcd.h"
 #include "../Bsp/cWidget.h"
 #include "../Bsp/cTextBox.h"
+#include "../Bsp/cValueBox.h"
 
 #include "../Bsp/stm32746g_discovery_sd.h"
 #include "../fatfs/fatFs.h"
@@ -41,18 +42,38 @@ static bool kStaticIp = true;
 static struct netif gNetif;
 static osSemaphoreId dhcpSem;
 
-static float mSkip = 0;
 static float mVolume = 0.8f;
 static int mPlayFrame = 0;
-static int mPlayBytes = 0;
-static int mFileSize = 0;
 
 static cMp3Decoder* mMp3Decoder = nullptr;
 static float mPower [480*2];
 
 static osSemaphoreId audSem;
 static bool mAudHalf = false;
+
+static cValueBox* mProgressBox = nullptr;
 //}}}
+//{{{
+class cVolumeBox : public cValueBox {
+public:
+  cVolumeBox (float value, uint32_t colour, int16_t xorg, int16_t yorg, uint16_t xlen, uint16_t ylen) :
+    cValueBox (value, colour, xorg, yorg, xlen, ylen){}
+  ~cVolumeBox() {}
+
+  virtual void setValue (float value) {
+    if (value < 0.0f)
+      value = 0.0f;
+    else if (value > 1.0f)
+      value = 1.0f;
+
+    if (value != getValue()) {
+      cValueBox::setValue (value);
+      BSP_AUDIO_OUT_SetVolume (value * 100);
+      }
+    }
+  };
+//}}}
+static cVolumeBox* mVolumeBox = nullptr;
 
 //{{{
 void BSP_AUDIO_OUT_HalfTransfer_CallBack() {
@@ -102,8 +123,7 @@ static void playFile (string directoryName, string fileName) {
     return;
     }
     //}}}
-  mFileSize = file.getSize();
-  cLcd::debug ("play " + fullName + " " + cLcd::intStr (mFileSize));
+  cLcd::debug ("play " + fullName + " " + cLcd::intStr (file.getSize()));
 
   //{{{  chunkSize and buffer
   int chunkSize = 4096;
@@ -121,7 +141,6 @@ static void playFile (string directoryName, string fileName) {
   mPlayFrame = 0;
   int bytesLeft;
   do {
-    auto lastSkip = mSkip;
     file.read (chunkBuffer, fullChunkSize, bytesLeft);
     if (bytesLeft) {
       auto chunkPtr = chunkBuffer;
@@ -153,24 +172,24 @@ static void playFile (string directoryName, string fileName) {
             if (frameBytes) {
               chunkPtr += frameBytes;
               bytesLeft -= frameBytes;
-              mPlayBytes = file.getPosition();
               mPlayFrame++;
               }
             else
               bytesLeft = 0;
             }
           }
-        if ((mSkip > 0) && (mSkip != lastSkip)) {
+        if (mProgressBox->getPressed()) {
           //{{{  skip
-          if (mSkip < 99.0f)
-            file.seek (int(mSkip * file.getSize()) & 0xFFFFFFE0);
+          if (mProgressBox->getValue() < 99.0f)
+            file.seek (int(mProgressBox->getValue() * file.getSize()) & 0xFFFFFFE0);
           else
             bytesLeft = 0;
 
           headerBytes = 0;
           }
           //}}}
-        lastSkip = mSkip;
+        else
+          mProgressBox->setValue ((float)file.getPosition() / (float)file.getSize());
         } while (headerBytes && (bytesLeft > 0));
       }
     } while (bytesLeft > 0);
@@ -213,8 +232,11 @@ static void uiThread (void const* argument) {
   lcd->addWidget (new cTextBox ("testBox2", LCD_LIGHTGREY, 160, 144, 200, 20));
   lcd->addWidget (new cTextBox ("testBox3", LCD_LIGHTGREY, 160, 166, 200, 20));
 
-  const int kInfo = 150;
-  const int kVolume = 440;
+  mVolumeBox = new cVolumeBox (mVolume, LCD_YELLOW, cLcd::getWidth()-20, 0, 20, cLcd::getHeight());
+  lcd->addWidget (mVolumeBox);
+
+  mProgressBox = new cValueBox (0, LCD_DARKBLUE, 0, 0, cLcd::getWidth(), 20);
+  lcd->addWidget (mProgressBox);
 
   // init touch
   BSP_TS_Init (cLcd::getWidth(), cLcd::getHeight());
@@ -228,40 +250,23 @@ static void uiThread (void const* argument) {
     TS_StateTypeDef tsState;
     BSP_TS_GetState (&tsState);
 
-    mSkip = 0;
     for (auto touch = 0; touch < 5; touch++) {
       if ((touch < tsState.touchDetected) && tsState.touchWeight[touch]) {
         auto x = tsState.touchX[touch];
         auto y = tsState.touchY[touch];
         auto z = tsState.touchWeight[touch];
 
-        if (touch == 0) {
-          if (x > 460) {
-            //{{{  pressed volume
-            auto volume = pressed[touch] ? mVolume + float(y - lasty[touch]) / cLcd::getHeight(): float(y) / cLcd::getHeight();
-
-            if (volume < 0)
-              volume = 0;
-            else if (volume > 1.0f)
-              volume = 1.0f;
-
-            if (volume != mVolume) {
-              mVolume = volume;
-              BSP_AUDIO_OUT_SetVolume (int(mVolume * 100));
-              }
-            }
-            //}}}
-          lcd->pressed (pressed[touch], x, y, pressed[touch] ? x - lastx[touch] : 0, pressed[touch] ? y - lasty[touch] : 0);
-          }
-
+        if (touch == 0)
+          lcd->pressed (pressed[0], x, y, pressed[0] ? x - lastx[0] : 0, pressed[0] ? y - lasty[0] : 0);
         lastx[touch] = x;
         lasty[touch] = y;
         lastz[touch] = z;
         pressed[touch]++;
         }
+
       else {
         pressed[touch] = 0;
-        if (touch ==  0) 
+        if (touch ==  0)
           lcd->released();
         }
       }
@@ -271,17 +276,7 @@ static void uiThread (void const* argument) {
     lcd->drawWidgets();
     //{{{  draw touch
     for (auto touch = 0; (touch < 5) && pressed[touch]; touch++)
-      lcd->ellipse (touch > 0 ? LCD_LIGHTGREY :
-                      lasty[0] < 30 ? LCD_BLUE :
-                        lastx[0] < kInfo ? LCD_GREEN :
-                          lastx[0] < kVolume ? LCD_MAGENTA : LCD_YELLOW,
-                    lastx[touch], lasty[touch], lastz[touch], lastz[touch]);
-    //}}}
-    //{{{  draw yellow volume
-    lcd->rect (LCD_YELLOW, cLcd::getWidth()-20, 0, 20, int(mVolume * cLcd::getHeight()));
-    //}}}
-    //{{{  draw blue play progress
-    lcd->rect (LCD_BLUE, 0, 0, ((mPlayBytes >> 8) * cLcd::getWidth()) / (mFileSize >> 8), 2);
+      lcd->ellipse (touch > 0 ? LCD_LIGHTGREY : LCD_YELLOW, lastx[touch], lasty[touch], lastz[touch], lastz[touch]);
     //}}}
     //{{{  draw blue waveform
     for (auto x = 0; x < cLcd::getWidth(); x++) {

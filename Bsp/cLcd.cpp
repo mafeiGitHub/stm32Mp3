@@ -534,7 +534,7 @@ void cLcd::pressed (int pressCount, int x, int y, int xinc, int yinc) {
         mPressedx = x;
         mPressedy = y;
         mPressedWidget = widget;
-        mPressedWidget->pressed (x, y);
+        mPressedWidget->pressed (x - widget->getXorg(), y - widget->getYorg());
         return;
         }
       }
@@ -543,7 +543,7 @@ void cLcd::pressed (int pressCount, int x, int y, int xinc, int yinc) {
   else if (mPressedWidget) {
     mPressedx = x;
     mPressedy = y;
-    mPressedWidget->moved (x, y, xinc, yinc);
+    mPressedWidget->moved (x - mPressedWidget->getXorg(), y - mPressedWidget->getYorg(), xinc, yinc);
     }
 
   if (!mPressedWidget) {

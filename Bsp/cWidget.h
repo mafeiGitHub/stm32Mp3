@@ -8,6 +8,12 @@ public:
     mColour(colour), mXorg(xorg), mYorg(yorg), mXlen(xlen), mYlen(ylen) {}
   ~cWidget() {}
 
+  int16_t getXorg() { return mXorg; }
+  int16_t getYorg() { return mYorg; }
+  int16_t getXlen() { return mXlen; }
+  int16_t getYlen() { return mYlen; }
+  int16_t getPressed() { return mPressed; }
+
   virtual void setColour (uint32_t colour) { mColour = colour; }
   virtual bool picked (int16_t x, int16_t y) { return (x >= mXorg) && (x < mXorg + mXlen) && (y >= mYorg) && (y < mYorg + mYlen); }
   virtual void pressed (int16_t x, int16_t y) { mPressed = true; }
@@ -17,6 +23,7 @@ public:
 
 protected:
   uint32_t mColour = LCD_LIGHTGREY;
+
   int16_t mXorg = 0;
   int16_t mYorg = 0;
   int16_t mXlen = 0;
