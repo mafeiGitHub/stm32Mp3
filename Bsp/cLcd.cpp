@@ -235,13 +235,20 @@ void cLcd::setTitle (std::string title) {
   }
 //}}}
 //{{{
-void cLcd::setShowTime (bool enable) {
-  mShowTime = enable;
+void cLcd::setShowDebugTime (bool enable) {
+  mShowDebugTime = enable;
+  updateNumDrawLines();
   }
 //}}}
 //{{{
 void cLcd::setShowDebug (bool enable) {
   mShowDebug = enable;
+  updateNumDrawLines();
+  }
+//}}}
+//{{{
+void cLcd::setShowLcdDebug (bool enable) {
+  mShowLcdDebug = enable;
   updateNumDrawLines();
   }
 //}}}
@@ -618,33 +625,38 @@ void cLcd::endDraw() {
 
   auto y = 0;
   if (!mTitle.empty()) {
+    //{{{  draw title
     string (LCD_WHITE, mFontHeight, mTitle, 0, y, getWidth(), mLineInc);
     y += mLineInc;
     }
-
-  if (mLastLine >= 0) {
-    // draw scroll bar
-    auto yorg = mLineInc + ((int)mFirstLine * mNumDrawLines * mLineInc / (mLastLine + 1));
-    auto ylen = mNumDrawLines * mNumDrawLines * mLineInc / (mLastLine + 1);
-    rectClipped (LCD_YELLOW, 0, yorg, 8, ylen);
-    }
-
-  auto lastLine = (int)mFirstLine + mNumDrawLines - 1;
-  if (lastLine > mLastLine)
-    lastLine = mLastLine;
-  for (auto lineIndex = (int)mFirstLine; lineIndex <= lastLine; lineIndex++) {
-    auto x = 0;
-    if (mShowTime) {
-      auto xinc = string (LCD_GREEN, mFontHeight,
-                          intStr ((mLines[lineIndex].mTime-mStartTime) / 1000) + "." +
-                          intStr ((mLines[lineIndex].mTime-mStartTime) % 1000, 3, '0'), x, y, getWidth(), mLineInc);
-      x += xinc + 3;
-      }
-    string (mLines[lineIndex].mColour, mFontHeight, mLines[lineIndex].mString, x, y, getWidth(), mLineInc);
-    y += mLineInc;
-    }
-
+    //}}}
   if (mShowDebug) {
+    //{{{  draw debug info lines
+    if (mLastLine >= 0) {
+      // draw scroll bar
+      auto yorg = mLineInc + ((int)mFirstLine * mNumDrawLines * mLineInc / (mLastLine + 1));
+      auto ylen = mNumDrawLines * mNumDrawLines * mLineInc / (mLastLine + 1);
+      rectClipped (LCD_YELLOW, 0, yorg, 8, ylen);
+      }
+
+    auto lastLine = (int)mFirstLine + mNumDrawLines - 1;
+    if (lastLine > mLastLine)
+      lastLine = mLastLine;
+    for (auto lineIndex = (int)mFirstLine; lineIndex <= lastLine; lineIndex++) {
+      auto x = 0;
+      if (mShowDebugTime) {
+        auto xinc = string (LCD_GREEN, mFontHeight,
+                            intStr ((mLines[lineIndex].mTime-mStartTime) / 1000) + "." +
+                            intStr ((mLines[lineIndex].mTime-mStartTime) % 1000, 3, '0'), x, y, getWidth(), mLineInc);
+        x += xinc + 3;
+        }
+      string (mLines[lineIndex].mColour, mFontHeight, mLines[lineIndex].mString, x, y, getWidth(), mLineInc);
+      y += mLineInc;
+      }
+    }
+    //}}}
+  if (mShowLcdDebug) {
+    //{{{  draw lcdDebug
     std::string str = intStr (ltdc.lineIrq) + ":f " +
                       intStr (ltdc.lineTicks) + "ms " +
                       intStr (mDma2dHighWater-mDma2dBuf) + ":hi " +
@@ -653,11 +665,13 @@ void cLcd::endDraw() {
                       intStr (ltdc.fifoUnderunIrq);
     string (LCD_WHITE, 20, str, 0, getHeight() - 2 * mLineInc, getWidth(), 24);
     }
-
+    //}}}
   if (mShowFooter)
+    //{{{  draw footer
     string (LCD_YELLOW, mFontHeight,
             intStr (xPortGetFreeHeapSize()) + " " + intStr (osGetCPUUsage()) + "% " + intStr (mDrawTime) + "ms",
             0, getHeight()-mLineInc, getWidth(), mLineInc);
+    //}}}
 
   sendWait();
   showLayer (0, mBuffer[mDrawBuffer], 255);
@@ -1050,7 +1064,7 @@ void cLcd::updateNumDrawLines() {
   auto numDrawLines = getHeight() / mLineInc;
   if (!mTitle.empty())
     numDrawLines--;
-  if (mShowDebug)
+  if (mShowLcdDebug)
     numDrawLines--;
   if (mShowFooter)
     numDrawLines--;

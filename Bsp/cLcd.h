@@ -58,8 +58,9 @@ public:
   int getFontHeight() { return mFontHeight; }
 
   void setTitle (std::string title);
-  void setShowTime (bool enable);
   void setShowDebug (bool enable);
+  void setShowDebugTime (bool enable);
+  void setShowLcdDebug (bool enable);
   void setShowFooter (bool enable);
 
   void info (uint32_t colour, std::string str, bool newLine = true);
@@ -121,8 +122,9 @@ private:
   int mFontHeight = 16;
   int mStringPos = 0;
 
-  bool mShowTime = true;
-  bool mShowDebug = false;
+  bool mShowDebug = true;
+  bool mShowDebugTime = true;
+  bool mShowLcdDebug = false;
   bool mShowFooter = true;
 
   std::string mTitle;

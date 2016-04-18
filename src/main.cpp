@@ -52,403 +52,406 @@ static osSemaphoreId audSem;
 static bool mAudHalf = false;
 
 static cValueBox* mProgressBox = nullptr;
+static vector <string> mMp3Files;
+static string mPlayFileName;
 //}}}
 //{{{
 class cVolumeBox : public cValueBox {
 public:
-  cVolumeBox (float value, uint32_t colour, int16_t xorg, int16_t yorg, uint16_t xlen, uint16_t ylen) :
-    cValueBox (value, colour, xorg, yorg, xlen, ylen){}
-  virtual ~cVolumeBox() {}
+	cVolumeBox (float value, uint32_t colour, int16_t xorg, int16_t yorg, uint16_t xlen, uint16_t ylen) :
+		cValueBox (value, colour, xorg, yorg, xlen, ylen){}
+	virtual ~cVolumeBox() {}
 
-  virtual void setValue (float value) {
-    if (cValueBox::setValue (value, 0.0f, 1.0f))
-      BSP_AUDIO_OUT_SetVolume (getValue() * 100);
-    }
-  };
+	virtual void setValue (float value) {
+		if (cValueBox::setValue (value, 0.0f, 1.0f))
+			BSP_AUDIO_OUT_SetVolume (getValue() * 100);
+		}
+	};
+//}}}
+//{{{
+class cFileNameBox : public cTextBox {
+public:
+	cFileNameBox (string text, uint32_t colour, int16_t xorg, int16_t yorg, uint16_t xlen, uint16_t ylen) :
+		cTextBox (text, colour, xorg, yorg, xlen, ylen) {}
+	virtual ~cFileNameBox() {}
+
+	virtual void pressed (int16_t x, int16_t y) {
+		cTextBox::pressed (x, y);
+		mPlayFileName = mText;
+		}
+	};
 //}}}
 
 //{{{
 void BSP_AUDIO_OUT_HalfTransfer_CallBack() {
-  mAudHalf = true;
-  osSemaphoreRelease (audSem);
-  }
+	mAudHalf = true;
+	osSemaphoreRelease (audSem);
+	}
 //}}}
 //{{{
 void BSP_AUDIO_OUT_TransferComplete_CallBack() {
-  mAudHalf = false;
-  osSemaphoreRelease (audSem);
-  }
+	mAudHalf = false;
+	osSemaphoreRelease (audSem);
+	}
 //}}}
 
 //{{{
 static void listDirectory (string directoryName, string indent) {
 
-  cLcd::debug ("dir " + directoryName);
+	cLcd::debug ("dir " + directoryName);
 
-  cDirectory directory (directoryName);
-  if (directory.isOk()) {
-    cFileInfo fileInfo;
-    while ((directory.find (fileInfo) == FR_OK) && !fileInfo.getEmpty()) {
-      if (fileInfo.getBack()) {
-        //cLcd::debug (fileInfo.getName());
-        }
-      else if (fileInfo.isDirectory())
-        listDirectory (directoryName + "/" + fileInfo.getName(), indent + "-");
-      else
-        cLcd::debug (indent + fileInfo.getName());
-      }
-    }
-  else
-    cLcd::debug (LCD_RED, "directory open error:"  + cLcd::intStr (directory.getResult()));
-  }
+	cDirectory directory (directoryName);
+	if (directory.isOk()) {
+		cFileInfo fileInfo;
+		while ((directory.find (fileInfo) == FR_OK) && !fileInfo.getEmpty()) {
+			if (fileInfo.getBack()) {
+				//cLcd::debug (fileInfo.getName());
+				}
+			else if (fileInfo.isDirectory())
+				listDirectory (directoryName + "/" + fileInfo.getName(), indent + "-");
+			else {
+				cLcd::instance()->setShowDebug (false);
+				mMp3Files.push_back (directoryName + "/" + fileInfo.getName());
+				cLcd::debug (indent + fileInfo.getName());
+				}
+			}
+		}
+	else
+		cLcd::debug (LCD_RED, "directory open error:"  + cLcd::intStr (directory.getResult()));
+	}
 //}}}
 //{{{
 static void playFile (string directoryName, string fileName) {
 
-  string fullName = directoryName + "/" + fileName;
-  cLcd::instance()->setTitle (fullName);
+	string fullName = directoryName + "/" + fileName;
+	cLcd::instance()->setTitle (fullName);
 
-  cFile file (fullName, FA_OPEN_EXISTING | FA_READ);
-  if (!file.isOk()) {
-    //{{{  error, return
-    cLcd::debug ("- open failed " + cLcd::intStr (file.getResult()) + " " + fullName);
-    return;
-    }
-    //}}}
-  cLcd::debug ("play " + fullName + " " + cLcd::intStr (file.getSize()));
+	cFile file (fullName, FA_OPEN_EXISTING | FA_READ);
+	if (!file.isOk()) {
+		//{{{  error, return
+		cLcd::debug ("- open failed " + cLcd::intStr (file.getResult()) + " " + fullName);
+		return;
+		}
+		//}}}
+	cLcd::debug ("play " + fullName + " " + cLcd::intStr (file.getSize()));
 
-  //{{{  chunkSize and buffer
-  int chunkSize = 4096;
-  int fullChunkSize = 2048 + chunkSize;
+	//{{{  chunkSize and buffer
+	int chunkSize = 4096;
+	int fullChunkSize = 2048 + chunkSize;
 
-  auto chunkBuffer = (uint8_t*)pvPortMalloc (fullChunkSize);
-  //}}}
-  //{{{  bsp play
-  for (auto i = 0; i < 480*2; i++)
-    mPower[i] = 0;
-  memset ((void*)AUDIO_BUFFER, 0, AUDIO_BUFFER_SIZE);
-  BSP_AUDIO_OUT_Play ((uint16_t*)AUDIO_BUFFER, AUDIO_BUFFER_SIZE);
-  //}}}
+	auto chunkBuffer = (uint8_t*)pvPortMalloc (fullChunkSize);
+	//}}}
+	//{{{  bsp play
+	for (auto i = 0; i < 480*2; i++)
+		mPower[i] = 0;
+	memset ((void*)AUDIO_BUFFER, 0, AUDIO_BUFFER_SIZE);
+	BSP_AUDIO_OUT_Play ((uint16_t*)AUDIO_BUFFER, AUDIO_BUFFER_SIZE);
+	//}}}
 
-  mPlayFrame = 0;
-  int bytesLeft;
-  do {
-    file.read (chunkBuffer, fullChunkSize, bytesLeft);
-    if (bytesLeft) {
-      auto chunkPtr = chunkBuffer;
-      int headerBytes;
-      do {
-        headerBytes = mMp3Decoder->findNextHeader (chunkPtr, bytesLeft);
-        if (headerBytes) {
-          chunkPtr += headerBytes;
-          bytesLeft -= headerBytes;
-          if (bytesLeft < mMp3Decoder->getFrameBodySize() + 4) { // not enough for frameBody and next header
-            //{{{  move bytesLeft to front of chunkBuffer,  next read partial buffer 32bit aligned
-            auto nextChunkPtr = chunkBuffer + ((4 - (bytesLeft & 3)) & 3);
-            memcpy (nextChunkPtr, chunkPtr, bytesLeft);
+	mPlayFrame = 0;
+	int bytesLeft;
+	do {
+		file.read (chunkBuffer, fullChunkSize, bytesLeft);
+		if (bytesLeft) {
+			auto chunkPtr = chunkBuffer;
+			int headerBytes;
+			do {
+				headerBytes = mMp3Decoder->findNextHeader (chunkPtr, bytesLeft);
+				if (headerBytes) {
+					chunkPtr += headerBytes;
+					bytesLeft -= headerBytes;
+					if (bytesLeft < mMp3Decoder->getFrameBodySize() + 4) { // not enough for frameBody and next header
+						//{{{  move bytesLeft to front of chunkBuffer,  next read partial buffer 32bit aligned
+						auto nextChunkPtr = chunkBuffer + ((4 - (bytesLeft & 3)) & 3);
+						memcpy (nextChunkPtr, chunkPtr, bytesLeft);
 
-            // read next chunks worth, including rest of frame, 32bit aligned
-            int bytesLoaded;
-            file.read (nextChunkPtr + bytesLeft, chunkSize, bytesLoaded);
-            if (bytesLoaded) {
-              chunkPtr = nextChunkPtr;
-              bytesLeft += bytesLoaded;
-              }
-            else
-              bytesLeft = 0;
-            }
-            //}}}
-          if (bytesLeft >= mMp3Decoder->getFrameBodySize()) {
-            osSemaphoreWait (audSem, 100);
-            auto frameBytes = mMp3Decoder->decodeFrameBody (chunkPtr, &mPower[(mPlayFrame % 480) * 2], (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
-            if (frameBytes) {
-              chunkPtr += frameBytes;
-              bytesLeft -= frameBytes;
-              mPlayFrame++;
-              }
-            else
-              bytesLeft = 0;
-            }
-          }
-        if (mProgressBox->getPressed()) {
-          //{{{  skip
-          if (mProgressBox->getValue() < 99.0f)
-            file.seek (int(mProgressBox->getValue() * file.getSize()) & 0xFFFFFFE0);
-          else
-            bytesLeft = 0;
+						// read next chunks worth, including rest of frame, 32bit aligned
+						int bytesLoaded;
+						file.read (nextChunkPtr + bytesLeft, chunkSize, bytesLoaded);
+						if (bytesLoaded) {
+							chunkPtr = nextChunkPtr;
+							bytesLeft += bytesLoaded;
+							}
+						else
+							bytesLeft = 0;
+						}
+						//}}}
+					if (bytesLeft >= mMp3Decoder->getFrameBodySize()) {
+						osSemaphoreWait (audSem, 100);
+						auto frameBytes = mMp3Decoder->decodeFrameBody (chunkPtr, &mPower[(mPlayFrame % 480) * 2], (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
+						if (frameBytes) {
+							chunkPtr += frameBytes;
+							bytesLeft -= frameBytes;
+							mPlayFrame++;
+							}
+						else
+							bytesLeft = 0;
+						}
+					}
+				if (mPlayFileName != fileName)
+					bytesLeft = 0;
+				else if (mProgressBox->getPressed()) {
+					//{{{  skip
+					if (mProgressBox->getValue() < 99.0f)
+						file.seek (int(mProgressBox->getValue() * file.getSize()) & 0xFFFFFFE0);
+					else
+						bytesLeft = 0;
 
-          headerBytes = 0;
-          }
-          //}}}
-        else
-          mProgressBox->setValue ((float)file.getPosition() / (float)file.getSize());
-        } while (headerBytes && (bytesLeft > 0));
-      }
-    } while (bytesLeft > 0);
+					headerBytes = 0;
+					}
+					//}}}
+				else
+					mProgressBox->setValue ((float)file.getPosition() / (float)file.getSize());
+				} while (headerBytes && (bytesLeft > 0));
+			}
+		} while (bytesLeft > 0);
 
-  vPortFree (chunkBuffer);
-  BSP_AUDIO_OUT_Stop (CODEC_PDWN_SW);
-  }
-//}}}
-//{{{
-static void playDirectory (string directoryName, const char* extension) {
-
-  cDirectory directory (directoryName);
-  if (directory.isOk()) {
-    cFileInfo fileInfo;
-    while ((directory.find (fileInfo) == FR_OK) && !fileInfo.getEmpty()) {
-      if (fileInfo.getBack()) {
-        }
-      else if (fileInfo.isDirectory()) {
-        //cLcd::debug ("playSubDirectory - " +  fileInfo.getName());
-        playDirectory (directoryName + "/" + fileInfo.getName(), extension);
-        }
-      else if (!extension || fileInfo.matchExtension (extension))
-        playFile (directoryName, fileInfo.getName());
-      }
-    }
-  else
-    cLcd::debug (LCD_RED, "directory open error:"  + cLcd::intStr (directory.getResult()));
-  }
+	vPortFree (chunkBuffer);
+	BSP_AUDIO_OUT_Stop (CODEC_PDWN_SW);
+	}
 //}}}
 
 // threads
 //{{{
 static void uiThread (void const* argument) {
 
-  cLcd::debug ("uiThread started");
-  auto lcd = cLcd::instance();
+	cLcd::debug ("uiThread started");
+	auto lcd = cLcd::instance();
 
-  lcd->addWidget (new cWidget (LCD_LIGHTGREY, 200, 0, 150, 20));
-  for (auto i = 22; i < 260; i += 22)
-    lcd->addWidget (new cTextBox ("testBox " + cLcd::intStr(i/22), LCD_LIGHTGREY, 200, i, 140, 20));
-  lcd->addWidget (new cVolumeBox (mVolume, LCD_YELLOW, cLcd::getWidth()-20, 0, 20, cLcd::getHeight()));
-  mProgressBox = new cValueBox (0, LCD_DARKBLUE, 0, 0, cLcd::getWidth(), 20);
-  lcd->addWidget (mProgressBox);
+	lcd->addWidget (new cVolumeBox (mVolume, LCD_YELLOW, cLcd::getWidth()-20, 0, 20, cLcd::getHeight()));
+	mProgressBox = new cValueBox (0, LCD_DARKBLUE, 0, 0, cLcd::getWidth(), 20);
+	lcd->addWidget (mProgressBox);
 
-  // init touch
-  BSP_TS_Init (cLcd::getWidth(), cLcd::getHeight());
-  int pressed[5] = {0, 0, 0, 0, 0};
-  int lastx[5];
-  int lasty[5];
-  int lastz[5];
+	// init touch
+	BSP_TS_Init (cLcd::getWidth(), cLcd::getHeight());
+	int pressed[5] = {0, 0, 0, 0, 0};
+	int lastx[5];
+	int lasty[5];
+	int lastz[5];
 
-  while (true) {
-    //{{{  read touch and use it
-    TS_StateTypeDef tsState;
-    BSP_TS_GetState (&tsState);
+	while (true) {
+		//{{{  read touch and use it
+		TS_StateTypeDef tsState;
+		BSP_TS_GetState (&tsState);
 
-    for (auto touch = 0; touch < 5; touch++) {
-      if ((touch < tsState.touchDetected) && tsState.touchWeight[touch]) {
-        auto x = tsState.touchX[touch];
-        auto y = tsState.touchY[touch];
-        auto z = tsState.touchWeight[touch];
+		for (auto touch = 0; touch < 5; touch++) {
+			if ((touch < tsState.touchDetected) && tsState.touchWeight[touch]) {
+				auto x = tsState.touchX[touch];
+				auto y = tsState.touchY[touch];
+				auto z = tsState.touchWeight[touch];
 
-        if (touch == 0)
-          lcd->pressed (pressed[0], x, y, pressed[0] ? x - lastx[0] : 0, pressed[0] ? y - lasty[0] : 0);
-        lastx[touch] = x;
-        lasty[touch] = y;
-        lastz[touch] = z;
-        pressed[touch]++;
-        }
+				if (touch == 0)
+					lcd->pressed (pressed[0], x, y, pressed[0] ? x - lastx[0] : 0, pressed[0] ? y - lasty[0] : 0);
+				lastx[touch] = x;
+				lasty[touch] = y;
+				lastz[touch] = z;
+				pressed[touch]++;
+				}
 
-      else {
-        pressed[touch] = 0;
-        if (touch ==  0)
-          lcd->released();
-        }
-      }
-    //}}}
+			else {
+				pressed[touch] = 0;
+				if (touch ==  0)
+					lcd->released();
+				}
+			}
+		//}}}
 
-    lcd->startDraw();
-    lcd->drawWidgets();
-    //{{{  draw touch
-    for (auto touch = 0; (touch < 5) && pressed[touch]; touch++)
-      lcd->ellipse (touch > 0 ? LCD_LIGHTGREY : LCD_YELLOW, lastx[touch], lasty[touch], lastz[touch], lastz[touch]);
-    //}}}
-    //{{{  draw blue waveform
-    for (auto x = 0; x < cLcd::getWidth(); x++) {
-      int frame = mPlayFrame - cLcd::getWidth() + x;
-      if (frame > 0) {
-        auto index = (frame % 480) * 2;
-        uint8_t top = (cLcd::getHeight()/2) - (int)mPower[index]/2;
-        uint8_t ylen = (cLcd::getHeight()/2) + (int)mPower[index+1]/2 - top;
-        lcd->rectClipped (LCD_BLUE, x, top, 1, ylen);
-        }
-      }
-    //}}}
-    lcd->endDraw();
-    }
+		lcd->startDraw();
+		lcd->drawWidgets();
+		//{{{  draw touch
+		for (auto touch = 0; (touch < 5) && pressed[touch]; touch++)
+			lcd->ellipse (touch > 0 ? LCD_LIGHTGREY : LCD_YELLOW, lastx[touch], lasty[touch], lastz[touch], lastz[touch]);
+		//}}}
+		//{{{  draw blue waveform
+		for (auto x = 0; x < cLcd::getWidth(); x++) {
+			int frame = mPlayFrame - cLcd::getWidth() + x;
+			if (frame > 0) {
+				auto index = (frame % 480) * 2;
+				uint8_t top = (cLcd::getHeight()/2) - (int)mPower[index]/2;
+				uint8_t ylen = (cLcd::getHeight()/2) + (int)mPower[index+1]/2 - top;
+				lcd->rectClipped (LCD_BLUE, x, top, 1, ylen);
+				}
+			}
+		//}}}
+		lcd->endDraw();
+		}
 
-  }
+	}
 //}}}
 //{{{
 static void loadThread (void const* argument) {
 
-  cLcd::debug ("loadThread started");
+	cLcd::debug ("loadThread started");
 
-  BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 44100);  // OUTPUT_DEVICE_HEADPHONE
-  BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);             // CODEC_AUDIOFRAME_SLOT_02
+	BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 44100);  // OUTPUT_DEVICE_HEADPHONE
+	BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);             // CODEC_AUDIOFRAME_SLOT_02
 
-  BSP_SD_Init();
-  while (BSP_SD_IsDetected() != SD_PRESENT) {
-    cLcd::debug (LCD_RED, "no SD card");
-    osDelay (1000);
-    }
-  cLcd::debug ("SD card found");
+	BSP_SD_Init();
+	while (BSP_SD_IsDetected() != SD_PRESENT) {
+		cLcd::debug (LCD_RED, "no SD card");
+		osDelay (1000);
+		}
+	cLcd::debug ("SD card found");
 
-  cFatFs* fatFs = cFatFs::create();
-  if (fatFs->mount() == FR_OK) {
-    cLcd::debug (fatFs->getLabel() +
-                 " vsn:" + cLcd::hexStr (fatFs->getVolumeSerialNumber()) +
-                 " freeSectors:" + cLcd::intStr (fatFs->getFreeSectors()));
-    listDirectory ("", "");
-    playDirectory ("", "MP3");
-    }
-  else
-    cLcd::debug ("fatFs mount problem");
+	cFatFs* fatFs = cFatFs::create();
+	if (fatFs->mount() == FR_OK) {
+		cLcd::debug (fatFs->getLabel() +
+								 " vsn:" + cLcd::hexStr (fatFs->getVolumeSerialNumber()) +
+								 " freeSectors:" + cLcd::intStr (fatFs->getFreeSectors()));
+		listDirectory ("sub", "");
 
-  int tick = 0;
-  while (true) {
-    cLcd::debug ("load tick" + cLcd::intStr (tick++));
-    osDelay (10000);
-    }
-  }
+		int16_t i = 22;
+		for (auto fileName : mMp3Files) {
+			cLcd::instance()->addWidget (new cFileNameBox (fileName, LCD_LIGHTGREY, 0, i, 400, 22));
+			i += 22;
+			if (i > cLcd::getHeight())
+				break;
+			}
+		}
+	else
+		cLcd::debug ("fatFs mount problem");
+
+	while (true) {
+		while (mPlayFileName.empty())
+			osDelay (100);
+		playFile ("", mPlayFileName);
+		}
+	}
 //}}}
 //{{{
 static void dhcpThread (void const* argument) {
 
-  auto netif = (struct netif*)argument;
+	auto netif = (struct netif*)argument;
 
-  tcpip_init (NULL, NULL);
-  cLcd::debug ("configuring ethernet");
+	tcpip_init (NULL, NULL);
+	cLcd::debug ("configuring ethernet");
 
-  // init LwIP stack
-  struct ip_addr ipAddr;
-  IP4_ADDR (&ipAddr, 192, 168, 1, 67);
-  struct ip_addr netmask;
-  IP4_ADDR (&netmask, 255, 255 , 255, 0);
-  struct ip_addr gateway;
-  IP4_ADDR (&gateway, 192, 168, 0, 1);
-  netif_add (netif, &ipAddr, &netmask, &gateway, NULL, &ethernetif_init, &tcpip_input);
-  netif_set_default (netif);
+	// init LwIP stack
+	struct ip_addr ipAddr;
+	IP4_ADDR (&ipAddr, 192, 168, 1, 67);
+	struct ip_addr netmask;
+	IP4_ADDR (&netmask, 255, 255 , 255, 0);
+	struct ip_addr gateway;
+	IP4_ADDR (&gateway, 192, 168, 0, 1);
+	netif_add (netif, &ipAddr, &netmask, &gateway, NULL, &ethernetif_init, &tcpip_input);
+	netif_set_default (netif);
 
-  if (netif_is_link_up (netif)) {
-    netif_set_up (netif);
-    if (kStaticIp)
-      cLcd::debug (LCD_YELLOW, "ethernet static ip " + cLcd::intStr ((int) (netif->ip_addr.addr & 0xFF)) + "." +
-                                                       cLcd::intStr ((int)((netif->ip_addr.addr >> 16) & 0xFF)) + "." +
-                                                       cLcd::intStr ((int)((netif->ip_addr.addr >> 8) & 0xFF)) + "." +
-                                                       cLcd::intStr ((int) (netif->ip_addr.addr >> 24)));
-    else {
-      struct ip_addr nullIpAddr;
-      IP4_ADDR (&nullIpAddr, 0, 0, 0, 0);
-      netif->ip_addr = nullIpAddr;
-      netif->netmask = nullIpAddr;
-      netif->gw = nullIpAddr;
-      dhcp_start (netif);
+	if (netif_is_link_up (netif)) {
+		netif_set_up (netif);
+		if (kStaticIp)
+			cLcd::debug (LCD_YELLOW, "ethernet static ip " + cLcd::intStr ((int) (netif->ip_addr.addr & 0xFF)) + "." +
+																											 cLcd::intStr ((int)((netif->ip_addr.addr >> 16) & 0xFF)) + "." +
+																											 cLcd::intStr ((int)((netif->ip_addr.addr >> 8) & 0xFF)) + "." +
+																											 cLcd::intStr ((int) (netif->ip_addr.addr >> 24)));
+		else {
+			struct ip_addr nullIpAddr;
+			IP4_ADDR (&nullIpAddr, 0, 0, 0, 0);
+			netif->ip_addr = nullIpAddr;
+			netif->netmask = nullIpAddr;
+			netif->gw = nullIpAddr;
+			dhcp_start (netif);
 
-      while (true) {
-        if (netif->ip_addr.addr) {
-          //{{{  dhcp allocated
-          cLcd::debug (LCD_YELLOW, "dhcp allocated " + cLcd::intStr ( (int)(netif->ip_addr.addr & 0xFF)) + "." +
-                                                       cLcd::intStr ((int)((netif->ip_addr.addr >> 16) & 0xFF)) + "." +
-                                                       cLcd::intStr ((int)((netif->ip_addr.addr >> 8) & 0xFF)) + "." +
-                                                       cLcd::intStr ( (int)(netif->ip_addr.addr >> 24)));
-          dhcp_stop (netif);
-          osSemaphoreRelease (dhcpSem);
-          break;
-          }
-          //}}}
-        else if (netif->dhcp->tries > 4) {
-          //{{{  dhcp timeout
-          cLcd::debug (LCD_RED, "dhcp timeout");
-          dhcp_stop (netif);
+			while (true) {
+				if (netif->ip_addr.addr) {
+					//{{{  dhcp allocated
+					cLcd::debug (LCD_YELLOW, "dhcp allocated " + cLcd::intStr ( (int)(netif->ip_addr.addr & 0xFF)) + "." +
+																											 cLcd::intStr ((int)((netif->ip_addr.addr >> 16) & 0xFF)) + "." +
+																											 cLcd::intStr ((int)((netif->ip_addr.addr >> 8) & 0xFF)) + "." +
+																											 cLcd::intStr ( (int)(netif->ip_addr.addr >> 24)));
+					dhcp_stop (netif);
+					osSemaphoreRelease (dhcpSem);
+					break;
+					}
+					//}}}
+				else if (netif->dhcp->tries > 4) {
+					//{{{  dhcp timeout
+					cLcd::debug (LCD_RED, "dhcp timeout");
+					dhcp_stop (netif);
 
-          // use static address
-          struct ip_addr ipAddr;
-          IP4_ADDR (&ipAddr, 192 ,168 , 1 , 67 );
-          struct ip_addr netmask;
-          IP4_ADDR (&netmask, 255, 255, 255, 0);
-          struct ip_addr gateway;
-          IP4_ADDR (&gateway, 192, 168, 0, 1);
-          netif_set_addr (netif, &ipAddr , &netmask, &gateway);
-          osSemaphoreRelease (dhcpSem);
-          break;
-          }
-          //}}}
-        osDelay (250);
-        }
-      }
+					// use static address
+					struct ip_addr ipAddr;
+					IP4_ADDR (&ipAddr, 192 ,168 , 1 , 67 );
+					struct ip_addr netmask;
+					IP4_ADDR (&netmask, 255, 255, 255, 0);
+					struct ip_addr gateway;
+					IP4_ADDR (&gateway, 192, 168, 0, 1);
+					netif_set_addr (netif, &ipAddr , &netmask, &gateway);
+					osSemaphoreRelease (dhcpSem);
+					break;
+					}
+					//}}}
+				osDelay (250);
+				}
+			}
 
-    httpServerInit();
-    cLcd::debug ("httpServer started");
-    }
+		httpServerInit();
+		cLcd::debug ("httpServer started");
+		}
 
-  else {
-    //{{{  no ethernet
-    netif_set_down (&gNetif);
-    cLcd::debug (LCD_RED, "no ethernet");
-    }
-    //}}}
+	else {
+		//{{{  no ethernet
+		netif_set_down (&gNetif);
+		cLcd::debug (LCD_RED, "no ethernet");
+		}
+		//}}}
 
-  osThreadTerminate (NULL);
-  }
+	osThreadTerminate (NULL);
+	}
 //}}}
 //{{{
 static void startThread (void const* argument) {
 
-  cLcd::create (__TIME__ __DATE__);
+	cLcd::create (__TIME__ __DATE__);
 
-  const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 2000 };
-  osThreadCreate (&osThreadUi, NULL);
+	const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 2000 };
+	osThreadCreate (&osThreadUi, NULL);
 
-  const osThreadDef_t osThreadLoad =  { (char*)"Load", loadThread, osPriorityNormal, 0, 10000 };
-  osThreadCreate (&osThreadLoad, NULL);
+	const osThreadDef_t osThreadLoad =  { (char*)"Load", loadThread, osPriorityNormal, 0, 10000 };
+	osThreadCreate (&osThreadLoad, NULL);
 
-  const osThreadDef_t osThreadDHCP =  { (char*)"DHCP", dhcpThread, osPriorityBelowNormal, 0, 1024 };
-  osThreadCreate (&osThreadDHCP, &gNetif);
+	const osThreadDef_t osThreadDHCP =  { (char*)"DHCP", dhcpThread, osPriorityBelowNormal, 0, 1024 };
+	osThreadCreate (&osThreadDHCP, &gNetif);
 
-  cLcd::debug ("mp3Decoder create");
-  mMp3Decoder = new cMp3Decoder;
-  cLcd::debug ("mp3Decoder created");
+	cLcd::debug ("mp3Decoder create");
+	mMp3Decoder = new cMp3Decoder;
+	cLcd::debug ("mp3Decoder created");
 
-  for (;;)
-    osThreadTerminate (NULL);
-  }
+	for (;;)
+		osThreadTerminate (NULL);
+	}
 //}}}
 
 //{{{
 static void initMpuRegions() {
 // init MPU regions
 
-  // common MPU config for writeThrough
-  HAL_MPU_Disable();
+	// common MPU config for writeThrough
+	HAL_MPU_Disable();
 
-  MPU_Region_InitTypeDef MPU_InitStruct;
-  MPU_InitStruct.Enable = MPU_REGION_ENABLE;
-  MPU_InitStruct.AccessPermission = MPU_REGION_FULL_ACCESS;
-  MPU_InitStruct.SubRegionDisable = 0x00;
-  MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
-  MPU_InitStruct.IsCacheable = MPU_ACCESS_CACHEABLE;
-  MPU_InitStruct.IsShareable = MPU_ACCESS_NOT_SHAREABLE;
-  MPU_InitStruct.TypeExtField = MPU_TEX_LEVEL0;
-  MPU_InitStruct.DisableExec = MPU_INSTRUCTION_ACCESS_DISABLE;
+	MPU_Region_InitTypeDef MPU_InitStruct;
+	MPU_InitStruct.Enable = MPU_REGION_ENABLE;
+	MPU_InitStruct.AccessPermission = MPU_REGION_FULL_ACCESS;
+	MPU_InitStruct.SubRegionDisable = 0x00;
+	MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
+	MPU_InitStruct.IsCacheable = MPU_ACCESS_CACHEABLE;
+	MPU_InitStruct.IsShareable = MPU_ACCESS_NOT_SHAREABLE;
+	MPU_InitStruct.TypeExtField = MPU_TEX_LEVEL0;
+	MPU_InitStruct.DisableExec = MPU_INSTRUCTION_ACCESS_DISABLE;
 
-  // config writeThrough for SRAM1,SRAM2 0x20010000, 256k, AXI - region0
-  MPU_InitStruct.Number = MPU_REGION_NUMBER0;
-  MPU_InitStruct.BaseAddress = 0x20010000;
-  MPU_InitStruct.Size = MPU_REGION_SIZE_256KB;
-  HAL_MPU_ConfigRegion (&MPU_InitStruct);
+	// config writeThrough for SRAM1,SRAM2 0x20010000, 256k, AXI - region0
+	MPU_InitStruct.Number = MPU_REGION_NUMBER0;
+	MPU_InitStruct.BaseAddress = 0x20010000;
+	MPU_InitStruct.Size = MPU_REGION_SIZE_256KB;
+	HAL_MPU_ConfigRegion (&MPU_InitStruct);
 
-  // config writeThrough for SDRAM 0xC0000000, 8m - region1
-  MPU_InitStruct.Number = MPU_REGION_NUMBER1;
-  MPU_InitStruct.BaseAddress = 0xC0000000;
-  MPU_InitStruct.Size = MPU_REGION_SIZE_8MB;
-  HAL_MPU_ConfigRegion (&MPU_InitStruct);
+	// config writeThrough for SDRAM 0xC0000000, 8m - region1
+	MPU_InitStruct.Number = MPU_REGION_NUMBER1;
+	MPU_InitStruct.BaseAddress = 0xC0000000;
+	MPU_InitStruct.Size = MPU_REGION_SIZE_8MB;
+	HAL_MPU_ConfigRegion (&MPU_InitStruct);
 
-  HAL_MPU_Enable (MPU_PRIVILEGED_DEFAULT);
-  }
+	HAL_MPU_Enable (MPU_PRIVILEGED_DEFAULT);
+	}
 //}}}
 //{{{
 static void initClock() {
@@ -467,60 +470,60 @@ static void initClock() {
 //  APB2 Prescaler                 = 2
 //  Flash Latency(WS)              = 7
 
-  RCC_OscInitTypeDef RCC_OscInitStruct;
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
-  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-  RCC_OscInitStruct.PLL.PLLM = 25;
-  RCC_OscInitStruct.PLL.PLLN = 432;
-  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-  RCC_OscInitStruct.PLL.PLLQ = 9;
-  if (HAL_RCC_OscConfig (&RCC_OscInitStruct) != HAL_OK)
-    while (true) {;}
+	RCC_OscInitTypeDef RCC_OscInitStruct;
+	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+	RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+	RCC_OscInitStruct.PLL.PLLM = 25;
+	RCC_OscInitStruct.PLL.PLLN = 432;
+	RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+	RCC_OscInitStruct.PLL.PLLQ = 9;
+	if (HAL_RCC_OscConfig (&RCC_OscInitStruct) != HAL_OK)
+		while (true) {;}
 
-  // Activate the OverDrive to reach the 216 MHz Frequency
-  if (HAL_PWREx_EnableOverDrive() != HAL_OK)
-    while (true) {;}
+	// Activate the OverDrive to reach the 216 MHz Frequency
+	if (HAL_PWREx_EnableOverDrive() != HAL_OK)
+		while (true) {;}
 
-  // Select PLL as system clock source and configure the HCLK, PCLK1 and PCLK2 clocks dividers
-  RCC_ClkInitTypeDef RCC_ClkInitStruct;
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
-  if (HAL_RCC_ClockConfig (&RCC_ClkInitStruct, FLASH_LATENCY_7) != HAL_OK)
-    while (true) {;}
-  }
+	// Select PLL as system clock source and configure the HCLK, PCLK1 and PCLK2 clocks dividers
+	RCC_ClkInitTypeDef RCC_ClkInitStruct;
+	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
+	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+	if (HAL_RCC_ClockConfig (&RCC_ClkInitStruct, FLASH_LATENCY_7) != HAL_OK)
+		while (true) {;}
+	}
 //}}}
 
 //{{{
 int main() {
 
-  SCB_EnableICache();
-  SCB_EnableDCache();
-  HAL_Init();
-  initMpuRegions();
-  initClock();
+	SCB_EnableICache();
+	SCB_EnableDCache();
+	HAL_Init();
+	initMpuRegions();
+	initClock();
 
-  // init freeRTOS heap_5c
-  HeapRegion_t xHeapRegions[] = { {(uint8_t*)SDRAM_HEAP, SDRAM_HEAP_SIZE }, { nullptr, 0 } };
-  vPortDefineHeapRegions (xHeapRegions);
+	// init freeRTOS heap_5c
+	HeapRegion_t xHeapRegions[] = { {(uint8_t*)SDRAM_HEAP, SDRAM_HEAP_SIZE }, { nullptr, 0 } };
+	vPortDefineHeapRegions (xHeapRegions);
 
-  // init semaphores
-  osSemaphoreDef (dhcp);
-  dhcpSem = osSemaphoreCreate (osSemaphore (dhcp), -1);
+	// init semaphores
+	osSemaphoreDef (dhcp);
+	dhcpSem = osSemaphoreCreate (osSemaphore (dhcp), -1);
 
-  osSemaphoreDef (aud);
-  audSem = osSemaphoreCreate (osSemaphore (aud), -1);
+	osSemaphoreDef (aud);
+	audSem = osSemaphoreCreate (osSemaphore (aud), -1);
 
-  // launch startThread
-  const osThreadDef_t osThreadStart = { (char*)"Start", startThread, osPriorityNormal, 0, 4000 };
-  osThreadCreate (&osThreadStart, NULL);
+	// launch startThread
+	const osThreadDef_t osThreadStart = { (char*)"Start", startThread, osPriorityNormal, 0, 4000 };
+	osThreadCreate (&osThreadStart, NULL);
 
-  osKernelStart();
+	osKernelStart();
 
-  return 0;
-  }
+	return 0;
+	}
 //}}}
