@@ -10,10 +10,10 @@ public:
 
   virtual void setColour (uint32_t colour) { mColour = colour; }
   virtual bool picked (int16_t x, int16_t y) { return (x >= mXorg) && (x < mXorg + mXlen) && (y >= mYorg) && (y < mYorg + mYlen); }
-  virtual void pressed (int16_t x, int16_t y) {}
+  virtual void pressed (int16_t x, int16_t y) { mPressed = true; }
   virtual void moved (int16_t x, int16_t y, int16_t xinc, int16_t yinc) {}
-  virtual void released (int16_t x, int16_t y) {}
-  virtual void draw (cLcd* lcd) { lcd->rect (mColour, mXorg, mYorg, mXlen, mYlen); }
+  virtual void released (int16_t x, int16_t y) { mPressed = false; }
+  virtual void draw (cLcd* lcd) { lcd->rect (mPressed ? LCD_LIGHTRED : mColour, mXorg, mYorg, mXlen, mYlen); }
 
 protected:
   uint32_t mColour = LCD_LIGHTGREY;
@@ -21,4 +21,6 @@ protected:
   int16_t mYorg = 0;
   int16_t mXlen = 0;
   int16_t mYlen = 0;
+
+  bool mPressed = false;
   };

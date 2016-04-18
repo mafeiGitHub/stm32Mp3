@@ -528,30 +528,64 @@ void cLcd::line (uint32_t col, int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
 //{{{
 void cLcd::pressed (int pressCount, int x, int y, int xinc, int yinc) {
 
-  if ((pressCount > 30) && (x <= mStringPos) && (y <= mLineInc))
-    reset();
-  else if (pressCount == 0) {
-    if (x <= mStringPos) {
-      // set displayFirstLine
-      if (y < 2 * mLineInc)
-        displayTop();
-      else if (y > getHeight() - 2 * mLineInc)
-        displayTail();
+  if (pressCount == 1) {
+    for (auto widget : mWidgets) {
+      if (widget->picked (x,y)) {
+        mPressedx = x;
+        mPressedy = y;
+        mPressedWidget = widget;
+        mPressedWidget->pressed (x, y);
+        return;
+        }
+      }
+    mPressedWidget = nullptr;
+    }
+  else if (mPressedWidget) {
+    mPressedx = x;
+    mPressedy = y;
+    mPressedWidget->moved (x, y, xinc, yinc);
+    }
+
+  if (!mPressedWidget) {
+    if ((pressCount > 30) && (x <= mStringPos) && (y <= mLineInc))
+      reset();
+    else if (pressCount == 0) {
+      if (x <= mStringPos) {
+        // set displayFirstLine
+        if (y < 2 * mLineInc)
+          displayTop();
+        else if (y > getHeight() - 2 * mLineInc)
+          displayTail();
+        }
+      }
+    else {
+      // inc firstLine
+      float value = mFirstLine - ((2.0f * yinc) / mLineInc);
+
+      if (value < 0)
+        mFirstLine = 0;
+      else if (mLastLine <= (int)mNumDrawLines-1)
+        mFirstLine = 0;
+      else if (value > mLastLine - mNumDrawLines + 1)
+        mFirstLine = mLastLine - mNumDrawLines + 1;
+      else
+        mFirstLine = value;
       }
     }
-  else {
-    // inc firstLine
-    float value = mFirstLine - ((2.0f * yinc) / mLineInc);
+  }
+//}}}
+//{{{
+void cLcd::released() {
 
-    if (value < 0)
-      mFirstLine = 0;
-    else if (mLastLine <= (int)mNumDrawLines-1)
-      mFirstLine = 0;
-    else if (value > mLastLine - mNumDrawLines + 1)
-      mFirstLine = mLastLine - mNumDrawLines + 1;
-    else
-      mFirstLine = value;
+  if (mPressedWidget) {
+    mPressedWidget->released (mPressedx, mPressedy);
+    mPressedWidget = nullptr;
     }
+  }
+//}}}
+//{{{
+void cLcd::addWidget (cWidget* widget) {
+  mWidgets.push_back (widget);
   }
 //}}}
 
@@ -666,12 +700,6 @@ void cLcd::displayOff() {
 
   // turn off backlight
   HAL_GPIO_WritePin (LCD_BL_CTRL_GPIO_PORT, LCD_BL_CTRL_PIN, GPIO_PIN_RESET);/* De-assert LCD_BL_CTRL pin */
-  }
-//}}}
-
-//{{{
-void cLcd::addWidget (cWidget* widget) {
-  mWidgets.push_back (widget);
   }
 //}}}
 

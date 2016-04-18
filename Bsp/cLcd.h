@@ -54,6 +54,7 @@ public:
   static void debug (uint32_t colour, std::string str, bool newLine = true) { instance()->info (colour, str, newLine); }
   static void debug (std::string str) { instance()->info (str); }
 
+  int getLineInc() { return mLineInc; }
   int getFontHeight() { return mFontHeight; }
 
   void setTitle (std::string title);
@@ -76,6 +77,8 @@ public:
   void line (uint32_t col, int16_t x1, int16_t y1, int16_t x2, int16_t y2);
 
   void pressed (int pressCount, int x, int y, int xinc, int yinc);
+  void released();
+  void addWidget (cWidget* widget);
 
   void startDraw();
   void drawWidgets();
@@ -84,8 +87,6 @@ public:
 
   void displayOn();
   void displayOff();
-
-  void addWidget (cWidget* widget);
 
 private:
   void init (std::string title, bool buffered);
@@ -159,6 +160,9 @@ private:
   uint32_t* mDma2dHighWater = nullptr;
   uint32_t mDma2dTimeouts= 0;
 
+  uint16_t mPressedx = 0;
+  uint16_t mPressedy = 0;
+  cWidget* mPressedWidget = nullptr;
   std::vector <cWidget*> mWidgets;
   //}}}
   };

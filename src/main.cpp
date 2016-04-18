@@ -236,18 +236,7 @@ static void uiThread (void const* argument) {
         auto z = tsState.touchWeight[touch];
 
         if (touch == 0) {
-          if (y < 30)
-            mSkip = float(x) / (cLcd::getWidth()-1);
-          else if (x < kInfo)
-            //{{{  pressed lcd info
-            lcd->pressed (pressed[touch], x, y, pressed[touch] ? x - lastx[touch] : 0, pressed[touch] ? y - lasty[touch] : 0);
-            //}}}
-          else if (x < kVolume) {
-            //{{{  pressed middle
-            //cLcd::debug (cLcd::intStr (x) + "," + cLcd::intStr (y) + "," + cLcd::intStr (tsState.touchWeight[touch]));
-            }
-            //}}}
-          else {
+          if (x > 460) {
             //{{{  pressed volume
             auto volume = pressed[touch] ? mVolume + float(y - lasty[touch]) / cLcd::getHeight(): float(y) / cLcd::getHeight();
 
@@ -262,6 +251,7 @@ static void uiThread (void const* argument) {
               }
             }
             //}}}
+          lcd->pressed (pressed[touch], x, y, pressed[touch] ? x - lastx[touch] : 0, pressed[touch] ? y - lasty[touch] : 0);
           }
 
         lastx[touch] = x;
@@ -269,8 +259,11 @@ static void uiThread (void const* argument) {
         lastz[touch] = z;
         pressed[touch]++;
         }
-      else
+      else {
         pressed[touch] = 0;
+        if (touch ==  0) 
+          lcd->released();
+        }
       }
     //}}}
 
