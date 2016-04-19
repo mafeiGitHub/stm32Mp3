@@ -40,7 +40,6 @@ static bool kStaticIp = true;
 //}}}
 //{{{  static vars
 static struct netif gNetif;
-static osSemaphoreId dhcpSem;
 
 static float mVolume = 0.8f;
 static int mPlayFrame = 0;
@@ -105,25 +104,30 @@ static void listDirectory (string directoryName, string indent) {
   cLcd::debug ("dir " + directoryName);
 
   cDirectory directory (directoryName);
-  if (directory.isOk()) {
-    cFileInfo fileInfo;
-    while ((directory.find (fileInfo) == FR_OK) && !fileInfo.getEmpty()) {
-      if (fileInfo.getBack()) {
-        //cLcd::debug (fileInfo.getName());
-        }
-      else if (fileInfo.isDirectory())
-        listDirectory (directoryName + "/" + fileInfo.getName(), indent + "-");
-      else {
-        cLcd::instance()->setShowDebug (false);
-        mMp3Files.push_back (directoryName + "/" + fileInfo.getName());
-        cLcd::debug (indent + fileInfo.getName());
-        cFile file (directoryName + "/" + fileInfo.getName(), FA_OPEN_EXISTING | FA_READ);
-        cLcd::debug ("- filesize " + cLcd::intStr (file.getSize()));
-        }
+  if (!directory.isOk()) {
+    //{{{  open error
+    cLcd::debug (LCD_RED, "directory open error:"  + cLcd::intStr (directory.getResult()));
+    return;
+    }
+    //}}}
+
+  cFileInfo fileInfo;
+  while ((directory.find (fileInfo) == FR_OK) && !fileInfo.getEmpty()) {
+    if (fileInfo.getBack()) {
+      //cLcd::debug (fileInfo.getName());
+      }
+
+    else if (fileInfo.isDirectory())
+      listDirectory (directoryName + "/" + fileInfo.getName(), indent + "-");
+
+    else if (fileInfo.matchExtension ("MP3")) {
+      cLcd::instance()->setShowDebug (false);
+      mMp3Files.push_back (directoryName + "/" + fileInfo.getName());
+      cLcd::debug (indent + fileInfo.getName());
+      cFile file (directoryName + "/" + fileInfo.getName(), FA_OPEN_EXISTING | FA_READ);
+      cLcd::debug ("- filesize " + cLcd::intStr (file.getSize()));
       }
     }
-  else
-    cLcd::debug (LCD_RED, "directory open error:"  + cLcd::intStr (directory.getResult()));
   }
 //}}}
 //{{{
@@ -289,9 +293,11 @@ static void loadThread (void const* argument) {
 
   BSP_SD_Init();
   while (BSP_SD_IsDetected() != SD_PRESENT) {
+    //{{{  wait for sd card loop
     cLcd::debug (LCD_RED, "no SD card");
     osDelay (1000);
     }
+    //}}}
   cLcd::debug ("SD card found");
 
   cFatFs* fatFs = cFatFs::create();
@@ -302,6 +308,7 @@ static void loadThread (void const* argument) {
     return;
     }
     //}}}
+
   cLcd::debug (fatFs->getLabel() +
                " vsn:" + cLcd::hexStr (fatFs->getVolumeSerialNumber()) +
                " freeSectors:" + cLcd::intStr (fatFs->getFreeSectors()));
@@ -314,6 +321,8 @@ static void loadThread (void const* argument) {
   mMp3Decoder = new cMp3Decoder;
   cLcd::debug ("mp3Decoder created");
 
+  osSemaphoreDef (aud);
+  audSem = osSemaphoreCreate (osSemaphore (aud), -1);
   BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 44100);  // OUTPUT_DEVICE_HEADPHONE
   BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);             // CODEC_AUDIOFRAME_SLOT_02
 
@@ -345,11 +354,14 @@ static void dhcpThread (void const* argument) {
   if (netif_is_link_up (netif)) {
     netif_set_up (netif);
     if (kStaticIp)
+      //{{{  static ip
       cLcd::debug (LCD_YELLOW, "ethernet static ip " + cLcd::intStr ((int) (netif->ip_addr.addr & 0xFF)) + "." +
                                                        cLcd::intStr ((int)((netif->ip_addr.addr >> 16) & 0xFF)) + "." +
                                                        cLcd::intStr ((int)((netif->ip_addr.addr >> 8) & 0xFF)) + "." +
                                                        cLcd::intStr ((int) (netif->ip_addr.addr >> 24)));
+      //}}}
     else {
+      //{{{  dhcp ip
       struct ip_addr nullIpAddr;
       IP4_ADDR (&nullIpAddr, 0, 0, 0, 0);
       netif->ip_addr = nullIpAddr;
@@ -365,7 +377,6 @@ static void dhcpThread (void const* argument) {
                                                        cLcd::intStr ((int)((netif->ip_addr.addr >> 8) & 0xFF)) + "." +
                                                        cLcd::intStr ( (int)(netif->ip_addr.addr >> 24)));
           dhcp_stop (netif);
-          osSemaphoreRelease (dhcpSem);
           break;
           }
           //}}}
@@ -382,18 +393,17 @@ static void dhcpThread (void const* argument) {
           struct ip_addr gateway;
           IP4_ADDR (&gateway, 192, 168, 0, 1);
           netif_set_addr (netif, &ipAddr , &netmask, &gateway);
-          osSemaphoreRelease (dhcpSem);
           break;
           }
           //}}}
         osDelay (250);
         }
       }
+      //}}}
 
     httpServerInit();
     cLcd::debug ("httpServer started");
     }
-
   else {
     //{{{  no ethernet
     netif_set_down (&gNetif);
@@ -512,13 +522,6 @@ int main() {
   // init freeRTOS heap_5c
   HeapRegion_t xHeapRegions[] = { {(uint8_t*)SDRAM_HEAP, SDRAM_HEAP_SIZE }, { nullptr, 0 } };
   vPortDefineHeapRegions (xHeapRegions);
-
-  // init semaphores
-  osSemaphoreDef (dhcp);
-  dhcpSem = osSemaphoreCreate (osSemaphore (dhcp), -1);
-
-  osSemaphoreDef (aud);
-  audSem = osSemaphoreCreate (osSemaphore (aud), -1);
 
   // launch startThread
   const osThreadDef_t osThreadStart = { (char*)"Start", startThread, osPriorityNormal, 0, 4000 };

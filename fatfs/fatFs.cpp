@@ -2936,10 +2936,10 @@ FRESULT cFile::write (const void *buff, UINT btw, UINT* bw) {
 
   DWORD clst, sect;
   UINT wcnt, cc;
-  const BYTE *wbuff = (const BYTE*)buff;
   BYTE csect;
 
-  *bw = 0;  /* Clear write byte counter */
+  *bw = 0;  
+  const BYTE *wbuff = (const BYTE*)buff;
 
   if (!validate()) {
     //{{{  error
@@ -2954,95 +2954,106 @@ FRESULT cFile::write (const void *buff, UINT btw, UINT* bw) {
     }
     //}}}
 
-  /* File size cannot reach 4GB */
+  // File size cannot reach 4GB
   if (mPosition + btw < mPosition)
     btw = 0;
 
   for ( ;  btw; wbuff += wcnt, mPosition += wcnt, *bw += wcnt, btw -= wcnt) {
-    /* Repeat until all data written */
+    // Repeat until all data written
     if ((mPosition % SECTOR_SIZE) == 0) {
-      /* On the sector boundary? , Sector offset in the cluster */
+      //{{{  On the sector boundary? , Sector offset in the cluster
       csect = (BYTE)(mPosition / SECTOR_SIZE & (mFatFs->mSectorsPerCluster - 1));
       if (!csect) {
-        /* On the cluster boundary? */
+        // On the cluster boundary?
         if (mPosition == 0) {
-          /* On the top of the file? */
+          // On the top of the file?
           clst = mStartCluster;
-          /* Follow from the origin */
+          // Follow from the origin
           if (clst == 0)
-            /* When no cluster is allocated, */
-            clst = mFatFs->createChain (0); /* Create a new cluster chain */
+            // When no cluster is allocated,
+            clst = mFatFs->createChain (0); // Create a new cluster chain
           }
         else {
-          /* Middle or end of the file */
-          if (mClusterTable)
-            clst = clmtCluster (mPosition);  /* Get cluster# from the CLMT */
-          else
-            clst = mFatFs->createChain (mCluster); /* Follow or stretch cluster chain on the FAT */
+          // Middle or end of the file
+          if (mClusterTable) // Get cluster# from the CLMT
+            clst = clmtCluster (mPosition);  
+          else // Follow or stretch cluster chain on the FAT
+            clst = mFatFs->createChain (mCluster);
           }
 
-        if (clst == 0)
-          break;   /* Could not allocate a new cluster (disk full) */
+        if (clst == 0) // Could not allocate a new cluster (disk full)
+          break;
         if (clst == 1)
           ABORT (FR_INT_ERR);
         if (clst == 0xFFFFFFFF)
           ABORT (FR_DISK_ERR);
 
-        mCluster = clst;     /* Update current cluster */
-        if (mStartCluster == 0)
-          mStartCluster = clst; /* Set start cluster if the first write */
+        // Update current cluster
+        mCluster = clst;     
+        if (mStartCluster == 0) // Set start cluster if the first write
+          mStartCluster = clst; 
         }
 
       if (mFlag & FA__DIRTY) {
-        /* Write-back sector cache */
+        //{{{  Write-back sector cache
         if (diskWrite (fileBuffer, mCachedSector, 1) != RES_OK)
           ABORT (FR_DISK_ERR);
         mFlag &= ~FA__DIRTY;
         }
+        //}}}
 
-      sect = mFatFs->clusterToSector (mCluster); /* Get current sector */
+      // Get current sector
+      sect = mFatFs->clusterToSector (mCluster); 
       if (!sect)
         ABORT (FR_INT_ERR);
       sect += csect;
 
-      cc = btw / SECTOR_SIZE;  // When remaining bytes >= sector size,
+      // When remaining bytes >= sector size
+      cc = btw / SECTOR_SIZE;  
       if (cc) {
+        //{{{
         // Write maximum contiguous sectors directly
         if (csect + cc > mFatFs->mSectorsPerCluster) // Clip at cluster boundary
           cc = mFatFs->mSectorsPerCluster - csect;
         if (diskWrite (wbuff, sect, cc) != RES_OK)
           ABORT (FR_DISK_ERR);
-        if (mCachedSector - sect < cc) { /* Refill sector cache if it gets invalidated by the direct write */
+        if (mCachedSector - sect < cc) { 
+          // Refill sector cache if it gets invalidated by the direct write
           memcpy (fileBuffer, wbuff + ((mCachedSector - sect) * SECTOR_SIZE), SECTOR_SIZE);
           mFlag &= ~FA__DIRTY;
           }
-        wcnt = SECTOR_SIZE * cc;   /* Number of bytes transferred */
+
+        // Number of bytes transferred
+        wcnt = SECTOR_SIZE * cc;   
         continue;
         }
+        //}}}
 
       if (mCachedSector != sect) {
-        /* Fill sector cache with file data */
+        //{{{   Fill sector cache with file data
         if (mPosition < mFileSize && diskRead (fileBuffer, sect, 1) != RES_OK)
           ABORT (FR_DISK_ERR);
         }
+        //}}}
       mCachedSector = sect;
       }
+      //}}}
 
-    /* Put partial sector into file I/O buffer */
+    // Put partial sector into file I/O buffer
     wcnt = SECTOR_SIZE - ((UINT)mPosition % SECTOR_SIZE);
     if (wcnt > btw)
       wcnt = btw;
 
-    /* Fit partial sector */
+    // Fit partial sector
     memcpy (&fileBuffer[mPosition % SECTOR_SIZE], wbuff, wcnt);
     mFlag |= FA__DIRTY;
     }
 
-  /* Update file size if needed */
+  // Update file size if needed
   if (mPosition > mFileSize)
     mFileSize = mPosition;
 
-  /* Set file change flag */
+  // Set file change flag
   mFlag |= FA__WRITTEN;
 
   mFatFs->unlock (FR_OK);

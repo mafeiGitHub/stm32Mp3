@@ -94,6 +94,7 @@ public:
     return (mShortFileName[i] == extension[0]) && (mShortFileName[i+1] == extension[1]) && (mShortFileName[i+2] == extension[2]);
     }
   //}}}
+
   //{{{  public vars
   DWORD mFileSize;  // File size
   WORD  mDate;      // Last modified date
