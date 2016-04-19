@@ -55,6 +55,21 @@ static cValueBox* mProgressBox = nullptr;
 static vector <string> mMp3Files;
 static string mPlayFileName;
 //}}}
+//{{{  audio callbacks
+//{{{
+void BSP_AUDIO_OUT_HalfTransfer_CallBack() {
+  mAudHalf = true;
+  osSemaphoreRelease (audSem);
+  }
+//}}}
+//{{{
+void BSP_AUDIO_OUT_TransferComplete_CallBack() {
+  mAudHalf = false;
+  osSemaphoreRelease (audSem);
+  }
+//}}}
+//}}}
+
 //{{{
 class cVolumeBox : public cValueBox {
 public:
@@ -63,8 +78,10 @@ public:
   virtual ~cVolumeBox() {}
 
   virtual void setValue (float value) {
-    if (cValueBox::setValue (value, 0.0f, 1.0f))
-      BSP_AUDIO_OUT_SetVolume (getValue() * 100);
+    if (cValueBox::setValue (value, 0.0f, 1.0f)) {
+      mVolume = getValue() * 100;
+      BSP_AUDIO_OUT_SetVolume (mVolume);
+      }
     }
   };
 //}}}
@@ -80,19 +97,6 @@ public:
     mPlayFileName = mText;
     }
   };
-//}}}
-
-//{{{
-void BSP_AUDIO_OUT_HalfTransfer_CallBack() {
-  mAudHalf = true;
-  osSemaphoreRelease (audSem);
-  }
-//}}}
-//{{{
-void BSP_AUDIO_OUT_TransferComplete_CallBack() {
-  mAudHalf = false;
-  osSemaphoreRelease (audSem);
-  }
 //}}}
 
 //{{{
@@ -113,6 +117,8 @@ static void listDirectory (string directoryName, string indent) {
         cLcd::instance()->setShowDebug (false);
         mMp3Files.push_back (directoryName + "/" + fileInfo.getName());
         cLcd::debug (indent + fileInfo.getName());
+        cFile file (directoryName + "/" + fileInfo.getName(), FA_OPEN_EXISTING | FA_READ);
+        cLcd::debug ("- filesize " + cLcd::intStr (file.getSize()));
         }
       }
     }
@@ -281,9 +287,6 @@ static void loadThread (void const* argument) {
 
   cLcd::debug ("loadThread started");
 
-  BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 44100);  // OUTPUT_DEVICE_HEADPHONE
-  BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);             // CODEC_AUDIOFRAME_SLOT_02
-
   BSP_SD_Init();
   while (BSP_SD_IsDetected() != SD_PRESENT) {
     cLcd::debug (LCD_RED, "no SD card");
@@ -292,26 +295,32 @@ static void loadThread (void const* argument) {
   cLcd::debug ("SD card found");
 
   cFatFs* fatFs = cFatFs::create();
-  if (fatFs->mount() != FR_OK) 
+  if (fatFs->mount() != FR_OK) {
+    //{{{  mount error
     cLcd::debug ("fatFs mount problem");
-  else {
-    cLcd::debug (fatFs->getLabel() +
-                 " vsn:" + cLcd::hexStr (fatFs->getVolumeSerialNumber()) +
-                 " freeSectors:" + cLcd::intStr (fatFs->getFreeSectors()));
-    listDirectory ("", "");
+    osThreadTerminate (NULL);
+    return;
+    }
+    //}}}
+  cLcd::debug (fatFs->getLabel() +
+               " vsn:" + cLcd::hexStr (fatFs->getVolumeSerialNumber()) +
+               " freeSectors:" + cLcd::intStr (fatFs->getFreeSectors()));
 
-    for (auto fileName : mMp3Files)
-      if (!cLcd::instance()->addWidgetBelow (new cFileNameBox (fileName)))
-        break;
+  listDirectory ("", "");
+  for (auto fileName : mMp3Files)
+    if (!cLcd::instance()->addWidgetBelow (new cFileNameBox (fileName)))
+      break;
 
-    mMp3Decoder = new cMp3Decoder;
-    cLcd::debug ("mp3Decoder created");
+  mMp3Decoder = new cMp3Decoder;
+  cLcd::debug ("mp3Decoder created");
 
-    while (true) {
-      while (mPlayFileName.empty())
-        osDelay (100);
-      playFile (mPlayFileName);
-      }
+  BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 44100);  // OUTPUT_DEVICE_HEADPHONE
+  BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);             // CODEC_AUDIOFRAME_SLOT_02
+
+  while (true) {
+    while (mPlayFileName.empty())
+      osDelay (100);
+    playFile (mPlayFileName);
     }
   }
 //}}}
