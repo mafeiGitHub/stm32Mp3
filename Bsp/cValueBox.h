@@ -38,9 +38,9 @@ public:
   //}}}
 
   //{{{
-  virtual void pressed (int16_t x, int16_t y) {
+  virtual void pressed (int16_t x, int16_t y, int16_t z) {
 
-    cWidget::pressed (x, y);
+    cWidget::pressed (x, y, z);
     if (mXlen > mYlen)
       setValue ((float)x / (float)mXlen);
     else
@@ -48,8 +48,8 @@ public:
     }
   //}}}
   //{{{
-  virtual void moved (int16_t x, int16_t y, int16_t xinc, int16_t yinc) {
-    cWidget::moved (x, y, xinc, yinc);
+  virtual void moved (int16_t x, int16_t y, int16_t z, int16_t xinc, int16_t yinc) {
+    cWidget::moved (x, y, z, xinc, yinc);
     if (mXlen > mYlen)
       setValue ((float)x / (float)mXlen);
     else

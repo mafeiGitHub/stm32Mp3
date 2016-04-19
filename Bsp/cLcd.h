@@ -49,13 +49,14 @@ public:
   //}}}
   static int getWidth() { return 480; }
   static int getHeight() { return 272; }
+  static int getFontHeight() { return 16; }
+  static int getLineHeight() { return 18; }
+  static int getBoxHeight() { return 22; }
+
   static std::string hexStr (int value, int width = 0);
   static std::string intStr (int value, int width = 0, char fill = ' ');
   static void debug (uint32_t colour, std::string str, bool newLine = true) { instance()->info (colour, str, newLine); }
   static void debug (std::string str) { instance()->info (str); }
-
-  int getLineInc() { return mLineInc; }
-  int getFontHeight() { return mFontHeight; }
 
   void setTitle (std::string title);
   void setShowDebug (bool enable);
@@ -77,12 +78,13 @@ public:
   void ellipseOutline (uint32_t col, int16_t x, int16_t y, uint16_t xradius, uint16_t yradius);
   void line (uint32_t col, int16_t x1, int16_t y1, int16_t x2, int16_t y2);
 
-  void pressed (int pressCount, int x, int y, int xinc, int yinc);
+  void pressed (int pressCount, int x, int y, int z, int xinc, int yinc);
   void released();
   void addWidget (cWidget* widget);
 
   void startDraw();
   void drawWidgets();
+  void drawCursor (uint32_t colour, int16_t x, int16_t y, int16_t z);
   void endDraw();
   void draw();
 
@@ -118,8 +120,6 @@ private:
 
   float mFirstLine = 0;
   int mNumDrawLines = 0;
-  int mLineInc = 18;
-  int mFontHeight = 16;
   int mStringPos = 0;
 
   bool mShowDebug = true;

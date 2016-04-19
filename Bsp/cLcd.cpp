@@ -533,15 +533,15 @@ void cLcd::line (uint32_t col, int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
 //}}}
 
 //{{{
-void cLcd::pressed (int pressCount, int x, int y, int xinc, int yinc) {
+void cLcd::pressed (int pressCount, int x, int y, int z, int xinc, int yinc) {
 
-  if (pressCount == 1) {
+  if (!pressCount) {
     for (auto widget : mWidgets) {
-      if (widget->picked (x,y)) {
+      if (widget->picked (x, y, z)) {
         mPressedx = x;
         mPressedy = y;
         mPressedWidget = widget;
-        mPressedWidget->pressed (x - widget->getXorg(), y - widget->getYorg());
+        mPressedWidget->pressed (x - widget->getXorg(), y - widget->getYorg(), z);
         return;
         }
       }
@@ -550,24 +550,24 @@ void cLcd::pressed (int pressCount, int x, int y, int xinc, int yinc) {
   else if (mPressedWidget) {
     mPressedx = x;
     mPressedy = y;
-    mPressedWidget->moved (x - mPressedWidget->getXorg(), y - mPressedWidget->getYorg(), xinc, yinc);
+    mPressedWidget->moved (x - mPressedWidget->getXorg(), y - mPressedWidget->getYorg(), z, xinc, yinc);
     }
 
   if (!mPressedWidget) {
-    if ((pressCount > 30) && (x <= mStringPos) && (y <= mLineInc))
+    if ((pressCount > 30) && (x <= mStringPos) && (y <= getLineHeight()))
       reset();
     else if (pressCount == 0) {
       if (x <= mStringPos) {
         // set displayFirstLine
-        if (y < 2 * mLineInc)
+        if (y < 2 * getLineHeight())
           displayTop();
-        else if (y > getHeight() - 2 * mLineInc)
+        else if (y > getHeight() - 2 * getLineHeight())
           displayTail();
         }
       }
     else {
       // inc firstLine
-      float value = mFirstLine - ((2.0f * yinc) / mLineInc);
+      float value = mFirstLine - ((2.0f * yinc) / getLineHeight());
 
       if (value < 0)
         mFirstLine = 0;
@@ -592,6 +592,7 @@ void cLcd::released() {
 //}}}
 //{{{
 void cLcd::addWidget (cWidget* widget) {
+
   mWidgets.push_back (widget);
   }
 //}}}
@@ -621,21 +622,26 @@ void cLcd::drawWidgets() {
   }
 //}}}
 //{{{
+void cLcd::drawCursor (uint32_t colour, int16_t x, int16_t y, int16_t z) {
+  ellipse (colour, x, y, z, z);
+  }
+//}}}
+//{{{
 void cLcd::endDraw() {
 
   auto y = 0;
   if (!mTitle.empty()) {
     //{{{  draw title
-    string (LCD_WHITE, mFontHeight, mTitle, 0, y, getWidth(), mLineInc);
-    y += mLineInc;
+    string (LCD_WHITE, getFontHeight(), mTitle, 0, y, getWidth(), getLineHeight());
+    y += getLineHeight();
     }
     //}}}
   if (mShowDebug) {
     //{{{  draw debug info lines
     if (mLastLine >= 0) {
       // draw scroll bar
-      auto yorg = mLineInc + ((int)mFirstLine * mNumDrawLines * mLineInc / (mLastLine + 1));
-      auto ylen = mNumDrawLines * mNumDrawLines * mLineInc / (mLastLine + 1);
+      auto yorg = getLineHeight() + ((int)mFirstLine * mNumDrawLines * getLineHeight() / (mLastLine + 1));
+      auto ylen = mNumDrawLines * mNumDrawLines * getLineHeight() / (mLastLine + 1);
       rectClipped (LCD_YELLOW, 0, yorg, 8, ylen);
       }
 
@@ -645,13 +651,13 @@ void cLcd::endDraw() {
     for (auto lineIndex = (int)mFirstLine; lineIndex <= lastLine; lineIndex++) {
       auto x = 0;
       if (mShowDebugTime) {
-        auto xinc = string (LCD_GREEN, mFontHeight,
+        auto xinc = string (LCD_GREEN, getFontHeight(),
                             intStr ((mLines[lineIndex].mTime-mStartTime) / 1000) + "." +
-                            intStr ((mLines[lineIndex].mTime-mStartTime) % 1000, 3, '0'), x, y, getWidth(), mLineInc);
+                            intStr ((mLines[lineIndex].mTime-mStartTime) % 1000, 3, '0'), x, y, getWidth(), getLineHeight());
         x += xinc + 3;
         }
-      string (mLines[lineIndex].mColour, mFontHeight, mLines[lineIndex].mString, x, y, getWidth(), mLineInc);
-      y += mLineInc;
+      string (mLines[lineIndex].mColour, getFontHeight(), mLines[lineIndex].mString, x, y, getWidth(), getLineHeight());
+      y += getLineHeight();
       }
     }
     //}}}
@@ -663,14 +669,14 @@ void cLcd::endDraw() {
                       intStr (mDma2dTimeouts) + " " +
                       intStr (ltdc.transferErrorIrq) + " " +
                       intStr (ltdc.fifoUnderunIrq);
-    string (LCD_WHITE, 20, str, 0, getHeight() - 2 * mLineInc, getWidth(), 24);
+    string (LCD_WHITE, getFontHeight(), str, 0, getHeight() - 2 * getLineHeight(), getWidth(), 24);
     }
     //}}}
   if (mShowFooter)
     //{{{  draw footer
-    string (LCD_YELLOW, mFontHeight,
+    string (LCD_YELLOW, getFontHeight(),
             intStr (xPortGetFreeHeapSize()) + " " + intStr (osGetCPUUsage()) + "% " + intStr (mDrawTime) + "ms",
-            0, getHeight()-mLineInc, getWidth(), mLineInc);
+            0, getHeight()-getLineHeight(), getWidth(), getLineHeight());
     //}}}
 
   sendWait();
@@ -1059,9 +1065,9 @@ void cLcd::displayTail() {
 //{{{
 void cLcd::updateNumDrawLines() {
 
-  mStringPos = mLineInc*3;
+  mStringPos = getLineHeight()*3;
 
-  auto numDrawLines = getHeight() / mLineInc;
+  auto numDrawLines = getHeight() / getLineHeight();
   if (!mTitle.empty())
     numDrawLines--;
   if (mShowLcdDebug)
