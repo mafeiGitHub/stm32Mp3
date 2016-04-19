@@ -268,8 +268,8 @@ static void uiThread (void const* argument) {
       }
     //}}}
     //{{{  draw touch
-    for (auto touch = 0; (touch < 5) && pressed[touch]; touch++)
-      lcd->drawCursor (touch > 0 ? LCD_LIGHTGREY : LCD_YELLOW, x[touch], y[touch], z[touch]);
+    //for (auto touch = 0; (touch < 5) && pressed[touch]; touch++)
+      //lcd->drawCursor (touch > 0 ? LCD_LIGHTGREY : LCD_YELLOW, x[touch], y[touch], z[touch]);
     //}}}
     lcd->endDraw();
     }
@@ -292,7 +292,9 @@ static void loadThread (void const* argument) {
   cLcd::debug ("SD card found");
 
   cFatFs* fatFs = cFatFs::create();
-  if (fatFs->mount() == FR_OK) {
+  if (fatFs->mount() != FR_OK) 
+    cLcd::debug ("fatFs mount problem");
+  else {
     cLcd::debug (fatFs->getLabel() +
                  " vsn:" + cLcd::hexStr (fatFs->getVolumeSerialNumber()) +
                  " freeSectors:" + cLcd::intStr (fatFs->getFreeSectors()));
@@ -301,17 +303,15 @@ static void loadThread (void const* argument) {
     for (auto fileName : mMp3Files)
       if (!cLcd::instance()->addWidgetBelow (new cFileNameBox (fileName)))
         break;
-    }
-  else
-    cLcd::debug ("fatFs mount problem");
 
-  mMp3Decoder = new cMp3Decoder;
-  cLcd::debug ("mp3Decoder created");
+    mMp3Decoder = new cMp3Decoder;
+    cLcd::debug ("mp3Decoder created");
 
-  while (true) {
-    while (mPlayFileName.empty())
-      osDelay (100);
-    playFile (mPlayFileName);
+    while (true) {
+      while (mPlayFileName.empty())
+        osDelay (100);
+      playFile (mPlayFileName);
+      }
     }
   }
 //}}}

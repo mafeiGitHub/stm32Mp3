@@ -49,9 +49,9 @@ public:
   //}}}
   static int getWidth() { return 480; }
   static int getHeight() { return 272; }
-  static int getFontHeight() { return 16; }
+  static int getFontHeight() { return 15; }
   static int getLineHeight() { return 18; }
-  static int getBoxHeight() { return 22; }
+  static int getBoxHeight() { return 20; }
 
   static std::string hexStr (int value, int width = 0);
   static std::string intStr (int value, int width = 0, char fill = ' ');
