@@ -78,9 +78,10 @@ public:
   void ellipseOutline (uint32_t col, int16_t x, int16_t y, uint16_t xradius, uint16_t yradius);
   void line (uint32_t col, int16_t x1, int16_t y1, int16_t x2, int16_t y2);
 
-  void pressed (int pressCount, int x, int y, int z, int xinc, int yinc);
-  void released();
-  void addWidget (cWidget* widget);
+  void addWidget (cWidget* widget, int16_t x, int16_t y);
+  bool addWidgetBelow (cWidget* widget);
+  void pressWidget (int pressCount, int x, int y, int z, int xinc, int yinc);
+  void releaseWidget();
 
   void startDraw();
   void drawWidgets();

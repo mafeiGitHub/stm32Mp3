@@ -307,7 +307,7 @@ int cLcd::string (uint32_t col, int fontHeight, std::string str, int16_t x, int1
           }
         }
 
-      if (x + fontChar->left + fontChar->pitch > getWidth())
+      if (x + fontChar->left + fontChar->pitch >= xlen)
         break;
       else if (fontChar->bitmap)
         stamp (col, fontChar->bitmap, x + fontChar->left, y + fontHeight - fontChar->top, fontChar->pitch, fontChar->rows);
@@ -533,7 +533,29 @@ void cLcd::line (uint32_t col, int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
 //}}}
 
 //{{{
-void cLcd::pressed (int pressCount, int x, int y, int z, int xinc, int yinc) {
+void cLcd::addWidget (cWidget* widget, int16_t x, int16_t y) {
+
+  widget->setOrg (x, y);
+  mWidgets.push_back (widget);
+  }
+//}}}
+//{{{
+bool cLcd::addWidgetBelow (cWidget* widget) {
+
+  if (!mWidgets.empty())
+    widget->setOrg (mWidgets.back()->getXorg(), mWidgets.back()->getYorg() + mWidgets.back()->getYlen());
+
+  bool fit = (widget->getYorg() + widget->getYlen() <= cLcd::getHeight() - (mShowFooter ? getLineHeight() : 0)) &&
+             (widget->getXorg() + widget->getXlen() <= cLcd::getWidth());
+
+  if (fit)
+    mWidgets.push_back (widget);
+
+  return fit;
+  }
+//}}}
+//{{{
+void cLcd::pressWidget (int pressCount, int x, int y, int z, int xinc, int yinc) {
 
   if (!pressCount) {
     for (auto widget : mWidgets) {
@@ -582,18 +604,12 @@ void cLcd::pressed (int pressCount, int x, int y, int z, int xinc, int yinc) {
   }
 //}}}
 //{{{
-void cLcd::released() {
+void cLcd::releaseWidget() {
 
   if (mPressedWidget) {
     mPressedWidget->released (mPressedx, mPressedy);
     mPressedWidget = nullptr;
     }
-  }
-//}}}
-//{{{
-void cLcd::addWidget (cWidget* widget) {
-
-  mWidgets.push_back (widget);
   }
 //}}}
 

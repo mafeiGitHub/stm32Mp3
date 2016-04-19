@@ -25,7 +25,7 @@ public:
   virtual void pressed (int16_t x, int16_t y, int16_t z) { mPressed++; }
   virtual void moved (int16_t x, int16_t y, int16_t z, int16_t xinc, int16_t yinc) {}
   virtual void released (int16_t x, int16_t y) { mPressed = 0; }
-  virtual void draw (cLcd* lcd) { lcd->rect (mPressed ? LCD_LIGHTRED : mColour, mXorg+1, mYorg+1, mXlen-2, mYlen-2); }
+  virtual void draw (cLcd* lcd) { lcd->rectClipped (mPressed ? LCD_LIGHTRED : mColour, mXorg+1, mYorg+1, mXlen-2, mYlen-2); }
 
 protected:
   uint32_t mColour = LCD_LIGHTGREY;

@@ -7,6 +7,10 @@
 
 class cValueBox : public cWidget {
 public:
+  cValueBox (float value, uint32_t colour, uint16_t xlen) :
+    cWidget (colour, xlen), mValue(value) {}
+  cValueBox (float value, uint32_t colour, uint16_t xlen, uint16_t ylen) :
+    cWidget (colour, xlen, ylen), mValue(value) {}
   cValueBox (float value, uint32_t colour, int16_t xorg, int16_t yorg, uint16_t xlen, uint16_t ylen) :
     cWidget (colour, xorg, yorg, xlen, ylen), mValue(value) {}
   virtual ~cValueBox() {}
@@ -59,9 +63,9 @@ public:
   //{{{
   virtual void draw (cLcd* lcd) {
     if (mXlen > mYlen)
-      lcd->rect (mPressed ? LCD_LIGHTRED : mColour, mXorg, mYorg, int(mXlen * mValue), mYlen);
+      lcd->rectClipped (mPressed ? LCD_LIGHTRED : mColour, mXorg, mYorg, int(mXlen * mValue), mYlen);
     else
-      lcd->rect (mPressed ? LCD_LIGHTRED : mColour, mXorg, mYorg, mXlen, int(mYlen * mValue));
+      lcd->rectClipped (mPressed ? LCD_LIGHTRED : mColour, mXorg, mYorg, mXlen, int(mYlen * mValue));
     }
   //}}}
 

@@ -58,8 +58,8 @@ static string mPlayFileName;
 //{{{
 class cVolumeBox : public cValueBox {
 public:
-  cVolumeBox (float value, uint32_t colour, int16_t xorg, int16_t yorg, uint16_t xlen, uint16_t ylen) :
-    cValueBox (value, colour, xorg, yorg, xlen, ylen){}
+  cVolumeBox (float value, uint32_t colour, uint16_t xlen, uint16_t ylen) :
+    cValueBox (value, colour, xlen, ylen){}
   virtual ~cVolumeBox() {}
 
   virtual void setValue (float value) {
@@ -121,19 +121,18 @@ static void listDirectory (string directoryName, string indent) {
   }
 //}}}
 //{{{
-static void playFile (string directoryName, string fileName) {
+static void playFile (string fileName) {
 
-  string fullName = directoryName + "/" + fileName;
-  cLcd::instance()->setTitle (fullName);
+  cLcd::instance()->setTitle (fileName);
 
-  cFile file (fullName, FA_OPEN_EXISTING | FA_READ);
+  cFile file (fileName, FA_OPEN_EXISTING | FA_READ);
   if (!file.isOk()) {
     //{{{  error, return
-    cLcd::debug ("- open failed " + cLcd::intStr (file.getResult()) + " " + fullName);
+    cLcd::debug ("- open failed " + cLcd::intStr (file.getResult()) + " " + fileName);
     return;
     }
     //}}}
-  cLcd::debug ("play " + fullName + " " + cLcd::intStr (file.getSize()));
+  cLcd::debug ("play " + fileName + " " + cLcd::intStr (file.getSize()));
 
   //{{{  chunkSize and buffer
   int chunkSize = 4096;
@@ -218,9 +217,8 @@ static void uiThread (void const* argument) {
   auto lcd = cLcd::instance();
   cLcd::debug ("uiThread started");
 
-  lcd->addWidget (new cVolumeBox (mVolume, LCD_YELLOW, cLcd::getWidth()-20, 0, 20, cLcd::getHeight()));
-  mProgressBox = new cValueBox (0, LCD_DARKBLUE, 0, 0, cLcd::getWidth(), 20);
-  lcd->addWidget (mProgressBox);
+  lcd->addWidget (new cVolumeBox (mVolume, LCD_YELLOW, 20, cLcd::getHeight()), cLcd::getWidth()-20, 0);
+  lcd->addWidget (mProgressBox = new cValueBox (0.0f, LCD_DARKBLUE, cLcd::getWidth()), 0, 0);
 
   //{{{  init touch
   BSP_TS_Init (cLcd::getWidth(), cLcd::getHeight());
@@ -242,7 +240,7 @@ static void uiThread (void const* argument) {
         y[touch] = tsState.touchY[touch];
         z[touch] = tsState.touchWeight[touch];
         if (!touch)
-          lcd->pressed (pressed[0], x[0], y[0], z[0], xinc, yinc);
+          lcd->pressWidget (pressed[0], x[0], y[0], z[0], xinc, yinc);
         pressed[touch]++;
         }
       else {
@@ -250,7 +248,7 @@ static void uiThread (void const* argument) {
         y[touch] = 0;
         z[touch] = 0;
         if (!touch && pressed[0])
-          lcd->released();
+          lcd->releaseWidget();
         pressed[touch] = 0;
         }
       }
@@ -298,25 +296,22 @@ static void loadThread (void const* argument) {
     cLcd::debug (fatFs->getLabel() +
                  " vsn:" + cLcd::hexStr (fatFs->getVolumeSerialNumber()) +
                  " freeSectors:" + cLcd::intStr (fatFs->getFreeSectors()));
-    listDirectory ("sub", "");
+    listDirectory ("", "");
 
-    int16_t i = 22;
-    for (auto fileName : mMp3Files) {
-      cWidget* widget = new cFileNameBox (fileName);
-      cLcd::instance()->addWidget (widget);
-      widget->setOrg (0, i);
-      i += 22;
-      if (i > cLcd::getHeight())
+    for (auto fileName : mMp3Files)
+      if (!cLcd::instance()->addWidgetBelow (new cFileNameBox (fileName)))
         break;
-      }
     }
   else
     cLcd::debug ("fatFs mount problem");
 
+  mMp3Decoder = new cMp3Decoder;
+  cLcd::debug ("mp3Decoder created");
+
   while (true) {
     while (mPlayFileName.empty())
       osDelay (100);
-    playFile ("", mPlayFileName);
+    playFile (mPlayFileName);
     }
   }
 //}}}
@@ -403,7 +398,7 @@ static void dhcpThread (void const* argument) {
 //{{{
 static void startThread (void const* argument) {
 
-  cLcd::create (__TIME__ __DATE__);
+  cLcd::create ("mp3 player built at " + string(__TIME__) + " on " + string(__DATE__));
 
   const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 2000 };
   osThreadCreate (&osThreadUi, NULL);
@@ -413,10 +408,6 @@ static void startThread (void const* argument) {
 
   const osThreadDef_t osThreadDHCP =  { (char*)"DHCP", dhcpThread, osPriorityBelowNormal, 0, 1024 };
   osThreadCreate (&osThreadDHCP, &gNetif);
-
-  cLcd::debug ("mp3Decoder create");
-  mMp3Decoder = new cMp3Decoder;
-  cLcd::debug ("mp3Decoder created");
 
   for (;;)
     osThreadTerminate (NULL);
