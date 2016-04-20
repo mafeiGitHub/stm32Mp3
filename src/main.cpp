@@ -22,9 +22,11 @@
 #include "../Bsp/stm32746g_discovery_ts.h"
 #include "../Bsp/stm32746g_discovery_audio.h"
 #include "../Bsp/cLcd.h"
-#include "../Bsp/cWidget.h"
-#include "../Bsp/cTextBox.h"
-#include "../Bsp/cValueBox.h"
+
+#include "../widgets/cWidgetMan.h"
+#include "../widgets/cWidget.h"
+#include "../widgets/cTextBox.h"
+#include "../widgets/cValueBox.h"
 
 #include "../Bsp/stm32746g_discovery_sd.h"
 #include "../fatfs/fatFs.h"
@@ -227,8 +229,8 @@ static void uiThread (void const* argument) {
   auto lcd = cLcd::instance();
   cLcd::debug ("uiThread started");
 
-  lcd->addWidget (new cVolumeBox (mVolume, LCD_YELLOW, 20, cLcd::getHeight()), cLcd::getWidth()-20, 0);
-  lcd->addWidget (mProgressBox = new cValueBox (0.0f, LCD_DARKBLUE, cLcd::getWidth()), 0, 0);
+  cWidgetMan::instance()->add (new cVolumeBox (mVolume, LCD_YELLOW, 20, cLcd::getHeight()), cLcd::getWidth()-20, 0);
+  cWidgetMan::instance()->add (mProgressBox = new cValueBox (0.0f, LCD_DARKBLUE, cLcd::getWidth()), 0, 0);
 
   //{{{  init touch
   BSP_TS_Init (cLcd::getWidth(), cLcd::getHeight());
@@ -250,7 +252,8 @@ static void uiThread (void const* argument) {
         y[touch] = tsState.touchY[touch];
         z[touch] = tsState.touchWeight[touch];
         if (!touch)
-          lcd->pressWidget (pressed[0], x[0], y[0], z[0], xinc, yinc);
+          if (!cWidgetMan::instance()->press (pressed[0], x[0], y[0], z[0], xinc, yinc))
+            lcd->press (pressed[0], x[0], y[0], z[0], xinc, yinc);
         pressed[touch]++;
         }
       else {
@@ -258,14 +261,14 @@ static void uiThread (void const* argument) {
         y[touch] = 0;
         z[touch] = 0;
         if (!touch && pressed[0])
-          lcd->releaseWidget();
+          cWidgetMan::instance()->release();
         pressed[touch] = 0;
         }
       }
     //}}}
 
     lcd->startDraw();
-    lcd->drawWidgets();
+    cWidgetMan::instance()->draw (lcd);
     //{{{  draw blue waveform
     for (auto x = 0; x < cLcd::getWidth(); x++) {
       int frame = mPlayFrame - cLcd::getWidth() + x;
@@ -315,7 +318,7 @@ static void loadThread (void const* argument) {
 
   listDirectory ("", "");
   for (auto fileName : mMp3Files)
-    if (!cLcd::instance()->addWidgetBelow (new cFileNameBox (fileName)))
+    if (!cWidgetMan::instance()->addBelow (new cFileNameBox (fileName)))
       break;
 
   mMp3Decoder = new cMp3Decoder;
@@ -418,6 +421,7 @@ static void dhcpThread (void const* argument) {
 static void startThread (void const* argument) {
 
   cLcd::create ("mp3 player built at " + string(__TIME__) + " on " + string(__DATE__));
+  cWidgetMan::create();
 
   const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 2000 };
   osThreadCreate (&osThreadUi, NULL);

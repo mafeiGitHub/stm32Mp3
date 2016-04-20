@@ -9,7 +9,6 @@
 #include "stm32746g_discovery.h"
 #include "cLcd.h"
 #include "cLcdPrivate.h"
-#include "cWidget.h"
 
 #include "cmsis_os.h"
 #include "../sys/cpuUsage.h"
@@ -321,6 +320,36 @@ int cLcd::string (uint32_t col, int fontHeight, std::string str, int16_t x, int1
 //}}}
 
 //{{{
+void cLcd::press (int pressCount, int x, int y, int z, int xinc, int yinc) {
+
+  if ((pressCount > 30) && (x <= mStringPos) && (y <= getLineHeight()))
+    reset();
+  else if (pressCount == 0) {
+    if (x <= mStringPos) {
+      // set displayFirstLine
+      if (y < 2 * getLineHeight())
+        displayTop();
+      else if (y > getHeight() - 2 * getLineHeight())
+        displayTail();
+      }
+    }
+  else {
+    // inc firstLine
+    float value = mFirstLine - ((2.0f * yinc) / getLineHeight());
+
+    if (value < 0)
+      mFirstLine = 0;
+    else if (mLastLine <= (int)mNumDrawLines-1)
+      mFirstLine = 0;
+    else if (value > mLastLine - mNumDrawLines + 1)
+      mFirstLine = mLastLine - mNumDrawLines + 1;
+    else
+      mFirstLine = value;
+    }
+  }
+//}}}
+
+//{{{
 void cLcd::pixel (uint32_t col, int16_t x, int16_t y) {
 
   if (mBuffered)
@@ -533,87 +562,6 @@ void cLcd::line (uint32_t col, int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
 //}}}
 
 //{{{
-void cLcd::addWidget (cWidget* widget, int16_t x, int16_t y) {
-
-  widget->setOrg (x, y);
-  mWidgets.push_back (widget);
-  }
-//}}}
-//{{{
-bool cLcd::addWidgetBelow (cWidget* widget) {
-
-  if (!mWidgets.empty())
-    widget->setOrg (mWidgets.back()->getXorg(), mWidgets.back()->getYorg() + mWidgets.back()->getYlen());
-
-  bool fit = (widget->getYorg() + widget->getYlen() <= cLcd::getHeight() - (mShowFooter ? getLineHeight() : 0)) &&
-             (widget->getXorg() + widget->getXlen() <= cLcd::getWidth());
-
-  if (fit)
-    mWidgets.push_back (widget);
-
-  return fit;
-  }
-//}}}
-//{{{
-void cLcd::pressWidget (int pressCount, int x, int y, int z, int xinc, int yinc) {
-
-  if (!pressCount) {
-    for (auto widget : mWidgets) {
-      if (widget->picked (x, y, z)) {
-        mPressedx = x;
-        mPressedy = y;
-        mPressedWidget = widget;
-        mPressedWidget->pressed (x - widget->getXorg(), y - widget->getYorg(), z);
-        return;
-        }
-      }
-    mPressedWidget = nullptr;
-    }
-  else if (mPressedWidget) {
-    mPressedx = x;
-    mPressedy = y;
-    mPressedWidget->moved (x - mPressedWidget->getXorg(), y - mPressedWidget->getYorg(), z, xinc, yinc);
-    }
-
-  if (!mPressedWidget) {
-    if ((pressCount > 30) && (x <= mStringPos) && (y <= getLineHeight()))
-      reset();
-    else if (pressCount == 0) {
-      if (x <= mStringPos) {
-        // set displayFirstLine
-        if (y < 2 * getLineHeight())
-          displayTop();
-        else if (y > getHeight() - 2 * getLineHeight())
-          displayTail();
-        }
-      }
-    else {
-      // inc firstLine
-      float value = mFirstLine - ((2.0f * yinc) / getLineHeight());
-
-      if (value < 0)
-        mFirstLine = 0;
-      else if (mLastLine <= (int)mNumDrawLines-1)
-        mFirstLine = 0;
-      else if (value > mLastLine - mNumDrawLines + 1)
-        mFirstLine = mLastLine - mNumDrawLines + 1;
-      else
-        mFirstLine = value;
-      }
-    }
-  }
-//}}}
-//{{{
-void cLcd::releaseWidget() {
-
-  if (mPressedWidget) {
-    mPressedWidget->released (mPressedx, mPressedy);
-    mPressedWidget = nullptr;
-    }
-  }
-//}}}
-
-//{{{
 void cLcd::startDraw() {
 
   if (mBuffered) {
@@ -628,13 +576,6 @@ void cLcd::startDraw() {
 
   mDrawStartTime = osKernelSysTick();
   clear (LCD_BLACK);
-  }
-//}}}
-//{{{
-void cLcd::drawWidgets() {
-
-  for (auto widget : mWidgets)
-    (widget->draw (this));
   }
 //}}}
 //{{{

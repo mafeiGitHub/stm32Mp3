@@ -1,9 +1,5 @@
 #pragma once
-//{{{  includes
 #include <string>
-#include <vector>
-class cWidget;
-//}}}
 //{{{  LCD colour defines
 #define LCD_BLACK         0xFF000000
 #define LCD_BLUE          0xFF0000FF
@@ -42,32 +38,37 @@ public:
 
   // static members
   static cLcd* create (std::string title, bool buffered = true);
-  //{{{
-  static cLcd* instance() {
-    return mLcd;
-    }
-  //}}}
+  static cLcd* instance() { return mLcd; }
+
+  // static gets
   static int getWidth() { return 480; }
   static int getHeight() { return 272; }
   static int getFontHeight() { return 15; }
   static int getLineHeight() { return 18; }
   static int getBoxHeight() { return 20; }
 
+  // static string utils
   static std::string hexStr (int value, int width = 0);
   static std::string intStr (int value, int width = 0, char fill = ' ');
   static void debug (uint32_t colour, std::string str, bool newLine = true) { instance()->info (colour, str, newLine); }
   static void debug (std::string str) { instance()->info (str); }
 
+  // sets
   void setTitle (std::string title);
   void setShowDebug (bool enable);
   void setShowDebugTime (bool enable);
   void setShowLcdDebug (bool enable);
   void setShowFooter (bool enable);
 
+  // string
   void info (uint32_t colour, std::string str, bool newLine = true);
   void info (std::string str, bool newLine = true);
   int string (uint32_t col, int fontHeight, std::string str, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen);
 
+  // touch
+  void press (int pressCount, int x, int y, int z, int xinc, int yinc);
+
+  // draws
   void pixel (uint32_t col, int16_t x, int16_t y);
   void pixelClipped (uint32_t col, int16_t x, int16_t y);
   void rect (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen);
@@ -78,13 +79,7 @@ public:
   void ellipseOutline (uint32_t col, int16_t x, int16_t y, uint16_t xradius, uint16_t yradius);
   void line (uint32_t col, int16_t x1, int16_t y1, int16_t x2, int16_t y2);
 
-  void addWidget (cWidget* widget, int16_t x, int16_t y);
-  bool addWidgetBelow (cWidget* widget);
-  void pressWidget (int pressCount, int x, int y, int z, int xinc, int yinc);
-  void releaseWidget();
-
   void startDraw();
-  void drawWidgets();
   void drawCursor (uint32_t colour, int16_t x, int16_t y, int16_t z);
   void endDraw();
   void draw();
@@ -162,10 +157,5 @@ private:
   uint32_t* mDma2dCurBuf = nullptr;
   uint32_t* mDma2dHighWater = nullptr;
   uint32_t mDma2dTimeouts= 0;
-
-  uint16_t mPressedx = 0;
-  uint16_t mPressedy = 0;
-  cWidget* mPressedWidget = nullptr;
-  std::vector <cWidget*> mWidgets;
   //}}}
   };

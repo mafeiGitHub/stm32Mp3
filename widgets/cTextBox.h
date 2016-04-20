@@ -1,9 +1,8 @@
 // cTextBox.h
 #pragma once
-//{{{  includes
 #include <string>
 #include "cWidget.h"
-//}}}
+#include "cLcd.h"
 
 class cTextBox : public cWidget {
 public:
@@ -18,7 +17,7 @@ public:
 
   virtual void draw (cLcd* lcd) {
     cWidget::draw (lcd);
-    lcd->string (LCD_DARKGREY, lcd->getFontHeight(), mText, mXorg+2, mYorg+1, mXlen-2, mYlen-2);
+    lcd->string (LCD_DARKGREY, cLcd::instance()->getFontHeight(), mText, mXorg+2, mYorg+1, mXlen-2, mYlen-2);
     }
 
 protected:

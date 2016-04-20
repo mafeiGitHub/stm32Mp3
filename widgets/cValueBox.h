@@ -1,9 +1,8 @@
 // cValueBox.h
 #pragma once
-//{{{  includes
 #include <string>
 #include "cWidget.h"
-//}}}
+#include "cLcd.h"
 
 class cValueBox : public cWidget {
 public:

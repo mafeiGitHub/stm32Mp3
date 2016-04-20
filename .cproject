@@ -69,6 +69,7 @@
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/include"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/portable/GCC/ARM_CM7/r0p1"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/HAL_Driver/Inc"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/Bsp"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/system"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/src/include"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/src/include/ipv4"/>
