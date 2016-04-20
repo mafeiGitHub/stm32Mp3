@@ -46,9 +46,6 @@ static bool mAudHalf = false;
 
 static float mVolume = 0.8f;
 static bool mVolumeChanged = false;
-
-static int mPlayFrame = 0;
-static float mPower [480*2];
 //}}}
 //{{{  audio callbacks
 //{{{
@@ -94,93 +91,6 @@ static void listDirectory (vector<string>& mp3Files, string directoryName, strin
       cLcd::debug ("- filesize " + cLcd::intStr (file.getSize()));
       }
     }
-  }
-//}}}
-//{{{
-static void playFile (cMp3Decoder* mp3Decoder, string& fileName, bool& fileNameChanged, float& position, bool& positionChanged) {
-
-  cLcd::instance()->setTitle (fileName);
-
-  cFile file (fileName, FA_OPEN_EXISTING | FA_READ);
-  if (!file.isOk()) {
-    //{{{  error, return
-    cLcd::debug ("- open failed " + cLcd::intStr (file.getResult()) + " " + fileName);
-    return;
-    }
-    //}}}
-  cLcd::debug ("play " + fileName + " " + cLcd::intStr (file.getSize()));
-
-  //{{{  chunkSize and buffer
-  int chunkSize = 4096;
-  int fullChunkSize = 2048 + chunkSize;
-
-  auto chunkBuffer = (uint8_t*)pvPortMalloc (fullChunkSize);
-  //}}}
-  //{{{  bsp play
-  for (auto i = 0; i < 480*2; i++)
-    mPower[i] = 0;
-  memset ((void*)AUDIO_BUFFER, 0, AUDIO_BUFFER_SIZE);
-  BSP_AUDIO_OUT_Play ((uint16_t*)AUDIO_BUFFER, AUDIO_BUFFER_SIZE);
-  //}}}
-
-  position = 0.0f;
-  mPlayFrame = 0;
-  int bytesLeft;
-  do {
-    file.read (chunkBuffer, fullChunkSize, bytesLeft);
-    if (bytesLeft) {
-      auto chunkPtr = chunkBuffer;
-      int headerBytes;
-      do {
-        headerBytes = mp3Decoder->findNextHeader (chunkPtr, bytesLeft);
-        if (headerBytes) {
-          chunkPtr += headerBytes;
-          bytesLeft -= headerBytes;
-          if (bytesLeft < mp3Decoder->getFrameBodySize() + 4) { // not enough for frameBody and next header
-            //{{{  move bytesLeft to front of chunkBuffer,  next read partial buffer 32bit aligned
-            auto nextChunkPtr = chunkBuffer + ((4 - (bytesLeft & 3)) & 3);
-            memcpy (nextChunkPtr, chunkPtr, bytesLeft);
-
-            // read next chunks worth, including rest of frame, 32bit aligned
-            int bytesLoaded;
-            file.read (nextChunkPtr + bytesLeft, chunkSize, bytesLoaded);
-            if (bytesLoaded) {
-              chunkPtr = nextChunkPtr;
-              bytesLeft += bytesLoaded;
-              }
-            else
-              bytesLeft = 0;
-            }
-            //}}}
-          if (bytesLeft >= mp3Decoder->getFrameBodySize()) {
-            osSemaphoreWait (audSem, 100);
-            auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, &mPower[(mPlayFrame % 480) * 2], (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
-            if (frameBytes) {
-              chunkPtr += frameBytes;
-              bytesLeft -= frameBytes;
-              mPlayFrame++;
-              }
-            else
-              bytesLeft = 0;
-            }
-          }
-        if (fileNameChanged)
-          bytesLeft = 0;
-        else if (positionChanged) {
-          //{{{  skip
-          file.seek (int(position * file.getSize()) & 0xFFFFFFE0);
-          positionChanged = false;
-          headerBytes = 0;
-          }
-          //}}}
-        else
-          position = (float)file.getPosition() / (float)file.getSize();
-        } while (headerBytes && (bytesLeft > 0));
-      }
-    } while (bytesLeft > 0);
-
-  vPortFree (chunkBuffer);
-  BSP_AUDIO_OUT_Stop (CODEC_PDWN_SW);
   }
 //}}}
 
@@ -260,28 +170,36 @@ static void loadThread (void const* argument) {
     return;
     }
     //}}}
-
   cLcd::debug (fatFs->getLabel() + " vsn:" + cLcd::hexStr (fatFs->getVolumeSerialNumber()) +
                " freeSectors:" + cLcd::intStr (fatFs->getFreeSectors()));
   cLcd::instance()->setShowDebug (false, false, false, false);
 
   vector <string> mp3Files;
   listDirectory (mp3Files, "", "");
-  string selectedFileName;
+  //{{{  create fileList widgets
+  string selectedFilename;
   bool selectedFileChanged = false;
   for (auto fileName : mp3Files)
-    if (!cWidgetMan::instance()->addBelow (new cSelectTextBox (fileName, selectedFileName, selectedFileChanged)))
+    if (!cWidgetMan::instance()->addBelow (new cSelectTextBox (fileName, selectedFilename, selectedFileChanged)))
       break;
-
+  //}}}
+  //{{{  create position widget
   float position = 0.0f;
   bool positionChanged = false;;
   cWidgetMan::instance()->add (
     new cValueRefBox (position, positionChanged, LCD_BLUE, cLcd::getWidth(), 6), 0, cLcd::getHeight()-6);
+  //}}}
+  //{{{  create volume widget
   cWidgetMan::instance()->add (
     new cValueRefBox (mVolume, mVolumeChanged, LCD_YELLOW, 20, cLcd::getHeight()), cLcd::getWidth()-20, 0);
-  cWidgetMan::instance()->add (new cWaveformWidget (&mPlayFrame, mPower), 0, 0);
+  //}}}
+  //{{{  create waveform widget
+  int playFrame = 0;
+  float power [480*2];
+  cWidgetMan::instance()->add (new cWaveformWidget (&playFrame, power), 0, 0);
+  //}}}
 
-  cMp3Decoder* mp3Decoder = new cMp3Decoder;
+  auto mp3Decoder = new cMp3Decoder;
   cLcd::debug ("mp3Decoder created");
 
   osSemaphoreDef (aud);
@@ -289,12 +207,96 @@ static void loadThread (void const* argument) {
   BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 44100);  // OUTPUT_DEVICE_HEADPHONE
   BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);             // CODEC_AUDIOFRAME_SLOT_02
 
+  //{{{  chunkSize and buffer
+  auto chunkSize = 4096;
+  auto fullChunkSize = 2048 + chunkSize;
+  auto chunkBuffer = (uint8_t*)pvPortMalloc (fullChunkSize);
+  //}}}
   while (true) {
     while (!selectedFileChanged)
       osDelay (100);
     selectedFileChanged = false;
-    playFile (mp3Decoder, selectedFileName, selectedFileChanged, position, positionChanged);
+    cLcd::instance()->setTitle (selectedFilename);
+    //{{{  play selectedFilename
+    cFile file (selectedFilename, FA_OPEN_EXISTING | FA_READ);
+    if (!file.isOk()) {
+      //{{{  error, return
+      cLcd::debug ("- open failed " + cLcd::intStr (file.getResult()) + " " + selectedFilename);
+      return;
+      }
+      //}}}
+    cLcd::debug ("play " + selectedFilename + " " + cLcd::intStr (file.getSize()));
+
+    //{{{  init power
+    for (auto i = 0; i < 480*2; i++)
+      power[i] = 0.0f;
+    //}}}
+    //{{{  init BSP_play
+    memset ((void*)AUDIO_BUFFER, 0, AUDIO_BUFFER_SIZE);
+    BSP_AUDIO_OUT_Play ((uint16_t*)AUDIO_BUFFER, AUDIO_BUFFER_SIZE);
+    //}}}
+
+    position = 0.0f;
+    playFrame = 0;
+    int bytesLeft;
+    do {
+      file.read (chunkBuffer, fullChunkSize, bytesLeft);
+      if (bytesLeft) {
+        auto chunkPtr = chunkBuffer;
+        int headerBytes;
+        do {
+          headerBytes = mp3Decoder->findNextHeader (chunkPtr, bytesLeft);
+          if (headerBytes) {
+            chunkPtr += headerBytes;
+            bytesLeft -= headerBytes;
+            if (bytesLeft < mp3Decoder->getFrameBodySize() + 4) { // not enough for frameBody and next header
+              //{{{  move bytesLeft to front of chunkBuffer,  next read partial buffer 32bit aligned
+              auto nextChunkPtr = chunkBuffer + ((4 - (bytesLeft & 3)) & 3);
+              memcpy (nextChunkPtr, chunkPtr, bytesLeft);
+
+              // read next chunks worth, including rest of frame, 32bit aligned
+              int bytesLoaded;
+              file.read (nextChunkPtr + bytesLeft, chunkSize, bytesLoaded);
+              if (bytesLoaded) {
+                chunkPtr = nextChunkPtr;
+                bytesLeft += bytesLoaded;
+                }
+              else
+                bytesLeft = 0;
+              }
+              //}}}
+            if (bytesLeft >= mp3Decoder->getFrameBodySize()) {
+              osSemaphoreWait (audSem, 100);
+              auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, &power[(playFrame % 480) * 2], (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
+              if (frameBytes) {
+                chunkPtr += frameBytes;
+                bytesLeft -= frameBytes;
+                playFrame++;
+                }
+              else
+                bytesLeft = 0;
+              }
+            }
+          if (selectedFileChanged)
+            bytesLeft = 0;
+          else if (positionChanged) {
+            //{{{  skip
+            file.seek (int(position * file.getSize()) & 0xFFFFFFE0);
+            positionChanged = false;
+            headerBytes = 0;
+            }
+            //}}}
+          else
+            position = (float)file.getPosition() / (float)file.getSize();
+          } while (headerBytes && (bytesLeft > 0));
+        }
+      } while (bytesLeft > 0);
+
+    BSP_AUDIO_OUT_Stop (CODEC_PDWN_SW);
+    //}}}
     }
+
+  vPortFree (chunkBuffer);
   }
 //}}}
 //{{{
