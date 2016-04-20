@@ -1,4 +1,4 @@
-// cWidgetMan.h - singletom widget manager
+// cWidgetMan.h - singleton widget manager
 #pragma once
 #include <vector>
 #include "cWidget.h"
@@ -29,10 +29,10 @@ public:
   bool addBelow (cWidget* widget) {
 
     if (!mWidgets.empty())
-      widget->setOrg (mWidgets.back()->getXorg(), mWidgets.back()->getYorg() + mWidgets.back()->getYlen());
+      widget->setOrg (mWidgets.back()->getXorg(), mWidgets.back()->getYorg() + mWidgets.back()->getHeight());
 
-    bool fit = (widget->getYorg() + widget->getYlen() <= cLcd::getHeight()) &&
-               (widget->getXorg() + widget->getXlen() <= cLcd::getWidth());
+    bool fit = (widget->getYorg() + widget->getHeight() <= cLcd::getHeight()) &&
+               (widget->getXorg() + widget->getWidth() <= cLcd::getWidth());
 
     if (fit)
       mWidgets.push_back (widget);
@@ -78,7 +78,6 @@ public:
 
   //{{{
   void draw (cLcd* lcd) {
-
     for (auto widget : mWidgets)
       (widget->draw (lcd));
     }
@@ -90,7 +89,7 @@ private:
 
   // member vars
   cWidget* mPressedWidget = nullptr;
-  std::vector <cWidget*> mWidgets;
+  std::vector<cWidget*> mWidgets;
 
   uint16_t mPressedx = 0;
   uint16_t mPressedy = 0;

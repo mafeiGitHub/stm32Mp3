@@ -11,8 +11,8 @@ public:
 
   int16_t getXorg() { return mXorg; }
   int16_t getYorg() { return mYorg; }
-  int16_t getXlen() { return mXlen; }
-  int16_t getYlen() { return mYlen; }
+  int16_t getWidth() { return mXlen; }
+  int16_t getHeight() { return mYlen; }
   int getPressed() { return mPressed; }
 
   void setOrg (int16_t x, int16_t y) { mXorg = x; mYorg = y; }
@@ -20,8 +20,8 @@ public:
   virtual void setColour (uint32_t colour) { mColour = colour; }
 
   //{{{
-  virtual bool picked (int16_t x, int16_t y, int16_t z) { 
-    return (x >= mXorg) && (x < mXorg + mXlen) && (y >= mYorg) && (y < mYorg + mYlen); 
+  virtual bool picked (int16_t x, int16_t y, int16_t z) {
+    return (x >= mXorg) && (x < mXorg + mXlen) && (y >= mYorg) && (y < mYorg + mYlen);
     }
   //}}}
   virtual void pressed (int16_t x, int16_t y) { mPressed++; }
@@ -29,8 +29,8 @@ public:
   virtual void released (int16_t x, int16_t y) { mPressed = 0; }
 
   //{{{
-  virtual void draw (cLcd* lcd) { 
-    lcd->rectClipped (mPressed ? LCD_LIGHTRED : mColour, mXorg+1, mYorg+1, mXlen-1, mYlen-1); 
+  virtual void draw (cLcd* lcd) {
+    lcd->rectClipped (mPressed ? LCD_LIGHTRED : mColour, mXorg+1, mYorg+1, mXlen-1, mYlen-1);
     }
   //}}}
 

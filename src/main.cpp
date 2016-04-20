@@ -26,7 +26,10 @@
 #include "../widgets/cWidgetMan.h"
 #include "../widgets/cWidget.h"
 #include "../widgets/cTextBox.h"
+#include "../widgets/cSelectTextBox.h"
 #include "../widgets/cValueBox.h"
+#include "../widgets/cValueRefBox.h"
+#include "../widgets/cWaveformWidget.h"
 
 #include "../Bsp/stm32746g_discovery_sd.h"
 #include "../fatfs/fatFs.h"
@@ -37,24 +40,15 @@
 
 using namespace std;
 //}}}
-//{{{  static const
-static bool kStaticIp = true;
-//}}}
 //{{{  static vars
-static struct netif gNetif;
-
-static float mVolume = 0.8f;
-static int mPlayFrame = 0;
-
-static cMp3Decoder* mMp3Decoder = nullptr;
-static float mPower [480*2];
-
 static osSemaphoreId audSem;
 static bool mAudHalf = false;
 
-static cValueBox* mProgressBox = nullptr;
-static vector <string> mMp3Files;
-static string mPlayFileName;
+static float mVolume = 0.8f;
+static bool mVolumeChanged = false;
+
+static int mPlayFrame = 0;
+static float mPower [480*2];
 //}}}
 //{{{  audio callbacks
 //{{{
@@ -72,36 +66,7 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 //}}}
 
 //{{{
-class cVolumeBox : public cValueBox {
-public:
-  cVolumeBox (float value, uint32_t colour, uint16_t xlen, uint16_t ylen) :
-    cValueBox (value, colour, xlen, ylen){}
-  virtual ~cVolumeBox() {}
-
-  virtual void setValue (float value) {
-    if (cValueBox::setValue (value, 0.0f, 1.0f)) {
-      mVolume = getValue() * 100;
-      BSP_AUDIO_OUT_SetVolume (mVolume);
-      }
-    }
-  };
-//}}}
-//{{{
-class cFileNameBox : public cTextBox {
-public:
-  cFileNameBox (string text) :
-    cTextBox (text, cLcd::getWidth() - 20 - 1) {}
-  virtual ~cFileNameBox() {}
-
-  virtual void released (int16_t x, int16_t y) {
-    mPlayFileName = mText;
-    cTextBox::released (x, y);
-    }
-  };
-//}}}
-
-//{{{
-static void listDirectory (string directoryName, string indent) {
+static void listDirectory (vector<string>& mp3Files, string directoryName, string indent) {
 
   cLcd::debug ("dir " + directoryName);
 
@@ -120,11 +85,10 @@ static void listDirectory (string directoryName, string indent) {
       }
 
     else if (fileInfo.isDirectory())
-      listDirectory (directoryName + "/" + fileInfo.getName(), indent + "-");
+      listDirectory (mp3Files, directoryName + "/" + fileInfo.getName(), indent + "-");
 
     else if (fileInfo.matchExtension ("MP3")) {
-      cLcd::instance()->setShowDebug (false, false, false, false);
-      mMp3Files.push_back (directoryName + "/" + fileInfo.getName());
+      mp3Files.push_back (directoryName + "/" + fileInfo.getName());
       cLcd::debug (indent + fileInfo.getName());
       cFile file (directoryName + "/" + fileInfo.getName(), FA_OPEN_EXISTING | FA_READ);
       cLcd::debug ("- filesize " + cLcd::intStr (file.getSize()));
@@ -133,7 +97,7 @@ static void listDirectory (string directoryName, string indent) {
   }
 //}}}
 //{{{
-static void playFile (string fileName) {
+static void playFile (cMp3Decoder* mp3Decoder, string& fileName, bool& fileNameChanged, float& position, bool& positionChanged) {
 
   cLcd::instance()->setTitle (fileName);
 
@@ -159,6 +123,7 @@ static void playFile (string fileName) {
   BSP_AUDIO_OUT_Play ((uint16_t*)AUDIO_BUFFER, AUDIO_BUFFER_SIZE);
   //}}}
 
+  position = 0.0f;
   mPlayFrame = 0;
   int bytesLeft;
   do {
@@ -167,11 +132,11 @@ static void playFile (string fileName) {
       auto chunkPtr = chunkBuffer;
       int headerBytes;
       do {
-        headerBytes = mMp3Decoder->findNextHeader (chunkPtr, bytesLeft);
+        headerBytes = mp3Decoder->findNextHeader (chunkPtr, bytesLeft);
         if (headerBytes) {
           chunkPtr += headerBytes;
           bytesLeft -= headerBytes;
-          if (bytesLeft < mMp3Decoder->getFrameBodySize() + 4) { // not enough for frameBody and next header
+          if (bytesLeft < mp3Decoder->getFrameBodySize() + 4) { // not enough for frameBody and next header
             //{{{  move bytesLeft to front of chunkBuffer,  next read partial buffer 32bit aligned
             auto nextChunkPtr = chunkBuffer + ((4 - (bytesLeft & 3)) & 3);
             memcpy (nextChunkPtr, chunkPtr, bytesLeft);
@@ -187,9 +152,9 @@ static void playFile (string fileName) {
               bytesLeft = 0;
             }
             //}}}
-          if (bytesLeft >= mMp3Decoder->getFrameBodySize()) {
+          if (bytesLeft >= mp3Decoder->getFrameBodySize()) {
             osSemaphoreWait (audSem, 100);
-            auto frameBytes = mMp3Decoder->decodeFrameBody (chunkPtr, &mPower[(mPlayFrame % 480) * 2], (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
+            auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, &mPower[(mPlayFrame % 480) * 2], (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
             if (frameBytes) {
               chunkPtr += frameBytes;
               bytesLeft -= frameBytes;
@@ -199,20 +164,17 @@ static void playFile (string fileName) {
               bytesLeft = 0;
             }
           }
-        if (mPlayFileName != fileName)
+        if (fileNameChanged)
           bytesLeft = 0;
-        else if (mProgressBox->getPressed() == 1) {
+        else if (positionChanged) {
           //{{{  skip
-          if (mProgressBox->getValue() < 99.0f)
-            file.seek (int(mProgressBox->getValue() * file.getSize()) & 0xFFFFFFE0);
-          else
-            bytesLeft = 0;
-
+          file.seek (int(position * file.getSize()) & 0xFFFFFFE0);
+          positionChanged = false;
           headerBytes = 0;
           }
           //}}}
         else
-          mProgressBox->setValue ((float)file.getPosition() / (float)file.getSize());
+          position = (float)file.getPosition() / (float)file.getSize();
         } while (headerBytes && (bytesLeft > 0));
       }
     } while (bytesLeft > 0);
@@ -266,24 +228,14 @@ static void uiThread (void const* argument) {
 
     lcd->startDraw();
     cWidgetMan::instance()->draw (lcd);
-    //{{{  draw blue waveform
-    for (auto x = 0; x < cLcd::getWidth(); x++) {
-      int frame = mPlayFrame - cLcd::getWidth() + x;
-      if (frame > 0) {
-        auto index = (frame % 480) * 2;
-        uint8_t top = (cLcd::getHeight()/2) - (int)mPower[index]/2;
-        uint8_t ylen = (cLcd::getHeight()/2) + (int)mPower[index+1]/2 - top;
-        lcd->rectClipped (LCD_BLUE, x, top, 1, ylen);
-        }
-      }
-    //}}}
-    //{{{  draw touch
-    //for (auto touch = 0; (touch < 5) && pressed[touch]; touch++)
-      //lcd->drawCursor (touch > 0 ? LCD_LIGHTGREY : LCD_YELLOW, x[touch], y[touch], z[touch]);
-    //}}}
     lcd->endDraw();
+    if (mVolumeChanged) {
+      //{{{  change volume
+      BSP_AUDIO_OUT_SetVolume (int(mVolume * 100));
+      mVolumeChanged = false;
+      }
+      //}}}
     }
-
   }
 //}}}
 //{{{
@@ -309,18 +261,27 @@ static void loadThread (void const* argument) {
     }
     //}}}
 
-  cLcd::debug (fatFs->getLabel() +
-               " vsn:" + cLcd::hexStr (fatFs->getVolumeSerialNumber()) +
+  cLcd::debug (fatFs->getLabel() + " vsn:" + cLcd::hexStr (fatFs->getVolumeSerialNumber()) +
                " freeSectors:" + cLcd::intStr (fatFs->getFreeSectors()));
+  cLcd::instance()->setShowDebug (false, false, false, false);
 
-  listDirectory ("", "");
-  for (auto fileName : mMp3Files)
-    if (!cWidgetMan::instance()->addBelow (new cFileNameBox (fileName)))
+  vector <string> mp3Files;
+  listDirectory (mp3Files, "", "");
+  string selectedFileName;
+  bool selectedFileChanged = false;
+  for (auto fileName : mp3Files)
+    if (!cWidgetMan::instance()->addBelow (new cSelectTextBox (fileName, selectedFileName, selectedFileChanged)))
       break;
-  cWidgetMan::instance()->add (mProgressBox = new cValueBox (0.0f, LCD_BLUE, cLcd::getWidth(), 6), 0, cLcd::getHeight()-6);
-  cWidgetMan::instance()->add (new cVolumeBox (mVolume, LCD_YELLOW, 20, cLcd::getHeight()), cLcd::getWidth()-20, 0);
 
-  mMp3Decoder = new cMp3Decoder;
+  float position = 0.0f;
+  bool positionChanged = false;;
+  cWidgetMan::instance()->add (
+    new cValueRefBox (position, positionChanged, LCD_BLUE, cLcd::getWidth(), 6), 0, cLcd::getHeight()-6);
+  cWidgetMan::instance()->add (
+    new cValueRefBox (mVolume, mVolumeChanged, LCD_YELLOW, 20, cLcd::getHeight()), cLcd::getWidth()-20, 0);
+  cWidgetMan::instance()->add (new cWaveformWidget (&mPlayFrame, mPower), 0, 0);
+
+  cMp3Decoder* mp3Decoder = new cMp3Decoder;
   cLcd::debug ("mp3Decoder created");
 
   osSemaphoreDef (aud);
@@ -329,16 +290,19 @@ static void loadThread (void const* argument) {
   BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);             // CODEC_AUDIOFRAME_SLOT_02
 
   while (true) {
-    while (mPlayFileName.empty())
+    while (!selectedFileChanged)
       osDelay (100);
-    playFile (mPlayFileName);
+    selectedFileChanged = false;
+    playFile (mp3Decoder, selectedFileName, selectedFileChanged, position, positionChanged);
     }
   }
 //}}}
 //{{{
-static void dhcpThread (void const* argument) {
+static void networkThread (void const* argument) {
 
-  auto netif = (struct netif*)argument;
+  static bool kStaticIp = true;
+
+  struct netif netIf;
 
   tcpip_init (NULL, NULL);
   cLcd::debug ("configuring ethernet");
@@ -350,42 +314,42 @@ static void dhcpThread (void const* argument) {
   IP4_ADDR (&netmask, 255, 255 , 255, 0);
   struct ip_addr gateway;
   IP4_ADDR (&gateway, 192, 168, 0, 1);
-  netif_add (netif, &ipAddr, &netmask, &gateway, NULL, &ethernetif_init, &tcpip_input);
-  netif_set_default (netif);
+  netif_add (&netIf, &ipAddr, &netmask, &gateway, NULL, &ethernetif_init, &tcpip_input);
+  netif_set_default (&netIf);
 
-  if (netif_is_link_up (netif)) {
-    netif_set_up (netif);
+  if (netif_is_link_up (&netIf)) {
+    netif_set_up (&netIf);
     if (kStaticIp)
       //{{{  static ip
-      cLcd::debug (LCD_YELLOW, "ethernet static ip " + cLcd::intStr ((int) (netif->ip_addr.addr & 0xFF)) + "." +
-                                                       cLcd::intStr ((int)((netif->ip_addr.addr >> 16) & 0xFF)) + "." +
-                                                       cLcd::intStr ((int)((netif->ip_addr.addr >> 8) & 0xFF)) + "." +
-                                                       cLcd::intStr ((int) (netif->ip_addr.addr >> 24)));
+      cLcd::debug (LCD_YELLOW, "ethernet static ip " + cLcd::intStr ((int) (netIf.ip_addr.addr & 0xFF)) + "." +
+                                                       cLcd::intStr ((int)((netIf.ip_addr.addr >> 16) & 0xFF)) + "." +
+                                                       cLcd::intStr ((int)((netIf.ip_addr.addr >> 8) & 0xFF)) + "." +
+                                                       cLcd::intStr ((int) (netIf.ip_addr.addr >> 24)));
       //}}}
     else {
       //{{{  dhcp ip
       struct ip_addr nullIpAddr;
       IP4_ADDR (&nullIpAddr, 0, 0, 0, 0);
-      netif->ip_addr = nullIpAddr;
-      netif->netmask = nullIpAddr;
-      netif->gw = nullIpAddr;
-      dhcp_start (netif);
+      netIf.ip_addr = nullIpAddr;
+      netIf.netmask = nullIpAddr;
+      netIf.gw = nullIpAddr;
+      dhcp_start (&netIf);
 
       while (true) {
-        if (netif->ip_addr.addr) {
+        if (netIf.ip_addr.addr) {
           //{{{  dhcp allocated
-          cLcd::debug (LCD_YELLOW, "dhcp allocated " + cLcd::intStr ( (int)(netif->ip_addr.addr & 0xFF)) + "." +
-                                                       cLcd::intStr ((int)((netif->ip_addr.addr >> 16) & 0xFF)) + "." +
-                                                       cLcd::intStr ((int)((netif->ip_addr.addr >> 8) & 0xFF)) + "." +
-                                                       cLcd::intStr ( (int)(netif->ip_addr.addr >> 24)));
-          dhcp_stop (netif);
+          cLcd::debug (LCD_YELLOW, "dhcp allocated " + cLcd::intStr ( (int)(netIf.ip_addr.addr & 0xFF)) + "." +
+                                                       cLcd::intStr ((int)((netIf.ip_addr.addr >> 16) & 0xFF)) + "." +
+                                                       cLcd::intStr ((int)((netIf.ip_addr.addr >> 8) & 0xFF)) + "." +
+                                                       cLcd::intStr ( (int)(netIf.ip_addr.addr >> 24)));
+          dhcp_stop (&netIf);
           break;
           }
           //}}}
-        else if (netif->dhcp->tries > 4) {
+        else if (netIf.dhcp->tries > 4) {
           //{{{  dhcp timeout
           cLcd::debug (LCD_RED, "dhcp timeout");
-          dhcp_stop (netif);
+          dhcp_stop (&netIf);
 
           // use static address
           struct ip_addr ipAddr;
@@ -394,7 +358,7 @@ static void dhcpThread (void const* argument) {
           IP4_ADDR (&netmask, 255, 255, 255, 0);
           struct ip_addr gateway;
           IP4_ADDR (&gateway, 192, 168, 0, 1);
-          netif_set_addr (netif, &ipAddr , &netmask, &gateway);
+          netif_set_addr (&netIf, &ipAddr , &netmask, &gateway);
           break;
           }
           //}}}
@@ -408,7 +372,7 @@ static void dhcpThread (void const* argument) {
     }
   else {
     //{{{  no ethernet
-    netif_set_down (&gNetif);
+    netif_set_down (&netIf);
     cLcd::debug (LCD_RED, "no ethernet");
     }
     //}}}
@@ -428,8 +392,8 @@ static void startThread (void const* argument) {
   const osThreadDef_t osThreadLoad =  { (char*)"Load", loadThread, osPriorityNormal, 0, 10000 };
   osThreadCreate (&osThreadLoad, NULL);
 
-  const osThreadDef_t osThreadDHCP =  { (char*)"DHCP", dhcpThread, osPriorityBelowNormal, 0, 1024 };
-  osThreadCreate (&osThreadDHCP, &gNetif);
+  const osThreadDef_t osThreadNetwork =  { (char*)"net", networkThread, osPriorityBelowNormal, 0, 1024 };
+  osThreadCreate (&osThreadNetwork, NULL);
 
   for (;;)
     osThreadTerminate (NULL);

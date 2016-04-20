@@ -2,7 +2,6 @@
 #pragma once
 #include <string>
 #include "cWidget.h"
-#include "cLcd.h"
 
 class cValueBox : public cWidget {
 public:
