@@ -50,7 +50,7 @@ public:
           mPressedx = x;
           mPressedy = y;
           mPressedWidget = widget;
-          mPressedWidget->pressed (x - widget->getXorg(), y - widget->getYorg(), z);
+          mPressedWidget->pressed (x - widget->getXorg(), y - widget->getYorg());
           return true;
           }
         }

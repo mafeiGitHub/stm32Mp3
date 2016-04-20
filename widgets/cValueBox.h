@@ -39,9 +39,9 @@ public:
   //}}}
 
   //{{{
-  virtual void pressed (int16_t x, int16_t y, int16_t z) {
+  virtual void pressed (int16_t x, int16_t y) {
 
-    cWidget::pressed (x, y, z);
+    cWidget::pressed (x, y);
     if (mXlen > mYlen)
       setValue ((float)x / (float)mXlen);
     else

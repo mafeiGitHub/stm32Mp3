@@ -90,12 +90,12 @@ public:
 class cFileNameBox : public cTextBox {
 public:
   cFileNameBox (string text) :
-    cTextBox (text, 400) {}
+    cTextBox (text, cLcd::getWidth() - 20 - 1) {}
   virtual ~cFileNameBox() {}
 
-  virtual void pressed (int16_t x, int16_t y, int16_t z) {
-    cTextBox::pressed (x, y, z);
+  virtual void released (int16_t x, int16_t y) {
     mPlayFileName = mText;
+    cTextBox::released (x, y);
     }
   };
 //}}}
