@@ -194,9 +194,9 @@ static void loadThread (void const* argument) {
     new cValueRefBox (mVolume, mVolumeChanged, LCD_YELLOW, 20, cLcd::getHeight()), cLcd::getWidth()-20, 0);
   //}}}
   //{{{  create waveform widget
-  int playFrame = 0;
-  float power [480*2];
-  cWidgetMan::instance()->add (new cWaveformWidget (&playFrame, power), 0, 0);
+  auto playFrame = 0;
+  auto waveform = (float*) pvPortMalloc (480*2*4);
+  cWidgetMan::instance()->add (new cWaveformWidget (playFrame, waveform), 0, 0);
   //}}}
 
   auto mp3Decoder = new cMp3Decoder;
@@ -227,9 +227,9 @@ static void loadThread (void const* argument) {
       //}}}
     cLcd::debug ("play " + selectedFilename + " " + cLcd::intStr (file.getSize()));
 
-    //{{{  init power
+    //{{{  clear waveform
     for (auto i = 0; i < 480*2; i++)
-      power[i] = 0.0f;
+      waveform[i] = 0.0f;
     //}}}
     //{{{  init BSP_play
     memset ((void*)AUDIO_BUFFER, 0, AUDIO_BUFFER_SIZE);
@@ -267,7 +267,7 @@ static void loadThread (void const* argument) {
               //}}}
             if (bytesLeft >= mp3Decoder->getFrameBodySize()) {
               osSemaphoreWait (audSem, 100);
-              auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, &power[(playFrame % 480) * 2], (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
+              auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, &waveform[(playFrame % 480) * 2], (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
               if (frameBytes) {
                 chunkPtr += frameBytes;
                 bytesLeft -= frameBytes;
@@ -296,6 +296,7 @@ static void loadThread (void const* argument) {
     //}}}
     }
 
+  vPortFree (waveform);
   vPortFree (chunkBuffer);
   }
 //}}}
@@ -388,7 +389,7 @@ static void startThread (void const* argument) {
   cLcd::create ("mp3 player built at " + string(__TIME__) + " on " + string(__DATE__));
   cWidgetMan::create();
 
-  const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 2000 };
+  const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 1000 };
   osThreadCreate (&osThreadUi, NULL);
 
   const osThreadDef_t osThreadLoad =  { (char*)"Load", loadThread, osPriorityNormal, 0, 10000 };
