@@ -8,7 +8,7 @@ class cTextBox : public cWidget {
 public:
   cTextBox (std::string text, uint16_t xlen) : cWidget (xlen), mText(text) {}
   cTextBox (std::string text, uint32_t colour, int16_t xorg, int16_t yorg, uint16_t xlen, uint16_t ylen) :
-    cWidget (colour, xorg, yorg, xlen, ylen), mText(text) {}
+    cWidget (colour, xlen, ylen), mText(text) {}
   virtual ~cTextBox() {}
 
   void setText (std::string text) {

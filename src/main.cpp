@@ -123,7 +123,7 @@ static void listDirectory (string directoryName, string indent) {
       listDirectory (directoryName + "/" + fileInfo.getName(), indent + "-");
 
     else if (fileInfo.matchExtension ("MP3")) {
-      cLcd::instance()->setShowDebug (false);
+      cLcd::instance()->setShowDebug (false, false, false, false);
       mMp3Files.push_back (directoryName + "/" + fileInfo.getName());
       cLcd::debug (indent + fileInfo.getName());
       cFile file (directoryName + "/" + fileInfo.getName(), FA_OPEN_EXISTING | FA_READ);
@@ -229,9 +229,6 @@ static void uiThread (void const* argument) {
   auto lcd = cLcd::instance();
   cLcd::debug ("uiThread started");
 
-  cWidgetMan::instance()->add (new cVolumeBox (mVolume, LCD_YELLOW, 20, cLcd::getHeight()), cLcd::getWidth()-20, 0);
-  cWidgetMan::instance()->add (mProgressBox = new cValueBox (0.0f, LCD_DARKBLUE, cLcd::getWidth()), 0, 0);
-
   //{{{  init touch
   BSP_TS_Init (cLcd::getWidth(), cLcd::getHeight());
   int pressed[5] = {0, 0, 0, 0, 0};
@@ -320,6 +317,8 @@ static void loadThread (void const* argument) {
   for (auto fileName : mMp3Files)
     if (!cWidgetMan::instance()->addBelow (new cFileNameBox (fileName)))
       break;
+  cWidgetMan::instance()->add (mProgressBox = new cValueBox (0.0f, LCD_BLUE, cLcd::getWidth(), 6), 0, cLcd::getHeight()-6);
+  cWidgetMan::instance()->add (new cVolumeBox (mVolume, LCD_YELLOW, 20, cLcd::getHeight()), cLcd::getWidth()-20, 0);
 
   mMp3Decoder = new cMp3Decoder;
   cLcd::debug ("mp3Decoder created");

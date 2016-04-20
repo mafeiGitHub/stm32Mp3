@@ -10,8 +10,6 @@ public:
     cWidget (colour, xlen), mValue(value) {}
   cValueBox (float value, uint32_t colour, uint16_t xlen, uint16_t ylen) :
     cWidget (colour, xlen, ylen), mValue(value) {}
-  cValueBox (float value, uint32_t colour, int16_t xorg, int16_t yorg, uint16_t xlen, uint16_t ylen) :
-    cWidget (colour, xorg, yorg, xlen, ylen), mValue(value) {}
   virtual ~cValueBox() {}
 
   //{{{

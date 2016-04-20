@@ -45,7 +45,6 @@ public:
   static int getHeight() { return 272; }
   static int getFontHeight() { return 15; }
   static int getLineHeight() { return 18; }
-  static int getBoxHeight() { return 20; }
 
   // static string utils
   static std::string hexStr (int value, int width = 0);
@@ -55,10 +54,7 @@ public:
 
   // sets
   void setTitle (std::string title);
-  void setShowDebug (bool enable);
-  void setShowDebugTime (bool enable);
-  void setShowLcdDebug (bool enable);
-  void setShowFooter (bool enable);
+  void setShowDebug (bool title, bool info, bool lcdStats, bool footer);
 
   // string
   void info (uint32_t colour, std::string str, bool newLine = true);
@@ -118,9 +114,9 @@ private:
   int mNumDrawLines = 0;
   int mStringPos = 0;
 
-  bool mShowDebug = true;
-  bool mShowDebugTime = true;
-  bool mShowLcdDebug = false;
+  bool mShowTitle = true;
+  bool mShowInfo = true;
+  bool mShowLcdStats = false;
   bool mShowFooter = true;
 
   std::string mTitle;
