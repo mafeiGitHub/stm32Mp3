@@ -1,15 +1,15 @@
-// cRoot.h - singleton root widget
+// cRootContainer.h - singleton root widget
 #pragma once
 #include "cContainer.h"
 
-class cRoot : public cContainer {
+class cRootContainer : public cContainer {
 public:
   // static
-  static cRoot* get() { return mRoot; }
+  static cRootContainer* get() { return mRootContainer; }
 
   // member
-  cRoot (uint16_t width, uint16_t height) : cContainer (width, height) { mRoot = this; }
-  virtual ~cRoot() {}
+  cRootContainer (uint16_t width, uint16_t height) : cContainer (width, height) { mRootContainer = this; }
+  virtual ~cRootContainer() {}
 
   //{{{
   void press (int pressCount,  int16_t x, int16_t y, uint8_t z, int16_t xinc, int16_t yinc) {
@@ -40,11 +40,11 @@ public:
 
 private:
   // static var
-  static cRoot* mRoot;
+  static cRootContainer* mRootContainer;
 
   // member var
   cWidget* mPressedWidget = nullptr;
   };
 
 // static member var init
-cRoot* cRoot::mRoot = nullptr;
+cRootContainer* cRootContainer::mRootContainer = nullptr;
