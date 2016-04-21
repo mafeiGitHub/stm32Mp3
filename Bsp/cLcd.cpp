@@ -204,7 +204,7 @@ cLcd* cLcd::create (std::string title, bool buffered) {
   }
 //}}}
 //{{{
-std::string cLcd::hexStr (int value, int width) {
+std::string cLcd::hexStr (int value, uint8_t width) {
 
   std::ostringstream os;
   if (width)
@@ -215,7 +215,7 @@ std::string cLcd::hexStr (int value, int width) {
   }
 //}}}
 //{{{
-std::string cLcd::intStr (int value, int width, char fill) {
+std::string cLcd::intStr (int value, uint8_t width, char fill) {
 
   std::ostringstream os;
   if (width)
@@ -562,7 +562,7 @@ void cLcd::startDraw() {
     }
 
   mDrawStartTime = osKernelSysTick();
-  clear (LCD_BLACK);
+  //clear (LCD_BLACK);
   }
 //}}}
 //{{{

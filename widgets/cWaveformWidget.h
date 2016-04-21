@@ -8,7 +8,7 @@ public:
     cWidget (LCD_BLUE, cLcd::getWidth(), cLcd::getHeight()), mFrame(frame), mWaveform(waveform) {}
   virtual ~cWaveformWidget() {}
 
-  virtual bool picked (int16_t x, int16_t y, int16_t z) { return false; }
+  virtual cWidget* picked (int16_t x, int16_t y, int16_t z) { return nullptr; }
 
   virtual void draw (cLcd* lcd) {
     for (auto x = 0; x < mXlen; x++) {

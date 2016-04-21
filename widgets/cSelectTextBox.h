@@ -9,10 +9,10 @@ public:
     mSelectedText(selectedText), mChangedFlag(changedFlag) { mChangedFlag = false; }
   virtual ~cSelectTextBox() {}
 
-  virtual void released (int16_t x, int16_t y) {
+  virtual void released() {
     mSelectedText = mText;
     mChangedFlag = true;
-    cTextBox::released (x, y);
+    cTextBox::released();
     }
 
 private:

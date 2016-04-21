@@ -88,7 +88,7 @@ static void listDirectory (vector<string>& mp3Files, string directoryName, strin
       mp3Files.push_back (directoryName + "/" + fileInfo.getName());
       cLcd::debug (indent + fileInfo.getName());
       cFile file (directoryName + "/" + fileInfo.getName(), FA_OPEN_EXISTING | FA_READ);
-      cLcd::debug ("- filesize " + cLcd::intStr (file.getSize()));
+      //cLcd::debug ("- filesize " + cLcd::intStr (file.getSize()));
       }
     }
   }
@@ -121,8 +121,8 @@ static void uiThread (void const* argument) {
         y[touch] = tsState.touchY[touch];
         z[touch] = tsState.touchWeight[touch];
         if (!touch)
-          if (!cWidgetMan::instance()->press (pressed[0], x[0], y[0], z[0], xinc, yinc))
-            lcd->press (pressed[0], x[0], y[0], z[0], xinc, yinc);
+          cWidgetMan::instance()->press (pressed[0], x[0], y[0], z[0], xinc, yinc);
+          //  lcd->press (pressed[0], x[0], y[0], z[0], xinc, yinc);
         pressed[touch]++;
         }
       else {
@@ -176,22 +176,22 @@ static void loadThread (void const* argument) {
 
   vector <string> mp3Files;
   listDirectory (mp3Files, "", "");
-  //{{{  create fileList widgets
   string selectedFilename;
   bool selectedFileChanged = false;
-  for (auto fileName : mp3Files)
-    if (!cWidgetMan::instance()->addBelow (new cSelectTextBox (fileName, selectedFilename, selectedFileChanged)))
-      break;
+  for (unsigned int i = 0; i < 14 && i < mp3Files.size(); i++)
+  cWidgetMan::instance()->add (new cSelectTextBox (mp3Files[i], selectedFilename, selectedFileChanged), 0, i*19);
+  //for (auto fileName : mp3Files)
+  //  if (!cWidgetMan::instance()->addBelow (new cSelectTextBox (fileName, selectedFilename, selectedFileChanged)))
+  //    break;
+  //{{{  create volume widget
+  cWidgetMan::instance()->add (
+    new cValueRefBox (mVolume, mVolumeChanged, LCD_YELLOW, 20, cLcd::getHeight()), cLcd::getWidth()-20, 0);
   //}}}
   //{{{  create position widget
   float position = 0.0f;
   bool positionChanged = false;;
   cWidgetMan::instance()->add (
     new cValueRefBox (position, positionChanged, LCD_BLUE, cLcd::getWidth(), 6), 0, cLcd::getHeight()-6);
-  //}}}
-  //{{{  create volume widget
-  cWidgetMan::instance()->add (
-    new cValueRefBox (mVolume, mVolumeChanged, LCD_YELLOW, 20, cLcd::getHeight()), cLcd::getWidth()-20, 0);
   //}}}
   //{{{  create waveform widget
   auto playFrame = 0;
@@ -387,12 +387,12 @@ static void networkThread (void const* argument) {
 static void startThread (void const* argument) {
 
   cLcd::create ("mp3 player built at " + string(__TIME__) + " on " + string(__DATE__));
-  cWidgetMan::create();
+  cWidgetMan::create (cLcd::getWidth(), cLcd::getHeight());
 
-  const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 1000 };
+  const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 4000 }; // 1000
   osThreadCreate (&osThreadUi, NULL);
 
-  const osThreadDef_t osThreadLoad =  { (char*)"Load", loadThread, osPriorityNormal, 0, 10000 };
+  const osThreadDef_t osThreadLoad =  { (char*)"Load", loadThread, osPriorityNormal, 0, 16000 }; // 10000
   osThreadCreate (&osThreadLoad, NULL);
 
   const osThreadDef_t osThreadNetwork =  { (char*)"net", networkThread, osPriorityBelowNormal, 0, 1024 };

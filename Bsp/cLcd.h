@@ -41,14 +41,14 @@ public:
   static cLcd* instance() { return mLcd; }
 
   // static gets
-  static int getWidth() { return 480; }
-  static int getHeight() { return 272; }
-  static int getFontHeight() { return 15; }
-  static int getLineHeight() { return 18; }
+  static uint16_t getWidth() { return 480; }
+  static uint16_t getHeight() { return 272; }
+  static uint8_t getFontHeight() { return 15; }
+  static uint8_t getLineHeight() { return 18; }
 
   // static string utils
-  static std::string hexStr (int value, int width = 0);
-  static std::string intStr (int value, int width = 0, char fill = ' ');
+  static std::string hexStr (int value, uint8_t width = 0);
+  static std::string intStr (int value, uint8_t width = 0, char fill = ' ');
   static void debug (uint32_t colour, std::string str, bool newLine = true) { instance()->info (colour, str, newLine); }
   static void debug (std::string str) { instance()->info (str); }
 

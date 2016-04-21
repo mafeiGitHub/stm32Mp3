@@ -1,87 +1,52 @@
 // cWidgetMan.h - singleton widget manager
 #pragma once
-#include <vector>
-#include "cWidget.h"
+class cLcd;
+#include "cContainer.h"
 
 class cWidgetMan {
 public:
   // static members
   //{{{
-  static cWidgetMan* create() {
+  static cWidgetMan* create (uint16_t width, uint16_t height) {
     if (!mWidgetMan)
-      mWidgetMan = new cWidgetMan();
+      mWidgetMan = new cWidgetMan (width, height);
     return mWidgetMan;
     }
   //}}}
   static cWidgetMan* instance() { return mWidgetMan; }
 
-  cWidgetMan() {}
+  //{{{
+  cWidgetMan (uint16_t width, uint16_t height) {
+    mRootContainer = new cContainer (width, height);
+    }
+  //}}}
   ~cWidgetMan() {}
 
   //{{{
-  void add (cWidget* widget, int16_t x, int16_t y) {
-
-    widget->setOrg (x, y);
-    mWidgets.push_back (widget);
-    }
-  //}}}
-  //{{{
-  bool addBelow (cWidget* widget) {
-
-    if (!mWidgets.empty())
-      widget->setOrg (mWidgets.back()->getXorg(), mWidgets.back()->getYorg() + mWidgets.back()->getHeight());
-
-    bool fit = (widget->getYorg() + widget->getHeight() <= cLcd::getHeight()) &&
-               (widget->getXorg() + widget->getWidth() <= cLcd::getWidth());
-
-    if (fit)
-      mWidgets.push_back (widget);
-
-    return fit;
-    }
-  //}}}
-
-  //{{{
-  bool press (int pressCount, int x, int y, int z, int xinc, int yinc) {
+  void press (int pressCount, int x, int y, int z, int xinc, int yinc) {
 
     if (!pressCount) {
-      for (auto widget : mWidgets) {
-        if (widget->picked (x, y, z)) {
-          mPressedx = x;
-          mPressedy = y;
-          mPressedWidget = widget;
-          mPressedWidget->pressed (x - widget->getXorg(), y - widget->getYorg());
-          return true;
-          }
-        }
-      mPressedWidget = nullptr;
+      mPressedWidget = mRootContainer->picked (x, y, z);
+      if (mPressedWidget)
+        mPressedWidget->pressed (x - mPressedWidget->getXorg(), y - mPressedWidget->getYorg());
       }
-
-    else if (mPressedWidget) {
-      mPressedx = x;
-      mPressedy = y;
+    else if (mPressedWidget)
       mPressedWidget->moved (x - mPressedWidget->getXorg(), y - mPressedWidget->getYorg(), z, xinc, yinc);
-      }
-
-    return mPressedWidget;
     }
   //}}}
   //{{{
   void release() {
-
     if (mPressedWidget) {
-      mPressedWidget->released (mPressedx, mPressedy);
+      mPressedWidget->released();
       mPressedWidget = nullptr;
       }
     }
   //}}}
 
-  //{{{
-  void draw (cLcd* lcd) {
-    for (auto widget : mWidgets)
-      (widget->draw (lcd));
-    }
-  //}}}
+  void add (cWidget* widget, int16_t x, int16_t y) { mRootContainer->add (widget, x, y); }
+  bool addBelow (cWidget* widget) { return mRootContainer->addBelow (widget); }
+
+  void draw (cLcd* lcd) { mRootContainer->draw (lcd); }
 
 private:
   // static vars
@@ -89,10 +54,7 @@ private:
 
   // member vars
   cWidget* mPressedWidget = nullptr;
-  std::vector<cWidget*> mWidgets;
-
-  uint16_t mPressedx = 0;
-  uint16_t mPressedy = 0;
+  cContainer* mRootContainer;
   };
 
 // static member var
