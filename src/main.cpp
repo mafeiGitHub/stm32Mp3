@@ -176,8 +176,6 @@ static void loadThread (void const* argument) {
   lcd->setShowDebug (false, false, false, false);
 
   vector <string> mp3Files;
-  listDirectory (mp3Files, "", "");
-
   string selectedFileName;
   bool selectedFileChanged = false;
   root->addTopLeft (new cFileNameContainer (
@@ -196,6 +194,8 @@ static void loadThread (void const* argument) {
   auto waveform = (float*) pvPortMalloc (480*2*4);
   root->addTopLeft (new cWaveformWidget (playFrame, waveform, root->getWidth(), root->getHeight()));
   //}}}
+
+  listDirectory (mp3Files, "", "");
 
   auto mp3Decoder = new cMp3Decoder;
   cLcd::debug ("mp3Decoder created");
