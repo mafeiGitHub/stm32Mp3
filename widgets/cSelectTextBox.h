@@ -4,9 +4,8 @@
 
 class cSelectTextBox : public cTextBox {
 public:
-  cSelectTextBox (std::string text, std::string& selectedText, bool& changedFlag) :
-    cTextBox (text, cLcd::getWidth() - 20 - 1),
-    mSelectedText(selectedText), mChangedFlag(changedFlag) { mChangedFlag = false; }
+  cSelectTextBox (std::string text, std::string& selectedText, bool& changedFlag, uint16_t width) :
+    cTextBox (text, width), mSelectedText(selectedText), mChangedFlag(changedFlag) { mChangedFlag = false; }
   virtual ~cSelectTextBox() {}
 
   virtual void released() {

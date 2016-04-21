@@ -11,7 +11,7 @@ public:
 	//{{{
 	void add (cWidget* widget, int16_t x, int16_t y) {
 
-		widget->setOrg (x, y);
+		widget->setXY (x, y);
 		mSubWidgets.push_back (widget);
 		}
 	//}}}
@@ -19,7 +19,7 @@ public:
 	bool addBelow (cWidget* widget) {
 
 		if (!mSubWidgets.empty())
-			widget->setOrg (mSubWidgets.back()->getX(), mSubWidgets.back()->getY() + mSubWidgets.back()->getHeight());
+			widget->setXY (mSubWidgets.back()->getX(), mSubWidgets.back()->getY() + mSubWidgets.back()->getHeight());
 
 		bool fit = (widget->getY() + widget->getHeight() <= cLcd::getHeight()) &&
 							 (widget->getX() + widget->getWidth() <= cLcd::getWidth());
@@ -32,7 +32,7 @@ public:
 	//}}}
 
 	//{{{
-	virtual cWidget* picked (int16_t x, int16_t y, int16_t z) {
+	virtual cWidget* picked (int16_t x, int16_t y, uint8_t z) {
 
 		if (cWidget::picked (x, y, z)) {
 			for (auto widget : mSubWidgets) {
@@ -48,8 +48,6 @@ public:
 	//}}}
 	//{{{
 	virtual void draw (cLcd* lcd) {
-
-		lcd->rectClipped (mPressed ? LCD_DARKGREEN : mColour, mX, mY, mWidth, mHeight);
 		for (auto widget : mSubWidgets)
 			widget->draw (lcd);
 		}

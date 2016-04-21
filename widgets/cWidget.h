@@ -6,9 +6,10 @@ class cWidget {
 public:
 	const int16_t kBoxHeight = 19;
 
-	cWidget (uint16_t xlen) : mWidth(xlen) {}
-	cWidget (uint32_t colour, uint16_t xlen) : mColour(colour), mWidth(xlen) {}
-	cWidget (uint32_t colour, uint16_t xlen, uint16_t ylen) : mColour(colour), mWidth(xlen), mHeight(ylen) {}
+	cWidget (uint16_t width) : mWidth(width) {}
+	cWidget (float width) : mWidth(int(width* kBoxHeight)) {}
+	cWidget (uint32_t colour, uint16_t height) : mColour(colour), mWidth(height) {}
+	cWidget (uint32_t colour, uint16_t width, uint16_t height) : mColour(colour), mWidth(width), mHeight(height) {}
 	virtual ~cWidget() {}
 
 	int16_t getX() { return mX; }
@@ -17,9 +18,8 @@ public:
 	uint16_t getHeight() { return mHeight; }
 	int getPressed() { return mPressed; }
 
-	void setOrg (int16_t x, int16_t y) { mX = x; mY = y; }
-
-	virtual void setColour (uint32_t colour) { mColour = colour; }
+	void setXY (int16_t x, int16_t y) { mX = x; mY = y; }
+	void setColour (uint32_t colour) { mColour = colour; }
 
 	virtual void pressed (int16_t x, int16_t y) { mPressed++; }
 	virtual void moved (int16_t x, int16_t y, int16_t z, int16_t xinc, int16_t yinc) {}

@@ -5,10 +5,8 @@
 
 class cValueBox : public cWidget {
 public:
-  cValueBox (float value, uint32_t colour, uint16_t xlen) :
-    cWidget (colour, xlen), mValue(value) {}
-  cValueBox (float value, uint32_t colour, uint16_t xlen, uint16_t ylen) :
-    cWidget (colour, xlen, ylen), mValue(value) {}
+  cValueBox (float value, uint32_t colour, uint16_t width) : cWidget (colour, width), mValue(value) {}
+  cValueBox (float value, uint32_t colour, uint16_t width, uint16_t height) : cWidget (colour, width, height), mValue(value) {}
   virtual ~cValueBox() {}
 
   //{{{

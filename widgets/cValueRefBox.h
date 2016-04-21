@@ -5,8 +5,8 @@
 class cValueRefBox : public cValueBox {
 public:
   //{{{
-  cValueRefBox (float& value, bool& changedFlag, uint32_t colour, uint16_t xlen, uint16_t ylen) :
-    cValueBox (value, colour, xlen, ylen), mValueRef(value), mChangedFlag(changedFlag) { mChangedFlag = false; }
+  cValueRefBox (float& value, bool& changedFlag, uint32_t colour, uint16_t width, uint16_t height) :
+    cValueBox (value, colour, width, height), mValueRef(value), mChangedFlag(changedFlag) { mChangedFlag = false; }
   //}}}
   virtual ~cValueRefBox() {}
 
