@@ -181,9 +181,11 @@ static void loadThread (void const* argument) {
   string selectedFileName;
   bool selectedFileChanged = false;
   for (unsigned int i = 0; i < 14 && i < mp3Files.size(); i++)
-    root->addBelow (new cSelectTextBox (mp3Files[i], selectedFileName, selectedFileChanged, root->getWidth()-20-1));
+    root->addBelow (new cSelectTextBox (
+      mp3Files[i], selectedFileName, selectedFileChanged, root->getWidth() - cWidget::kBoxHeight));
   //{{{  create volume widget
-  root->add (new cValueBox (mVolume, mVolumeChanged, LCD_YELLOW, 20, root->getHeight()), root->getWidth()-20, 0);
+  root->add (new cValueBox (
+    mVolume, mVolumeChanged, LCD_YELLOW, cWidget::kBoxHeight-1, root->getHeight()-6), root->getWidth()-cWidget::kBoxHeight+1, 0);
   //}}}
   //{{{  create position widget
   float position = 0.0f;

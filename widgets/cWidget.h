@@ -4,7 +4,7 @@
 
 class cWidget {
 public:
-	const int16_t kBoxHeight = 19;
+	static const uint16_t kBoxHeight = 19;
 
 	cWidget (uint16_t width) : mWidth(width) {}
 	cWidget (float width) : mWidth(int(width* kBoxHeight)) {}
