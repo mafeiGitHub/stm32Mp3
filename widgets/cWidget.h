@@ -1,4 +1,4 @@
-// cWidget.h
+// cWidget.h - base widget, draws as box with width-1, height-1
 #pragma once
 #include "cLcd.h"
 

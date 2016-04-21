@@ -1,4 +1,4 @@
-// cTextBox.h
+// cWaveformWidget.h
 #pragma once
 #include "cWidget.h"
 

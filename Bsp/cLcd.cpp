@@ -562,7 +562,6 @@ void cLcd::startDraw() {
     }
 
   mDrawStartTime = osKernelSysTick();
-  //clear (LCD_BLACK);
   }
 //}}}
 //{{{

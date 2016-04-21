@@ -1,4 +1,4 @@
-// cContainer.h
+// cContainer.h - widget container, no background draw
 #pragma once
 #include <vector>
 #include "cWidget.h"

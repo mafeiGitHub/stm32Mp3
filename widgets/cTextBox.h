@@ -10,15 +10,15 @@ public:
     cWidget (colour, width, height), mText(text) {}
   virtual ~cTextBox() {}
 
-  void setText (std::string text) {
-    mText = text;
-    }
+  void setText (std::string text) { mText = text; }
+  void setTextColour (uint32_t colour) { mTextColour = colour; }
 
   virtual void draw (cLcd* lcd) {
     cWidget::draw (lcd);
-    lcd->string (LCD_DARKGREY, lcd->getFontHeight(), mText, mX+2, mY+1, mWidth-1, mHeight-1);
+    lcd->string (mTextColour, lcd->getFontHeight(), mText, mX+2, mY+1, mWidth-1, mHeight-1);
     }
 
 protected:
   std::string mText;
+  uint32_t mTextColour = LCD_DARKGREY;
   };

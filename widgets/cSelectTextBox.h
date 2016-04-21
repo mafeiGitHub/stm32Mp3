@@ -1,4 +1,4 @@
-// cTextBox.h
+// cSelectTextBox.h
 #pragma once
 #include "cTextBox.h"
 
@@ -12,6 +12,11 @@ public:
     mSelectedText = mText;
     mChangedFlag = true;
     cTextBox::released();
+    }
+
+  virtual void draw (cLcd* lcd) {
+    setTextColour (mText == mSelectedText ? LCD_WHITE : LCD_DARKGREY);
+    cTextBox::draw (lcd);
     }
 
 private:

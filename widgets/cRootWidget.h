@@ -1,12 +1,13 @@
-// cRootWidget.h - singleton root widget manager
+// cRootWidget.h - singleton root widget
 #pragma once
 #include "cContainer.h"
 
 class cRootWidget : public cContainer {
 public:
-  // static members
+  // static
   static cRootWidget* get() { return mRootWidget; }
 
+  // member
   cRootWidget (uint16_t width, uint16_t height) : cContainer (width, height) { mRootWidget = this; }
   virtual ~cRootWidget() {}
 
@@ -38,12 +39,12 @@ public:
   //}}}
 
 private:
-  // static vars
+  // static var
   static cRootWidget* mRootWidget;
 
-  // member vars
+  // member var
   cWidget* mPressedWidget = nullptr;
   };
 
-// static member var
+// static member var init
 cRootWidget* cRootWidget::mRootWidget = nullptr;

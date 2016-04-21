@@ -28,7 +28,6 @@
 #include "../widgets/cTextBox.h"
 #include "../widgets/cSelectTextBox.h"
 #include "../widgets/cValueBox.h"
-#include "../widgets/cValueRefBox.h"
 #include "../widgets/cWaveformWidget.h"
 
 #include "../Bsp/stm32746g_discovery_sd.h"
@@ -184,12 +183,12 @@ static void loadThread (void const* argument) {
 	for (unsigned int i = 0; i < 14 && i < mp3Files.size(); i++)
 		root->addBelow (new cSelectTextBox (mp3Files[i], selectedFilename, selectedFileChanged, root->getWidth()-20-1));
 	//{{{  create volume widget
-	root->add (new cValueRefBox (mVolume, mVolumeChanged, LCD_YELLOW, 20, root->getHeight()), root->getWidth()-20, 0);
+	root->add (new cValueBox (mVolume, mVolumeChanged, LCD_YELLOW, 20, root->getHeight()), root->getWidth()-20, 0);
 	//}}}
 	//{{{  create position widget
 	float position = 0.0f;
 	bool positionChanged = false;;
-	root->add (new cValueRefBox (position, positionChanged, LCD_BLUE, root->getWidth(), 6), 0, root->getHeight()-6);
+	root->add (new cValueBox (position, positionChanged, LCD_BLUE, root->getWidth(), 6), 0, root->getHeight()-6);
 	//}}}
 	//{{{  create waveform widget
 	auto playFrame = 0;

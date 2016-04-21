@@ -1,39 +1,12 @@
-// cValueBox.h
+// cTextBox.h
 #pragma once
-#include <string>
 #include "cWidget.h"
 
 class cValueBox : public cWidget {
 public:
-  cValueBox (float value, uint32_t colour, uint16_t width) : cWidget (colour, width), mValue(value) {}
-  cValueBox (float value, uint32_t colour, uint16_t width, uint16_t height) : cWidget (colour, width, height), mValue(value) {}
+  cValueBox (float& value, bool& changedFlag, uint32_t colour, uint16_t width, uint16_t height) :
+    cWidget (colour, width, height), mValueRef(value), mChangedFlagRef(changedFlag) { mChangedFlagRef = false; }
   virtual ~cValueBox() {}
-
-  //{{{
-  float getValue() {
-    return mValue;
-    }
-  //}}}
-  //{{{
-  virtual void setValue (float value) {
-    mValue = value;
-    }
-  //}}}
-  //{{{
-  virtual bool setValue (float value, float minValue, float maxValue) {
-
-    if (value < 0.0f)
-      value = 0.0f;
-    else if (value > 1.0f)
-      value = 1.0f;
-
-    bool changed = value != mValue;
-    if (changed)
-      mValue = value;
-
-    return changed;
-    }
-  //}}}
 
   //{{{
   virtual void pressed (int16_t x, int16_t y) {
@@ -54,15 +27,33 @@ public:
       setValue ((float)y / (float)mHeight);
     }
   //}}}
+
   //{{{
   virtual void draw (cLcd* lcd) {
+
     if (mWidth > mHeight)
-      lcd->rectClipped (mPressed ? LCD_LIGHTRED : mColour, mX, mY, int(mWidth * mValue), mHeight);
+      lcd->rectClipped (mPressed ? LCD_LIGHTRED : mColour, mX, mY, int(mWidth * limitValue (mValueRef)), mHeight);
     else
-      lcd->rectClipped (mPressed ? LCD_LIGHTRED : mColour, mX, mY, mWidth, int(mHeight * mValue));
+      lcd->rectClipped (mPressed ? LCD_LIGHTRED : mColour, mX, mY, mWidth, int(mHeight * limitValue (mValueRef)));
     }
   //}}}
 
-protected:
-  float mValue = 0;
+private :
+  //{{{
+  void setValue (float value) {
+
+    value = limitValue (value);
+    if (value != mValueRef) {
+      mValueRef = value;
+      mChangedFlagRef = true;
+      }
+    }
+  //}}}
+  float limitValue (float value) { return value > mMaxValue ? mMaxValue : (value < mMinValue ? mMinValue : value); }
+
+  float& mValueRef;
+  bool& mChangedFlagRef;
+
+  float mMinValue = 0.0f;
+  float mMaxValue = 1.0f;
   };
