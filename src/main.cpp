@@ -23,7 +23,7 @@
 #include "../Bsp/stm32746g_discovery_audio.h"
 #include "../Bsp/cLcd.h"
 
-#include "../widgets/cRootWidget.h"
+#include "../widgets/cRoot.h"
 #include "../widgets/cWidget.h"
 #include "../widgets/cTextBox.h"
 #include "../widgets/cSelectTextBox.h"
@@ -98,7 +98,7 @@ static void listDirectory (vector<string>& mp3Files, string directoryName, strin
 static void uiThread (void const* argument) {
 
 	auto lcd = cLcd::get();
-	auto root = cRootWidget::get();
+	auto root = cRoot::get();
 
 	cLcd::debug ("uiThread started");
 
@@ -153,7 +153,7 @@ static void uiThread (void const* argument) {
 static void loadThread (void const* argument) {
 
 	cLcd::debug ("loadThread started");
-	auto root = cRootWidget::get();
+	auto root = cRoot::get();
 
 	BSP_SD_Init();
 	while (BSP_SD_IsDetected() != SD_PRESENT) {
@@ -384,7 +384,7 @@ static void networkThread (void const* argument) {
 static void startThread (void const* argument) {
 
 	cLcd::create ("mp3 player built at " + string(__TIME__) + " on " + string(__DATE__));
-	cRootWidget rootWidget (cLcd::getWidth(), cLcd::getHeight());
+	cRoot root (cLcd::getWidth(), cLcd::getHeight());
 
 	const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 4000 }; // 1000
 	osThreadCreate (&osThreadUi, NULL);
