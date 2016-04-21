@@ -25,10 +25,9 @@
 
 #include "../widgets/cRootContainer.h"
 #include "../widgets/cWidget.h"
-#include "../widgets/cTextBox.h"
-#include "../widgets/cSelectTextBox.h"
 #include "../widgets/cValueBox.h"
 #include "../widgets/cWaveformWidget.h"
+#include "../widgets/cFileNameContainer.h"
 
 #include "../Bsp/stm32746g_discovery_sd.h"
 #include "../fatfs/fatFs.h"
@@ -178,11 +177,12 @@ static void loadThread (void const* argument) {
 
   vector <string> mp3Files;
   listDirectory (mp3Files, "", "");
+
   string selectedFileName;
   bool selectedFileChanged = false;
-  for (unsigned int i = 0; i < 14 && i < mp3Files.size(); i++)
-    root->addNextBelow (new cSelectTextBox (
-      mp3Files[i], selectedFileName, selectedFileChanged, root->getWidth() - cWidget::kBoxHeight));
+  root->addTopLeft (new cFileNameContainer (
+    mp3Files, selectedFileName, selectedFileChanged, root->getWidth() - cWidget::kBoxHeight, root->getHeight() - 6));
+
   //{{{  create volume widget
   root->addTopRight (new cValueBox (mVolume, mVolumeChanged, LCD_YELLOW, cWidget::kBoxHeight-1, root->getHeight()-6));
   //}}}

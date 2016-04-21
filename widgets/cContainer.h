@@ -10,6 +10,7 @@ public:
 
   //{{{
   void add (cWidget* widget, int16_t x, int16_t y) {
+    widget->setParent (this);
     widget->setXY (x, y);
     mSubWidgets.push_back (widget);
     }

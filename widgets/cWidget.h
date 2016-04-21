@@ -1,5 +1,6 @@
 // cWidget.h - base widget, draws as box with width-1, height-1
 #pragma once
+class cContainer;
 #include "cLcd.h"
 
 class cWidget {
@@ -20,6 +21,7 @@ public:
 
 	void setXY (int16_t x, int16_t y) { mX = x; mY = y; }
 	void setColour (uint32_t colour) { mColour = colour; }
+	void setParent (cContainer* parent) { mParent = parent; }
 
 	virtual void pressed (int16_t x, int16_t y) { mPressed++; }
 	virtual void moved (int16_t x, int16_t y, int16_t z, int16_t xinc, int16_t yinc) {}
@@ -47,4 +49,6 @@ protected:
 	uint16_t mHeight = kBoxHeight;
 
 	int mPressed = 0;
+
+	cContainer* mParent;
 	};
