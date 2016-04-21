@@ -5,12 +5,12 @@
 class cSelectTextBox : public cTextBox {
 public:
   cSelectTextBox (std::string text, std::string& selectedText, bool& changedFlag, uint16_t width) :
-    cTextBox (text, width), mSelectedTextRef(selectedText), mChangedFlag(changedFlag) { mChangedFlag = false; }
+    cTextBox (text, width), mSelectedTextRef(selectedText), mChangedFlagRef(changedFlag) { mChangedFlagRef = false; }
   virtual ~cSelectTextBox() {}
 
   virtual void released() {
     mSelectedTextRef = mText;
-    mChangedFlag = true;
+    mChangedFlagRef = true;
     cTextBox::released();
     }
 
@@ -21,5 +21,5 @@ public:
 
 private:
   std::string& mSelectedTextRef;
-  bool& mChangedFlag;
+  bool& mChangedFlagRef;
   };
