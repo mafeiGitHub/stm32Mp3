@@ -41,27 +41,27 @@ public:
   virtual void pressed (int16_t x, int16_t y) {
 
     cWidget::pressed (x, y);
-    if (mXlen > mYlen)
-      setValue ((float)x / (float)mXlen);
+    if (mWidth > mHeight)
+      setValue ((float)x / (float)mWidth);
     else
-      setValue ((float)y / (float)mYlen);
+      setValue ((float)y / (float)mHeight);
     }
   //}}}
   //{{{
   virtual void moved (int16_t x, int16_t y, int16_t z, int16_t xinc, int16_t yinc) {
     cWidget::moved (x, y, z, xinc, yinc);
-    if (mXlen > mYlen)
-      setValue ((float)x / (float)mXlen);
+    if (mWidth > mHeight)
+      setValue ((float)x / (float)mWidth);
     else
-      setValue ((float)y / (float)mYlen);
+      setValue ((float)y / (float)mHeight);
     }
   //}}}
   //{{{
   virtual void draw (cLcd* lcd) {
-    if (mXlen > mYlen)
-      lcd->rectClipped (mPressed ? LCD_LIGHTRED : mColour, mXorg, mYorg, int(mXlen * mValue), mYlen);
+    if (mWidth > mHeight)
+      lcd->rectClipped (mPressed ? LCD_LIGHTRED : mColour, mX, mY, int(mWidth * mValue), mHeight);
     else
-      lcd->rectClipped (mPressed ? LCD_LIGHTRED : mColour, mXorg, mYorg, mXlen, int(mYlen * mValue));
+      lcd->rectClipped (mPressed ? LCD_LIGHTRED : mColour, mX, mY, mWidth, int(mHeight * mValue));
     }
   //}}}
 

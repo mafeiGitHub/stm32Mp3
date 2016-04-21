@@ -113,11 +113,10 @@ public:
   //{{{  singleton create, instance, constructor
   static cFatFs* create();
   //{{{
-  static cFatFs* instance() {
+  static cFatFs* get() {
     return mFatFs;
     }
   //}}}
-  cFatFs();
   //}}}
   //{{{  gets
   bool isOk() { return mResult == FR_OK; }
@@ -142,6 +141,8 @@ friend class cFile;
 friend class cDirectory;
 
 private:
+  cFatFs();
+
   FRESULT findVolume (cFatFs** fs, BYTE wmode);
 
   FRESULT syncWindow();

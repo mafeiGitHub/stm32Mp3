@@ -16,7 +16,7 @@ public:
 
   virtual void draw (cLcd* lcd) {
     cWidget::draw (lcd);
-    lcd->string (LCD_DARKGREY, cLcd::instance()->getFontHeight(), mText, mXorg+2, mYorg+1, mXlen-1, mYlen-1);
+    lcd->string (LCD_DARKGREY, lcd->getFontHeight(), mText, mX+2, mY+1, mWidth-1, mHeight-1);
     }
 
 protected:

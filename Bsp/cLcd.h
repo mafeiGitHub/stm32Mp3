@@ -33,12 +33,9 @@
 //}}}
 class cLcd {
 public:
-  cLcd (uint32_t buffer0, uint32_t buffer1);
-  ~cLcd() {}
-
   // static members
   static cLcd* create (std::string title, bool buffered = true);
-  static cLcd* instance() { return mLcd; }
+  static cLcd* get() { return mLcd; }
 
   // static gets
   static uint16_t getWidth() { return 480; }
@@ -49,8 +46,8 @@ public:
   // static string utils
   static std::string hexStr (int value, uint8_t width = 0);
   static std::string intStr (int value, uint8_t width = 0, char fill = ' ');
-  static void debug (uint32_t colour, std::string str, bool newLine = true) { instance()->info (colour, str, newLine); }
-  static void debug (std::string str) { instance()->info (str); }
+  static void debug (uint32_t colour, std::string str, bool newLine = true) { get()->info (colour, str, newLine); }
+  static void debug (std::string str) { get()->info (str); }
 
   // sets
   void setTitle (std::string title);
@@ -84,6 +81,9 @@ public:
   void displayOff();
 
 private:
+  cLcd (uint32_t buffer0, uint32_t buffer1);
+  ~cLcd() {}
+
   void init (std::string title, bool buffered);
   void ltdcInit (uint32_t frameBufferAddress);
   void layerInit (uint8_t layer, uint32_t frameBufferAddress);

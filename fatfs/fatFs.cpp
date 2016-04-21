@@ -470,15 +470,6 @@ cFatFs* cFatFs::create() {
   }
 //}}}
 //{{{
-cFatFs::cFatFs() {
-
-  osSemaphoreDef (fatfs);
-  mSemaphore = osSemaphoreCreate (osSemaphore (fatfs), 1);
-
-  mWindowBuffer = (BYTE*)malloc (SECTOR_SIZE);
-  }
-//}}}
-//{{{
 FRESULT cFatFs::mount() {
 
   cDirectory directory;
@@ -1316,6 +1307,16 @@ FRESULT cFatFs::makeFileSystem (BYTE sfd, UINT au) {
 //}}}
 //{{{  cFatFs private members
 //{{{
+cFatFs::cFatFs() {
+
+  osSemaphoreDef (fatfs);
+  mSemaphore = osSemaphoreCreate (osSemaphore (fatfs), 1);
+
+  mWindowBuffer = (BYTE*)malloc (SECTOR_SIZE);
+  }
+//}}}
+
+//{{{
 FRESULT cFatFs::findVolume (cFatFs** fs, BYTE wmode) {
 
   BYTE fmt, *pt;
@@ -1944,7 +1945,7 @@ void cFatFs::clearFileLock() {
 //{{{
 cDirectory::cDirectory (std::string path) {
 
-  mResult = cFatFs::instance()->findVolume (&mFatFs, 0);
+  mResult = cFatFs::get()->findVolume (&mFatFs, 0);
   if (isOk()) {
     WCHAR longFileName[(MAX_LFN + 1) * 2];
     mLongFileName = longFileName;
@@ -1980,7 +1981,7 @@ cDirectory::cDirectory (std::string path) {
 
   if (!isOk())
     mFatFs = 0;
-  cFatFs::instance()->unlock (mResult);
+  cFatFs::get()->unlock (mResult);
   }
 //}}}
 //{{{
@@ -1996,7 +1997,7 @@ cDirectory::~cDirectory() {
       // Invalidate directory object
       mFatFs = 0;
 
-    cFatFs::instance()->unlock (FR_OK);
+    cFatFs::get()->unlock (FR_OK);
     }
   }
 //}}}
@@ -2720,7 +2721,7 @@ cFile::cFile (std::string path, BYTE mode) {
 
   cDirectory directory;
   mode &= FA_READ | FA_WRITE | FA_CREATE_ALWAYS | FA_OPEN_ALWAYS | FA_CREATE_NEW;
-  mResult = cFatFs::instance()->findVolume (&directory.mFatFs, (BYTE)(mode & ~FA_READ));
+  mResult = cFatFs::get()->findVolume (&directory.mFatFs, (BYTE)(mode & ~FA_READ));
   if (isOk()) {
     WCHAR longFileName [(MAX_LFN + 1) * 2];
     directory.mLongFileName = longFileName;
@@ -2809,7 +2810,7 @@ cFile::cFile (std::string path, BYTE mode) {
       }
     }
 
-  cFatFs::instance()->unlock (mResult);
+  cFatFs::get()->unlock (mResult);
   }
 //}}}
 //{{{
@@ -2824,7 +2825,7 @@ cFile::~cFile() {
       if (isOk()) // Invalidate file object
         mFatFs = 0;
 
-      cFatFs::instance()->unlock (FR_OK);
+      cFatFs::get()->unlock (FR_OK);
       }
     }
 
@@ -2837,7 +2838,7 @@ FRESULT cFile::read (void* readBuffer, int bytesToRead, int& bytesRead) {
   bytesRead = 0;
   if (!validate()) {
     //{{{  error
-    cFatFs::instance()->unlock (mResult);
+    cFatFs::get()->unlock (mResult);
     return mResult;
     }
     //}}}
@@ -2938,12 +2939,12 @@ FRESULT cFile::write (const void *buff, UINT btw, UINT* bw) {
   UINT wcnt, cc;
   BYTE csect;
 
-  *bw = 0;  
+  *bw = 0;
   const BYTE *wbuff = (const BYTE*)buff;
 
   if (!validate()) {
     //{{{  error
-    cFatFs::instance()->unlock (mResult);
+    cFatFs::get()->unlock (mResult);
     return mResult;
     }
     //}}}
@@ -2976,7 +2977,7 @@ FRESULT cFile::write (const void *buff, UINT btw, UINT* bw) {
         else {
           // Middle or end of the file
           if (mClusterTable) // Get cluster# from the CLMT
-            clst = clmtCluster (mPosition);  
+            clst = clmtCluster (mPosition);
           else // Follow or stretch cluster chain on the FAT
             clst = mFatFs->createChain (mCluster);
           }
@@ -2989,9 +2990,9 @@ FRESULT cFile::write (const void *buff, UINT btw, UINT* bw) {
           ABORT (FR_DISK_ERR);
 
         // Update current cluster
-        mCluster = clst;     
+        mCluster = clst;
         if (mStartCluster == 0) // Set start cluster if the first write
-          mStartCluster = clst; 
+          mStartCluster = clst;
         }
 
       if (mFlag & FA__DIRTY) {
@@ -3003,13 +3004,13 @@ FRESULT cFile::write (const void *buff, UINT btw, UINT* bw) {
         //}}}
 
       // Get current sector
-      sect = mFatFs->clusterToSector (mCluster); 
+      sect = mFatFs->clusterToSector (mCluster);
       if (!sect)
         ABORT (FR_INT_ERR);
       sect += csect;
 
       // When remaining bytes >= sector size
-      cc = btw / SECTOR_SIZE;  
+      cc = btw / SECTOR_SIZE;
       if (cc) {
         //{{{
         // Write maximum contiguous sectors directly
@@ -3017,20 +3018,20 @@ FRESULT cFile::write (const void *buff, UINT btw, UINT* bw) {
           cc = mFatFs->mSectorsPerCluster - csect;
         if (diskWrite (wbuff, sect, cc) != RES_OK)
           ABORT (FR_DISK_ERR);
-        if (mCachedSector - sect < cc) { 
+        if (mCachedSector - sect < cc) {
           // Refill sector cache if it gets invalidated by the direct write
           memcpy (fileBuffer, wbuff + ((mCachedSector - sect) * SECTOR_SIZE), SECTOR_SIZE);
           mFlag &= ~FA__DIRTY;
           }
 
         // Number of bytes transferred
-        wcnt = SECTOR_SIZE * cc;   
+        wcnt = SECTOR_SIZE * cc;
         continue;
         }
         //}}}
 
       if (mCachedSector != sect) {
-        //{{{   Fill sector cache with file data
+        //{{{  Fill sector cache with file data
         if (mPosition < mFileSize && diskRead (fileBuffer, sect, 1) != RES_OK)
           ABORT (FR_DISK_ERR);
         }
@@ -3318,7 +3319,7 @@ FRESULT cFile::sync() {
         mFlag &= ~FA__WRITTEN;
 
         mFatFs->mWindowFlag = 1;
-        mResult = cFatFs::instance()->syncFs();
+        mResult = cFatFs::get()->syncFs();
         }
       }
     }

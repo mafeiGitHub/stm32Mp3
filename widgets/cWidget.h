@@ -6,18 +6,18 @@ class cWidget {
 public:
 	const int16_t kBoxHeight = 19;
 
-	cWidget (uint16_t xlen) : mXlen(xlen) {}
-	cWidget (uint32_t colour, uint16_t xlen) : mColour(colour), mXlen(xlen) {}
-	cWidget (uint32_t colour, uint16_t xlen, uint16_t ylen) : mColour(colour), mXlen(xlen), mYlen(ylen) {}
+	cWidget (uint16_t xlen) : mWidth(xlen) {}
+	cWidget (uint32_t colour, uint16_t xlen) : mColour(colour), mWidth(xlen) {}
+	cWidget (uint32_t colour, uint16_t xlen, uint16_t ylen) : mColour(colour), mWidth(xlen), mHeight(ylen) {}
 	virtual ~cWidget() {}
 
-	int16_t getXorg() { return mXorg; }
-	int16_t getYorg() { return mYorg; }
-	int16_t getWidth() { return mXlen; }
-	int16_t getHeight() { return mYlen; }
+	int16_t getX() { return mX; }
+	int16_t getY() { return mY; }
+	uint16_t getWidth() { return mWidth; }
+	uint16_t getHeight() { return mHeight; }
 	int getPressed() { return mPressed; }
 
-	void setOrg (int16_t x, int16_t y) { mXorg = x; mYorg = y; }
+	void setOrg (int16_t x, int16_t y) { mX = x; mY = y; }
 
 	virtual void setColour (uint32_t colour) { mColour = colour; }
 
@@ -26,25 +26,25 @@ public:
 	virtual void released() { mPressed = 0; }
 
 	//{{{
-	virtual cWidget* picked (int16_t x, int16_t y, int16_t z) {
+	virtual cWidget* picked (int16_t x, int16_t y, uint8_t z) {
 
-		return (x >= mXorg) && (x < mXorg + mXlen) && (y >= mYorg) && (y < mYorg + mYlen) ? this : nullptr;
+		return (x >= mX) && (x < mX + mWidth) && (y >= mY) && (y < mY + mHeight) ? this : nullptr;
 		}
 	//}}}
 	//{{{
 	virtual void draw (cLcd* lcd) {
 
-		lcd->rectClipped (mPressed ? LCD_LIGHTRED : mColour, mXorg+1, mYorg+1, mXlen-1, mYlen-1);
+		lcd->rectClipped (mPressed ? LCD_LIGHTRED : mColour, mX+1, mY+1, mWidth-1, mHeight-1);
 		}
 	//}}}
 
 protected:
 	uint32_t mColour = LCD_LIGHTGREY;
 
-	int16_t mXorg = 0;
-	int16_t mYorg = 0;
-	int16_t mXlen = 100;
-	int16_t mYlen = kBoxHeight;
+	int16_t mX = 0;
+	int16_t mY = 0;
+	uint16_t mWidth = 100;
+	uint16_t mHeight = kBoxHeight;
 
 	int mPressed = 0;
 	};
