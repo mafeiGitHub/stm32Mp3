@@ -181,21 +181,20 @@ static void loadThread (void const* argument) {
   string selectedFileName;
   bool selectedFileChanged = false;
   for (unsigned int i = 0; i < 14 && i < mp3Files.size(); i++)
-    root->addBelow (new cSelectTextBox (
+    root->addNextBelow (new cSelectTextBox (
       mp3Files[i], selectedFileName, selectedFileChanged, root->getWidth() - cWidget::kBoxHeight));
   //{{{  create volume widget
-  root->add (new cValueBox (
-    mVolume, mVolumeChanged, LCD_YELLOW, cWidget::kBoxHeight-1, root->getHeight()-6), root->getWidth()-cWidget::kBoxHeight+1, 0);
+  root->addTopRight (new cValueBox (mVolume, mVolumeChanged, LCD_YELLOW, cWidget::kBoxHeight-1, root->getHeight()-6));
   //}}}
   //{{{  create position widget
   float position = 0.0f;
   bool positionChanged = false;;
-  root->add (new cValueBox (position, positionChanged, LCD_BLUE, root->getWidth(), 6), 0, root->getHeight()-6);
+  root->addBottomLeft (new cValueBox (position, positionChanged, LCD_BLUE, root->getWidth(), 6));
   //}}}
   //{{{  create waveform widget
   auto playFrame = 0;
   auto waveform = (float*) pvPortMalloc (480*2*4);
-  root->add (new cWaveformWidget (playFrame, waveform, root->getWidth(), root->getHeight()), 0, 0);
+  root->addTopLeft (new cWaveformWidget (playFrame, waveform, root->getWidth(), root->getHeight()));
   //}}}
 
   auto mp3Decoder = new cMp3Decoder;
