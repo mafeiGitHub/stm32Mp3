@@ -45,23 +45,18 @@ extern const uint8_t freeSansBold[64228];
 #define DMA2D_CR_M2M_BLEND ((uint32_t)0x00020000)  // - DMA2D memory to memory with blending transfer mode
 #define DMA2D_CR_R2M       ((uint32_t)0x00030000)  // - DMA2D register to memory transfer mode
 
+// DMA2d color mode
 #define DMA2D_ARGB8888     ((uint32_t)0x00000000)  // ARGB8888 DMA2D color mode
 #define DMA2D_RGB888       ((uint32_t)0x00000001)  // RGB888 DMA2D color mode
 #define DMA2D_RGB565       ((uint32_t)0x00000002)  // RGB565 DMA2D color mode
 #define DMA2D_ARGB1555     ((uint32_t)0x00000003)  // ARGB1555 DMA2D color mode
 #define DMA2D_ARGB4444     ((uint32_t)0x00000004)  // ARGB4444 DMA2D color mode
-
-#define CM_ARGB8888        ((uint32_t)0x00000000)  // ARGB8888 color mode
-#define CM_RGB888          ((uint32_t)0x00000001)  // RGB888 color mode
-#define CM_RGB565          ((uint32_t)0x00000002)  // RGB565 color mode
-#define CM_ARGB1555        ((uint32_t)0x00000003)  // ARGB1555 color mode
-#define CM_ARGB4444        ((uint32_t)0x00000004)  // ARGB4444 color mode
-#define CM_L8              ((uint32_t)0x00000005)  // L8 color mode
-#define CM_AL44            ((uint32_t)0x00000006)  // AL44 color mode
-#define CM_AL88            ((uint32_t)0x00000007)  // AL88 color mode
-#define CM_L4              ((uint32_t)0x00000008)  // L4 color mode
-#define CM_A8              ((uint32_t)0x00000009)  // A8 color mode
-#define CM_A4              ((uint32_t)0x0000000A)  // A4 color mode
+#define DMA2D_L8           ((uint32_t)0x00000005)  // L8 color mode
+#define DMA2D_AL44         ((uint32_t)0x00000006)  // AL44 color mode
+#define DMA2D_AL88         ((uint32_t)0x00000007)  // AL88 color mode
+#define DMA2D_L4           ((uint32_t)0x00000008)  // L4 color mode
+#define DMA2D_A8           ((uint32_t)0x00000009)  // A8 color mode
+#define DMA2D_A4           ((uint32_t)0x0000000A)  // A4 color mode
 
 #define kWipe  1
 #define kStamp 2
@@ -153,7 +148,7 @@ void LCD_DMA2D_IRQHandler() {
         DMA2D->OCOLR = *mDma2dIsrBuf++;  // colour
         DMA2D->OMAR  = *mDma2dIsrBuf++;  // fb start address
         DMA2D->OOR   = *mDma2dIsrBuf++;  // stride
-        DMA2D->NLR   = *mDma2dIsrBuf++;  // xlen:ylen
+        DMA2D->NLR   = *mDma2dIsrBuf++;  // width:height
         DMA2D->CR = DMA2D_CR_R2M | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
         return;
 
@@ -163,7 +158,7 @@ void LCD_DMA2D_IRQHandler() {
         DMA2D->BGMAR  = *mDma2dIsrBuf++;
         DMA2D->OOR    = *mDma2dIsrBuf;   // bgnd stride
         DMA2D->BGOR   = *mDma2dIsrBuf++;
-        DMA2D->NLR    = *mDma2dIsrBuf++; // xlen:ylen
+        DMA2D->NLR    = *mDma2dIsrBuf++; // width:height
         DMA2D->FGMAR  = *mDma2dIsrBuf++; // src start address
         DMA2D->CR = DMA2D_CR_M2M_BLEND | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
         return;
@@ -270,7 +265,7 @@ void cLcd::info (std::string str, bool newLine) {
   }
 //}}}
 //{{{
-int cLcd::string (uint32_t col, int fontHeight, std::string str, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
+int cLcd::string (uint32_t colour, int fontHeight, std::string str, int16_t x, int16_t y, uint16_t width, uint16_t height) {
 
   for (unsigned int i = 0; i < str.size(); i++) {
     if ((str[i] >= 0x20) && (str[i] <= 0x7F)) {
@@ -296,10 +291,10 @@ int cLcd::string (uint32_t col, int fontHeight, std::string str, int16_t x, int1
           }
         }
 
-      if (x + fontChar->left + fontChar->pitch >= xlen)
+      if (x + fontChar->left + fontChar->pitch >= width)
         break;
       else if (fontChar->bitmap)
-        stamp (col, fontChar->bitmap, x + fontChar->left, y + fontHeight - fontChar->top, fontChar->pitch, fontChar->rows);
+        stampClipped (colour, fontChar->bitmap, x + fontChar->left, y + fontHeight - fontChar->top, fontChar->pitch, fontChar->rows);
 
       x += fontChar->advance;
       }
@@ -340,33 +335,33 @@ void cLcd::press (int pressCount, int x, int y, int z, int xinc, int yinc) {
 //}}}
 
 //{{{
-void cLcd::pixel (uint32_t col, int16_t x, int16_t y) {
+void cLcd::pixel (uint32_t colour, int16_t x, int16_t y) {
 
   if (mBuffered)
-    rect (col, x, y, 1, 1);
+    rect (colour, x, y, 1, 1);
   else
-    *(uint32_t*)(curFrameBufferAddress + (y*getWidth() + x)*4) = col;
+    *(uint32_t*)(curFrameBufferAddress + (y*getWidth() + x)*4) = colour;
   }
 //}}}
 //{{{
-void cLcd::pixelClipped (uint32_t col, int16_t x, int16_t y) {
+void cLcd::pixelClipped (uint32_t colour, int16_t x, int16_t y) {
 
-    rectClipped (col, x, y, 1, 1);
+    rectClipped (colour, x, y, 1, 1);
   }
 //}}}
 //{{{
-void cLcd::rect (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
+void cLcd::rect (uint32_t colour, int16_t x, int16_t y, uint16_t width, uint16_t height) {
 
-  if (!xlen)
+  if (!width)
     return;
-  if (!ylen)
+  if (!height)
     return;
 
   if (mBuffered) {
-    *mDma2dCurBuf++ = col;                                                // colour
+    *mDma2dCurBuf++ = colour;                                             // colour
     *mDma2dCurBuf++ = curFrameBufferAddress + ((y * getWidth()) + x) * 4; // fb start address
-    *mDma2dCurBuf++ = getWidth() - xlen;                                  // stride
-    *mDma2dCurBuf++ = (xlen << 16) | ylen;                                // xlen:ylen
+    *mDma2dCurBuf++ = getWidth() - width;                                 // stride
+    *mDma2dCurBuf++ = (width << 16) | height;                             // width:height
     *mDma2dCurBuf++ = 0;                                                  // terminate
     *(mDma2dCurBuf-6) = kWipe;                                            // fill opCode
 
@@ -375,10 +370,10 @@ void cLcd::rect (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t yle
     }
 
   else {
-    DMA2D->OCOLR = col;
+    DMA2D->OCOLR = colour;
     DMA2D->OMAR  = curFrameBufferAddress + ((y * getWidth()) + x) * 4;
-    DMA2D->OOR   = getWidth() - xlen;
-    DMA2D->NLR   = (xlen << 16) | ylen;
+    DMA2D->OOR   = getWidth() - width;
+    DMA2D->NLR   = (width << 16) | height;
     DMA2D->CR = DMA2D_CR_R2M | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
     while (!(DMA2D->ISR & DMA2D_ISR_TCIF)) {}
     DMA2D->IFCR |= DMA2D_IFSR_CTEIF | DMA2D_IFSR_CTCIF | DMA2D_IFSR_CTWIF|
@@ -388,18 +383,18 @@ void cLcd::rect (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t yle
   }
 //}}}
 //{{{
-void cLcd::rectClipped (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
+void cLcd::rectClipped (uint32_t colour, int16_t x, int16_t y, uint16_t width, uint16_t height) {
 
   if (x >= getWidth())
     return;
   if (y >= getHeight())
     return;
 
-  int xend = x + xlen;
+  int xend = x + width;
   if (xend <= 0)
     return;
 
-  int yend = y + ylen;
+  int yend = y + height;
   if (yend <= 0)
     return;
 
@@ -413,26 +408,26 @@ void cLcd::rectClipped (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint1
   if (yend > getHeight())
     yend = getHeight();
 
-  rect (col, x, y, xend - x, yend - y);
+  rect (colour, x, y, xend - x, yend - y);
   }
 //}}}
 //{{{
-void cLcd::rectOutline (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
+void cLcd::rectOutline (uint32_t colour, int16_t x, int16_t y, uint16_t width, uint16_t height) {
 
-  rectClipped (col, x, y, xlen, 1);
-  rectClipped (col, x + xlen, y, 1, ylen);
-  rectClipped (col, x, y + ylen, xlen, 1);
-  rectClipped (col, x, y, 1, ylen);
+  rectClipped (colour, x, y, width, 1);
+  rectClipped (colour, x + width, y, 1, height);
+  rectClipped (colour, x, y + height, width, 1);
+  rectClipped (colour, x, y, 1, height);
   }
 //}}}
 //{{{
-void cLcd::clear (uint32_t col) {
+void cLcd::clear (uint32_t colour) {
 
-  rect (col, 0, 0, getWidth(), getHeight());
+  rect (colour, 0, 0, getWidth(), getHeight());
   }
 //}}}
 //{{{
-void cLcd::ellipse (uint32_t col, int16_t x, int16_t y, uint16_t xradius, uint16_t yradius) {
+void cLcd::ellipse (uint32_t colour, int16_t x, int16_t y, uint16_t xradius, uint16_t yradius) {
 
   if (!xradius)
     return;
@@ -445,8 +440,8 @@ void cLcd::ellipse (uint32_t col, int16_t x, int16_t y, uint16_t xradius, uint16
   float k = (float)yradius / xradius;
 
   do {
-    rectClipped (col, (x-(uint16_t)(x1 / k)), y + y1, (2*(uint16_t)(x1 / k) + 1), 1);
-    rectClipped (col, (x-(uint16_t)(x1 / k)), y - y1, (2*(uint16_t)(x1 / k) + 1), 1);
+    rectClipped (colour, (x-(uint16_t)(x1 / k)), y + y1, (2*(uint16_t)(x1 / k) + 1), 1);
+    rectClipped (colour, (x-(uint16_t)(x1 / k)), y - y1, (2*(uint16_t)(x1 / k) + 1), 1);
 
     int e2 = err;
     if (e2 <= x1) {
@@ -460,7 +455,7 @@ void cLcd::ellipse (uint32_t col, int16_t x, int16_t y, uint16_t xradius, uint16
   }
 //}}}
 //{{{
-void cLcd::ellipseOutline (uint32_t col, int16_t x, int16_t y, uint16_t xradius, uint16_t yradius) {
+void cLcd::ellipseOutline (uint32_t colour, int16_t x, int16_t y, uint16_t xradius, uint16_t yradius) {
 
   if (xradius && yradius) {
     int x1 = 0;
@@ -469,10 +464,10 @@ void cLcd::ellipseOutline (uint32_t col, int16_t x, int16_t y, uint16_t xradius,
     float k = (float)yradius / xradius;
 
     do {
-      rectClipped (col, x - (uint16_t)(x1 / k), y + y1, 1, 1);
-      rectClipped (col, x + (uint16_t)(x1 / k), y + y1, 1, 1);
-      rectClipped (col, x + (uint16_t)(x1 / k), y - y1, 1, 1);
-      rectClipped (col, x - (uint16_t)(x1 / k), y - y1, 1, 1);
+      rectClipped (colour, x - (uint16_t)(x1 / k), y + y1, 1, 1);
+      rectClipped (colour, x + (uint16_t)(x1 / k), y + y1, 1, 1);
+      rectClipped (colour, x + (uint16_t)(x1 / k), y - y1, 1, 1);
+      rectClipped (colour, x - (uint16_t)(x1 / k), y - y1, 1, 1);
 
       int e2 = err;
       if (e2 <= x1) {
@@ -487,7 +482,7 @@ void cLcd::ellipseOutline (uint32_t col, int16_t x, int16_t y, uint16_t xradius,
   }
 //}}}
 //{{{
-void cLcd::line (uint32_t col, int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
+void cLcd::line (uint32_t colour, int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
 
   int16_t deltax = ABS(x2 - x1);        /* The difference between the x's */
   int16_t deltay = ABS(y2 - y1);        /* The difference between the y's */
@@ -538,7 +533,7 @@ void cLcd::line (uint32_t col, int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
   }
 
   for (int curpixel = 0; curpixel <= num_pixels; curpixel++) {
-    rectClipped (col, x, y, 1, 1);   /* Draw the current pixel */
+    rectClipped (colour, x, y, 1, 1);   /* Draw the current pixel */
     num += num_add;                            /* Increase the numerator by the top of the fraction */
     if (num >= den) {                          /* Check if numerator >= denominator */
       num -= den;                             /* Calculate the new numerator value */
@@ -587,8 +582,8 @@ void cLcd::endDraw() {
     if (mLastLine >= 0) {
       // draw scroll bar
       auto yorg = getLineHeight() + ((int)mFirstLine * mNumDrawLines * getLineHeight() / (mLastLine + 1));
-      auto ylen = mNumDrawLines * mNumDrawLines * getLineHeight() / (mLastLine + 1);
-      rectClipped (LCD_YELLOW, 0, yorg, 8, ylen);
+      auto height = mNumDrawLines * mNumDrawLines * getLineHeight() / (mLastLine + 1);
+      rectClipped (LCD_YELLOW, 0, yorg, 8, height);
       }
 
     auto lastLine = (int)mFirstLine + mNumDrawLines - 1;
@@ -679,7 +674,7 @@ void cLcd::init (std::string title, bool buffered) {
   // unchanging dma2d regs
   DMA2D->OPFCCR  = DMA2D_ARGB8888; // bgnd fb ARGB
   DMA2D->BGPFCCR = DMA2D_ARGB8888;
-  DMA2D->FGPFCCR = CM_A8;          // src alpha
+  DMA2D->FGPFCCR = DMA2D_A8;       // src alpha
   DMA2D->FGOR    = 0;              // src stride
   //DMA2D->AMTCR = 0x1001;
 
@@ -916,38 +911,47 @@ void cLcd::showLayer (uint8_t layer, uint32_t frameBufferAddress, uint8_t alpha)
 //}}}
 
 //{{{
-void cLcd::stamp (uint32_t col, uint8_t* src, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
+void cLcd::stampClipped (uint32_t colour, uint8_t* src, int16_t x, int16_t y, uint16_t width, uint16_t height) {
 
-  if (x > 0 && y >= 0 && xlen && ylen) {
-    if (y + ylen > getHeight()) // bottom yclip
-      ylen = getHeight() - y;
+  if (!width || !height || x < 0)
+    return;
 
-    if (mBuffered) {
-      *mDma2dCurBuf++ = col;                                                // colour
-      *mDma2dCurBuf++ = curFrameBufferAddress + ((y * getWidth()) + x) * 4; // bgnd fb start address
-      *mDma2dCurBuf++ = getWidth() - xlen;                                  // stride
-      *mDma2dCurBuf++ = (xlen << 16) | ylen;                                // xlen:ylen
-      *mDma2dCurBuf++ = (uint32_t)src;                                      // src start address
-      *mDma2dCurBuf++ = 0;                                                  // terminate
-      *(mDma2dCurBuf-7) = kStamp;                                           // stamp opCode
+  if (y < 0) {
+    if (y + height <= 0)
+      return;
+    height += y;
+    src += -y * width;
+    y = 0;
+    }
 
-      if (mDma2dCurBuf > mDma2dHighWater)
-        mDma2dHighWater = mDma2dCurBuf;
-      }
+  if (y + height > getHeight()) // bottom yclip
+    height = getHeight() - y;
 
-    else {
-      DMA2D->FGCOLR = col;
-      DMA2D->OMAR   = curFrameBufferAddress + ((y * getWidth()) + x) * 4;
-      DMA2D->BGMAR  = curFrameBufferAddress + ((y * getWidth()) + x) * 4;
-      DMA2D->OOR    = getWidth() - xlen;
-      DMA2D->BGOR   = getWidth() - xlen;
-      DMA2D->NLR    = (xlen << 16) | ylen;
-      DMA2D->FGMAR  = (uint32_t)src;
-      DMA2D->CR = DMA2D_CR_M2M_BLEND | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
-      while (!(DMA2D->ISR & DMA2D_ISR_TCIF)) {}
-      DMA2D->IFCR |= DMA2D_IFSR_CTEIF | DMA2D_IFSR_CTCIF | DMA2D_IFSR_CTWIF|
-                     DMA2D_IFSR_CCAEIF | DMA2D_IFSR_CCTCIF | DMA2D_IFSR_CCEIF;
-      }
+  if (mBuffered) {
+    *mDma2dCurBuf++ = colour;                                                // colour
+    *mDma2dCurBuf++ = curFrameBufferAddress + ((y * getWidth()) + x) * 4; // bgnd fb start address
+    *mDma2dCurBuf++ = getWidth() - width;                                 // stride
+    *mDma2dCurBuf++ = (width << 16) | height;                             // width:height
+    *mDma2dCurBuf++ = (uint32_t)src;                                      // src start address
+    *mDma2dCurBuf++ = 0;                                                  // terminate
+    *(mDma2dCurBuf-7) = kStamp;                                           // stamp opCode
+
+    if (mDma2dCurBuf > mDma2dHighWater)
+      mDma2dHighWater = mDma2dCurBuf;
+    }
+
+  else {
+    DMA2D->FGCOLR = colour;
+    DMA2D->OMAR   = curFrameBufferAddress + ((y * getWidth()) + x) * 4;
+    DMA2D->BGMAR  = curFrameBufferAddress + ((y * getWidth()) + x) * 4;
+    DMA2D->OOR    = getWidth() - width;
+    DMA2D->BGOR   = getWidth() - width;
+    DMA2D->NLR    = (width << 16) | height;
+    DMA2D->FGMAR  = (uint32_t)src;
+    DMA2D->CR = DMA2D_CR_M2M_BLEND | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
+    while (!(DMA2D->ISR & DMA2D_ISR_TCIF)) {}
+    DMA2D->IFCR |= DMA2D_IFSR_CTEIF | DMA2D_IFSR_CTCIF | DMA2D_IFSR_CTWIF|
+                   DMA2D_IFSR_CCAEIF | DMA2D_IFSR_CCTCIF | DMA2D_IFSR_CCEIF;
     }
   }
 //}}}

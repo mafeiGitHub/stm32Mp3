@@ -188,15 +188,17 @@ static void loadThread (void const* argument) {
                " freeSectors:" + cLcd::intStr (fatFs->getFreeSectors()));
   lcd->setShowDebug (false, false, false, false);
 
+  //{{{  create filelist widget
   int fileIndex = 0;
   bool fileIndexChanged;
-  root->addTopLeft (new cListWidget (mp3Files, fileIndex, fileIndexChanged, root->getWidth()-cWidget::kBoxHeight, root->getHeight()-6));
+  root->addTopLeft (new cListWidget (mp3Files, fileIndex, fileIndexChanged, root->getWidth(), root->getHeight()));
+  //}}}
   //{{{  create volume widget
   root->addTopRight (new cValueBox (mVolume, mVolumeChanged, LCD_YELLOW, cWidget::kBoxHeight-1, root->getHeight()-6));
   //}}}
   //{{{  create position widget
-  float position = 0.0f;
-  bool positionChanged = false;;
+  auto position = 0.0f;
+  auto positionChanged = false;;
   root->addBottomLeft (new cValueBox (position, positionChanged, LCD_BLUE, root->getWidth(), 6));
   //}}}
   //{{{  create waveform widget
