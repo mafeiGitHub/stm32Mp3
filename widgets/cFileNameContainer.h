@@ -6,12 +6,12 @@
 class cFileNameContainer : public cContainer {
 public:
   //{{{
-  cFileNameContainer (std::vector<std::string>& fileNames, std::string& selectedFileName, bool& selectedFileChanged,
+  cFileNameContainer (std::vector<std::string>& fileNames, int& selectedId, bool& changedFlag,
                       uint16_t width, uint16_t height) : cContainer (width, height), mFileNames(fileNames) {
 
-    for (unsigned int i = 0; i < getHeight()/cWidget::kBoxHeight; i++)
+    for (auto i = 0; i < getHeight()/cWidget::kBoxHeight; i++)
       addNextBelow (
-        new cSelectTextBox (i < mFileNames.size() ? mFileNames[i] : mEmptyString, selectedFileName, selectedFileChanged, getWidth()));
+        new cSelectTextBox (i < (int)mFileNames.size() ? mFileNames[i] : mEmptyString, i, selectedId, changedFlag, getWidth()));
     }
   //}}}
   virtual ~cFileNameContainer() {}
@@ -26,13 +26,18 @@ public:
     else if (mScroll > mFileNames.size() - mSubWidgets.size())
       mScroll = mFileNames.size() - mSubWidgets.size();
 
-    auto scroll = int (mScroll);
-    for (auto widget : mSubWidgets)
-      ((cSelectTextBox*)(widget))->setText (mFileNames[scroll++]);
+    mFileNameFirstIndex = int (mScroll);
     }
   //}}}
   //{{{
   virtual void draw (cLcd* lcd) {
+
+    unsigned int fileNameIndex = mFileNameFirstIndex;
+    unsigned int maxWidgetIndex = mFileNames.size() - mFileNameFirstIndex < mSubWidgets.size() ?
+                                    mFileNames.size() - mFileNameFirstIndex : mSubWidgets.size();
+    for (unsigned int widgetIndex = 0; widgetIndex < maxWidgetIndex; widgetIndex++, fileNameIndex++)
+      ((cSelectTextBox*)(mSubWidgets[widgetIndex]))->setText (mFileNames[fileNameIndex], fileNameIndex);
+
     cContainer::draw (lcd);
     }
   //}}}
@@ -41,4 +46,5 @@ private:
   std::vector<std::string>& mFileNames;
   std::string mEmptyString;
   float mScroll = 0.0f;
+  float mFileNameFirstIndex = 0;
   };

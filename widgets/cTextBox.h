@@ -6,7 +6,7 @@
 class cTextBox : public cWidget {
 public:
   cTextBox (std::string& text, uint16_t width) : cWidget (width), mTextRef(text) {}
-  cTextBox (std::string& text, uint32_t colour, uint16_t width, uint16_t height) :
+  cTextBox (std::string& text, uint32_t colour, uint16_t width, uint16_t height) : 
     cWidget (colour, width, height), mTextRef(text) {}
   virtual ~cTextBox() {}
 

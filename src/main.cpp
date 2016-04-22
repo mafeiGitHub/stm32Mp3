@@ -178,11 +178,10 @@ static void loadThread (void const* argument) {
   vector <string> mp3Files;
   listDirectory (mp3Files, "", "");
 
-  string selectedFileName;
-  bool selectedFileChanged = false;
-  root->addTopLeft (new cFileNameContainer (
-    mp3Files, selectedFileName, selectedFileChanged, root->getWidth() - cWidget::kBoxHeight, root->getHeight() - 6));
-
+  int fileSelectedId = 0;
+  bool fileChangedFlag = false;
+  root->addTopLeft (new cFileNameContainer (mp3Files, fileSelectedId, fileChangedFlag,
+                                            root->getWidth() - cWidget::kBoxHeight, root->getHeight() - 6));
   //{{{  create volume widget
   root->addTopRight (new cValueBox (mVolume, mVolumeChanged, LCD_YELLOW, cWidget::kBoxHeight-1, root->getHeight()-6));
   //}}}
@@ -211,18 +210,17 @@ static void loadThread (void const* argument) {
   auto chunkBuffer = (uint8_t*)pvPortMalloc (fullChunkSize);
   //}}}
   unsigned int fileNum = 0;
-  selectedFileName = mp3Files[fileNum];
   while (fileNum < mp3Files.size()) {
-    lcd->setTitle (selectedFileName);
+    lcd->setTitle (mp3Files[fileSelectedId]);
     //{{{  play selectedFileName
-    cFile file (selectedFileName, FA_OPEN_EXISTING | FA_READ);
+    cFile file (mp3Files[fileSelectedId], FA_OPEN_EXISTING | FA_READ);
     if (!file.isOk()) {
       //{{{  error, return
-      cLcd::debug ("- open failed " + cLcd::intStr (file.getResult()) + " " + selectedFileName);
+      cLcd::debug ("- open failed " + cLcd::intStr (file.getResult()) + " " + mp3Files[fileSelectedId]);
       return;
       }
       //}}}
-    cLcd::debug ("play " + selectedFileName + " " + cLcd::intStr (file.getSize()));
+    cLcd::debug ("play " + mp3Files[fileSelectedId] + " " + cLcd::intStr (file.getSize()));
 
     //{{{  clear waveform
     for (auto i = 0; i < 480*2; i++)
@@ -274,7 +272,7 @@ static void loadThread (void const* argument) {
                 bytesLeft = 0;
               }
             }
-          if (selectedFileChanged)
+          if (fileChangedFlag)
             bytesLeft = 0;
           else if (positionChanged) {
             //{{{  skip
@@ -291,11 +289,9 @@ static void loadThread (void const* argument) {
 
     BSP_AUDIO_OUT_Stop (CODEC_PDWN_SW);
     //}}}
-    if (!selectedFileChanged) {
-      fileNum++;
-      selectedFileName = mp3Files[fileNum];
-      }
-    selectedFileChanged = false;
+    if (!fileChangedFlag)
+    	fileSelectedId++;
+    fileChangedFlag = false;
     }
 
   vPortFree (waveform);
