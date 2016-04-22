@@ -23,6 +23,8 @@
 #include "../Bsp/stm32746g_discovery_audio.h"
 #include "../Bsp/clcd.h"
 
+using namespace std;
+
 #include "../widgets/cRootContainer.h"
 #include "../widgets/cWidget.h"
 #include "../widgets/cListWidget.h"
@@ -36,7 +38,6 @@
 
 #include "cMp3decoder.h"
 
-using namespace std;
 //}}}
 //{{{  static vars
 static osSemaphoreId audSem;

@@ -8,7 +8,19 @@ public:
     cWidget (LCD_BLUE, width, height), mFrameRef(frame), mWaveform(waveform) {}
   virtual ~cWaveformWidget() {}
 
-  virtual cWidget* picked (int16_t x, int16_t y, uint8_t z) { return nullptr; }
+  virtual cWidget* picked (int16_t x, int16_t y, uint8_t z) { 
+
+    int frame = mFrameRef - mWidth + x;
+    if (frame > 0) {
+      auto index = (frame % 480) * 2;
+      uint8_t top = (mHeight/2) - (int)mWaveform[index]/2;
+      uint8_t ylen = (mHeight/2) + (int)mWaveform[index+1]/2 - top;
+      if (y >= top && y <= top + ylen)
+        return this;
+      }
+
+    return nullptr;
+    }
 
   virtual void draw (cLcd* lcd) {
     for (auto x = 0; x < mWidth; x++) {
@@ -17,7 +29,7 @@ public:
         auto index = (frame % 480) * 2;
         uint8_t top = (mHeight/2) - (int)mWaveform[index]/2;
         uint8_t ylen = (mHeight/2) + (int)mWaveform[index+1]/2 - top;
-        lcd->rectClipped (mColour, x, top, 1, ylen);
+        lcd->rectClipped (mOn ? LCD_LIGHTRED : mColour, x, top, 1, ylen);
         }
       }
     }
