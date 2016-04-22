@@ -178,9 +178,9 @@ static void loadThread (void const* argument) {
   vector <string> mp3Files;
   listDirectory (mp3Files, "", "");
 
-  int fileSelectedId = 0;
+  int fileIndex = 0;
   bool fileChangedFlag = false;
-  root->addTopLeft (new cFileNameContainer (mp3Files, fileSelectedId, fileChangedFlag,
+  root->addTopLeft (new cFileNameContainer (mp3Files, fileIndex, fileChangedFlag,
                                             root->getWidth() - cWidget::kBoxHeight, root->getHeight() - 6));
   //{{{  create volume widget
   root->addTopRight (new cValueBox (mVolume, mVolumeChanged, LCD_YELLOW, cWidget::kBoxHeight-1, root->getHeight()-6));
@@ -211,16 +211,16 @@ static void loadThread (void const* argument) {
   //}}}
   unsigned int fileNum = 0;
   while (fileNum < mp3Files.size()) {
-    lcd->setTitle (mp3Files[fileSelectedId]);
+    lcd->setTitle (mp3Files[fileIndex]);
     //{{{  play selectedFileName
-    cFile file (mp3Files[fileSelectedId], FA_OPEN_EXISTING | FA_READ);
+    cFile file (mp3Files[fileIndex], FA_OPEN_EXISTING | FA_READ);
     if (!file.isOk()) {
       //{{{  error, return
-      cLcd::debug ("- open failed " + cLcd::intStr (file.getResult()) + " " + mp3Files[fileSelectedId]);
+      cLcd::debug ("- open failed " + cLcd::intStr (file.getResult()) + " " + mp3Files[fileIndex]);
       return;
       }
       //}}}
-    cLcd::debug ("play " + mp3Files[fileSelectedId] + " " + cLcd::intStr (file.getSize()));
+    cLcd::debug ("play " + mp3Files[fileIndex] + " " + cLcd::intStr (file.getSize()));
 
     //{{{  clear waveform
     for (auto i = 0; i < 480*2; i++)
@@ -290,7 +290,7 @@ static void loadThread (void const* argument) {
     BSP_AUDIO_OUT_Stop (CODEC_PDWN_SW);
     //}}}
     if (!fileChangedFlag)
-    	fileSelectedId++;
+      fileIndex++;
     fileChangedFlag = false;
     }
 
