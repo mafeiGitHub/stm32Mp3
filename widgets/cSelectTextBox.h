@@ -4,11 +4,11 @@
 
 class cSelectTextBox : public cTextBox {
 public:
-  cSelectTextBox (std::string text, std::string& selectedText, bool& changedFlag, uint16_t width) :
+  cSelectTextBox (std::string& text, std::string& selectedText, bool& changedFlag, uint16_t width) :
     cTextBox (text, width), mSelectedTextRef(selectedText), mChangedFlagRef(changedFlag) { mChangedFlagRef = false; }
   virtual ~cSelectTextBox() {}
 
-  virtual void pressed (int16_t x, int16_t y) { 
+  virtual void pressed (int16_t x, int16_t y) {
     cTextBox::pressed (x, y);
     if (mParent)
       mParent->pressed (x, y);
@@ -21,13 +21,13 @@ public:
     }
 
   virtual void released() {
-    mSelectedTextRef = mText;
+    mSelectedTextRef = mTextRef;
     mChangedFlagRef = true;
     cTextBox::released();
     }
 
   virtual void draw (cLcd* lcd) {
-    setTextColour (mText == mSelectedTextRef ? LCD_WHITE : LCD_DARKGREY);
+    setTextColour (mTextRef == mSelectedTextRef ? LCD_WHITE : LCD_DARKGREY);
     cTextBox::draw (lcd);
     }
 

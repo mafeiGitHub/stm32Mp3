@@ -18,10 +18,12 @@ public:
 	uint16_t getWidth() { return mWidth; }
 	uint16_t getHeight() { return mHeight; }
 	int getPressed() { return mPressed; }
+	bool isVisible() { return mVisible; }
 
 	void setXY (int16_t x, int16_t y) { mX = x; mY = y; }
 	void setColour (uint32_t colour) { mColour = colour; }
 	void setParent (cContainer* parent) { mParent = parent; }
+	void setVisible (bool visible) { mVisible = visible; }
 
 	virtual void pressed (int16_t x, int16_t y) { mPressed++; }
 	virtual void moved (int16_t x, int16_t y, int16_t z, int16_t xinc, int16_t yinc) {}
@@ -51,4 +53,5 @@ protected:
 	int mPressed = 0;
 
 	cContainer* mParent;
+	bool mVisible = true;
 	};

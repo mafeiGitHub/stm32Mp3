@@ -70,7 +70,8 @@ public:
   //{{{
   virtual void draw (cLcd* lcd) {
     for (auto widget : mSubWidgets)
-      widget->draw (lcd);
+      if (widget->isVisible())
+        widget->draw (lcd);
     }
   //}}}
 
