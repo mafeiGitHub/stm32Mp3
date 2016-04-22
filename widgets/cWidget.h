@@ -17,7 +17,9 @@ public:
 	int16_t getY() { return mY; }
 	uint16_t getWidth() { return mWidth; }
 	uint16_t getHeight() { return mHeight; }
-	int getPressed() { return mPressed; }
+	int getPressedCount() { return mPressedCount; }
+	bool isPressed() { return mPressedCount; }
+	bool isOn() { return mOn; }
 	bool isVisible() { return mVisible; }
 
 	void setXY (int16_t x, int16_t y) { mX = x; mY = y; }
@@ -25,9 +27,20 @@ public:
 	void setParent (cContainer* parent) { mParent = parent; }
 	void setVisible (bool visible) { mVisible = visible; }
 
-	virtual void pressed (int16_t x, int16_t y) { mPressed++; }
+	//{{{
+	virtual void pressed (int16_t x, int16_t y) { 
+		if (!mPressedCount)
+			mOn = true; 
+		mPressedCount++;
+		}
+	//}}}
 	virtual void moved (int16_t x, int16_t y, int16_t z, int16_t xinc, int16_t yinc) {}
-	virtual void released() { mPressed = 0; }
+	//{{{
+	virtual void released() { 
+		mPressedCount = 0; 
+		mOn = false;
+		}
+	//}}}
 
 	//{{{
 	virtual cWidget* picked (int16_t x, int16_t y, uint8_t z) {
@@ -38,7 +51,7 @@ public:
 	//{{{
 	virtual void draw (cLcd* lcd) {
 
-		lcd->rectClipped (mPressed ? LCD_LIGHTRED : mColour, mX+1, mY+1, mWidth-1, mHeight-1);
+		lcd->rectClipped (mOn ? LCD_LIGHTRED : mColour, mX+1, mY+1, mWidth-1, mHeight-1);
 		}
 	//}}}
 
@@ -50,7 +63,8 @@ protected:
 	uint16_t mWidth = 100;
 	uint16_t mHeight = kBoxHeight;
 
-	int mPressed = 0;
+	int mPressedCount = 0;
+	bool mOn = false;
 
 	cContainer* mParent;
 	bool mVisible = true;

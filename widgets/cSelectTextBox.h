@@ -21,23 +21,40 @@ public:
 
   //{{{
   virtual void pressed (int16_t x, int16_t y) {
+    mMoved = false;
+    mMove = 0;
+
     cTextBox::pressed (x, y);
     if (mParent)
       mParent->pressed (x, y);
-
     }
   //}}}
   //{{{
   virtual void moved (int16_t x, int16_t y, int16_t z, int16_t xinc, int16_t yinc) {
-    if (mParent)
-      mParent->moved (x, y,z, xinc, yinc);
+
+    mMove += yinc;
+    if (abs(mMove) > 2) {
+      mMoved = true;
+      mOn = false;
+      }
+    if (mParent && mMoved)
+      mParent->moved (x, y, z, xinc, yinc);
     }
   //}}}
   //{{{
   virtual void released() {
-    mSelectedIdRef = mSelectId;
-    mChangedFlagRef = true;
+    if (!mMoved) {
+      mSelectedIdRef = mSelectId;
+      mChangedFlagRef = true;
+      }
+
+    if (mParent)
+      mParent->released();
+
     cTextBox::released();
+
+    mMoved = false;
+    mMove = 0;
     }
   //}}}
   //{{{
@@ -51,4 +68,6 @@ private:
   int mSelectId;
   int& mSelectedIdRef;
   bool& mChangedFlagRef;
+  bool mMoved = false;
+  int mMove = 0.0f;
   };

@@ -17,9 +17,13 @@ public:
   virtual ~cFileNameContainer() {}
 
   //{{{
+  virtual void pressed (int16_t x, int16_t y) {
+    }
+  //}}}
+  //{{{
   virtual void moved (int16_t x, int16_t y, int16_t z, int16_t xinc, int16_t yinc) {
 
-    mScroll -= yinc * 2.0f / cWidget::kBoxHeight;
+    mScroll -= yinc / (float)cWidget::kBoxHeight;
 
     if (mScroll < 0.0f)
       mScroll = 0.0f;
@@ -30,12 +34,14 @@ public:
     }
   //}}}
   //{{{
+  virtual void released() {
+    }
+  //}}}
+  //{{{
   virtual void draw (cLcd* lcd) {
 
     unsigned int fileNameIndex = mFileNameFirstIndex;
-    unsigned int maxWidgetIndex = mFileNames.size() - mFileNameFirstIndex < mSubWidgets.size() ?
-                                    mFileNames.size() - mFileNameFirstIndex : mSubWidgets.size();
-    for (unsigned int widgetIndex = 0; widgetIndex < maxWidgetIndex; widgetIndex++, fileNameIndex++)
+    for (unsigned int widgetIndex = 0; widgetIndex < mSubWidgets.size(); widgetIndex++, fileNameIndex++)
       ((cSelectTextBox*)(mSubWidgets[widgetIndex]))->setText (mFileNames[fileNameIndex], fileNameIndex);
 
     cContainer::draw (lcd);

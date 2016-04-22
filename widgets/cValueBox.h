@@ -32,9 +32,9 @@ public:
   virtual void draw (cLcd* lcd) {
 
     if (mWidth > mHeight)
-      lcd->rectClipped (mPressed ? LCD_LIGHTRED : mColour, mX, mY, int(mWidth * limitValue (mValueRef)), mHeight);
+      lcd->rectClipped (mPressedCount ? LCD_LIGHTRED : mColour, mX, mY, int(mWidth * limitValue (mValueRef)), mHeight);
     else
-      lcd->rectClipped (mPressed ? LCD_LIGHTRED : mColour, mX, mY, mWidth, int(mHeight * limitValue (mValueRef)));
+      lcd->rectClipped (mPressedCount ? LCD_LIGHTRED : mColour, mX, mY, mWidth, int(mHeight * limitValue (mValueRef)));
     }
   //}}}
 

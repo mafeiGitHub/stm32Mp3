@@ -33,7 +33,7 @@ public:
 
   //{{{
   virtual void draw (cLcd* lcd) {
-    lcd->rect (mPressed ? LCD_DARKGREEN : mColour, mX, mY, mWidth, mHeight);
+    lcd->rect (mOn ? LCD_DARKGREEN : mColour, mX, mY, mWidth, mHeight);
     cContainer::draw (lcd);
     }
   //}}}
