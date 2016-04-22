@@ -202,7 +202,7 @@ cLcd* cLcd::create (std::string title, bool buffered) {
   }
 //}}}
 //{{{
-std::string cLcd::hexStr (int value, uint8_t width) {
+std::string cLcd::hex (int value, uint8_t width) {
 
   std::ostringstream os;
   if (width)
@@ -213,7 +213,7 @@ std::string cLcd::hexStr (int value, uint8_t width) {
   }
 //}}}
 //{{{
-std::string cLcd::intStr (int value, uint8_t width, char fill) {
+std::string cLcd::dec (int value, uint8_t width, char fill) {
 
   std::ostringstream os;
   if (width)
@@ -297,6 +297,23 @@ int cLcd::string (uint32_t colour, int fontHeight, std::string str, int16_t x, i
         stampClipped (colour, fontChar->bitmap, x + fontChar->left, y + fontHeight - fontChar->top, fontChar->pitch, fontChar->rows);
 
       x += fontChar->advance;
+      }
+    }
+
+  return x;
+  }
+//}}}
+//{{{
+int cLcd::measure (int fontHeight, std::string str, int16_t x, uint16_t width) {
+// only measure cached chars for speed
+  for (unsigned int i = 0; i < str.size(); i++) {
+    if ((str[i] >= 0x20) && (str[i] <= 0x7F)) {
+      auto fontChar = chars[str[i] - 0x20];
+      if (fontChar) {
+        if (x + fontChar->left + fontChar->pitch >= width)
+          break;
+        x += fontChar->advance;
+        }
       }
     }
 
@@ -592,8 +609,8 @@ void cLcd::endDraw() {
     for (auto lineIndex = (int)mFirstLine; lineIndex <= lastLine; lineIndex++) {
       auto x = 0;
       auto xinc = string (LCD_GREEN, getFontHeight(),
-                          intStr ((mLines[lineIndex].mTime-mStartTime) / 1000) + "." +
-                          intStr ((mLines[lineIndex].mTime-mStartTime) % 1000, 3, '0'), x, y, getWidth(), getLineHeight());
+                          dec ((mLines[lineIndex].mTime-mStartTime) / 1000) + "." +
+                          dec ((mLines[lineIndex].mTime-mStartTime) % 1000, 3, '0'), x, y, getWidth(), getLineHeight());
       x += xinc + 3;
       string (mLines[lineIndex].mColour, getFontHeight(), mLines[lineIndex].mString, x, y, getWidth(), getLineHeight());
       y += getLineHeight();
@@ -602,19 +619,19 @@ void cLcd::endDraw() {
     //}}}
   if (mShowLcdStats) {
     //{{{  draw lcdStats
-    std::string str = intStr (ltdc.lineIrq) + ":f " +
-                      intStr (ltdc.lineTicks) + "ms " +
-                      intStr (mDma2dHighWater-mDma2dBuf) + ":hi " +
-                      intStr (mDma2dTimeouts) + " " +
-                      intStr (ltdc.transferErrorIrq) + " " +
-                      intStr (ltdc.fifoUnderunIrq);
+    std::string str = dec (ltdc.lineIrq) + ":f " +
+                  dec (ltdc.lineTicks) + "ms " +
+                      dec (mDma2dHighWater-mDma2dBuf) + ":hi " +
+                      dec (mDma2dTimeouts) + " " +
+                      dec (ltdc.transferErrorIrq) + " " +
+                      dec (ltdc.fifoUnderunIrq);
     string (LCD_WHITE, getFontHeight(), str, 0, getHeight() - 2 * getLineHeight(), getWidth(), 24);
     }
     //}}}
   if (mShowFooter)
     //{{{  draw footer
     string (LCD_YELLOW, getFontHeight(),
-            intStr (xPortGetFreeHeapSize()) + " " + intStr (osGetCPUUsage()) + "% " + intStr (mDrawTime) + "ms",
+            dec (xPortGetFreeHeapSize()) + " " + dec (osGetCPUUsage()) + "% " + dec (mDrawTime) + "ms",
             0, getHeight()-getLineHeight(), getWidth(), getLineHeight());
     //}}}
 
@@ -917,6 +934,7 @@ void cLcd::stampClipped (uint32_t colour, uint8_t* src, int16_t x, int16_t y, ui
     return;
 
   if (y < 0) {
+    // top clip
     if (y + height <= 0)
       return;
     height += y;
@@ -924,11 +942,15 @@ void cLcd::stampClipped (uint32_t colour, uint8_t* src, int16_t x, int16_t y, ui
     y = 0;
     }
 
-  if (y + height > getHeight()) // bottom yclip
+  if (y + height > getHeight()) {
+    // bottom yclip
+    if (y >= getHeight())
+      return;
     height = getHeight() - y;
+    }
 
   if (mBuffered) {
-    *mDma2dCurBuf++ = colour;                                                // colour
+    *mDma2dCurBuf++ = colour;                                             // colour
     *mDma2dCurBuf++ = curFrameBufferAddress + ((y * getWidth()) + x) * 4; // bgnd fb start address
     *mDma2dCurBuf++ = getWidth() - width;                                 // stride
     *mDma2dCurBuf++ = (width << 16) | height;                             // width:height

@@ -44,8 +44,8 @@ public:
   static uint8_t getLineHeight() { return 18; }
 
   // static string utils
-  static std::string hexStr (int value, uint8_t width = 0);
-  static std::string intStr (int value, uint8_t width = 0, char fill = ' ');
+  static std::string hex (int value, uint8_t width = 0);
+  static std::string dec (int value, uint8_t width = 0, char fill = ' ');
   static void debug (uint32_t colour, std::string str, bool newLine = true) { get()->info (colour, str, newLine); }
   static void debug (std::string str) { get()->info (str); }
 
@@ -57,6 +57,7 @@ public:
   void info (uint32_t colour, std::string str, bool newLine = true);
   void info (std::string str, bool newLine = true);
   int string (uint32_t col, int fontHeight, std::string str, int16_t x, int16_t y, uint16_t width, uint16_t height);
+  int measure (int fontHeight, std::string str, int16_t x, uint16_t width);
 
   // touch
   void press (int pressCount, int x, int y, int z, int xinc, int yinc);

@@ -71,7 +71,7 @@ static void listDirectory (string directoryName, string indent) {
   cDirectory directory (directoryName);
   if (!directory.isOk()) {
     //{{{  open error
-    cLcd::debug (LCD_RED, "directory open error:"  + cLcd::intStr (directory.getResult()));
+    cLcd::debug (LCD_RED, "directory open error:"  + cLcd::dec (directory.getResult()));
     return;
     }
     //}}}
@@ -184,8 +184,8 @@ static void loadThread (void const* argument) {
     return;
     }
     //}}}
-  cLcd::debug (fatFs->getLabel() + " vsn:" + cLcd::hexStr (fatFs->getVolumeSerialNumber()) +
-               " freeSectors:" + cLcd::intStr (fatFs->getFreeSectors()));
+  cLcd::debug (fatFs->getLabel() + " vsn:" + cLcd::hex (fatFs->getVolumeSerialNumber()) +
+               " freeSectors:" + cLcd::dec (fatFs->getFreeSectors()));
   lcd->setShowDebug (false, false, false, false);
 
   //{{{  create filelist widget
@@ -199,7 +199,7 @@ static void loadThread (void const* argument) {
   //{{{  create position widget
   auto position = 0.0f;
   auto positionChanged = false;;
-  root->addBottomLeft (new cValueBox (position, positionChanged, LCD_BLUE, root->getWidth(), 6));
+  root->addBottomLeft (new cValueBox (position, positionChanged, LCD_BLUE, root->getWidth(), 8));
   //}}}
   //{{{  create waveform widget
   auto playFrame = 0;
@@ -231,11 +231,11 @@ static void loadThread (void const* argument) {
     cFile file (mp3Files[fileIndex], FA_OPEN_EXISTING | FA_READ);
     if (!file.isOk()) {
       //{{{  error, return
-      cLcd::debug ("- open failed " + cLcd::intStr (file.getResult()) + " " + mp3Files[fileIndex]);
+      cLcd::debug ("- open failed " + cLcd::dec (file.getResult()) + " " + mp3Files[fileIndex]);
       return;
       }
       //}}}
-    cLcd::debug ("play " + mp3Files[fileIndex] + " " + cLcd::intStr (file.getSize()));
+    cLcd::debug ("play " + mp3Files[fileIndex] + " " + cLcd::dec (file.getSize()));
 
     //{{{  clear waveform
     for (auto i = 0; i < 480*2; i++)
@@ -337,10 +337,10 @@ static void networkThread (void const* argument) {
     netif_set_up (&netIf);
     if (kStaticIp)
       //{{{  static ip
-      cLcd::debug (LCD_YELLOW, "ethernet static ip " + cLcd::intStr ((int) (netIf.ip_addr.addr & 0xFF)) + "." +
-                                                       cLcd::intStr ((int)((netIf.ip_addr.addr >> 16) & 0xFF)) + "." +
-                                                       cLcd::intStr ((int)((netIf.ip_addr.addr >> 8) & 0xFF)) + "." +
-                                                       cLcd::intStr ((int) (netIf.ip_addr.addr >> 24)));
+      cLcd::debug (LCD_YELLOW, "ethernet static ip " + cLcd::dec ((int) (netIf.ip_addr.addr & 0xFF)) + "." +
+                                                       cLcd::dec ((int)((netIf.ip_addr.addr >> 16) & 0xFF)) + "." +
+                                                       cLcd::dec ((int)((netIf.ip_addr.addr >> 8) & 0xFF)) + "." +
+                                                       cLcd::dec ((int) (netIf.ip_addr.addr >> 24)));
       //}}}
     else {
       //{{{  dhcp ip
@@ -354,10 +354,10 @@ static void networkThread (void const* argument) {
       while (true) {
         if (netIf.ip_addr.addr) {
           //{{{  dhcp allocated
-          cLcd::debug (LCD_YELLOW, "dhcp allocated " + cLcd::intStr ( (int)(netIf.ip_addr.addr & 0xFF)) + "." +
-                                                       cLcd::intStr ((int)((netIf.ip_addr.addr >> 16) & 0xFF)) + "." +
-                                                       cLcd::intStr ((int)((netIf.ip_addr.addr >> 8) & 0xFF)) + "." +
-                                                       cLcd::intStr ( (int)(netIf.ip_addr.addr >> 24)));
+          cLcd::debug (LCD_YELLOW, "dhcp allocated " + cLcd::dec ( (int)(netIf.ip_addr.addr & 0xFF)) + "." +
+                                                       cLcd::dec ((int)((netIf.ip_addr.addr >> 16) & 0xFF)) + "." +
+                                                       cLcd::dec ((int)((netIf.ip_addr.addr >> 8) & 0xFF)) + "." +
+                                                       cLcd::dec ( (int)(netIf.ip_addr.addr >> 24)));
           dhcp_stop (&netIf);
           break;
           }

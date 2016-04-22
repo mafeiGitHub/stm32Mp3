@@ -8,7 +8,7 @@ public:
   cListWidget (vector<string>& names, int& index, bool& indexChanged, uint16_t width, uint16_t height)
       : cWidget (LCD_BLACK, width, height), mNames(names), mIndex(index), mIndexChanged(indexChanged) {
     mIndexChanged = false;
-    mMaxLines = mHeight / kBoxHeight;
+    mMaxLines = 1 + (mHeight / kBoxHeight);
     }
   //}}}
   virtual ~cListWidget() {}
@@ -16,9 +16,8 @@ public:
   //{{{
   virtual void pressed (int16_t x, int16_t y) {
 
-    mPressedIndex = y / kBoxHeight;
-    mTextPressed = x < mWidths[mPressedIndex];
-
+    mPressedIndex = (mScroll + y) / kBoxHeight;
+    mTextPressed = x < cLcd::get()->measure (cLcd::getFontHeight(), mNames[mPressedIndex], mX+2, mWidth-1);
     mMoved = false;
     mMoveInc = 0;
     mScrollInc = 0.0f;
@@ -37,7 +36,7 @@ public:
   //{{{
   virtual void released() {
     if (mTextPressed && !mMoved) {
-      mIndex = (int(mScroll) / kBoxHeight) + mPressedIndex;
+      mIndex = mPressedIndex;
       mIndexChanged = true;
       }
 
@@ -55,11 +54,10 @@ public:
 
     int y = -(int(mScroll) % kBoxHeight);
     int index = int(mScroll) / kBoxHeight;
-
     for (int i = 0; i < mMaxLines; i++, index++, y += kBoxHeight)
-      mWidths[i] = lcd->string (
-        mTextPressed && !mMoved && (i == mPressedIndex) ? LCD_YELLOW : (index == mIndex) ? LCD_WHITE : LCD_LIGHTGREY,
-        lcd->getFontHeight(), cLcd::intStr(index) + " " + mNames[index], mX+2, mY+y+1, mWidth-1, mHeight-1);
+      lcd->string (
+        mTextPressed && !mMoved && (index == mPressedIndex) ? LCD_YELLOW : (index == mIndex) ? LCD_WHITE : LCD_LIGHTGREY,
+        lcd->getFontHeight(), mNames[index], mX+2, mY+y+1, mWidth-1, mHeight-1);
     }
   //}}}
 
@@ -70,8 +68,8 @@ private:
     mScroll -= inc;
     if (mScroll < 0.0f)
       mScroll = 0.0f;
-    else if (mScroll > (int(mNames.size()) - mMaxLines) * kBoxHeight)
-      mScroll = (int(mNames.size()) - mMaxLines) * kBoxHeight;
+    else if (mScroll > (mNames.size() * kBoxHeight) - mHeight)
+      mScroll = (mNames.size() * kBoxHeight) - mHeight;
 
     mScrollInc = fabs(inc) < 0.2f ? 0 : inc;
     }
@@ -80,7 +78,6 @@ private:
   vector<string>& mNames;
   int& mIndex;
   bool& mIndexChanged;
-  int mWidths[14];
 
   bool mTextPressed = false;
   int mPressedIndex = -1;
