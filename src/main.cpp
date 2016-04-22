@@ -25,9 +25,9 @@
 
 #include "../widgets/cRootContainer.h"
 #include "../widgets/cWidget.h"
+#include "../widgets/cListWidget.h"
 #include "../widgets/cValueBox.h"
 #include "../widgets/cWaveformWidget.h"
-#include "../widgets/cFileNameContainer.h"
 
 #include "../Bsp/stm32746g_discovery_sd.h"
 #include "../fatfs/fatFs.h"
@@ -44,6 +44,8 @@ static bool mAudHalf = false;
 
 static float mVolume = 0.8f;
 static bool mVolumeChanged = false;
+
+vector <string> mp3Files;
 //}}}
 //{{{  audio callbacks
 //{{{
@@ -61,7 +63,7 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 //}}}
 
 //{{{
-static void listDirectory (vector<string>& mp3Files, string directoryName, string indent) {
+static void listDirectory (string directoryName, string indent) {
 
   cLcd::debug ("dir " + directoryName);
 
@@ -80,7 +82,7 @@ static void listDirectory (vector<string>& mp3Files, string directoryName, strin
       }
 
     else if (fileInfo.isDirectory())
-      listDirectory (mp3Files, directoryName + "/" + fileInfo.getName(), indent + "-");
+      listDirectory (directoryName + "/" + fileInfo.getName(), indent + "-");
 
     else if (fileInfo.matchExtension ("MP3")) {
       mp3Files.push_back (directoryName + "/" + fileInfo.getName());
@@ -148,6 +150,16 @@ static void uiThread (void const* argument) {
   }
 //}}}
 //{{{
+static void listThread (void const* argument) {
+
+  cLcd::debug ("listDirectoryThread started");
+
+  listDirectory ("", "");
+
+  osThreadTerminate (NULL);
+  }
+//}}}
+//{{{
 static void loadThread (void const* argument) {
 
   auto lcd = cLcd::get();
@@ -175,13 +187,9 @@ static void loadThread (void const* argument) {
                " freeSectors:" + cLcd::intStr (fatFs->getFreeSectors()));
   lcd->setShowDebug (false, false, false, false);
 
-  vector <string> mp3Files;
-  listDirectory (mp3Files, "", "");
-
   int fileIndex = 0;
-  bool fileChangedFlag = false;
-  root->addTopLeft (new cFileNameContainer (mp3Files, fileIndex, fileChangedFlag,
-                                            root->getWidth() - cWidget::kBoxHeight, root->getHeight() - 6));
+  bool fileIndexChanged;
+  root->addTopLeft (new cListWidget (mp3Files, fileIndex, fileIndexChanged, root->getWidth()-cWidget::kBoxHeight, root->getHeight()-6));
   //{{{  create volume widget
   root->addTopRight (new cValueBox (mVolume, mVolumeChanged, LCD_YELLOW, cWidget::kBoxHeight-1, root->getHeight()-6));
   //}}}
@@ -195,6 +203,10 @@ static void loadThread (void const* argument) {
   auto waveform = (float*) pvPortMalloc (480*2*4);
   root->addTopLeft (new cWaveformWidget (playFrame, waveform, root->getWidth(), root->getHeight()));
   //}}}
+
+  listDirectory ("", "");
+  //const osThreadDef_t osThreadList =  { (char*)"List", listThread, osPriorityNormal, 0, 8000 };
+  //osThreadCreate (&osThreadList, NULL);
 
   auto mp3Decoder = new cMp3Decoder;
   cLcd::debug ("mp3Decoder created");
@@ -272,7 +284,7 @@ static void loadThread (void const* argument) {
                 bytesLeft = 0;
               }
             }
-          if (fileChangedFlag)
+          if (fileIndexChanged)
             bytesLeft = 0;
           else if (positionChanged) {
             //{{{  skip
@@ -289,9 +301,9 @@ static void loadThread (void const* argument) {
 
     BSP_AUDIO_OUT_Stop (CODEC_PDWN_SW);
     //}}}
-    if (!fileChangedFlag)
+    if (!fileIndexChanged)
       fileIndex++;
-    fileChangedFlag = false;
+    fileIndexChanged = false;
     }
 
   vPortFree (waveform);

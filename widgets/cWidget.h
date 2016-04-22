@@ -28,16 +28,16 @@ public:
 	void setVisible (bool visible) { mVisible = visible; }
 
 	//{{{
-	virtual void pressed (int16_t x, int16_t y) { 
+	virtual void pressed (int16_t x, int16_t y) {
 		if (!mPressedCount)
-			mOn = true; 
+			mOn = true;
 		mPressedCount++;
 		}
 	//}}}
 	virtual void moved (int16_t x, int16_t y, int16_t z, int16_t xinc, int16_t yinc) {}
 	//{{{
-	virtual void released() { 
-		mPressedCount = 0; 
+	virtual void released() {
+		mPressedCount = 0;
 		mOn = false;
 		}
 	//}}}

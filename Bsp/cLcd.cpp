@@ -62,6 +62,9 @@ extern const uint8_t freeSansBold[64228];
 #define CM_L4              ((uint32_t)0x00000008)  // L4 color mode
 #define CM_A8              ((uint32_t)0x00000009)  // A8 color mode
 #define CM_A4              ((uint32_t)0x0000000A)  // A4 color mode
+
+#define kWipe  1
+#define kStamp 2
 //}}}
 //{{{  static vars
 static uint32_t curFrameBufferAddress;
@@ -146,7 +149,7 @@ void LCD_DMA2D_IRQHandler() {
 
   while (true) {
     switch (*mDma2dIsrBuf++) {
-      case 1: // fill
+      case kWipe:
         DMA2D->OCOLR = *mDma2dIsrBuf++;  // colour
         DMA2D->OMAR  = *mDma2dIsrBuf++;  // fb start address
         DMA2D->OOR   = *mDma2dIsrBuf++;  // stride
@@ -154,7 +157,7 @@ void LCD_DMA2D_IRQHandler() {
         DMA2D->CR = DMA2D_CR_R2M | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
         return;
 
-      case 2: // stamp
+      case kStamp:
         DMA2D->FGCOLR = *mDma2dIsrBuf++; // src color
         DMA2D->OMAR   = *mDma2dIsrBuf;   // bgnd fb start address
         DMA2D->BGMAR  = *mDma2dIsrBuf++;
@@ -365,7 +368,7 @@ void cLcd::rect (uint32_t col, int16_t x, int16_t y, uint16_t xlen, uint16_t yle
     *mDma2dCurBuf++ = getWidth() - xlen;                                  // stride
     *mDma2dCurBuf++ = (xlen << 16) | ylen;                                // xlen:ylen
     *mDma2dCurBuf++ = 0;                                                  // terminate
-    *(mDma2dCurBuf-6) = 1;                                                // fill opCode
+    *(mDma2dCurBuf-6) = kWipe;                                            // fill opCode
 
     if (mDma2dCurBuf > mDma2dHighWater)
       mDma2dHighWater = mDma2dCurBuf;
@@ -915,18 +918,18 @@ void cLcd::showLayer (uint8_t layer, uint32_t frameBufferAddress, uint8_t alpha)
 //{{{
 void cLcd::stamp (uint32_t col, uint8_t* src, int16_t x, int16_t y, uint16_t xlen, uint16_t ylen) {
 
-  if (xlen && ylen) {
+  if (x > 0 && y >= 0 && xlen && ylen) {
     if (y + ylen > getHeight()) // bottom yclip
       ylen = getHeight() - y;
 
     if (mBuffered) {
-      *mDma2dCurBuf++ = col;                                                    // colour
-      *mDma2dCurBuf++ = curFrameBufferAddress + ((y * getWidth()) + x) * 4;  // bgnd fb start address
-      *mDma2dCurBuf++ = getWidth() - xlen;                                   // stride
-      *mDma2dCurBuf++ = (xlen << 16) | ylen;                                    // xlen:ylen
-      *mDma2dCurBuf++ = (uint32_t)src;                                          // src start address
-      *mDma2dCurBuf++ = 0;                                                      // terminate
-      *(mDma2dCurBuf-7) = 2;                                                    // stamp opCode
+      *mDma2dCurBuf++ = col;                                                // colour
+      *mDma2dCurBuf++ = curFrameBufferAddress + ((y * getWidth()) + x) * 4; // bgnd fb start address
+      *mDma2dCurBuf++ = getWidth() - xlen;                                  // stride
+      *mDma2dCurBuf++ = (xlen << 16) | ylen;                                // xlen:ylen
+      *mDma2dCurBuf++ = (uint32_t)src;                                      // src start address
+      *mDma2dCurBuf++ = 0;                                                  // terminate
+      *(mDma2dCurBuf-7) = kStamp;                                           // stamp opCode
 
       if (mDma2dCurBuf > mDma2dHighWater)
         mDma2dHighWater = mDma2dCurBuf;
