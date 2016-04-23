@@ -95,7 +95,7 @@ public:
     }
   //}}}
 
-  //{{{  public vars
+  // public vars
   DWORD mFileSize;  // File size
   WORD  mDate;      // Last modified date
   WORD  mTime;      // Last modified time
@@ -104,7 +104,6 @@ public:
   char  mShortFileName[13]; // 8.3 format
   UINT  mLongFileNameSize;
   char  mLongFileName[MAX_LFN + 1];
-  //}}}
   };
 //}}}
 

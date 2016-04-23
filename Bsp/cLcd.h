@@ -60,9 +60,10 @@ public:
   int measure (int fontHeight, std::string str);
 
   void pixel (uint32_t colour, int16_t x, int16_t y);
+  void stamp (uint32_t colour, uint8_t* src, int16_t x, int16_t y, uint16_t width, uint16_t height);
+  void rect (uint32_t col, int16_t x, int16_t y, uint16_t width, uint16_t height);
   void pixelClipped (uint32_t colour, int16_t x, int16_t y);
   void stampClipped (uint32_t colour, uint8_t* src, int16_t x, int16_t y, uint16_t width, uint16_t height);
-  void rect (uint32_t col, int16_t x, int16_t y, uint16_t width, uint16_t height);
   void rectClipped (uint32_t colour, int16_t x, int16_t y, uint16_t width, uint16_t height);
   void rectOutline (uint32_t colour, int16_t x, int16_t y, uint16_t width, uint16_t height);
   void clear (uint32_t colour);
