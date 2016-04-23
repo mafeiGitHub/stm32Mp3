@@ -56,15 +56,12 @@ public:
   // string
   void info (uint32_t colour, std::string str, bool newLine = true);
   void info (std::string str, bool newLine = true);
-  int string (uint32_t col, int fontHeight, std::string str, int16_t x, int16_t y, uint16_t width, uint16_t height);
-  int measure (int fontHeight, std::string str, int16_t x, uint16_t width);
+  int text (uint32_t col, int fontHeight, std::string str, int16_t x, int16_t y, uint16_t width, uint16_t height);
+  int measure (int fontHeight, std::string str);
 
-  // touch
-  void press (int pressCount, int x, int y, int z, int xinc, int yinc);
-
-  // draws
   void pixel (uint32_t colour, int16_t x, int16_t y);
   void pixelClipped (uint32_t colour, int16_t x, int16_t y);
+  void stampClipped (uint32_t colour, uint8_t* src, int16_t x, int16_t y, uint16_t width, uint16_t height);
   void rect (uint32_t col, int16_t x, int16_t y, uint16_t width, uint16_t height);
   void rectClipped (uint32_t colour, int16_t x, int16_t y, uint16_t width, uint16_t height);
   void rectOutline (uint32_t colour, int16_t x, int16_t y, uint16_t width, uint16_t height);
@@ -72,6 +69,9 @@ public:
   void ellipse (uint32_t colour, int16_t x, int16_t Ypos, uint16_t xradius, uint16_t yradius);
   void ellipseOutline (uint32_t colour, int16_t x, int16_t y, uint16_t xradius, uint16_t yradius);
   void line (uint32_t colour, int16_t x1, int16_t y1, int16_t x2, int16_t y2);
+
+  // touch
+  void press (int pressCount, int x, int y, int z, int xinc, int yinc);
 
   void startDraw();
   void drawCursor (uint32_t colour, int16_t x, int16_t y, int16_t z);
@@ -92,8 +92,6 @@ private:
   void setFont (const uint8_t* font, int length);
   void setLayer (uint8_t layer, uint32_t frameBufferAddress);
   void showLayer (uint8_t layer, uint32_t frameBufferAddress, uint8_t alpha);
-
-  void stampClipped (uint32_t colour, uint8_t* src, int16_t x, int16_t y, uint16_t width, uint16_t height);
 
   void send();
   void wait();

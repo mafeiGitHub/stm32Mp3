@@ -23,8 +23,6 @@
 #include "../Bsp/stm32746g_discovery_audio.h"
 #include "../Bsp/clcd.h"
 
-using namespace std;
-
 #include "../widgets/cRootContainer.h"
 #include "../widgets/cWidget.h"
 #include "../widgets/cListWidget.h"
@@ -46,7 +44,7 @@ static bool mAudHalf = false;
 static float mVolume = 0.8f;
 static bool mVolumeChanged = false;
 
-vector <string> mp3Files;
+std::vector<std::string> mp3Files;
 //}}}
 //{{{  audio callbacks
 //{{{
@@ -64,7 +62,7 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 //}}}
 
 //{{{
-static void listDirectory (string directoryName, string indent) {
+static void listDirectory (std::string directoryName, std::string indent) {
 
   cLcd::debug ("dir " + directoryName);
 
@@ -399,7 +397,7 @@ static void networkThread (void const* argument) {
 //{{{
 static void startThread (void const* argument) {
 
-  cLcd::create ("mp3 player built at " + string(__TIME__) + " on " + string(__DATE__));
+  cLcd::create ("mp3 player built at " + std::string(__TIME__) + " on " + std::string(__DATE__));
   cRootContainer rootContainer (cLcd::getWidth(), cLcd::getHeight());
 
   const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 4000 }; // 1000

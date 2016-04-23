@@ -77,5 +77,5 @@ public:
   //}}}
 
 protected:
-  vector<cWidget*> mSubWidgets;
+  std::vector<cWidget*> mSubWidgets;
   };

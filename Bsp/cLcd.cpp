@@ -265,7 +265,7 @@ void cLcd::info (std::string str, bool newLine) {
   }
 //}}}
 //{{{
-int cLcd::string (uint32_t colour, int fontHeight, std::string str, int16_t x, int16_t y, uint16_t width, uint16_t height) {
+int cLcd::text (uint32_t colour, int fontHeight, std::string str, int16_t x, int16_t y, uint16_t width, uint16_t height) {
 
   for (unsigned int i = 0; i < str.size(); i++) {
     if ((str[i] >= 0x20) && (str[i] <= 0x7F)) {
@@ -304,18 +304,15 @@ int cLcd::string (uint32_t colour, int fontHeight, std::string str, int16_t x, i
   }
 //}}}
 //{{{
-int cLcd::measure (int fontHeight, std::string str, int16_t x, uint16_t width) {
+int cLcd::measure (int fontHeight, std::string str) {
 // only measure cached chars for speed
-  for (unsigned int i = 0; i < str.size(); i++) {
+  int x = 0;
+  for (unsigned int i = 0; i < str.size(); i++)
     if ((str[i] >= 0x20) && (str[i] <= 0x7F)) {
       auto fontChar = chars[str[i] - 0x20];
-      if (fontChar) {
-        if (x + fontChar->left + fontChar->pitch >= width)
-          break;
+      if (fontChar)
         x += fontChar->advance;
-        }
       }
-    }
 
   return x;
   }
@@ -364,6 +361,56 @@ void cLcd::pixel (uint32_t colour, int16_t x, int16_t y) {
 void cLcd::pixelClipped (uint32_t colour, int16_t x, int16_t y) {
 
     rectClipped (colour, x, y, 1, 1);
+  }
+//}}}
+//{{{
+void cLcd::stampClipped (uint32_t colour, uint8_t* src, int16_t x, int16_t y, uint16_t width, uint16_t height) {
+
+  if (!width || !height || x < 0)
+    return;
+
+  if (y < 0) {
+    // top clip
+    if (y + height <= 0)
+      return;
+    height += y;
+    src += -y * width;
+    y = 0;
+    }
+
+  if (y + height > getHeight()) {
+    // bottom yclip
+    if (y >= getHeight())
+      return;
+    height = getHeight() - y;
+    }
+
+  if (mBuffered) {
+    *mDma2dCurBuf++ = colour;                                             // colour
+    *mDma2dCurBuf++ = curFrameBufferAddress + ((y * getWidth()) + x) * 4; // bgnd fb start address
+    *mDma2dCurBuf++ = getWidth() - width;                                 // stride
+    *mDma2dCurBuf++ = (width << 16) | height;                             // width:height
+    *mDma2dCurBuf++ = (uint32_t)src;                                      // src start address
+    *mDma2dCurBuf++ = 0;                                                  // terminate
+    *(mDma2dCurBuf-7) = kStamp;                                           // stamp opCode
+
+    if (mDma2dCurBuf > mDma2dHighWater)
+      mDma2dHighWater = mDma2dCurBuf;
+    }
+
+  else {
+    DMA2D->FGCOLR = colour;
+    DMA2D->OMAR   = curFrameBufferAddress + ((y * getWidth()) + x) * 4;
+    DMA2D->BGMAR  = curFrameBufferAddress + ((y * getWidth()) + x) * 4;
+    DMA2D->OOR    = getWidth() - width;
+    DMA2D->BGOR   = getWidth() - width;
+    DMA2D->NLR    = (width << 16) | height;
+    DMA2D->FGMAR  = (uint32_t)src;
+    DMA2D->CR = DMA2D_CR_M2M_BLEND | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
+    while (!(DMA2D->ISR & DMA2D_ISR_TCIF)) {}
+    DMA2D->IFCR |= DMA2D_IFSR_CTEIF | DMA2D_IFSR_CTCIF | DMA2D_IFSR_CTWIF|
+                   DMA2D_IFSR_CCAEIF | DMA2D_IFSR_CCTCIF | DMA2D_IFSR_CCEIF;
+    }
   }
 //}}}
 //{{{
@@ -590,7 +637,7 @@ void cLcd::endDraw() {
   auto y = 0;
   if (mShowTitle && !mTitle.empty()) {
     //{{{  draw title
-    string (LCD_WHITE, getFontHeight(), mTitle, 0, y, getWidth(), getLineHeight());
+    text (LCD_WHITE, getFontHeight(), mTitle, 0, y, getWidth(), getLineHeight());
     y += getLineHeight();
     }
     //}}}
@@ -608,11 +655,11 @@ void cLcd::endDraw() {
       lastLine = mLastLine;
     for (auto lineIndex = (int)mFirstLine; lineIndex <= lastLine; lineIndex++) {
       auto x = 0;
-      auto xinc = string (LCD_GREEN, getFontHeight(),
+      auto xinc = text (LCD_GREEN, getFontHeight(),
                           dec ((mLines[lineIndex].mTime-mStartTime) / 1000) + "." +
                           dec ((mLines[lineIndex].mTime-mStartTime) % 1000, 3, '0'), x, y, getWidth(), getLineHeight());
       x += xinc + 3;
-      string (mLines[lineIndex].mColour, getFontHeight(), mLines[lineIndex].mString, x, y, getWidth(), getLineHeight());
+      text (mLines[lineIndex].mColour, getFontHeight(), mLines[lineIndex].mString, x, y, getWidth(), getLineHeight());
       y += getLineHeight();
       }
     }
@@ -625,12 +672,12 @@ void cLcd::endDraw() {
                       dec (mDma2dTimeouts) + " " +
                       dec (ltdc.transferErrorIrq) + " " +
                       dec (ltdc.fifoUnderunIrq);
-    string (LCD_WHITE, getFontHeight(), str, 0, getHeight() - 2 * getLineHeight(), getWidth(), 24);
+    text (LCD_WHITE, getFontHeight(), str, 0, getHeight() - 2 * getLineHeight(), getWidth(), 24);
     }
     //}}}
   if (mShowFooter)
     //{{{  draw footer
-    string (LCD_YELLOW, getFontHeight(),
+	text (LCD_YELLOW, getFontHeight(),
             dec (xPortGetFreeHeapSize()) + " " + dec (osGetCPUUsage()) + "% " + dec (mDrawTime) + "ms",
             0, getHeight()-getLineHeight(), getWidth(), getLineHeight());
     //}}}
@@ -924,57 +971,6 @@ void cLcd::showLayer (uint8_t layer, uint32_t frameBufferAddress, uint8_t alpha)
 
   showFrameBufferAddress[layer] = frameBufferAddress;
   showAlpha[layer] = alpha;
-  }
-//}}}
-
-//{{{
-void cLcd::stampClipped (uint32_t colour, uint8_t* src, int16_t x, int16_t y, uint16_t width, uint16_t height) {
-
-  if (!width || !height || x < 0)
-    return;
-
-  if (y < 0) {
-    // top clip
-    if (y + height <= 0)
-      return;
-    height += y;
-    src += -y * width;
-    y = 0;
-    }
-
-  if (y + height > getHeight()) {
-    // bottom yclip
-    if (y >= getHeight())
-      return;
-    height = getHeight() - y;
-    }
-
-  if (mBuffered) {
-    *mDma2dCurBuf++ = colour;                                             // colour
-    *mDma2dCurBuf++ = curFrameBufferAddress + ((y * getWidth()) + x) * 4; // bgnd fb start address
-    *mDma2dCurBuf++ = getWidth() - width;                                 // stride
-    *mDma2dCurBuf++ = (width << 16) | height;                             // width:height
-    *mDma2dCurBuf++ = (uint32_t)src;                                      // src start address
-    *mDma2dCurBuf++ = 0;                                                  // terminate
-    *(mDma2dCurBuf-7) = kStamp;                                           // stamp opCode
-
-    if (mDma2dCurBuf > mDma2dHighWater)
-      mDma2dHighWater = mDma2dCurBuf;
-    }
-
-  else {
-    DMA2D->FGCOLR = colour;
-    DMA2D->OMAR   = curFrameBufferAddress + ((y * getWidth()) + x) * 4;
-    DMA2D->BGMAR  = curFrameBufferAddress + ((y * getWidth()) + x) * 4;
-    DMA2D->OOR    = getWidth() - width;
-    DMA2D->BGOR   = getWidth() - width;
-    DMA2D->NLR    = (width << 16) | height;
-    DMA2D->FGMAR  = (uint32_t)src;
-    DMA2D->CR = DMA2D_CR_M2M_BLEND | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
-    while (!(DMA2D->ISR & DMA2D_ISR_TCIF)) {}
-    DMA2D->IFCR |= DMA2D_IFSR_CTEIF | DMA2D_IFSR_CTCIF | DMA2D_IFSR_CTWIF|
-                   DMA2D_IFSR_CCAEIF | DMA2D_IFSR_CCTCIF | DMA2D_IFSR_CCEIF;
-    }
   }
 //}}}
 
