@@ -56,7 +56,7 @@ public:
   virtual cWidget* picked (int16_t x, int16_t y, uint8_t z) {
 
     if (cWidget::picked (x, y, z)) {
-      int i = mSubWidgets.size();
+      int i = (int)mSubWidgets.size();
       while (--i >= 0) {
         cWidget* pickedWidget = mSubWidgets[i]->picked (x, y, z);
         if (pickedWidget)

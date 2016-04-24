@@ -16,8 +16,9 @@ public:
   //{{{
   virtual void pressed (int16_t x, int16_t y) {
 
-    mPressedIndex = (mScroll + y) / getBoxHeight();
-    mTextPressed = x < 2 + cLcd::get()->measure (cLcd::getFontHeight(), mNames[mPressedIndex]);
+    mPressedIndex = ((int)mScroll + y) / getBoxHeight();
+    mTextPressed = x < mMeasure[y / getBoxHeight()];
+
     mMoved = false;
     mMoveInc = 0;
     mScrollInc = 0.0f;
@@ -55,7 +56,7 @@ public:
     int y = -(int(mScroll) % getBoxHeight());
     int index = int(mScroll) / getBoxHeight();
     for (int i = 0; i < mMaxLines; i++, index++, y += getBoxHeight())
-      draw->text (
+      mMeasure[i] = draw->text (
         mTextPressed && !mMoved && (index == mPressedIndex) ? LCD_YELLOW : (index == mIndex) ? LCD_WHITE : LCD_LIGHTGREY,
         getFontHeight(), mNames[index], mX+2, mY+y+1, mWidth-1, mHeight-1);
     }
@@ -69,7 +70,7 @@ private:
     if (mScroll < 0.0f)
       mScroll = 0.0f;
     else if (mScroll > (mNames.size() * getBoxHeight()) - mHeight)
-      mScroll = (mNames.size() * getBoxHeight()) - mHeight;
+      mScroll = float(((int)mNames.size() * getBoxHeight()) - mHeight);
 
     mScrollInc = fabs(inc) < 0.2f ? 0 : inc;
     }
@@ -85,6 +86,8 @@ private:
   int mMoveInc = 0;
 
   int mMaxLines = 0;
+  int mMeasure[14];
+
   float mScroll = 0.0f;
   float mScrollInc = 0.0f;
   };

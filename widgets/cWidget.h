@@ -19,7 +19,7 @@ public:
 	uint16_t getWidth() { return mWidth; }
 	uint16_t getHeight() { return mHeight; }
 	int getPressedCount() { return mPressedCount; }
-	bool isPressed() { return mPressedCount; }
+	bool isPressed() { return mPressedCount > 0; }
 	bool isOn() { return mOn; }
 	bool isVisible() { return mVisible; }
 

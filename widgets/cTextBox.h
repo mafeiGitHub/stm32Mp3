@@ -9,12 +9,12 @@ public:
   cTextBox (std::string& text, uint32_t colour, uint16_t width, uint16_t height) : cWidget (colour, width, height), mText(text) {}
   virtual ~cTextBox() {}
 
-  void setText (string& text) { mTextRef = text; }
+  void setText (string& text) { mText = text; }
   void setTextColour (uint32_t colour) { mTextColour = colour; }
 
   virtual void draw (iDraw* draw) {
     cWidget::draw (draw);
-    draw->text (mTextColour, lcd->getFontHeight(), mText, mX+2, mY+1, mWidth-1, mHeight-1);
+    draw->text (mTextColour, getFontHeight(), mText, mX+2, mY+1, mWidth-1, mHeight-1);
     }
 
 protected:
