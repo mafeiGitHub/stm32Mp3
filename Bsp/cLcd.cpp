@@ -188,6 +188,7 @@ cLcd::cLcd (uint32_t buffer0, uint32_t buffer1)  {
 	updateNumDrawLines();
 	}
 //}}}
+cLcd::~cLcd() {}
 
 // static members
 //{{{

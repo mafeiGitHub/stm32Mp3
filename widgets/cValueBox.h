@@ -1,4 +1,4 @@
-// cTextBox.h
+// cValueBox.h
 #pragma once
 #include "cWidget.h"
 
@@ -29,12 +29,12 @@ public:
   //}}}
 
   //{{{
-  virtual void draw (cLcd* lcd) {
+  virtual void draw (iDraw* draw) {
 
     if (mWidth > mHeight)
-      lcd->rectClipped (mPressedCount ? LCD_LIGHTRED : mColour, mX, mY, int(mWidth * limitValue (mValueRef)), mHeight);
+      draw->rectClipped (mPressedCount ? LCD_LIGHTRED : mColour, mX, mY, int(mWidth * limitValue (mValueRef)), mHeight);
     else
-      lcd->rectClipped (mPressedCount ? LCD_LIGHTRED : mColour, mX, mY, mWidth, int(mHeight * limitValue (mValueRef)));
+      draw->rectClipped (mPressedCount ? LCD_LIGHTRED : mColour, mX, mY, mWidth, int(mHeight * limitValue (mValueRef)));
     }
   //}}}
 

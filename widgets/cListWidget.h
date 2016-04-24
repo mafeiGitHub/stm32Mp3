@@ -8,7 +8,7 @@ public:
   cListWidget (std::vector<std::string>& names, int& index, bool& indexChanged, uint16_t width, uint16_t height)
       : cWidget (LCD_BLACK, width, height), mNames(names), mIndex(index), mIndexChanged(indexChanged) {
     mIndexChanged = false;
-    mMaxLines = 1 + (mHeight / kBoxHeight);
+    mMaxLines = 1 + (mHeight / getBoxHeight());
     }
   //}}}
   virtual ~cListWidget() {}
@@ -16,7 +16,7 @@ public:
   //{{{
   virtual void pressed (int16_t x, int16_t y) {
 
-    mPressedIndex = (mScroll + y) / kBoxHeight;
+    mPressedIndex = (mScroll + y) / getBoxHeight();
     mTextPressed = x < 2 + cLcd::get()->measure (cLcd::getFontHeight(), mNames[mPressedIndex]);
     mMoved = false;
     mMoveInc = 0;
@@ -47,17 +47,17 @@ public:
     }
   //}}}
   //{{{
-  virtual void draw (cLcd* lcd) {
+  virtual void draw (iDraw* draw) {
 
     if (!mTextPressed && mScrollInc)
       incScroll (mScrollInc * 0.9f);
 
-    int y = -(int(mScroll) % kBoxHeight);
-    int index = int(mScroll) / kBoxHeight;
-    for (int i = 0; i < mMaxLines; i++, index++, y += kBoxHeight)
-      lcd->text (
+    int y = -(int(mScroll) % getBoxHeight());
+    int index = int(mScroll) / getBoxHeight();
+    for (int i = 0; i < mMaxLines; i++, index++, y += getBoxHeight())
+      draw->text (
         mTextPressed && !mMoved && (index == mPressedIndex) ? LCD_YELLOW : (index == mIndex) ? LCD_WHITE : LCD_LIGHTGREY,
-        lcd->getFontHeight(), mNames[index], mX+2, mY+y+1, mWidth-1, mHeight-1);
+        getFontHeight(), mNames[index], mX+2, mY+y+1, mWidth-1, mHeight-1);
     }
   //}}}
 
@@ -68,8 +68,8 @@ private:
     mScroll -= inc;
     if (mScroll < 0.0f)
       mScroll = 0.0f;
-    else if (mScroll > (mNames.size() * kBoxHeight) - mHeight)
-      mScroll = (mNames.size() * kBoxHeight) - mHeight;
+    else if (mScroll > (mNames.size() * getBoxHeight()) - mHeight)
+      mScroll = (mNames.size() * getBoxHeight()) - mHeight;
 
     mScrollInc = fabs(inc) < 0.2f ? 0 : inc;
     }

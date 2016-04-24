@@ -12,9 +12,9 @@ public:
   void setText (string& text) { mTextRef = text; }
   void setTextColour (uint32_t colour) { mTextColour = colour; }
 
-  virtual void draw (cLcd* lcd) {
-    cWidget::draw (lcd);
-    lcd->text (mTextColour, lcd->getFontHeight(), mText, mX+2, mY+1, mWidth-1, mHeight-1);
+  virtual void draw (iDraw* draw) {
+    cWidget::draw (draw);
+    draw->text (mTextColour, lcd->getFontHeight(), mText, mX+2, mY+1, mWidth-1, mHeight-1);
     }
 
 protected:

@@ -11,17 +11,9 @@
 
 const uint32_t GPIO_PIN[LEDn] = {LED1_PIN};
 
-GPIO_TypeDef* BUTTON_PORT[BUTTONn] = {WAKEUP_BUTTON_GPIO_PORT,
-                                      TAMPER_BUTTON_GPIO_PORT,
-                                      KEY_BUTTON_GPIO_PORT};
-
-const uint16_t BUTTON_PIN[BUTTONn] = {WAKEUP_BUTTON_PIN,
-                                      TAMPER_BUTTON_PIN,
-                                      KEY_BUTTON_PIN};
-
-const uint16_t BUTTON_IRQn[BUTTONn] = {WAKEUP_BUTTON_EXTI_IRQn,
-                                       TAMPER_BUTTON_EXTI_IRQn,
-                                       KEY_BUTTON_EXTI_IRQn};
+GPIO_TypeDef* BUTTON_PORT[BUTTONn] = {WAKEUP_BUTTON_GPIO_PORT, TAMPER_BUTTON_GPIO_PORT, KEY_BUTTON_GPIO_PORT};
+const uint16_t BUTTON_PIN[BUTTONn] = {WAKEUP_BUTTON_PIN, TAMPER_BUTTON_PIN, KEY_BUTTON_PIN};
+const uint16_t BUTTON_IRQn[BUTTONn] = {WAKEUP_BUTTON_EXTI_IRQn, TAMPER_BUTTON_EXTI_IRQn, KEY_BUTTON_EXTI_IRQn};
 
 USART_TypeDef* COM_USART[COMn] = {DISCOVERY_COM1};
 GPIO_TypeDef* COM_TX_PORT[COMn] = {DISCOVERY_COM1_TX_GPIO_PORT};
@@ -41,34 +33,34 @@ static HAL_StatusTypeDef I2Cx_ReadMultiple(I2C_HandleTypeDef *i2c_handler, uint8
 static HAL_StatusTypeDef I2Cx_WriteMultiple(I2C_HandleTypeDef *i2c_handler, uint8_t Addr, uint16_t Reg, uint16_t MemAddSize, uint8_t *Buffer, uint16_t Length);
 static HAL_StatusTypeDef I2Cx_IsDeviceReady(I2C_HandleTypeDef *i2c_handler, uint16_t DevAddress, uint32_t Trials);
 static void              I2Cx_Error(I2C_HandleTypeDef *i2c_handler, uint8_t Addr);
-
-/* AUDIO IO functions */
+/*{{{  AUDIO IO functions */
 void            AUDIO_IO_Init(void);
 void            AUDIO_IO_DeInit(void);
 void            AUDIO_IO_Write(uint8_t Addr, uint16_t Reg, uint16_t Value);
 uint16_t        AUDIO_IO_Read(uint8_t Addr, uint16_t Reg);
 void            AUDIO_IO_Delay(uint32_t Delay);
-
-/* TOUCHSCREEN IO functions */
+/*}}}*/
+/*{{{  TOUCHSCREEN IO functions */
 void            TS_IO_Init(void);
 void            TS_IO_Write(uint8_t Addr, uint8_t Reg, uint8_t Value);
 uint8_t         TS_IO_Read(uint8_t Addr, uint8_t Reg);
 void            TS_IO_Delay(uint32_t Delay);
-
-/* CAMERA IO functions */
+/*}}}*/
+/*{{{  CAMERA IO functions */
 void            CAMERA_IO_Init(void);
 void            CAMERA_Delay(uint32_t Delay);
 void            CAMERA_IO_Write(uint8_t Addr, uint8_t Reg, uint8_t Value);
 uint8_t         CAMERA_IO_Read(uint8_t Addr, uint8_t Reg);
+/*}}}*/
 
-//{{{
+/*{{{*/
 uint32_t BSP_GetVersion(void)
 {
   return __STM32746G_DISCO_BSP_VERSION;
 }
-//}}}
+/*}}}*/
 
-//{{{
+/*{{{*/
 void BSP_LED_Init(Led_TypeDef Led)
 {
   GPIO_InitTypeDef  gpio_init_structure;
@@ -92,8 +84,8 @@ void BSP_LED_Init(Led_TypeDef Led)
     HAL_GPIO_WritePin(gpio_led, GPIO_PIN[Led], GPIO_PIN_RESET);
   }
 }
-//}}}
-//{{{
+/*}}}*/
+/*{{{*/
 void BSP_LED_DeInit(Led_TypeDef Led)
 {
   GPIO_InitTypeDef  gpio_init_structure;
@@ -109,8 +101,8 @@ void BSP_LED_DeInit(Led_TypeDef Led)
     HAL_GPIO_DeInit(gpio_led, gpio_init_structure.Pin);
   }
 }
-//}}}
-//{{{
+/*}}}*/
+/*{{{*/
 void BSP_LED_On(Led_TypeDef Led)
 {
   GPIO_TypeDef*     gpio_led;
@@ -121,8 +113,8 @@ void BSP_LED_On(Led_TypeDef Led)
     HAL_GPIO_WritePin(gpio_led, GPIO_PIN[Led], GPIO_PIN_SET);
   }
 }
-//}}}
-//{{{
+/*}}}*/
+/*{{{*/
 void BSP_LED_Off(Led_TypeDef Led)
 {
   GPIO_TypeDef*     gpio_led;
@@ -133,8 +125,8 @@ void BSP_LED_Off(Led_TypeDef Led)
     HAL_GPIO_WritePin(gpio_led, GPIO_PIN[Led], GPIO_PIN_RESET);
   }
 }
-//}}}
-//{{{
+/*}}}*/
+/*{{{*/
 void BSP_LED_Toggle(Led_TypeDef Led)
 {
   GPIO_TypeDef*     gpio_led;
@@ -145,9 +137,9 @@ void BSP_LED_Toggle(Led_TypeDef Led)
     HAL_GPIO_TogglePin(gpio_led, GPIO_PIN[Led]);
   }
 }
-//}}}
+/*}}}*/
 
-//{{{
+/*{{{*/
 /**
   * @brief  Configures button GPIO and EXTI Line.
   * @param  Button: Button to be configured
@@ -205,8 +197,8 @@ void BSP_PB_Init(Button_TypeDef Button, ButtonMode_TypeDef ButtonMode)
     HAL_NVIC_EnableIRQ((IRQn_Type)(BUTTON_IRQn[Button]));
   }
 }
-//}}}
-//{{{
+/*}}}*/
+/*{{{*/
 void BSP_PB_DeInit(Button_TypeDef Button)
 {
     GPIO_InitTypeDef gpio_init_structure;
@@ -215,15 +207,15 @@ void BSP_PB_DeInit(Button_TypeDef Button)
     HAL_NVIC_DisableIRQ((IRQn_Type)(BUTTON_IRQn[Button]));
     HAL_GPIO_DeInit(BUTTON_PORT[Button], gpio_init_structure.Pin);
 }
-//}}}
-//{{{
+/*}}}*/
+/*{{{*/
 uint32_t BSP_PB_GetState(Button_TypeDef Button)
 {
   return HAL_GPIO_ReadPin(BUTTON_PORT[Button], BUTTON_PIN[Button]);
 }
-//}}}
+/*}}}*/
 
-//{{{
+/*{{{*/
 void BSP_COM_Init(COM_TypeDef COM, UART_HandleTypeDef *huart)
 {
   GPIO_InitTypeDef gpio_init_structure;
@@ -253,8 +245,8 @@ void BSP_COM_Init(COM_TypeDef COM, UART_HandleTypeDef *huart)
   huart->Instance = COM_USART[COM];
   HAL_UART_Init(huart);
 }
-//}}}
-//{{{
+/*}}}*/
+/*{{{*/
 void BSP_COM_DeInit(COM_TypeDef COM, UART_HandleTypeDef *huart)
 {
   /* USART configuration */
@@ -270,9 +262,9 @@ void BSP_COM_DeInit(COM_TypeDef COM, UART_HandleTypeDef *huart)
   /* GPIO pins clock, DMA clock can be shut down in the application
      by surcharging this __weak function */
 }
-//}}}
+/*}}}*/
 
-//{{{
+/*{{{*/
 static void I2Cx_MspInit(I2C_HandleTypeDef *i2c_handler)
 {
   GPIO_InitTypeDef  gpio_init_structure;
@@ -354,8 +346,8 @@ static void I2Cx_MspInit(I2C_HandleTypeDef *i2c_handler)
     HAL_NVIC_EnableIRQ(DISCOVERY_EXT_I2Cx_ER_IRQn);
   }
 }
-//}}}
-//{{{
+/*}}}*/
+/*{{{*/
 static void I2Cx_Init(I2C_HandleTypeDef *i2c_handler)
 {
   if(HAL_I2C_GetState(i2c_handler) == HAL_I2C_STATE_RESET)
@@ -383,8 +375,8 @@ static void I2Cx_Init(I2C_HandleTypeDef *i2c_handler)
     HAL_I2C_Init(i2c_handler);
   }
 }
-//}}}
-//{{{
+/*}}}*/
+/*{{{*/
 static HAL_StatusTypeDef I2Cx_ReadMultiple(I2C_HandleTypeDef *i2c_handler,
                                            uint8_t Addr,
                                            uint16_t Reg,
@@ -404,8 +396,8 @@ static HAL_StatusTypeDef I2Cx_ReadMultiple(I2C_HandleTypeDef *i2c_handler,
   }
   return status;
 }
-//}}}
-//{{{
+/*}}}*/
+/*{{{*/
 static HAL_StatusTypeDef I2Cx_WriteMultiple(I2C_HandleTypeDef *i2c_handler,
                                             uint8_t Addr,
                                             uint16_t Reg,
@@ -425,14 +417,14 @@ static HAL_StatusTypeDef I2Cx_WriteMultiple(I2C_HandleTypeDef *i2c_handler,
   }
   return status;
 }
-//}}}
-//{{{
+/*}}}*/
+/*{{{*/
 static HAL_StatusTypeDef I2Cx_IsDeviceReady(I2C_HandleTypeDef *i2c_handler, uint16_t DevAddress, uint32_t Trials)
 {
   return (HAL_I2C_IsDeviceReady(i2c_handler, DevAddress, Trials, 1000));
 }
-//}}}
-//{{{
+/*}}}*/
+/*{{{*/
 static void I2Cx_Error(I2C_HandleTypeDef *i2c_handler, uint8_t Addr)
 {
   /* De-initialize the I2C communication bus */
@@ -441,20 +433,20 @@ static void I2Cx_Error(I2C_HandleTypeDef *i2c_handler, uint8_t Addr)
   /* Re-Initialize the I2C communication bus */
   I2Cx_Init(i2c_handler);
 }
-//}}}
+/*}}}*/
 
-//{{{
+/*{{{*/
 void AUDIO_IO_Init(void)
 {
   I2Cx_Init(&hI2cAudioHandler);
 }
-//}}}
-//{{{
+/*}}}*/
+/*{{{*/
 void AUDIO_IO_DeInit(void)
 {
 }
-//}}}
-//{{{
+/*}}}*/
+/*{{{*/
 void AUDIO_IO_Write(uint8_t Addr, uint16_t Reg, uint16_t Value)
 {
   uint16_t tmp = Value;
@@ -465,8 +457,8 @@ void AUDIO_IO_Write(uint8_t Addr, uint16_t Reg, uint16_t Value)
 
   I2Cx_WriteMultiple(&hI2cAudioHandler, Addr, Reg, I2C_MEMADD_SIZE_16BIT,(uint8_t*)&Value, 2);
 }
-//}}}
-//{{{
+/*}}}*/
+/*{{{*/
 uint16_t AUDIO_IO_Read(uint8_t Addr, uint16_t Reg)
 {
   uint16_t read_value = 0, tmp = 0;
@@ -481,27 +473,27 @@ uint16_t AUDIO_IO_Read(uint8_t Addr, uint16_t Reg)
 
   return read_value;
 }
-//}}}
-//{{{
+/*}}}*/
+/*{{{*/
 void AUDIO_IO_Delay(uint32_t Delay)
 {
   HAL_Delay(Delay);
 }
-//}}}
+/*}}}*/
 
-//{{{
+/*{{{*/
 void CAMERA_IO_Init(void)
 {
   I2Cx_Init(&hI2cExtHandler);
 }
-//}}}
-//{{{
+/*}}}*/
+/*{{{*/
 void CAMERA_IO_Write(uint8_t Addr, uint8_t Reg, uint8_t Value)
 {
   I2Cx_WriteMultiple(&hI2cExtHandler, Addr, (uint16_t)Reg, I2C_MEMADD_SIZE_8BIT,(uint8_t*)&Value, 1);
 }
-//}}}
-//{{{
+/*}}}*/
+/*{{{*/
 uint8_t CAMERA_IO_Read(uint8_t Addr, uint8_t Reg)
 {
   uint8_t read_value = 0;
@@ -510,27 +502,27 @@ uint8_t CAMERA_IO_Read(uint8_t Addr, uint8_t Reg)
 
   return read_value;
 }
-//}}}
-//{{{
+/*}}}*/
+/*{{{*/
 void CAMERA_Delay(uint32_t Delay)
 {
   HAL_Delay(Delay);
 }
-//}}}
+/*}}}*/
 
-//{{{
+/*{{{*/
 void TS_IO_Init(void)
 {
   I2Cx_Init(&hI2cAudioHandler);
 }
-//}}}
-//{{{
+/*}}}*/
+/*{{{*/
 void TS_IO_Write(uint8_t Addr, uint8_t Reg, uint8_t Value)
 {
   I2Cx_WriteMultiple(&hI2cAudioHandler, Addr, (uint16_t)Reg, I2C_MEMADD_SIZE_8BIT,(uint8_t*)&Value, 1);
 }
-//}}}
-//{{{
+/*}}}*/
+/*{{{*/
 uint8_t TS_IO_Read(uint8_t Addr, uint8_t Reg)
 {
   uint8_t read_value = 0;
@@ -539,10 +531,10 @@ uint8_t TS_IO_Read(uint8_t Addr, uint8_t Reg)
 
   return read_value;
 }
-//}}}
-//{{{
+/*}}}*/
+/*{{{*/
 void TS_IO_Delay(uint32_t Delay)
 {
   HAL_Delay(Delay);
 }
-//}}}
+/*}}}*/

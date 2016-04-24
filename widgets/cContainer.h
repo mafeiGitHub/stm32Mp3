@@ -69,10 +69,10 @@ public:
     }
   //}}}
   //{{{
-  virtual void draw (cLcd* lcd) {
+  virtual void draw (iDraw* draw) {
     for (auto widget : mSubWidgets)
       if (widget->isVisible())
-        widget->draw (lcd);
+        widget->draw (draw);
     }
   //}}}
 

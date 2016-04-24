@@ -1,11 +1,12 @@
 // cWidget.h - base widget, draws as box with width-1, height-1
 #pragma once
 class cContainer;
-#include "cLcd.h"
+#include "iDraw.h"
 
 class cWidget {
 public:
-	static const uint16_t kBoxHeight = 19;
+	static uint16_t getBoxHeight() { return kBoxHeight; }
+	static uint16_t getFontHeight() { return kFontHeight; }
 
 	cWidget (uint16_t width) : mWidth(width) {}
 	cWidget (float width) : mWidth(int(width* kBoxHeight)) {}
@@ -49,9 +50,8 @@ public:
 		}
 	//}}}
 	//{{{
-	virtual void draw (cLcd* lcd) {
-
-		lcd->rectClipped (mOn ? LCD_LIGHTRED : mColour, mX+1, mY+1, mWidth-1, mHeight-1);
+	virtual void draw (iDraw* draw) {
+		draw->rectClipped (mOn ? LCD_LIGHTRED : mColour, mX+1, mY+1, mWidth-1, mHeight-1);
 		}
 	//}}}
 
@@ -68,4 +68,9 @@ protected:
 
 	cContainer* mParent;
 	bool mVisible = true;
+
+private:
+	static const uint16_t kFontHeight = 16;
+	static const uint16_t kBoxHeight = 19;
+
 	};

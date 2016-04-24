@@ -192,7 +192,7 @@ static void loadThread (void const* argument) {
   root->addTopLeft (new cListWidget (mp3Files, fileIndex, fileIndexChanged, root->getWidth(), root->getHeight()));
   //}}}
   //{{{  create volume widget
-  root->addTopRight (new cValueBox (mVolume, mVolumeChanged, LCD_YELLOW, cWidget::kBoxHeight-1, root->getHeight()-6));
+  root->addTopRight (new cValueBox (mVolume, mVolumeChanged, LCD_YELLOW, cWidget::getBoxHeight()-1, root->getHeight()-6));
   //}}}
   //{{{  create position widget
   auto position = 0.0f;

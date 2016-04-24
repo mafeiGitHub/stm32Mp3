@@ -32,9 +32,9 @@ public:
   //}}}
 
   //{{{
-  virtual void draw (cLcd* lcd) {
-    lcd->rect (mOn ? LCD_DARKGREEN : mColour, mX, mY, mWidth, mHeight);
-    cContainer::draw (lcd);
+  virtual void draw (iDraw* draw) {
+    draw->rect (mOn ? LCD_DARKGREEN : mColour, mX, mY, mWidth, mHeight);
+    cContainer::draw (draw);
     }
   //}}}
 
