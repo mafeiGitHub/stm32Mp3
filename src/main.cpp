@@ -34,7 +34,7 @@
 
 #include "../httpServer/httpServer.h"
 
-#include "cMp3decoder.h"
+#include "../../shared/decoders/cMp3decoder.h"
 
 //}}}
 //{{{  static vars
