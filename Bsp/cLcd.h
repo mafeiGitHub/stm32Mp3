@@ -1,6 +1,6 @@
 #pragma once
 #include <string>
-#include "iDraw.h"
+#include "../widgets/iDraw.h"
 
 class cLcd : public iDraw {
 public:
