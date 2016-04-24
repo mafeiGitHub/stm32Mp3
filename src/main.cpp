@@ -23,11 +23,11 @@
 #include "../Bsp/stm32746g_discovery_audio.h"
 #include "../Bsp/clcd.h"
 
-#include "../widgets/cRootContainer.h"
-#include "../widgets/cWidget.h"
-#include "../widgets/cListWidget.h"
-#include "../widgets/cValueBox.h"
-#include "../widgets/cWaveformWidget.h"
+#include "../../shared/widgets/cRootContainer.h"
+#include "../../shared/widgets/cWidget.h"
+#include "../../shared/widgets/cListWidget.h"
+#include "../../shared/widgets/cValueBox.h"
+#include "../../shared/widgets/cWaveformWidget.h"
 
 #include "../Bsp/stm32746g_discovery_sd.h"
 #include "../fatfs/fatFs.h"
