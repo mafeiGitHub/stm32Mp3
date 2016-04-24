@@ -262,7 +262,7 @@ void cLcd::info (uint32_t colour, std::string str, bool newLine) {
 //}}}
 //{{{
 void cLcd::info (std::string str, bool newLine) {
-	info (LCD_WHITE, str, newLine);
+	info (COL_WHITE, str, newLine);
 	}
 //}}}
 //{{{
@@ -644,7 +644,7 @@ void cLcd::endDraw() {
 	auto y = 0;
 	if (mShowTitle && !mTitle.empty()) {
 		//{{{  draw title
-		text (LCD_WHITE, getFontHeight(), mTitle, 0, y, getWidth(), getLineHeight());
+		text (COL_WHITE, getFontHeight(), mTitle, 0, y, getWidth(), getLineHeight());
 		y += getLineHeight();
 		}
 		//}}}
@@ -654,7 +654,7 @@ void cLcd::endDraw() {
 			// draw scroll bar
 			auto yorg = getLineHeight() + ((int)mFirstLine * mNumDrawLines * getLineHeight() / (mLastLine + 1));
 			auto height = mNumDrawLines * mNumDrawLines * getLineHeight() / (mLastLine + 1);
-			rectClipped (LCD_YELLOW, 0, yorg, 8, height);
+			rectClipped (COL_YELLOW, 0, yorg, 8, height);
 			}
 
 		auto lastLine = (int)mFirstLine + mNumDrawLines - 1;
@@ -662,9 +662,9 @@ void cLcd::endDraw() {
 			lastLine = mLastLine;
 		for (auto lineIndex = (int)mFirstLine; lineIndex <= lastLine; lineIndex++) {
 			auto x = 0;
-			auto xinc = text (LCD_GREEN, getFontHeight(),
-													dec ((mLines[lineIndex].mTime-mStartTime) / 1000) + "." +
-													dec ((mLines[lineIndex].mTime-mStartTime) % 1000, 3, '0'), x, y, getWidth(), getLineHeight());
+			auto xinc = text (COL_GREEN, getFontHeight(),
+												dec ((mLines[lineIndex].mTime-mStartTime) / 1000) + "." +
+												dec ((mLines[lineIndex].mTime-mStartTime) % 1000, 3, '0'), x, y, getWidth(), getLineHeight());
 			x += xinc + 3;
 			text (mLines[lineIndex].mColour, getFontHeight(), mLines[lineIndex].mString, x, y, getWidth(), getLineHeight());
 			y += getLineHeight();
@@ -679,14 +679,14 @@ void cLcd::endDraw() {
 											dec (mDma2dTimeouts) + " " +
 											dec (ltdc.transferErrorIrq) + " " +
 											dec (ltdc.fifoUnderunIrq);
-		text (LCD_WHITE, getFontHeight(), str, 0, getHeight() - 2 * getLineHeight(), getWidth(), 24);
+		text (COL_WHITE, getFontHeight(), str, 0, getHeight() - 2 * getLineHeight(), getWidth(), 24);
 		}
 		//}}}
 	if (mShowFooter)
 		//{{{  draw footer
-		text (LCD_YELLOW, getFontHeight(),
-						dec (xPortGetFreeHeapSize()) + " " + dec (osGetCPUUsage()) + "% " + dec (mDrawTime) + "ms",
-						0, getHeight()-getLineHeight(), getWidth(), getLineHeight());
+		text (COL_YELLOW, getFontHeight(),
+					dec (xPortGetFreeHeapSize()) + " " + dec (osGetCPUUsage()) + "% " + dec (mDrawTime) + "ms",
+					0, getHeight()-getLineHeight(), getWidth(), getLineHeight());
 		//}}}
 
 	sendWait();
@@ -700,7 +700,7 @@ void cLcd::draw() {
 
 	if (!mBuffered) {
 		mDrawStartTime = osKernelSysTick();
-		clear (LCD_BLACK);
+		clear (COL_BLACK);
 		endDraw();
 		}
 	}
@@ -767,7 +767,7 @@ void cLcd::init (std::string title, bool buffered) {
 		}
 		//}}}
 
-	clear (LCD_BLACK);
+	clear (COL_BLACK);
 	sendWait();
 	displayOn();
 

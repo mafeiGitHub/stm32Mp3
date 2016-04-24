@@ -23,40 +23,40 @@
 #include "../Bsp/stm32746g_discovery_audio.h"
 #include "../Bsp/clcd.h"
 
+#include "../Bsp/stm32746g_discovery_sd.h"
+#include "../fatfs/fatFs.h"
+
+#include "../httpServer/httpServer.h"
+
 #include "../../shared/widgets/cRootContainer.h"
 #include "../../shared/widgets/cWidget.h"
 #include "../../shared/widgets/cListWidget.h"
 #include "../../shared/widgets/cValueBox.h"
 #include "../../shared/widgets/cWaveformWidget.h"
 
-#include "../Bsp/stm32746g_discovery_sd.h"
-#include "../fatfs/fatFs.h"
-
-#include "../httpServer/httpServer.h"
-
 #include "../../shared/decoders/cMp3decoder.h"
-
 //}}}
 //{{{  static vars
-static osSemaphoreId audSem;
+static osSemaphoreId mAudSem;
 static bool mAudHalf = false;
 
 static float mVolume = 0.8f;
 static bool mVolumeChanged = false;
 
-std::vector<std::string> mp3Files;
+std::vector<std::string> mMp3Files;
+cRootContainer* mRoot = nullptr;
 //}}}
 //{{{  audio callbacks
 //{{{
 void BSP_AUDIO_OUT_HalfTransfer_CallBack() {
   mAudHalf = true;
-  osSemaphoreRelease (audSem);
+  osSemaphoreRelease (mAudSem);
   }
 //}}}
 //{{{
 void BSP_AUDIO_OUT_TransferComplete_CallBack() {
   mAudHalf = false;
-  osSemaphoreRelease (audSem);
+  osSemaphoreRelease (mAudSem);
   }
 //}}}
 //}}}
@@ -69,7 +69,7 @@ static void listDirectory (std::string directoryName, std::string indent) {
   cDirectory directory (directoryName);
   if (!directory.isOk()) {
     //{{{  open error
-    cLcd::debug (LCD_RED, "directory open error:"  + cLcd::dec (directory.getResult()));
+    cLcd::debug (COL_RED, "directory open error:"  + cLcd::dec (directory.getResult()));
     return;
     }
     //}}}
@@ -84,7 +84,7 @@ static void listDirectory (std::string directoryName, std::string indent) {
       listDirectory (directoryName + "/" + fileInfo.getName(), indent + "-");
 
     else if (fileInfo.matchExtension ("MP3")) {
-      mp3Files.push_back (directoryName + "/" + fileInfo.getName());
+      mMp3Files.push_back (directoryName + "/" + fileInfo.getName());
       cLcd::debug (indent + fileInfo.getName());
       cFile file (directoryName + "/" + fileInfo.getName(), FA_OPEN_EXISTING | FA_READ);
       //cLcd::debug ("- filesize " + cLcd::intStr (file.getSize()));
@@ -98,11 +98,10 @@ static void listDirectory (std::string directoryName, std::string indent) {
 static void uiThread (void const* argument) {
 
   auto lcd = cLcd::get();
-  auto root = cRootContainer::get();
   cLcd::debug ("uiThread started");
 
   //{{{  init touch
-  BSP_TS_Init (root->getWidth(),root->getHeight());
+  BSP_TS_Init (mRoot->getWidth(),mRoot->getHeight());
   int pressed[5] = {0, 0, 0, 0, 0};
   int16_t x[5];
   int16_t y[5];
@@ -121,7 +120,7 @@ static void uiThread (void const* argument) {
         y[touch] = tsState.touchY[touch];
         z[touch] = tsState.touchWeight[touch];
         if (!touch)
-          root->press (pressed[0], x[0], y[0], z[0], xinc, yinc);
+          mRoot->press (pressed[0], x[0], y[0], z[0], xinc, yinc);
         pressed[touch]++;
         }
       else {
@@ -129,14 +128,14 @@ static void uiThread (void const* argument) {
         y[touch] = 0;
         z[touch] = 0;
         if (!touch && pressed[0])
-          root->release();
+          mRoot->release();
         pressed[touch] = 0;
         }
       }
     //}}}
 
     lcd->startDraw();
-    root->draw (lcd);
+    mRoot->draw (lcd);
     lcd->endDraw();
 
     if (mVolumeChanged) {
@@ -162,13 +161,12 @@ static void listThread (void const* argument) {
 static void loadThread (void const* argument) {
 
   auto lcd = cLcd::get();
-  auto root = cRootContainer::get();
   cLcd::debug ("loadThread started");
 
   BSP_SD_Init();
   while (BSP_SD_IsDetected() != SD_PRESENT) {
     //{{{  wait for sd card loop
-    cLcd::debug (LCD_RED, "no SD card");
+    cLcd::debug (COL_RED, "no SD card");
     osDelay (1000);
     }
     //}}}
@@ -189,20 +187,20 @@ static void loadThread (void const* argument) {
   //{{{  create filelist widget
   int fileIndex = 0;
   bool fileIndexChanged;
-  root->addTopLeft (new cListWidget (mp3Files, fileIndex, fileIndexChanged, root->getWidth(), root->getHeight()));
+  mRoot->addTopLeft (new cListWidget (mMp3Files, fileIndex, fileIndexChanged, mRoot->getWidth(), mRoot->getHeight()));
   //}}}
   //{{{  create volume widget
-  root->addTopRight (new cValueBox (mVolume, mVolumeChanged, LCD_YELLOW, cWidget::getBoxHeight()-1, root->getHeight()-6));
+  mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, cWidget::getBoxHeight()-1, mRoot->getHeight()-6));
   //}}}
   //{{{  create position widget
   auto position = 0.0f;
   auto positionChanged = false;;
-  root->addBottomLeft (new cValueBox (position, positionChanged, LCD_BLUE, root->getWidth(), 8));
+  mRoot->addBottomLeft (new cValueBox (position, positionChanged, COL_BLUE, mRoot->getWidth(), 8));
   //}}}
   //{{{  create waveform widget
   auto playFrame = 0;
   auto waveform = (float*) pvPortMalloc (480*2*4);
-  root->addTopLeft (new cWaveformWidget (playFrame, waveform, root->getWidth(), root->getHeight()));
+  mRoot->addTopLeft (new cWaveformWidget (playFrame, waveform, mRoot->getWidth(), mRoot->getHeight()));
   //}}}
 
   listDirectory ("", "");
@@ -213,7 +211,7 @@ static void loadThread (void const* argument) {
   cLcd::debug ("mp3Decoder created");
 
   osSemaphoreDef (aud);
-  audSem = osSemaphoreCreate (osSemaphore (aud), -1);
+  mAudSem = osSemaphoreCreate (osSemaphore (aud), -1);
   BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 44100);  // OUTPUT_DEVICE_HEADPHONE
   BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);             // CODEC_AUDIOFRAME_SLOT_02
 
@@ -223,17 +221,17 @@ static void loadThread (void const* argument) {
   auto chunkBuffer = (uint8_t*)pvPortMalloc (fullChunkSize);
   //}}}
   unsigned int fileNum = 0;
-  while (fileNum < mp3Files.size()) {
-    lcd->setTitle (mp3Files[fileIndex]);
+  while (fileNum < mMp3Files.size()) {
+    lcd->setTitle (mMp3Files[fileIndex]);
     //{{{  play selectedFileName
-    cFile file (mp3Files[fileIndex], FA_OPEN_EXISTING | FA_READ);
+    cFile file (mMp3Files[fileIndex], FA_OPEN_EXISTING | FA_READ);
     if (!file.isOk()) {
       //{{{  error, return
-      cLcd::debug ("- open failed " + cLcd::dec (file.getResult()) + " " + mp3Files[fileIndex]);
+      cLcd::debug ("- open failed " + cLcd::dec (file.getResult()) + " " + mMp3Files[fileIndex]);
       return;
       }
       //}}}
-    cLcd::debug ("play " + mp3Files[fileIndex] + " " + cLcd::dec (file.getSize()));
+    cLcd::debug ("play " + mMp3Files[fileIndex] + " " + cLcd::dec (file.getSize()));
 
     //{{{  clear waveform
     for (auto i = 0; i < 480*2; i++)
@@ -274,7 +272,7 @@ static void loadThread (void const* argument) {
               }
               //}}}
             if (bytesLeft >= mp3Decoder->getFrameBodySize()) {
-              osSemaphoreWait (audSem, 100);
+              osSemaphoreWait (mAudSem, 100);
               auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, &waveform[(playFrame % 480) * 2], (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
               if (frameBytes) {
                 chunkPtr += frameBytes;
@@ -335,7 +333,7 @@ static void networkThread (void const* argument) {
     netif_set_up (&netIf);
     if (kStaticIp)
       //{{{  static ip
-      cLcd::debug (LCD_YELLOW, "ethernet static ip " + cLcd::dec ((int) (netIf.ip_addr.addr & 0xFF)) + "." +
+      cLcd::debug (COL_YELLOW, "ethernet static ip " + cLcd::dec ((int) (netIf.ip_addr.addr & 0xFF)) + "." +
                                                        cLcd::dec ((int)((netIf.ip_addr.addr >> 16) & 0xFF)) + "." +
                                                        cLcd::dec ((int)((netIf.ip_addr.addr >> 8) & 0xFF)) + "." +
                                                        cLcd::dec ((int) (netIf.ip_addr.addr >> 24)));
@@ -352,7 +350,7 @@ static void networkThread (void const* argument) {
       while (true) {
         if (netIf.ip_addr.addr) {
           //{{{  dhcp allocated
-          cLcd::debug (LCD_YELLOW, "dhcp allocated " + cLcd::dec ( (int)(netIf.ip_addr.addr & 0xFF)) + "." +
+          cLcd::debug (COL_YELLOW, "dhcp allocated " + cLcd::dec ( (int)(netIf.ip_addr.addr & 0xFF)) + "." +
                                                        cLcd::dec ((int)((netIf.ip_addr.addr >> 16) & 0xFF)) + "." +
                                                        cLcd::dec ((int)((netIf.ip_addr.addr >> 8) & 0xFF)) + "." +
                                                        cLcd::dec ( (int)(netIf.ip_addr.addr >> 24)));
@@ -362,7 +360,7 @@ static void networkThread (void const* argument) {
           //}}}
         else if (netIf.dhcp->tries > 4) {
           //{{{  dhcp timeout
-          cLcd::debug (LCD_RED, "dhcp timeout");
+          cLcd::debug (COL_RED, "dhcp timeout");
           dhcp_stop (&netIf);
 
           // use static address
@@ -387,7 +385,7 @@ static void networkThread (void const* argument) {
   else {
     //{{{  no ethernet
     netif_set_down (&netIf);
-    cLcd::debug (LCD_RED, "no ethernet");
+    cLcd::debug (COL_RED, "no ethernet");
     }
     //}}}
 
@@ -398,7 +396,7 @@ static void networkThread (void const* argument) {
 static void startThread (void const* argument) {
 
   cLcd::create ("mp3 player built at " + std::string(__TIME__) + " on " + std::string(__DATE__));
-  cRootContainer rootContainer (cLcd::getWidth(), cLcd::getHeight());
+  mRoot = new cRootContainer (cLcd::getWidth(), cLcd::getHeight());
 
   const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 4000 }; // 1000
   osThreadCreate (&osThreadUi, NULL);

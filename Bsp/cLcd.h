@@ -105,13 +105,13 @@ private:
     //{{{
     void clear() {
       mTime = 0;
-      mColour = LCD_WHITE;
+      mColour = COL_WHITE;
       mString = "";
       }
     //}}}
 
     int mTime = 0;
-    int mColour = LCD_WHITE;
+    int mColour = COL_WHITE;
     std::string mString;
     };
   //}}}
