@@ -44,7 +44,6 @@ public:
 
   // iDraw
   virtual int text (uint32_t col, int fontHeight, std::string str, int16_t x, int16_t y, uint16_t width, uint16_t height);
-  virtual int measure (int fontHeight, std::string str);
   virtual void pixel (uint32_t colour, int16_t x, int16_t y);
   virtual void stamp (uint32_t colour, uint8_t* src, int16_t x, int16_t y, uint16_t width, uint16_t height);
   virtual void rect (uint32_t col, int16_t x, int16_t y, uint16_t width, uint16_t height);

@@ -93,8 +93,17 @@ static void listDirectory (std::string directoryName, std::string indent) {
     }
   }
 //}}}
+//{{{
+//static void listThread (void const* argument) {
 
-// threads
+  //cLcd::debug ("listDirectoryThread started");
+
+  //listDirectory ("", "");
+
+  //osThreadTerminate (NULL);
+  //}
+//}}}
+
 //{{{
 static void uiThread (void const* argument) {
 
@@ -147,16 +156,6 @@ static void uiThread (void const* argument) {
       //}}}
     }
   }
-//}}}
-//{{{
-//static void listThread (void const* argument) {
-
-  //cLcd::debug ("listDirectoryThread started");
-
-  //listDirectory ("", "");
-
-  //osThreadTerminate (NULL);
-  //}
 //}}}
 //{{{
 static void loadThread (void const* argument) {

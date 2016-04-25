@@ -265,59 +265,6 @@ void cLcd::info (std::string str, bool newLine) {
 	info (COL_WHITE, str, newLine);
 	}
 //}}}
-//{{{
-int cLcd::text (uint32_t colour, int fontHeight, std::string str, int16_t x, int16_t y, uint16_t width, uint16_t height) {
-
-	for (unsigned int i = 0; i < str.size(); i++) {
-		if ((str[i] >= 0x20) && (str[i] <= 0x7F)) {
-			auto fontChar = chars[str[i] - 0x20];
-			if (!fontChar) {
-				FT_Set_Pixel_Sizes (FTface, 0, fontHeight);
-				FT_Load_Char (FTface, str[i], FT_LOAD_RENDER);
-
-				// cache char info
-				fontChar = (tFontChar*)pvPortMalloc (sizeof(tFontChar));
-				chars[str[i] - 0x20] = fontChar;
-				fontChar->left = FTglyphSlot->bitmap_left;
-				fontChar->top = FTglyphSlot->bitmap_top;
-				fontChar->pitch = FTglyphSlot->bitmap.pitch;
-				fontChar->rows = FTglyphSlot->bitmap.rows;
-				fontChar->advance = FTglyphSlot->advance.x / 64;
-				fontChar->bitmap = nullptr;
-
-				if (FTglyphSlot->bitmap.buffer) {
-					// cache char bitmap
-					fontChar->bitmap = (uint8_t*)pvPortMalloc (FTglyphSlot->bitmap.pitch * FTglyphSlot->bitmap.rows);
-					memcpy (fontChar->bitmap, FTglyphSlot->bitmap.buffer, FTglyphSlot->bitmap.pitch * FTglyphSlot->bitmap.rows);
-					}
-				}
-
-			if (x + fontChar->left + fontChar->pitch >= width)
-				break;
-			else if (fontChar->bitmap)
-				stampClipped (colour, fontChar->bitmap, x + fontChar->left, y + fontHeight - fontChar->top, fontChar->pitch, fontChar->rows);
-
-			x += fontChar->advance;
-			}
-		}
-
-	return x;
-	}
-//}}}
-//{{{
-int cLcd::measure (int fontHeight, std::string str) {
-// only measure cached chars for speed
-	int x = 0;
-	for (unsigned int i = 0; i < str.size(); i++)
-		if ((str[i] >= 0x20) && (str[i] <= 0x7F)) {
-			auto fontChar = chars[str[i] - 0x20];
-			if (fontChar)
-				x += fontChar->advance;
-			}
-
-	return x;
-	}
-//}}}
 
 //{{{
 void cLcd::press (int pressCount, int x, int y, int z, int xinc, int yinc) {
@@ -466,6 +413,45 @@ void cLcd::displayOff() {
 //}}}
 
 // iDraw
+//{{{
+int cLcd::text (uint32_t colour, int fontHeight, std::string str, int16_t x, int16_t y, uint16_t width, uint16_t height) {
+
+	for (unsigned int i = 0; i < str.size(); i++) {
+		if ((str[i] >= 0x20) && (str[i] <= 0x7F)) {
+			auto fontChar = chars[str[i] - 0x20];
+			if (!fontChar) {
+				FT_Set_Pixel_Sizes (FTface, 0, fontHeight);
+				FT_Load_Char (FTface, str[i], FT_LOAD_RENDER);
+
+				// cache char info
+				fontChar = (tFontChar*)pvPortMalloc (sizeof(tFontChar));
+				chars[str[i] - 0x20] = fontChar;
+				fontChar->left = FTglyphSlot->bitmap_left;
+				fontChar->top = FTglyphSlot->bitmap_top;
+				fontChar->pitch = FTglyphSlot->bitmap.pitch;
+				fontChar->rows = FTglyphSlot->bitmap.rows;
+				fontChar->advance = FTglyphSlot->advance.x / 64;
+				fontChar->bitmap = nullptr;
+
+				if (FTglyphSlot->bitmap.buffer) {
+					// cache char bitmap
+					fontChar->bitmap = (uint8_t*)pvPortMalloc (FTglyphSlot->bitmap.pitch * FTglyphSlot->bitmap.rows);
+					memcpy (fontChar->bitmap, FTglyphSlot->bitmap.buffer, FTglyphSlot->bitmap.pitch * FTglyphSlot->bitmap.rows);
+					}
+				}
+
+			if (x + fontChar->left + fontChar->pitch >= width)
+				break;
+			else if (fontChar->bitmap)
+				stampClipped (colour, fontChar->bitmap, x + fontChar->left, y + fontHeight - fontChar->top, fontChar->pitch, fontChar->rows);
+
+			x += fontChar->advance;
+			}
+		}
+
+	return x;
+	}
+//}}}
 //{{{
 void cLcd::pixel (uint32_t colour, int16_t x, int16_t y) {
 
