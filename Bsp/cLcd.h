@@ -31,6 +31,17 @@ public:
   void info (uint32_t colour, std::string str, bool newLine = true);
   void info (std::string str, bool newLine = true);
 
+  // touch
+  void press (int pressCount, int x, int y, int z, int xinc, int yinc);
+
+  void startDraw();
+  void drawCursor (uint32_t colour, int16_t x, int16_t y, int16_t z);
+  void endDraw();
+  void draw();
+
+  void displayOn();
+  void displayOff();
+
   // iDraw
   virtual int text (uint32_t col, int fontHeight, std::string str, int16_t x, int16_t y, uint16_t width, uint16_t height);
   virtual int measure (int fontHeight, std::string str);
@@ -45,17 +56,6 @@ public:
   virtual void ellipse (uint32_t colour, int16_t x, int16_t Ypos, uint16_t xradius, uint16_t yradius);
   virtual void ellipseOutline (uint32_t colour, int16_t x, int16_t y, uint16_t xradius, uint16_t yradius);
   virtual void line (uint32_t colour, int16_t x1, int16_t y1, int16_t x2, int16_t y2);
-
-  // touch
-  void press (int pressCount, int x, int y, int z, int xinc, int yinc);
-
-  void startDraw();
-  void drawCursor (uint32_t colour, int16_t x, int16_t y, int16_t z);
-  void endDraw();
-  void draw();
-
-  void displayOn();
-  void displayOff();
 
 private:
   void init (std::string title, bool buffered);

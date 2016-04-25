@@ -350,6 +350,123 @@ void cLcd::press (int pressCount, int x, int y, int z, int xinc, int yinc) {
 //}}}
 
 //{{{
+void cLcd::startDraw() {
+
+	if (mBuffered) {
+		mDrawBuffer = !mDrawBuffer;
+		setLayer (0, mBuffer[mDrawBuffer]);
+
+		// frameSync;
+		ltdc.frameWait = 1;
+		if (osSemaphoreWait (ltdc.sem, 100) != osOK)
+			ltdc.timeouts++;
+		}
+
+	mDrawStartTime = osKernelSysTick();
+	}
+//}}}
+//{{{
+void cLcd::drawCursor (uint32_t colour, int16_t x, int16_t y, int16_t z) {
+	ellipse (colour, x, y, z, z);
+	}
+//}}}
+//{{{
+void cLcd::endDraw() {
+
+	auto y = 0;
+	if (mShowTitle && !mTitle.empty()) {
+		//{{{  draw title
+		text (COL_WHITE, getFontHeight(), mTitle, 0, y, getWidth(), getLineHeight());
+		y += getLineHeight();
+		}
+		//}}}
+	if (mShowInfo) {
+		//{{{  draw info lines
+		if (mLastLine >= 0) {
+			// draw scroll bar
+			auto yorg = getLineHeight() + ((int)mFirstLine * mNumDrawLines * getLineHeight() / (mLastLine + 1));
+			auto height = mNumDrawLines * mNumDrawLines * getLineHeight() / (mLastLine + 1);
+			rectClipped (COL_YELLOW, 0, yorg, 8, height);
+			}
+
+		auto lastLine = (int)mFirstLine + mNumDrawLines - 1;
+		if (lastLine > mLastLine)
+			lastLine = mLastLine;
+		for (auto lineIndex = (int)mFirstLine; lineIndex <= lastLine; lineIndex++) {
+			auto x = 0;
+			auto xinc = text (COL_GREEN, getFontHeight(),
+												dec ((mLines[lineIndex].mTime-mStartTime) / 1000) + "." +
+												dec ((mLines[lineIndex].mTime-mStartTime) % 1000, 3, '0'), x, y, getWidth(), getLineHeight());
+			x += xinc + 3;
+			text (mLines[lineIndex].mColour, getFontHeight(), mLines[lineIndex].mString, x, y, getWidth(), getLineHeight());
+			y += getLineHeight();
+			}
+		}
+		//}}}
+	if (mShowLcdStats) {
+		//{{{  draw lcdStats
+		std::string str = dec (ltdc.lineIrq) + ":f " +
+									dec (ltdc.lineTicks) + "ms " +
+											dec (mDma2dHighWater-mDma2dBuf) + ":hi " +
+											dec (mDma2dTimeouts) + " " +
+											dec (ltdc.transferErrorIrq) + " " +
+											dec (ltdc.fifoUnderunIrq);
+		text (COL_WHITE, getFontHeight(), str, 0, getHeight() - 2 * getLineHeight(), getWidth(), 24);
+		}
+		//}}}
+	if (mShowFooter)
+		//{{{  draw footer
+		text (COL_YELLOW, getFontHeight(),
+					dec (xPortGetFreeHeapSize()) + " " + dec (osGetCPUUsage()) + "% " + dec (mDrawTime) + "ms",
+					0, getHeight()-getLineHeight(), getWidth(), getLineHeight());
+		//}}}
+
+	sendWait();
+	showLayer (0, mBuffer[mDrawBuffer], 255);
+
+	mDrawTime = osKernelSysTick() - mDrawStartTime;
+	}
+//}}}
+//{{{
+void cLcd::draw() {
+
+	if (!mBuffered) {
+		mDrawStartTime = osKernelSysTick();
+		clear (COL_BLACK);
+		endDraw();
+		}
+	}
+//}}}
+
+//{{{
+void cLcd::displayOn() {
+
+	// enable LTDC
+	LTDC->GCR |= LTDC_GCR_LTDCEN;
+
+	// turn on DISP pin
+	HAL_GPIO_WritePin (LCD_DISP_GPIO_PORT, LCD_DISP_PIN, GPIO_PIN_SET);        /* Assert LCD_DISP pin */
+
+	// turn on backlight
+	HAL_GPIO_WritePin (LCD_BL_CTRL_GPIO_PORT, LCD_BL_CTRL_PIN, GPIO_PIN_SET);  /* Assert LCD_BL_CTRL pin */
+	}
+//}}}
+//{{{
+void cLcd::displayOff() {
+
+	// disable LTDC
+	LTDC->GCR &= ~LTDC_GCR_LTDCEN;
+
+	// turn off DISP pin
+	HAL_GPIO_WritePin (LCD_DISP_GPIO_PORT, LCD_DISP_PIN, GPIO_PIN_RESET);      /* De-assert LCD_DISP pin */
+
+	// turn off backlight
+	HAL_GPIO_WritePin (LCD_BL_CTRL_GPIO_PORT, LCD_BL_CTRL_PIN, GPIO_PIN_RESET);/* De-assert LCD_BL_CTRL pin */
+	}
+//}}}
+
+// iDraw
+//{{{
 void cLcd::pixel (uint32_t colour, int16_t x, int16_t y) {
 
 	if (mBuffered)
@@ -417,6 +534,7 @@ void cLcd::rect (uint32_t colour, int16_t x, int16_t y, uint16_t width, uint16_t
 
 	}
 //}}}
+
 //{{{
 void cLcd::pixelClipped (uint32_t colour, int16_t x, int16_t y) {
 
@@ -614,122 +732,6 @@ void cLcd::line (uint32_t colour, int16_t x1, int16_t y1, int16_t x2, int16_t y2
 		x += xinc2;                               /* Change the x as appropriate */
 		y += yinc2;                               /* Change the y as appropriate */
 		}
-	}
-//}}}
-
-//{{{
-void cLcd::startDraw() {
-
-	if (mBuffered) {
-		mDrawBuffer = !mDrawBuffer;
-		setLayer (0, mBuffer[mDrawBuffer]);
-
-		// frameSync;
-		ltdc.frameWait = 1;
-		if (osSemaphoreWait (ltdc.sem, 100) != osOK)
-			ltdc.timeouts++;
-		}
-
-	mDrawStartTime = osKernelSysTick();
-	}
-//}}}
-//{{{
-void cLcd::drawCursor (uint32_t colour, int16_t x, int16_t y, int16_t z) {
-	ellipse (colour, x, y, z, z);
-	}
-//}}}
-//{{{
-void cLcd::endDraw() {
-
-	auto y = 0;
-	if (mShowTitle && !mTitle.empty()) {
-		//{{{  draw title
-		text (COL_WHITE, getFontHeight(), mTitle, 0, y, getWidth(), getLineHeight());
-		y += getLineHeight();
-		}
-		//}}}
-	if (mShowInfo) {
-		//{{{  draw info lines
-		if (mLastLine >= 0) {
-			// draw scroll bar
-			auto yorg = getLineHeight() + ((int)mFirstLine * mNumDrawLines * getLineHeight() / (mLastLine + 1));
-			auto height = mNumDrawLines * mNumDrawLines * getLineHeight() / (mLastLine + 1);
-			rectClipped (COL_YELLOW, 0, yorg, 8, height);
-			}
-
-		auto lastLine = (int)mFirstLine + mNumDrawLines - 1;
-		if (lastLine > mLastLine)
-			lastLine = mLastLine;
-		for (auto lineIndex = (int)mFirstLine; lineIndex <= lastLine; lineIndex++) {
-			auto x = 0;
-			auto xinc = text (COL_GREEN, getFontHeight(),
-												dec ((mLines[lineIndex].mTime-mStartTime) / 1000) + "." +
-												dec ((mLines[lineIndex].mTime-mStartTime) % 1000, 3, '0'), x, y, getWidth(), getLineHeight());
-			x += xinc + 3;
-			text (mLines[lineIndex].mColour, getFontHeight(), mLines[lineIndex].mString, x, y, getWidth(), getLineHeight());
-			y += getLineHeight();
-			}
-		}
-		//}}}
-	if (mShowLcdStats) {
-		//{{{  draw lcdStats
-		std::string str = dec (ltdc.lineIrq) + ":f " +
-									dec (ltdc.lineTicks) + "ms " +
-											dec (mDma2dHighWater-mDma2dBuf) + ":hi " +
-											dec (mDma2dTimeouts) + " " +
-											dec (ltdc.transferErrorIrq) + " " +
-											dec (ltdc.fifoUnderunIrq);
-		text (COL_WHITE, getFontHeight(), str, 0, getHeight() - 2 * getLineHeight(), getWidth(), 24);
-		}
-		//}}}
-	if (mShowFooter)
-		//{{{  draw footer
-		text (COL_YELLOW, getFontHeight(),
-					dec (xPortGetFreeHeapSize()) + " " + dec (osGetCPUUsage()) + "% " + dec (mDrawTime) + "ms",
-					0, getHeight()-getLineHeight(), getWidth(), getLineHeight());
-		//}}}
-
-	sendWait();
-	showLayer (0, mBuffer[mDrawBuffer], 255);
-
-	mDrawTime = osKernelSysTick() - mDrawStartTime;
-	}
-//}}}
-//{{{
-void cLcd::draw() {
-
-	if (!mBuffered) {
-		mDrawStartTime = osKernelSysTick();
-		clear (COL_BLACK);
-		endDraw();
-		}
-	}
-//}}}
-
-//{{{
-void cLcd::displayOn() {
-
-	// enable LTDC
-	LTDC->GCR |= LTDC_GCR_LTDCEN;
-
-	// turn on DISP pin
-	HAL_GPIO_WritePin (LCD_DISP_GPIO_PORT, LCD_DISP_PIN, GPIO_PIN_SET);        /* Assert LCD_DISP pin */
-
-	// turn on backlight
-	HAL_GPIO_WritePin (LCD_BL_CTRL_GPIO_PORT, LCD_BL_CTRL_PIN, GPIO_PIN_SET);  /* Assert LCD_BL_CTRL pin */
-	}
-//}}}
-//{{{
-void cLcd::displayOff() {
-
-	// disable LTDC
-	LTDC->GCR &= ~LTDC_GCR_LTDCEN;
-
-	// turn off DISP pin
-	HAL_GPIO_WritePin (LCD_DISP_GPIO_PORT, LCD_DISP_PIN, GPIO_PIN_RESET);      /* De-assert LCD_DISP pin */
-
-	// turn off backlight
-	HAL_GPIO_WritePin (LCD_BL_CTRL_GPIO_PORT, LCD_BL_CTRL_PIN, GPIO_PIN_RESET);/* De-assert LCD_BL_CTRL pin */
 	}
 //}}}
 

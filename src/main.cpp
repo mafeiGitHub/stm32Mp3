@@ -32,6 +32,7 @@
 #include "../../shared/widgets/cWidget.h"
 #include "../../shared/widgets/cListWidget.h"
 #include "../../shared/widgets/cValueBox.h"
+#include "../../shared/widgets/cWaveWidget.h"
 #include "../../shared/widgets/cWaveformWidget.h"
 
 #include "../../shared/decoders/cMp3decoder.h"
@@ -148,14 +149,14 @@ static void uiThread (void const* argument) {
   }
 //}}}
 //{{{
-static void listThread (void const* argument) {
+//static void listThread (void const* argument) {
 
-  cLcd::debug ("listDirectoryThread started");
+  //cLcd::debug ("listDirectoryThread started");
 
-  listDirectory ("", "");
+  //listDirectory ("", "");
 
-  osThreadTerminate (NULL);
-  }
+  //osThreadTerminate (NULL);
+  //}
 //}}}
 //{{{
 static void loadThread (void const* argument) {
@@ -198,10 +199,11 @@ static void loadThread (void const* argument) {
   mRoot->addBottomLeft (new cValueBox (position, positionChanged, COL_BLUE, mRoot->getWidth(), 8));
   //}}}
   //{{{  create waveform widget
-  auto playFrame = 0;
-  auto waveform = (float*) pvPortMalloc (480*2*4);
-  mRoot->addTopLeft (new cWaveformWidget (playFrame, waveform, mRoot->getWidth(), mRoot->getHeight()));
+  auto mPlayFrame = 0;
+  auto mWaveform = (uint8_t*) pvPortMalloc (40*60*60*2);
+  mRoot->addTopLeft (new cWaveformWidget (mPlayFrame, mWaveform, mRoot->getWidth(), mRoot->getHeight()));
   //}}}
+  mRoot->addTopLeft (new cWaveWidget (mPlayFrame, mWaveform, mRoot->getWidth(), 30));
 
   listDirectory ("", "");
   //const osThreadDef_t osThreadList =  { (char*)"List", listThread, osPriorityNormal, 0, 8000 };
@@ -233,17 +235,13 @@ static void loadThread (void const* argument) {
       //}}}
     cLcd::debug ("play " + mMp3Files[fileIndex] + " " + cLcd::dec (file.getSize()));
 
-    //{{{  clear waveform
-    for (auto i = 0; i < 480*2; i++)
-      waveform[i] = 0.0f;
-    //}}}
     //{{{  init BSP_play
     memset ((void*)AUDIO_BUFFER, 0, AUDIO_BUFFER_SIZE);
     BSP_AUDIO_OUT_Play ((uint16_t*)AUDIO_BUFFER, AUDIO_BUFFER_SIZE);
     //}}}
 
     position = 0.0f;
-    playFrame = 0;
+    mPlayFrame = 0;
     int bytesLeft;
     do {
       file.read (chunkBuffer, fullChunkSize, bytesLeft);
@@ -273,11 +271,14 @@ static void loadThread (void const* argument) {
               //}}}
             if (bytesLeft >= mp3Decoder->getFrameBodySize()) {
               osSemaphoreWait (mAudSem, 100);
-              auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, &waveform[(playFrame % 480) * 2], (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
+              float waveformSample[2];
+              auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, waveformSample, (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
               if (frameBytes) {
                 chunkPtr += frameBytes;
                 bytesLeft -= frameBytes;
-                playFrame++;
+                mWaveform[mPlayFrame*2] = (uint8_t)waveformSample[0];
+                mWaveform[(mPlayFrame*2)+1] = (uint8_t)waveformSample[1];
+                mPlayFrame++;
                 }
               else
                 bytesLeft = 0;
@@ -305,7 +306,7 @@ static void loadThread (void const* argument) {
     fileIndexChanged = false;
     }
 
-  vPortFree (waveform);
+  vPortFree (mWaveform);
   vPortFree (chunkBuffer);
   }
 //}}}
