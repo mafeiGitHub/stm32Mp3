@@ -16,14 +16,14 @@
 #include "ipv4/lwip/ip_addr.h"
 #include "lwip/api.h"
 
-#include "../Bsp/ethernetif.h"
+#include "ethernetif.h"
 
-#include "../Bsp/stm32746g_discovery.h"
-#include "../Bsp/stm32746g_discovery_ts.h"
-#include "../Bsp/stm32746g_discovery_audio.h"
-#include "../Bsp/clcd.h"
+#include "stm32746g_discovery.h"
+#include "stm32746g_discovery_ts.h"
+#include "stm32746g_discovery_audio.h"
+#include "clcd.h"
 
-#include "../Bsp/stm32746g_discovery_sd.h"
+#include "stm32746g_discovery_sd.h"
 #include "../fatfs/fatFs.h"
 
 #include "../httpServer/httpServer.h"
@@ -241,8 +241,8 @@ static void loadThread (void const* argument) {
   auto mFramePosition = (int*)pvPortMalloc (40*60*60*2*sizeof(int));
   mRoot->addTopLeft (new cListWidget (mMp3Files, fileIndex, fileIndexChanged, mRoot->getWidth(), mRoot->getHeight()));
   mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, cWidget::getBoxHeight()-1, mRoot->getHeight()-6));
-  //mRoot->addTopLeft (new cWaveformWidget (mPlayFrame, mWaveform, mRoot->getWidth(), 40));
   mRoot->addTopLeft (new cWaveWidget (mPlayFrame, mLoadedFrame, mWaveChanged, mWaveform, mRoot->getWidth(), 50));
+  mRoot->add (new cWaveformWidget (mPlayFrame, mWaveform, mRoot->getWidth(), 50), 0, 100);
 
   listDirectory ("", "");
   //const osThreadDef_t osThreadList =  { (char*)"List", listThread, osPriorityNormal, 0, 8000 };
