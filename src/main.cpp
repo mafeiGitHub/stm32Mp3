@@ -320,18 +320,14 @@ static void loadThread (void const* argument) {
                 bytesLeft = 0;
               }
             }
-          if (fileIndexChanged)
-            bytesLeft = 0;
-          else if (mWaveChanged) {
-            //{{{  skip
+          if (mWaveChanged) {
             file.seek (mFramePosition [mPlayFrame] & 0xFFFFFFE0);
             mWaveChanged = false;
             headerBytes = 0;
             }
-            //}}}
-          } while (headerBytes && (bytesLeft > 0));
+          } while (!fileIndexChanged && headerBytes && (bytesLeft > 0));
         }
-      } while (bytesLeft > 0);
+      } while (!fileIndexChanged && (bytesLeft > 0));
 
     BSP_AUDIO_OUT_Stop (CODEC_PDWN_SW);
     //}}}
