@@ -103,6 +103,53 @@ static void listDirectory (std::string directoryName, std::string indent) {
   //osThreadTerminate (NULL);
   //}
 //}}}
+//{{{  preload waveform
+//mLoadedFrame = 0;
+//auto filePosition = 0;
+//int bytesUsed = 0;
+//int bytesLeft;
+//do {
+  //file.read (chunkBuffer, fullChunkSize, bytesLeft);
+  //if (bytesLeft) {
+    //auto chunkPtr = chunkBuffer;
+    //int headerBytes;
+    //do {
+      //headerBytes = mp3Decoder->findNextHeader (chunkPtr, bytesLeft);
+      //if (headerBytes) {
+        //chunkPtr += headerBytes;
+        //bytesLeft -= headerBytes;
+        //if (bytesLeft < mp3Decoder->getFrameBodySize() + 4) { // not enough for frameBody and next header
+          //{{{  move bytesLeft to front of chunkBuffer,  next read partial buffer 32bit aligned
+          //auto nextChunkPtr = chunkBuffer + ((4 - (bytesLeft & 3)) & 3);
+          //memcpy (nextChunkPtr, chunkPtr, bytesLeft);
+
+          //// read next chunks worth, including rest of frame, 32bit aligned
+          //int bytesLoaded;
+          //file.read (nextChunkPtr + bytesLeft, chunkSize, bytesLoaded);
+          //if (bytesLoaded) {
+            //chunkPtr = nextChunkPtr;
+            //bytesLeft += bytesLoaded;
+            //}
+          //else
+            //bytesLeft = 0;
+          //}
+          //}}}
+        //if (bytesLeft >= mp3Decoder->getFrameBodySize()) {
+          //osSemaphoreWait (mAudSem, 100);
+          //// mFramePosition [mLoadedFrame] = filePosition;  // not quite
+          //auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, mWaveform + (mLoadedFrame++ * 2), nullptr);
+          //if (frameBytes) {
+            //chunkPtr += frameBytes;
+            //bytesLeft -= frameBytes;
+            //}
+          //else
+            //bytesLeft = 0;
+          //}
+        //}
+      //} while (headerBytes && (bytesLeft > 0));
+    //}
+  //} while (bytesLeft > 0);
+//}}}
 
 //{{{
 static void uiThread (void const* argument) {
@@ -184,25 +231,18 @@ static void loadThread (void const* argument) {
                " freeSectors:" + cLcd::dec (fatFs->getFreeSectors()));
   lcd->setShowDebug (false, false, false, false);
 
-  //{{{  create filelist widget
-  int fileIndex = 0;
-  bool fileIndexChanged;
-  mRoot->addTopLeft (new cListWidget (mMp3Files, fileIndex, fileIndexChanged, mRoot->getWidth(), mRoot->getHeight()));
-  //}}}
-  //{{{  create volume widget
-  mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, cWidget::getBoxHeight()-1, mRoot->getHeight()-6));
-  //}}}
-  //{{{  create position widget
-  auto position = 0.0f;
-  auto positionChanged = false;;
-  mRoot->addBottomLeft (new cValueBox (position, positionChanged, COL_BLUE, mRoot->getWidth(), 8));
-  //}}}
-  //{{{  create waveform widget
+  // widgets, vars
+  auto fileIndex = 0;
+  auto fileIndexChanged = false;
   auto mPlayFrame = 0;
-  auto mWaveform = (uint8_t*) pvPortMalloc (40*60*60*2);
-  mRoot->addTopLeft (new cWaveformWidget (mPlayFrame, mWaveform, mRoot->getWidth(), mRoot->getHeight()));
-  //}}}
-  mRoot->addTopLeft (new cWaveWidget (mPlayFrame, mWaveform, mRoot->getWidth(), 30));
+  auto mLoadedFrame = 0;
+  auto mWaveChanged = false;
+  auto mWaveform = (uint8_t*)pvPortMalloc (40*60*60*2*sizeof(uint8_t));
+  auto mFramePosition = (int*)pvPortMalloc (40*60*60*2*sizeof(int));
+  mRoot->addTopLeft (new cListWidget (mMp3Files, fileIndex, fileIndexChanged, mRoot->getWidth(), mRoot->getHeight()));
+  mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, cWidget::getBoxHeight()-1, mRoot->getHeight()-6));
+  //mRoot->addTopLeft (new cWaveformWidget (mPlayFrame, mWaveform, mRoot->getWidth(), 40));
+  mRoot->addTopLeft (new cWaveWidget (mPlayFrame, mLoadedFrame, mWaveChanged, mWaveform, mRoot->getWidth(), 50));
 
   listDirectory ("", "");
   //const osThreadDef_t osThreadList =  { (char*)"List", listThread, osPriorityNormal, 0, 8000 };
@@ -221,10 +261,8 @@ static void loadThread (void const* argument) {
   auto fullChunkSize = 2048 + chunkSize;
   auto chunkBuffer = (uint8_t*)pvPortMalloc (fullChunkSize);
   //}}}
-  unsigned int fileNum = 0;
-  while (fileNum < mMp3Files.size()) {
+  while (true) {
     lcd->setTitle (mMp3Files[fileIndex]);
-    //{{{  play selectedFileName
     cFile file (mMp3Files[fileIndex], FA_OPEN_EXISTING | FA_READ);
     if (!file.isOk()) {
       //{{{  error, return
@@ -233,13 +271,13 @@ static void loadThread (void const* argument) {
       }
       //}}}
     cLcd::debug ("play " + mMp3Files[fileIndex] + " " + cLcd::dec (file.getSize()));
-
+    //{{{  play selectedFileName
     //{{{  init BSP_play
     memset ((void*)AUDIO_BUFFER, 0, AUDIO_BUFFER_SIZE);
     BSP_AUDIO_OUT_Play ((uint16_t*)AUDIO_BUFFER, AUDIO_BUFFER_SIZE);
     //}}}
 
-    position = 0.0f;
+    mLoadedFrame = 0;
     mPlayFrame = 0;
     int bytesLeft;
     do {
@@ -252,8 +290,8 @@ static void loadThread (void const* argument) {
           if (headerBytes) {
             chunkPtr += headerBytes;
             bytesLeft -= headerBytes;
-            if (bytesLeft < mp3Decoder->getFrameBodySize() + 4) { // not enough for frameBody and next header
-              //{{{  move bytesLeft to front of chunkBuffer,  next read partial buffer 32bit aligned
+            if (bytesLeft < mp3Decoder->getFrameBodySize() + 4) {
+              //{{{  partial frameBody+nextHeader, move bytesLeft to front of chunkBuffer,  next read partial buffer 32bit aligned
               auto nextChunkPtr = chunkBuffer + ((4 - (bytesLeft & 3)) & 3);
               memcpy (nextChunkPtr, chunkPtr, bytesLeft);
 
@@ -269,14 +307,13 @@ static void loadThread (void const* argument) {
               }
               //}}}
             if (bytesLeft >= mp3Decoder->getFrameBodySize()) {
+              mFramePosition[mLoadedFrame] = file.getPosition(); // not right !!!!
               osSemaphoreWait (mAudSem, 100);
-              float waveformSample[2];
-              auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, waveformSample, (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
+              auto frameBytes = mp3Decoder->decodeFrameBody (
+                chunkPtr, mWaveform + (mLoadedFrame++ * 2), (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
               if (frameBytes) {
                 chunkPtr += frameBytes;
                 bytesLeft -= frameBytes;
-                mWaveform[mPlayFrame*2] = (uint8_t)waveformSample[0];
-                mWaveform[(mPlayFrame*2)+1] = (uint8_t)waveformSample[1];
                 mPlayFrame++;
                 }
               else
@@ -285,15 +322,13 @@ static void loadThread (void const* argument) {
             }
           if (fileIndexChanged)
             bytesLeft = 0;
-          else if (positionChanged) {
+          else if (mWaveChanged) {
             //{{{  skip
-            file.seek (int(position * file.getSize()) & 0xFFFFFFE0);
-            positionChanged = false;
+            file.seek (mFramePosition [mPlayFrame] & 0xFFFFFFE0);
+            mWaveChanged = false;
             headerBytes = 0;
             }
             //}}}
-          else
-            position = (float)file.getPosition() / (float)file.getSize();
           } while (headerBytes && (bytesLeft > 0));
         }
       } while (bytesLeft > 0);
@@ -301,10 +336,11 @@ static void loadThread (void const* argument) {
     BSP_AUDIO_OUT_Stop (CODEC_PDWN_SW);
     //}}}
     if (!fileIndexChanged)
-      fileIndex++;
+      fileIndex = fileIndex >= (int)mMp3Files.size() ? 0 : fileIndex + 1;
     fileIndexChanged = false;
     }
 
+  vPortFree (mFramePosition);
   vPortFree (mWaveform);
   vPortFree (chunkBuffer);
   }
