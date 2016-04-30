@@ -277,8 +277,10 @@ static void loadThread (void const* argument) {
     BSP_AUDIO_OUT_Play ((uint16_t*)AUDIO_BUFFER, AUDIO_BUFFER_SIZE);
     //}}}
 
-    mLoadedFrame = 0;
+    uint8_t maxLR = 0;
     mPlayFrame = 0;
+    mLoadedFrame = 0;
+    auto mWaveformPtr = mWaveform;
     int bytesLeft;
     do {
       file.read (chunkBuffer, fullChunkSize, bytesLeft);
@@ -309,12 +311,20 @@ static void loadThread (void const* argument) {
             if (bytesLeft >= mp3Decoder->getFrameBodySize()) {
               mFramePosition[mLoadedFrame] = file.getPosition(); // not right !!!!
               osSemaphoreWait (mAudSem, 100);
-              auto frameBytes = mp3Decoder->decodeFrameBody (
-                chunkPtr, mWaveform + (mLoadedFrame++ * 2), (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
+              auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, mWaveformPtr, (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
+              *(mWaveformPtr+2) = maxLR;
+              mPlayFrame++;
+              uint8_t valueL = *mPlayFormPtr++;
+              uint8_t valueR = *mPlayFormPtr++;
+              if (valueL > maxLR)
+                maxLR = valueL;
+              if (valueR > maxLR)
+                maxLR = valueR;
+              *mPlayFormPtr = maxLR;
+
               if (frameBytes) {
                 chunkPtr += frameBytes;
                 bytesLeft -= frameBytes;
-                mPlayFrame++;
                 }
               else
                 bytesLeft = 0;
