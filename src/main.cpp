@@ -191,9 +191,9 @@ static void uiThread (void const* argument) {
       }
     //}}}
 
-    lcd->startDraw();
-    mRoot->draw (lcd);
-    lcd->endDraw();
+    lcd->startRender();
+    mRoot->render (lcd);
+    lcd->endRender();
 
     if (mVolumeChanged) {
       //{{{  change volume

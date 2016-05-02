@@ -34,10 +34,10 @@ public:
   // touch
   void press (int pressCount, int x, int y, int z, int xinc, int yinc);
 
-  void startDraw();
-  void drawCursor (uint32_t colour, int16_t x, int16_t y, int16_t z);
-  void endDraw();
-  void draw();
+  void startRender();
+  void render();
+  void renderCursor (uint32_t colour, int16_t x, int16_t y, int16_t z);
+  void endRender();
 
   void displayOn();
   void displayOff();
@@ -50,7 +50,7 @@ public:
   virtual void pixelClipped (uint32_t colour, int16_t x, int16_t y);
   virtual void stampClipped (uint32_t colour, uint8_t* src, int16_t x, int16_t y, uint16_t width, uint16_t height);
   virtual void rectClipped (uint32_t colour, int16_t x, int16_t y, uint16_t width, uint16_t height);
-  virtual void rectOutline (uint32_t colour, int16_t x, int16_t y, uint16_t width, uint16_t height);
+  virtual void rectOutline (uint32_t colour, int16_t x, int16_t y, uint16_t width, uint16_t height, uint8_t thickness);
   virtual void clear (uint32_t colour);
   virtual void ellipse (uint32_t colour, int16_t x, int16_t Ypos, uint16_t xradius, uint16_t yradius);
   virtual void ellipseOutline (uint32_t colour, int16_t x, int16_t y, uint16_t xradius, uint16_t yradius);

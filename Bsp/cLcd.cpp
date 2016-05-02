@@ -297,7 +297,7 @@ void cLcd::press (int pressCount, int x, int y, int z, int xinc, int yinc) {
 //}}}
 
 //{{{
-void cLcd::startDraw() {
+void cLcd::startRender() {
 
 	if (mBuffered) {
 		mDrawBuffer = !mDrawBuffer;
@@ -313,12 +313,22 @@ void cLcd::startDraw() {
 	}
 //}}}
 //{{{
-void cLcd::drawCursor (uint32_t colour, int16_t x, int16_t y, int16_t z) {
+void cLcd::render() {
+
+	if (!mBuffered) {
+		mDrawStartTime = osKernelSysTick();
+		clear (COL_BLACK);
+		endDraw();
+		}
+	}
+//}}}
+//{{{
+void cLcd::renderCursor (uint32_t colour, int16_t x, int16_t y, int16_t z) {
 	ellipse (colour, x, y, z, z);
 	}
 //}}}
 //{{{
-void cLcd::endDraw() {
+void cLcd::endRender() {
 
 	auto y = 0;
 	if (mShowTitle && !mTitle.empty()) {
@@ -372,16 +382,6 @@ void cLcd::endDraw() {
 	showLayer (0, mBuffer[mDrawBuffer], 255);
 
 	mDrawTime = osKernelSysTick() - mDrawStartTime;
-	}
-//}}}
-//{{{
-void cLcd::draw() {
-
-	if (!mBuffered) {
-		mDrawStartTime = osKernelSysTick();
-		clear (COL_BLACK);
-		endDraw();
-		}
 	}
 //}}}
 
@@ -587,12 +587,12 @@ void cLcd::rectClipped (uint32_t colour, int16_t x, int16_t y, uint16_t width, u
 	}
 //}}}
 //{{{
-void cLcd::rectOutline (uint32_t colour, int16_t x, int16_t y, uint16_t width, uint16_t height) {
+void cLcd::rectOutline (uint32_t colour, int16_t x, int16_t y, uint16_t width, uint16_t height, uint8_t thickness) {
 
-	rectClipped (colour, x, y, width, 1);
-	rectClipped (colour, x + width, y, 1, height);
-	rectClipped (colour, x, y + height, width, 1);
-	rectClipped (colour, x, y, 1, height);
+	rectClipped (colour, x, y, width, thickness);
+	rectClipped (colour, x + width - thickness, y, thickness, height);
+	rectClipped (colour, x, y + height - thickness, width, thickness);
+	rectClipped (colour, x, y, thickness, height);
 	}
 //}}}
 //{{{
