@@ -33,7 +33,7 @@
 #include "../../shared/widgets/cListWidget.h"
 #include "../../shared/widgets/cValueBox.h"
 #include "../../shared/widgets/cWaveWidget.h"
-#include "../../shared/widgets/cWaveformWidget.h"
+//#include "../../shared/widgets/cWaveformWidget.h"
 
 #include "../../shared/decoders/cMp3decoder.h"
 //}}}
@@ -241,8 +241,8 @@ static void loadThread (void const* argument) {
   auto mFramePosition = (int*)pvPortMalloc (40*60*60*2*sizeof(int));
   mRoot->addTopLeft (new cListWidget (mMp3Files, fileIndex, fileIndexChanged, mRoot->getWidth(), mRoot->getHeight()));
   mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, cWidget::getBoxHeight()-1, mRoot->getHeight()-6));
-  mRoot->addTopLeft (new cWaveWidget (mPlayFrame, mLoadedFrame, mWaveChanged, mWaveform, mRoot->getWidth(), 50));
-  mRoot->add (new cWaveformWidget (mPlayFrame, mWaveform, mRoot->getWidth(), 50), 0, 100);
+  //mRoot->addTopLeft (new cWaveWidget (mPlayFrame, mLoadedFrame, mWaveChanged, mWaveform, mRoot->getWidth(), 50));
+  //mRoot->add (new cWaveformWidget (mPlayFrame, mWaveform, mRoot->getWidth(), 50), 0, 100);
 
   listDirectory ("", "");
   //const osThreadDef_t osThreadList =  { (char*)"List", listThread, osPriorityNormal, 0, 8000 };
@@ -314,13 +314,13 @@ static void loadThread (void const* argument) {
               auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, mWaveformPtr, (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
               *(mWaveformPtr+2) = maxLR;
               mPlayFrame++;
-              uint8_t valueL = *mPlayFormPtr++;
-              uint8_t valueR = *mPlayFormPtr++;
+              uint8_t valueL = *mWaveformPtr++;
+              uint8_t valueR = *mWaveformPtr++;
               if (valueL > maxLR)
                 maxLR = valueL;
               if (valueR > maxLR)
                 maxLR = valueR;
-              *mPlayFormPtr = maxLR;
+              *mWaveformPtr = maxLR;
 
               if (frameBytes) {
                 chunkPtr += frameBytes;

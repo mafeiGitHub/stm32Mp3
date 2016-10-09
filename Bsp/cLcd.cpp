@@ -318,7 +318,7 @@ void cLcd::render() {
 	if (!mBuffered) {
 		mDrawStartTime = osKernelSysTick();
 		clear (COL_BLACK);
-		endDraw();
+		//endDraw();
 		}
 	}
 //}}}
