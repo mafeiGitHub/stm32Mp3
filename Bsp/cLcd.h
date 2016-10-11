@@ -35,7 +35,6 @@ public:
   void press (int pressCount, int x, int y, int z, int xinc, int yinc);
 
   void startRender();
-  void render();
   void renderCursor (uint32_t colour, int16_t x, int16_t y, int16_t z);
   void endRender();
 
@@ -43,10 +42,12 @@ public:
   void displayOff();
 
   // iDraw
-  virtual int text (uint32_t col, int fontHeight, std::string str, int16_t x, int16_t y, uint16_t width, uint16_t height);
   virtual void pixel (uint32_t colour, int16_t x, int16_t y);
-  virtual void stamp (uint32_t colour, uint8_t* src, int16_t x, int16_t y, uint16_t width, uint16_t height);
   virtual void rect (uint32_t col, int16_t x, int16_t y, uint16_t width, uint16_t height);
+  virtual void stamp (uint32_t colour, uint8_t* src, int16_t x, int16_t y, uint16_t width, uint16_t height);
+  virtual int text (uint32_t col, int fontHeight, std::string str, int16_t x, int16_t y, uint16_t width, uint16_t height);
+  virtual void copy (uint32_t* src, int16_t x, int16_t y, uint16_t width, uint16_t height);
+  virtual void copy (ID2D1Bitmap* bitMap, int16_t x, int16_t y, uint16_t width, uint16_t height);
   virtual void pixelClipped (uint32_t colour, int16_t x, int16_t y);
   virtual void stampClipped (uint32_t colour, uint8_t* src, int16_t x, int16_t y, uint16_t width, uint16_t height);
   virtual void rectClipped (uint32_t colour, int16_t x, int16_t y, uint16_t width, uint16_t height);
