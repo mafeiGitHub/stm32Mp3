@@ -33,7 +33,7 @@
 #include "../../shared/widgets/cListWidget.h"
 #include "../../shared/widgets/cValueBox.h"
 #include "../../shared/widgets/cWaveWidget.h"
-//#include "../../shared/widgets/cWaveformWidget.h"
+#include "../../shared/widgets/cWaveCentredWidget.h"
 
 #include "../../shared/decoders/cMp3decoder.h"
 //}}}
@@ -44,8 +44,20 @@ static bool mAudHalf = false;
 static float mVolume = 0.8f;
 static bool mVolumeChanged = false;
 
-std::vector<std::string> mMp3Files;
-cRootContainer* mRoot = nullptr;
+static std::vector<std::string> mMp3Files;
+static cRootContainer* mRoot = nullptr;
+
+static int fileIndex = 0;
+static bool fileIndexChanged = false;
+
+static int mPlayFrame = 0;
+static int mLoadedFrame = 0;
+
+static bool mWaveChanged = false;
+static uint8_t* mWave = nullptr;
+static int* mFramePosition = nullptr;
+
+static cLcd* mLcd = nullptr;
 //}}}
 //{{{  audio callbacks
 //{{{
@@ -61,6 +73,8 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
   }
 //}}}
 //}}}
+static bool kPreload = true;
+static bool kStaticIp = true;
 
 //{{{
 static void listDirectory (std::string directoryName, std::string indent) {
@@ -93,82 +107,27 @@ static void listDirectory (std::string directoryName, std::string indent) {
     }
   }
 //}}}
-//{{{
-//static void listThread (void const* argument) {
-
-  //cLcd::debug ("listDirectoryThread started");
-
-  //listDirectory ("", "");
-
-  //osThreadTerminate (NULL);
-  //}
-//}}}
-//{{{  preload waveform
-//mLoadedFrame = 0;
-//auto filePosition = 0;
-//int bytesUsed = 0;
-//int bytesLeft;
-//do {
-  //file.read (chunkBuffer, fullChunkSize, bytesLeft);
-  //if (bytesLeft) {
-    //auto chunkPtr = chunkBuffer;
-    //int headerBytes;
-    //do {
-      //headerBytes = mp3Decoder->findNextHeader (chunkPtr, bytesLeft);
-      //if (headerBytes) {
-        //chunkPtr += headerBytes;
-        //bytesLeft -= headerBytes;
-        //if (bytesLeft < mp3Decoder->getFrameBodySize() + 4) { // not enough for frameBody and next header
-          //{{{  move bytesLeft to front of chunkBuffer,  next read partial buffer 32bit aligned
-          //auto nextChunkPtr = chunkBuffer + ((4 - (bytesLeft & 3)) & 3);
-          //memcpy (nextChunkPtr, chunkPtr, bytesLeft);
-
-          //// read next chunks worth, including rest of frame, 32bit aligned
-          //int bytesLoaded;
-          //file.read (nextChunkPtr + bytesLeft, chunkSize, bytesLoaded);
-          //if (bytesLoaded) {
-            //chunkPtr = nextChunkPtr;
-            //bytesLeft += bytesLoaded;
-            //}
-          //else
-            //bytesLeft = 0;
-          //}
-          //}}}
-        //if (bytesLeft >= mp3Decoder->getFrameBodySize()) {
-          //osSemaphoreWait (mAudSem, 100);
-          //// mFramePosition [mLoadedFrame] = filePosition;  // not quite
-          //auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, mWave + (mLoadedFrame++ * 2), nullptr);
-          //if (frameBytes) {
-            //chunkPtr += frameBytes;
-            //bytesLeft -= frameBytes;
-            //}
-          //else
-            //bytesLeft = 0;
-          //}
-        //}
-      //} while (headerBytes && (bytesLeft > 0));
-    //}
-  //} while (bytesLeft > 0);
-//}}}
 
 //{{{
 static void loadThread (void const* argument) {
 
-  auto lcd = cLcd::get();
   cLcd::debug ("loadThread started");
 
+  // mount sd fatfs, turn debug off when ok
+  //{{{  init sd card
   BSP_SD_Init();
   while (BSP_SD_IsDetected() != SD_PRESENT) {
-    //{{{  wait for sd card loop
+    // wait for sd card loop
     cLcd::debug (COL_RED, "no SD card");
     osDelay (1000);
     }
-    //}}}
-  cLcd::debug ("SD card found");
 
+  cLcd::debug ("SD card found");
+  //}}}
+  //{{{  mount fatfs
   cFatFs* fatFs = cFatFs::create();
   if (fatFs->mount() != FR_OK) {
-    //{{{  mount error, return
+    //{{{  fatfs mount error, return
     cLcd::debug ("fatFs mount problem");
     osThreadTerminate (NULL);
     return;
@@ -176,37 +135,18 @@ static void loadThread (void const* argument) {
     //}}}
   cLcd::debug (fatFs->getLabel() + " vsn:" + cLcd::hex (fatFs->getVolumeSerialNumber()) +
                " freeSectors:" + cLcd::dec (fatFs->getFreeSectors()));
-  lcd->setShowDebug (false, false, false, false);
-
-  //{{{  vars
-  auto fileIndex = 0;
-  auto fileIndexChanged = false;
-
-  auto mPlayFrame = 0;
-  auto mLoadedFrame = 0;
-
-  auto mWaveChanged = false;
-  auto mWave = (uint8_t*)pvPortMalloc (60*60*40*2*sizeof(uint8_t));
-  auto mFramePosition = (int*)pvPortMalloc (60*60*40*2*sizeof(int));
   //}}}
+  mLcd->setShowDebug (false, false, false, false);
 
   // widgets
   mRoot->addTopLeft (new cListWidget (mMp3Files, fileIndex, fileIndexChanged, mRoot->getWidth(), mRoot->getHeight()));
   mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, cWidget::getBoxHeight()-1, mRoot->getHeight()-6));
-  mRoot->addTopLeft (new cWaveWidget (mWave, mPlayFrame, mLoadedFrame, mLoadedFrame, mWaveChanged, mRoot->getWidth(), 50));
-  //mRoot->add (new cWaveformWidget (mPlayFrame, mWave, mRoot->getWidth(), 50), 0, 100);
+  mRoot->addTopLeft (new cWaveCentredWidget (mWave, mPlayFrame, mLoadedFrame, mLoadedFrame, mWaveChanged, mRoot->getWidth(), 50));
 
   listDirectory ("", "");
-  //const osThreadDef_t osThreadList =  { (char*)"List", listThread, osPriorityNormal, 0, 8000 };
-  //osThreadCreate (&osThreadList, NULL);
 
   auto mp3Decoder = new cMp3Decoder;
   cLcd::debug ("mp3Decoder created");
-
-  osSemaphoreDef (aud);
-  mAudSem = osSemaphoreCreate (osSemaphore (aud), -1);
-  BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 44100);  // OUTPUT_DEVICE_HEADPHONE
-  BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);             // CODEC_AUDIOFRAME_SLOT_02
 
   //{{{  chunkSize and buffer
   auto chunkSize = 4096;
@@ -214,27 +154,264 @@ static void loadThread (void const* argument) {
   auto chunkBuffer = (uint8_t*)pvPortMalloc (fullChunkSize);
   //}}}
   while (true) {
-    lcd->setTitle (mMp3Files[fileIndex]);
+    cFile file (mMp3Files[fileIndex], FA_OPEN_EXISTING | FA_READ);
+    if (file.isOk()) {
+      cLcd::debug ("play " + mMp3Files[fileIndex] + " " + cLcd::dec (file.getSize()));
+
+      // use mWave[0] as max
+      mWave[0] = 0;
+      auto wavePtr = mWave + 1;
+      int bytesLeft = 0;
+      mPlayFrame = 0;
+      mLoadedFrame = 0;
+
+      //{{{  preload wave
+      do {
+        file.read (chunkBuffer, fullChunkSize, bytesLeft);
+        if (bytesLeft) {
+          auto chunkPtr = chunkBuffer;
+          int headerBytes;
+          do {
+            headerBytes = mp3Decoder->findNextHeader (chunkPtr, bytesLeft);
+            if (headerBytes) {
+              chunkPtr += headerBytes;
+              bytesLeft -= headerBytes;
+              if (bytesLeft < mp3Decoder->getFrameBodySize() + 4) { // not enough for frameBody and next header
+                //{{{  move bytesLeft to front of chunkBuffer,  next read partial buffer 32bit aligned
+                auto nextChunkPtr = chunkBuffer + ((4 - (bytesLeft & 3)) & 3);
+                memcpy (nextChunkPtr, chunkPtr, bytesLeft);
+
+                // read next chunks worth, including rest of frame, 32bit aligned
+                int bytesLoaded;
+                file.read (nextChunkPtr + bytesLeft, chunkSize, bytesLoaded);
+                if (bytesLoaded) {
+                  chunkPtr = nextChunkPtr;
+                  bytesLeft += bytesLoaded;
+                  }
+                else
+                  bytesLeft = 0;
+                }
+                //}}}
+              if (bytesLeft >= mp3Decoder->getFrameBodySize()) {
+                mFramePosition[mLoadedFrame] = file.getPosition(); // not right !!!!
+                auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, mWave + 1 + (mLoadedFrame * 2), nullptr);
+                if (*wavePtr > *mWave)
+                  *mWave = *wavePtr;
+                wavePtr++;
+                if (*wavePtr > *mWave)
+                  *mWave = *wavePtr;
+                wavePtr++;
+                mLoadedFrame++;
+
+                if (frameBytes) {
+                  chunkPtr += frameBytes;
+                  bytesLeft -= frameBytes;
+                  }
+                else
+                  bytesLeft = 0;
+                }
+              }
+            } while (headerBytes && (bytesLeft > 0));
+          }
+        } while (bytesLeft > 0);
+      //}}}
+      //{{{  play fileindex file
+      //{{{  init BSP_play
+      memset ((void*)AUDIO_BUFFER, 0, AUDIO_BUFFER_SIZE);
+      BSP_AUDIO_OUT_Play ((uint16_t*)AUDIO_BUFFER, AUDIO_BUFFER_SIZE);
+      //}}}
+
+      file.seek (0);
+      do {
+        file.read (chunkBuffer, fullChunkSize, bytesLeft);
+        if (bytesLeft) {
+          auto chunkPtr = chunkBuffer;
+          int headerBytes;
+          do {
+            headerBytes = mp3Decoder->findNextHeader (chunkPtr, bytesLeft);
+            if (headerBytes) {
+              chunkPtr += headerBytes;
+              bytesLeft -= headerBytes;
+              if (bytesLeft < mp3Decoder->getFrameBodySize() + 4) {
+                //{{{  partial frameBody+nextHeader, move bytesLeft to front of chunkBuffer,  next read partial buffer 32bit aligned
+                auto nextChunkPtr = chunkBuffer + ((4 - (bytesLeft & 3)) & 3);
+                memcpy (nextChunkPtr, chunkPtr, bytesLeft);
+
+                // read next chunks worth, including rest of frame, 32bit aligned
+                int bytesLoaded;
+                file.read (nextChunkPtr + bytesLeft, chunkSize, bytesLoaded);
+                if (bytesLoaded) {
+                  chunkPtr = nextChunkPtr;
+                  bytesLeft += bytesLoaded;
+                  }
+                else
+                  bytesLeft = 0;
+                }
+                //}}}
+              if (bytesLeft >= mp3Decoder->getFrameBodySize()) {
+                osSemaphoreWait (mAudSem, 100);
+                auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, nullptr, (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
+                if (frameBytes) {
+                  chunkPtr += frameBytes;
+                  bytesLeft -= frameBytes;
+                  }
+                else
+                  bytesLeft = 0;
+                mPlayFrame++;
+                }
+              }
+            if (mWaveChanged) {
+              //{{{  seek new position
+              file.seek (mFramePosition [mPlayFrame] & 0xFFFFFFE0);
+              mWaveChanged = false;
+              headerBytes = 0;
+              }
+              //}}}
+            } while (!fileIndexChanged && headerBytes && (bytesLeft > 0));
+          }
+        } while (!fileIndexChanged && (bytesLeft > 0));
+
+      BSP_AUDIO_OUT_Stop (CODEC_PDWN_SW);
+      //}}}
+      }
+    else
+      cLcd::debug ("- open failed " + cLcd::dec (file.getResult()) + " " + mMp3Files[fileIndex]);
+
+    if (!fileIndexChanged)
+      fileIndex = fileIndex >= (int)mMp3Files.size() ? 0 : fileIndex + 1;
+    fileIndexChanged = false;
+    }
+
+  vPortFree (chunkBuffer);
+  }
+//}}}
+//{{{
+static void loadThread1 (void const* argument) {
+
+  cLcd::debug ("loadThread started");
+
+  // mount sd fatfs, turn debug off when ok
+  //{{{  init sd card
+  BSP_SD_Init();
+  while (BSP_SD_IsDetected() != SD_PRESENT) {
+    // wait for sd card loop
+    cLcd::debug (COL_RED, "no SD card");
+    osDelay (1000);
+    }
+
+  cLcd::debug ("SD card found");
+  //}}}
+  //{{{  mount fatfs
+  cFatFs* fatFs = cFatFs::create();
+  if (fatFs->mount() != FR_OK) {
+    //{{{  fatfs mount error, return
+    cLcd::debug ("fatFs mount problem");
+    osThreadTerminate (NULL);
+    return;
+    }
+    //}}}
+  cLcd::debug (fatFs->getLabel() + " vsn:" + cLcd::hex (fatFs->getVolumeSerialNumber()) +
+               " freeSectors:" + cLcd::dec (fatFs->getFreeSectors()));
+  //}}}
+  mLcd->setShowDebug (false, false, false, false);
+
+  // widgets
+  mRoot->addTopLeft (new cListWidget (mMp3Files, fileIndex, fileIndexChanged, mRoot->getWidth(), mRoot->getHeight()));
+  mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, cWidget::getBoxHeight()-1, mRoot->getHeight()-6));
+  mRoot->addTopLeft (new cWaveCentredWidget (mWave, mPlayFrame, mLoadedFrame, mLoadedFrame, mWaveChanged, mRoot->getWidth(), 50));
+
+  listDirectory ("", "");
+
+  auto mp3Decoder = new cMp3Decoder;
+  cLcd::debug ("mp3Decoder created");
+
+  //{{{  chunkSize and buffer
+  auto chunkSize = 4096;
+  auto fullChunkSize = 2048 + chunkSize;
+  auto chunkBuffer = (uint8_t*)pvPortMalloc (fullChunkSize);
+  //}}}
+  while (true) {
     cFile file (mMp3Files[fileIndex], FA_OPEN_EXISTING | FA_READ);
     if (!file.isOk()) {
-      //{{{  error, return
+      //{{{  file open error, return
       cLcd::debug ("- open failed " + cLcd::dec (file.getResult()) + " " + mMp3Files[fileIndex]);
       return;
       }
       //}}}
     cLcd::debug ("play " + mMp3Files[fileIndex] + " " + cLcd::dec (file.getSize()));
-    //{{{  play selectedFileName
+
+    // use mWave[0] as max
+    mWave[0] = 0;
+    auto wavePtr = mWave + 1;
+    int bytesLeft = 0;
+    mPlayFrame = 0;
+    mLoadedFrame = 0;
+
+    if (kPreload) {
+      //{{{  preload wave
+      do {
+        file.read (chunkBuffer, fullChunkSize, bytesLeft);
+        if (bytesLeft) {
+          auto chunkPtr = chunkBuffer;
+          int headerBytes;
+          do {
+            headerBytes = mp3Decoder->findNextHeader (chunkPtr, bytesLeft);
+            if (headerBytes) {
+              chunkPtr += headerBytes;
+              bytesLeft -= headerBytes;
+              if (bytesLeft < mp3Decoder->getFrameBodySize() + 4) { // not enough for frameBody and next header
+                //{{{  move bytesLeft to front of chunkBuffer,  next read partial buffer 32bit aligned
+                auto nextChunkPtr = chunkBuffer + ((4 - (bytesLeft & 3)) & 3);
+                memcpy (nextChunkPtr, chunkPtr, bytesLeft);
+
+                // read next chunks worth, including rest of frame, 32bit aligned
+                int bytesLoaded;
+                file.read (nextChunkPtr + bytesLeft, chunkSize, bytesLoaded);
+                if (bytesLoaded) {
+                  chunkPtr = nextChunkPtr;
+                  bytesLeft += bytesLoaded;
+                  }
+                else
+                  bytesLeft = 0;
+                }
+                //}}}
+              if (bytesLeft >= mp3Decoder->getFrameBodySize()) {
+                mFramePosition[mLoadedFrame] = file.getPosition(); // not right !!!!
+                auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, mWave + 1 + (mLoadedFrame * 2), nullptr);
+                if (*wavePtr > *mWave)
+                  *mWave = *wavePtr;
+                wavePtr++;
+                if (*wavePtr > *mWave)
+                  *mWave = *wavePtr;
+                wavePtr++;
+                mLoadedFrame++;
+
+                if (frameBytes) {
+                  chunkPtr += frameBytes;
+                  bytesLeft -= frameBytes;
+                  }
+                else
+                  bytesLeft = 0;
+                }
+              }
+            } while (headerBytes && (bytesLeft > 0));
+          }
+        } while (bytesLeft > 0);
+      }
+      //}}}
+    //{{{  play fileindex file
     //{{{  init BSP_play
     memset ((void*)AUDIO_BUFFER, 0, AUDIO_BUFFER_SIZE);
     BSP_AUDIO_OUT_Play ((uint16_t*)AUDIO_BUFFER, AUDIO_BUFFER_SIZE);
     //}}}
 
-    uint8_t maxLR = 0;
-    mPlayFrame = 0;
-    mLoadedFrame = 0;
-    auto mWavePtr = mWave;
-
-    int bytesLeft;
+    file.seek (0);
+    if (kPreload)
+      wavePtr = nullptr;
+    else {
+      mLoadedFrame = 0;
+      wavePtr = mWave + 1;
+      }
     do {
       file.read (chunkBuffer, fullChunkSize, bytesLeft);
       if (bytesLeft) {
@@ -264,17 +441,17 @@ static void loadThread (void const* argument) {
             if (bytesLeft >= mp3Decoder->getFrameBodySize()) {
               mFramePosition[mLoadedFrame] = file.getPosition(); // not right !!!!
               osSemaphoreWait (mAudSem, 100);
-              auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, mWavePtr, (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
+              auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, wavePtr, (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
+              if (kPreload) {
+                if (*wavePtr > *mWave)
+                  *mWave = *wavePtr;
+                wavePtr++;
+                if (*wavePtr > *mWave)
+                  *mWave = *wavePtr;
+                wavePtr++;
+                mLoadedFrame++;
+                }
               mPlayFrame++;
-
-              uint8_t valueL = *mWavePtr++;
-              if (valueL > maxLR)
-                maxLR = valueL;
-              uint8_t valueR = *mWavePtr++;
-              if (valueR > maxLR)
-                maxLR = valueR;
-              *mWave = maxLR;
-              mLoadedFrame++;
 
               if (frameBytes) {
                 chunkPtr += frameBytes;
@@ -302,26 +479,23 @@ static void loadThread (void const* argument) {
     fileIndexChanged = false;
     }
 
-  vPortFree (mFramePosition);
-  vPortFree (mWave);
   vPortFree (chunkBuffer);
   }
 //}}}
 //{{{
 static void uiThread (void const* argument) {
 
-  auto lcd = cLcd::get();
   cLcd::debug ("uiThread started");
 
-  //{{{  init touch
+  // init touch
   BSP_TS_Init (mRoot->getWidth(),mRoot->getHeight());
   int pressed[5] = {0, 0, 0, 0, 0};
   int16_t x[5];
   int16_t y[5];
   uint8_t z[5];
-  //}}}
+
   while (true) {
-    //{{{  read touch and use it
+    // read touch and use it
     TS_StateTypeDef tsState;
     BSP_TS_GetState (&tsState);
 
@@ -345,25 +519,21 @@ static void uiThread (void const* argument) {
         pressed[touch] = 0;
         }
       }
-    //}}}
 
-    lcd->startRender();
-    mRoot->render (lcd);
-    lcd->endRender();
+    mLcd->startRender();
+    mRoot->render (mLcd);
+    mLcd->endRender();
 
     if (mVolumeChanged) {
-      //{{{  change volume
+      // change volume
       BSP_AUDIO_OUT_SetVolume (int(mVolume * 100));
       mVolumeChanged = false;
       }
-      //}}}
     }
   }
 //}}}
 //{{{
-static void networkThread (void const* argument) {
-
-  static bool kStaticIp = true;
+static void netThread (void const* argument) {
 
   tcpip_init (NULL, NULL);
   cLcd::debug ("configuring ethernet");
@@ -446,8 +616,16 @@ static void networkThread (void const* argument) {
 //{{{
 static void startThread (void const* argument) {
 
-  cLcd::create ("mp3 player built at " + std::string(__TIME__) + " on " + std::string(__DATE__));
+  mLcd = cLcd::create ("mp3 player built at " + std::string(__TIME__) + " on " + std::string(__DATE__));
+
   mRoot = new cRootContainer (cLcd::getWidth(), cLcd::getHeight());
+  mWave = (uint8_t*)pvPortMalloc (60*60*40*2*sizeof(uint8_t));
+  mFramePosition = (int*)pvPortMalloc (60*60*40*2*sizeof(int));
+
+  osSemaphoreDef (aud);
+  mAudSem = osSemaphoreCreate (osSemaphore (aud), -1);
+  BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 44100);  // OUTPUT_DEVICE_HEADPHONE
+  BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);             // CODEC_AUDIOFRAME_SLOT_02
 
   const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 4000 }; // 1000
   osThreadCreate (&osThreadUi, NULL);
@@ -455,11 +633,15 @@ static void startThread (void const* argument) {
   const osThreadDef_t osThreadLoad =  { (char*)"Load", loadThread, osPriorityNormal, 0, 16000 }; // 10000
   osThreadCreate (&osThreadLoad, NULL);
 
-  const osThreadDef_t osThreadNetwork =  { (char*)"net", networkThread, osPriorityBelowNormal, 0, 1024 };
-  osThreadCreate (&osThreadNetwork, NULL);
+  const osThreadDef_t osThreadNet =  { (char*)"Net", netThread, osPriorityBelowNormal, 0, 1024 };
+  osThreadCreate (&osThreadNet, NULL);
 
   for (;;)
     osThreadTerminate (NULL);
+
+  // never dellocated
+  //vPortFree (mWave);
+  //vPortFree (mFramePosition);
   }
 //}}}
 
