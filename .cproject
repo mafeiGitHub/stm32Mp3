@@ -32,8 +32,7 @@
 								<option id="fr.ac6.managedbuild.gnu.c.compiler.option.optimization.level.542217807" name="Optimization Level" superClass="fr.ac6.managedbuild.gnu.c.compiler.option.optimization.level" useByScannerDiscovery="false" value="fr.ac6.managedbuild.gnu.c.optimization.level.debug" valueType="enumerated"/>
 								<option id="gnu.c.compiler.option.debugging.level.1185719545" name="Debug Level" superClass="gnu.c.compiler.option.debugging.level" useByScannerDiscovery="false" value="gnu.c.debugging.level.max" valueType="enumerated"/>
 								<option id="gnu.c.compiler.option.include.paths.295881635" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" useByScannerDiscovery="false" valueType="includePath">
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/CMSIS/core"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/CMSIS/device"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/sys/core"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/freetype/include"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/CMSIS_RTOS"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/include"/>
@@ -56,8 +55,7 @@
 								<option id="fr.ac6.managedbuild.gnu.cpp.compiler.option.optimization.level.1831958261" name="Optimization Level" superClass="fr.ac6.managedbuild.gnu.cpp.compiler.option.optimization.level" useByScannerDiscovery="false" value="fr.ac6.managedbuild.gnu.cpp.optimization.level.debug" valueType="enumerated"/>
 								<option id="gnu.cpp.compiler.option.debugging.level.884050275" name="Debug Level" superClass="gnu.cpp.compiler.option.debugging.level" useByScannerDiscovery="false" value="gnu.cpp.compiler.debugging.level.max" valueType="enumerated"/>
 								<option id="gnu.cpp.compiler.option.include.paths.19290575" name="Include paths (-I)" superClass="gnu.cpp.compiler.option.include.paths" useByScannerDiscovery="false" valueType="includePath">
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/CMSIS/core"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/CMSIS/device"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/sys/core"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/freetype/include"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/CMSIS_RTOS"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/include"/>
@@ -105,7 +103,7 @@
 						</toolChain>
 					</folderInfo>
 					<fileInfo id="fr.ac6.managedbuild.config.gnu.cross.exe.debug.792794573.478752105" name="syscalls.c" rcbsApplicability="disable" resourcePath="sys/syscalls.c" toolsToInvoke="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1902826541.468745863">
-						<tool id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1902826541.468745863" name="MCU GCC Compiler" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1902826541">
+						<tool errorParsers="org.eclipse.cdt.core.GCCErrorParser" id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1902826541.468745863" name="MCU GCC Compiler" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1902826541">
 							<option id="gnu.c.compiler.option.dialect.std.544695214" name="Language standard" superClass="gnu.c.compiler.option.dialect.std" value="gnu.c.compiler.dialect.default" valueType="enumerated"/>
 							<inputType id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.c.1596293186" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.c"/>
 							<inputType id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s.661094692" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s"/>
