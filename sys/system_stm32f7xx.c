@@ -1,14 +1,15 @@
-// system_stm32f7xx.c @version V1.0.2  18-November-2015
+// system_stm32f7xx.c 
 #include "stm32f7xx.h"
 
 //#define VECT_TAB_SRAM
-#define VECT_TAB_OFFSET  0x00 // Vector Table base offset field, This value must be a multiple of 0x200
+#define VECT_TAB_OFFSET 0x00 // Vector Table base offset field, This value must be a multiple of 0x200
 
-#define HSE_VALUE  ((uint32_t)25000000) // Default value of the External oscillator in Hz
-#define HSI_VALUE  ((uint32_t)16000000) // Value of the Internal oscillator in Hz
+#define HSE_VALUE ((uint32_t)25000000) // Default value of the External oscillator in Hz
+#define HSI_VALUE ((uint32_t)16000000) // Value of the Internal oscillator in Hz
 
 uint32_t SystemCoreClock = 16000000;
-__IO const uint8_t AHBPrescTable[16] = {0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 6, 7, 8, 9};
+const uint8_t AHBPrescTable[16] = {0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 6, 7, 8, 9};
+const uint8_t APBPrescTable[8] = {0, 0, 0, 0, 1, 2, 3, 4};
 
 /*{{{*/
 void SystemSDram8Mb() {

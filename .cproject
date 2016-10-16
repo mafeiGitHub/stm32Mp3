@@ -45,11 +45,7 @@
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/sys"/>
 								</option>
 								<option id="gnu.c.compiler.option.preprocessor.def.symbols.1842463227" name="Defined symbols (-D)" superClass="gnu.c.compiler.option.preprocessor.def.symbols" useByScannerDiscovery="false" valueType="definedSymbols">
-									<listOptionValue builtIn="false" value="STM32F746G_DISCO"/>
-									<listOptionValue builtIn="false" value="STM32"/>
-									<listOptionValue builtIn="false" value="STM32F746NGHx"/>
 									<listOptionValue builtIn="false" value="DEBUG"/>
-									<listOptionValue builtIn="false" value="STM32F746xx"/>
 									<listOptionValue builtIn="false" value="FT2_BUILD_LIBRARY"/>
 								</option>
 								<option id="gnu.c.compiler.option.dialect.std.1591778648" name="Language standard" superClass="gnu.c.compiler.option.dialect.std" useByScannerDiscovery="true" value="gnu.c.compiler.dialect.c99" valueType="enumerated"/>
@@ -74,11 +70,7 @@
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/sys"/>
 								</option>
 								<option id="gnu.cpp.compiler.option.preprocessor.def.736093321" name="Defined symbols (-D)" superClass="gnu.cpp.compiler.option.preprocessor.def" useByScannerDiscovery="false" valueType="definedSymbols">
-									<listOptionValue builtIn="false" value="STM32F746G_DISCO"/>
-									<listOptionValue builtIn="false" value="STM32"/>
-									<listOptionValue builtIn="false" value="STM32F746NGHx"/>
 									<listOptionValue builtIn="false" value="DEBUG"/>
-									<listOptionValue builtIn="false" value="STM32F746xx"/>
 									<listOptionValue builtIn="false" value="FT2_BUILD_LIBRARY"/>
 								</option>
 								<option id="gnu.cpp.compiler.option.dialect.std.2038013955" name="Language standard" superClass="gnu.cpp.compiler.option.dialect.std" useByScannerDiscovery="true" value="gnu.cpp.compiler.dialect.c++11" valueType="enumerated"/>

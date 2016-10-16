@@ -5,6 +5,11 @@
 #endif /* __cplusplus */
 //}}}
 
+#define STM32
+#define STM32F7
+#define STM32F746xx
+//#define STM32F769xx
+
 #define __STM32F7xx_CMSIS_DEVICE_VERSION_MAIN   (0x01) /*!< [31:24] main version */
 #define __STM32F7xx_CMSIS_DEVICE_VERSION_SUB1   (0x00) /*!< [23:16] sub1 version */
 #define __STM32F7xx_CMSIS_DEVICE_VERSION_SUB2   (0x03) /*!< [15:8]  sub2 version */
@@ -16,18 +21,18 @@
 typedef enum {
   RESET = 0,
   SET = !RESET
-} FlagStatus, ITStatus;
+  } FlagStatus, ITStatus;
 
 typedef enum {
   DISABLE = 0,
   ENABLE = !DISABLE
-} FunctionalState;
+  } FunctionalState;
 #define IS_FUNCTIONAL_STATE(STATE) (((STATE) == DISABLE) || ((STATE) == ENABLE))
 
 typedef enum {
   ERROR = 0,
   SUCCESS = !ERROR
-} ErrorStatus;
+  } ErrorStatus;
 
 #define SET_BIT(REG, BIT)     ((REG) |= (BIT))
 #define CLEAR_BIT(REG, BIT)   ((REG) &= ~(BIT))
@@ -38,11 +43,13 @@ typedef enum {
 #define MODIFY_REG(REG, CLEARMASK, SETMASK)  WRITE_REG((REG), (((READ_REG(REG)) & (~(CLEARMASK))) | (SETMASK)))
 #define POSITION_VAL(VAL)     (__CLZ(__RBIT(VAL)))
 
-#define STM32F7
-//#include "stm32f746xx.h"
+//  #include "stm32f746xx.h"
 #include "stm32f769xx.h"
+
 #include "stm32f7xx_hal_conf.h"
 
+//{{{
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
+//}}}
