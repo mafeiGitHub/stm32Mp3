@@ -119,9 +119,6 @@
 							<inputType id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s.661094692" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s"/>
 						</tool>
 					</fileInfo>
-					<fileInfo id="fr.ac6.managedbuild.config.gnu.cross.exe.debug.792794573.1845209868" name="stm32f7xx_hal_jpeg.c" rcbsApplicability="disable" resourcePath="HAL_Driver/Src/stm32f7xx_hal_jpeg.c" toolsToInvoke="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1902826541.1117828857">
-						<tool id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1902826541.1117828857" name="MCU GCC Compiler" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1902826541"/>
-					</fileInfo>
 					<sourceEntries>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Bsp"/>
 						<entry excluding="Source/portable/MemMang/heap_4.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="FreeRTOS"/>
