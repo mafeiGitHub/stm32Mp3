@@ -348,7 +348,7 @@ void              HAL_FLASHEx_OBGetConfig(FLASH_OBProgramInitTypeDef *pOBInit);
 /** @defgroup FLASHEx_Private_Constants FLASH Private Constants
   * @{
   */
-#define FLASH_SECTOR_TOTAL  8
+//#define FLASH_SECTOR_TOTAL  8
 /**
   * @}
   */

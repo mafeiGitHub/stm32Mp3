@@ -16,6 +16,8 @@
 #define HAL_TIM_MODULE_ENABLED
 #define HAL_UART_MODULE_ENABLED
 #define HAL_CORTEX_MODULE_ENABLED
+#define HAL_DSI_MODULE_ENABLED
+#define HAL_JPEG_MODULE_ENABLED
 
 // Timeout Configuration
 //#define HAL_TIMEOUT_ENABLED          1
@@ -291,6 +293,16 @@
 #ifdef HAL_HCD_MODULE_ENABLED
  #include "stm32f7xx_hal_hcd.h"
 #endif /* HAL_HCD_MODULE_ENABLED */
+//}}}
+//{{{
+#ifdef HAL_DSI_MODULE_ENABLED
+ #include "stm32f7xx_hal_dsi.h"
+#endif /* HAL_DSI_MODULE_ENABLED */
+//}}}
+//{{{
+#ifdef HAL_JPEG_MODULE_ENABLED
+ #include "stm32f7xx_hal_jpeg.h"
+#endif /* HAL_JPEG_MODULE_ENABLED */
 //}}}
 //}}}
 

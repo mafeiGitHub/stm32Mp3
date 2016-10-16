@@ -741,7 +741,7 @@ HAL_StatusTypeDef HAL_LTDC_EnableDither(LTDC_HandleTypeDef *hltdc)
   hltdc->State = HAL_LTDC_STATE_BUSY;
 
   /* Enable Dither by setting DTEN bit */
-  LTDC->GCR |= (uint32_t)LTDC_GCR_DTEN;
+  //LTDC->GCR |= (uint32_t)LTDC_GCR_DTEN;
 
   /* Change the LTDC state*/
   hltdc->State = HAL_LTDC_STATE_READY; 
@@ -768,7 +768,7 @@ HAL_StatusTypeDef HAL_LTDC_DisableDither(LTDC_HandleTypeDef *hltdc)
   hltdc->State = HAL_LTDC_STATE_BUSY;
 
   /* Disable Dither by setting DTEN bit */
-  LTDC->GCR &= ~(uint32_t)LTDC_GCR_DTEN;
+  //LTDC->GCR &= ~(uint32_t)LTDC_GCR_DTEN;
 
   /* Change the LTDC state*/
   hltdc->State = HAL_LTDC_STATE_READY;

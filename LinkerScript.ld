@@ -16,7 +16,7 @@ _Min_Stack_Size = 0x400; /* required amount of stack */
 
 MEMORY
 {
-FLASH (rx)   : ORIGIN = 0x08000000, LENGTH =    1024K
+FLASH (rx)   : ORIGIN = 0x08000000, LENGTH =    2048K
 DTCM_RAM(rw) : ORIGIN = 0x20000000, LENGTH = 0x10000  /* dma buffers */
 RAM (rw)     : ORIGIN = 0x20010000, LENGTH = 0x40000  /* malloc heap, startup stack - 256k SRAM1, SRAM2 */
 }
