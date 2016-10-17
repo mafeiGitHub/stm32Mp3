@@ -20,10 +20,10 @@
 
 #include "stm32746g_discovery.h"
 #include "stm32746g_discovery_ts.h"
-#include "stm32746g_discovery_audio.h"
+#include "stm32F7_disco_audio.h"
 #include "clcd.h"
 
-#include "stm32746g_discovery_sd.h"
+#include "stm32F7_disco_sd.h"
 #include "../fatfs/fatFs.h"
 
 #include "../httpServer/httpServer.h"

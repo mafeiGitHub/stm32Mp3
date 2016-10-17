@@ -1,5 +1,5 @@
 /*{{{*/
-/* stm32746g_discovery_sd.c
+/* stm32F7_disco_sd.c
  - This driver is used to drive the micro SD external card mounted on STM32746G-Discovery
    board.
  - This driver does not need a specific component driver for the micro SD device
@@ -32,7 +32,7 @@
      the number of blocks to erase.
    o The SD runtime status is returned when calling the function BSP_SD_GetStatus(). */
 /*}}}*/
-#include "stm32746g_discovery_sd.h"
+#include "stm32F7_disco_sd.h"
 
 #define USE_DMA
 
