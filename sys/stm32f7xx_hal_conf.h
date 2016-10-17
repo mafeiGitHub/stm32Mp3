@@ -19,11 +19,9 @@
 #define HAL_DSI_MODULE_ENABLED
 #define HAL_JPEG_MODULE_ENABLED
 
-// Timeout Configuration
 //#define HAL_TIMEOUT_ENABLED          1
 #define HAL_ACCURATE_TIMEOUT_ENABLED   0
 #define HAL_TIMEOUT_VALUE              0x1FFFFFF
-
 //{{{
 #if !defined (HSE_VALUE)
   #define HSE_VALUE    ((uint32_t)25000000) /*!< Value of the External oscillator in Hz */
@@ -66,22 +64,21 @@
 
 #define  ART_ACCLERATOR_ENABLE  1 // To enable instruction cache and prefetch
 
-//{{{  Ethernet peripheral config definesuration
-/* MAC ADDRESS: MAC_ADDR0:MAC_ADDR1:MAC_ADDR2:MAC_ADDR3:MAC_ADDR4:MAC_ADDR5 */
+//{{{  Ethernet MAC ADDRESS: MAC_ADDR0:MAC_ADDR1:MAC_ADDR2:MAC_ADDR3:MAC_ADDR4:MAC_ADDR5 
 #define MAC_ADDR0   2U
 #define MAC_ADDR1   0U
 #define MAC_ADDR2   0U
 #define MAC_ADDR3   0U
 #define MAC_ADDR4   0U
 #define MAC_ADDR5   0U
-
-/* Definition of the Ethernet driver buffers size and count */
+//}}}
+//{{{  Ethernet driver buffers size and count
 #define ETH_RX_BUF_SIZE                ETH_MAX_PACKET_SIZE /* buffer size for receive               */
 #define ETH_TX_BUF_SIZE                ETH_MAX_PACKET_SIZE /* buffer size for transmit              */
 #define ETH_RXBUFNB                    4U       /* 4 Rx buffers of size ETH_RX_BUF_SIZE  */
 #define ETH_TXBUFNB                    4U       /* 4 Tx buffers of size ETH_TX_BUF_SIZE  */
-
-/* Section 2: PHY configuration section */
+//}}}
+//{{{  Ethernet PHY configuration section
 /* DP83848 PHY Address*/
 #define DP83848_PHY_ADDRESS             0x01U
 /* PHY Reset delay these values are based on a 1 ms Systick interrupt*/
@@ -91,8 +88,8 @@
 
 #define PHY_READ_TO                     0x0000FFFFU
 #define PHY_WRITE_TO                    0x0000FFFFU
-
-/* Section 3: Common PHY Registers */
+//}}}
+//{{{  Ethernet Common PHY Registers 
 #define PHY_BCR                         ((uint16_t)0x00U)    /*!< Transceiver Basic Control Register   */
 #define PHY_BSR                         ((uint16_t)0x01U)    /*!< Transceiver Basic Status Register    */
 
@@ -111,7 +108,8 @@
 #define PHY_LINKED_STATUS               ((uint16_t)0x0004U)  /*!< Valid link established               */
 #define PHY_JABBER_DETECTION            ((uint16_t)0x0002U)  /*!< Jabber condition detected            */
 
-/* Section 4: Extended PHY Registers */
+//}}}
+//{{{  Ethernet Extended PHY Registers */
 #define PHY_SR                          ((uint16_t)0x10U)    /*!< PHY status register Offset                      */
 #define PHY_MICR                        ((uint16_t)0x11U)    /*!< MII Interrupt Control Register                  */
 #define PHY_MISR                        ((uint16_t)0x12U)    /*!< MII Interrupt Status and Misc. Control Register */
@@ -126,6 +124,7 @@
 #define PHY_MISR_LINK_INT_EN            ((uint16_t)0x0020U)  /*!< Enable Interrupt on change of link status       */
 #define PHY_LINK_INTERRUPT              ((uint16_t)0x2000U)  /*!< PHY link status interrupt mask                  */
 //}}}
+
 #include "stm32f7xx_hal_dma.h"
 #include "stm32f7xx_hal_eth.h"
 #include "stm32f7xx_hal_flash.h"
