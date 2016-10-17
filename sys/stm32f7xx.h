@@ -43,7 +43,12 @@ typedef enum {
 #define MODIFY_REG(REG, CLEARMASK, SETMASK)  WRITE_REG((REG), (((READ_REG(REG)) & (~(CLEARMASK))) | (SETMASK)))
 #define POSITION_VAL(VAL)     (__CLZ(__RBIT(VAL)))
 
-#include "stm32f769xx.h"
+#ifdef STM32F746xx
+  #include "stm32f746xx.h"
+#elif
+  #include "stm32f769xx.h"
+#endif
+
 #include "stm32f7xx_hal_conf.h"
 
 //{{{
