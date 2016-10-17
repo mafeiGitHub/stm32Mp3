@@ -1,4 +1,4 @@
-// stm32f7xx_it.c  18 November-2015
+// stm32f7xx_it.c
 #include "stm32f7xx_it.h"
 
 #include "stm32f7xx_hal.h"

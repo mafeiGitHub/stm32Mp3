@@ -17,13 +17,13 @@
 #include "lwip/api.h"
 #include "ethernetif.h"
 
-#include "stm32F7_disco_audio.h"
-
-#include "stm32F7_disco_sd.h"
-#include "../fatfs/fatFs.h"
 
 #include "stm32746g_disco.h"
 #include "stm32746g_disco_ts.h"
+#include "stm32F7_disco_audio.h"
+#include "stm32F7_disco_sd.h"
+
+#include "../fatfs/fatFs.h"
 #include "clcd.h"
 
 #include "../../shared/widgets/cRootContainer.h"
