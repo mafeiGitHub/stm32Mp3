@@ -1,4 +1,4 @@
-#include "stm32746g_discovery.h"
+#include "stm32746g_disco.h"
 
 #define __STM32746G_DISCO_BSP_VERSION_MAIN   (0x01) /*!< [31:24] main version */
 #define __STM32746G_DISCO_BSP_VERSION_SUB1   (0x00) /*!< [23:16] sub1 version */

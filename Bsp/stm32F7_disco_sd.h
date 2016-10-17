@@ -4,7 +4,7 @@
  extern "C" {
 #endif
 //}}}
-#include "stm32746g_discovery.h"
+#include "stm32746g_disco.h"
 
 #define SD_CardInfo HAL_SD_CardInfoTypedef
 

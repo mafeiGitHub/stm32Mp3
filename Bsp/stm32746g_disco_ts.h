@@ -1,5 +1,5 @@
 #pragma once
-#include "stm32746g_discovery.h"
+#include "stm32746g_disco.h"
 #include "ft5336.h"
 //{{{
 #ifdef __cplusplus

@@ -6,7 +6,7 @@
 #include <iomanip>
 
 #include "memory.h"
-#include "stm32746g_discovery.h"
+#include "stm32746g_disco.h"
 #include "stm32f7xx_hal_dma2d.h"
 
 #include "cLcd.h"

@@ -1,6 +1,6 @@
 #pragma once
 #include "wm8994.h"
-#include "stm32746g_discovery.h"
+#include "stm32746g_disco.h"
 //{{{
 #ifdef __cplusplus
  extern "C" {

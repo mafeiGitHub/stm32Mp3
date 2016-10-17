@@ -25,7 +25,7 @@
 //          the user IT callback treatment is implemented on the same external interrupt
 //          callback.
 /*}}}*/
-#include "stm32746g_discovery_ts.h"
+#include "stm32746g_disco_ts.h"
 
 static TS_DrvTypeDef* tsDriver;
 static uint16_t tsXBoundary, tsYBoundary;
