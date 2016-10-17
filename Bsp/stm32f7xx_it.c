@@ -8,6 +8,7 @@
 #include "stm32F7_disco_sd.h"
 #include "cLcdPrivate.h"
 #include "stm32F7_disco_audio.h"
+
 extern SAI_HandleTypeDef haudio_in_sai;
 extern SAI_HandleTypeDef haudio_out_sai;
 

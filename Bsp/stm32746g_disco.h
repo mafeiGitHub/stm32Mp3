@@ -5,6 +5,7 @@
  extern "C" {
 #endif
 //}}}
+
 typedef enum { LED1 = 0, LED_GREEN = LED1, } Led_TypeDef;
 typedef enum { BUTTON_WAKEUP = 0, BUTTON_TAMPER = 1, BUTTON_KEY = 2 } Button_TypeDef;
 typedef enum { BUTTON_MODE_GPIO = 0, BUTTON_MODE_EXTI = 1 } ButtonMode_TypeDef;

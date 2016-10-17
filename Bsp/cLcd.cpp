@@ -13,7 +13,7 @@
 #include "cLcdPrivate.h"
 
 #include "cmsis_os.h"
-#include "../sys/cpuUsage.h"
+#include "cpuUsage.h"
 
 #include <ft2build.h>
 #include FT_FREETYPE_H

@@ -5,8 +5,8 @@
 #include "fatFs.h"
 #include "diskio.h"
 
-#include "../Bsp/stm32F7_disco_sd.h"
-#include "../Bsp/cLcd.h"
+#include "stm32F7_disco_sd.h"
+#include "cLcd.h"
 
 static volatile DSTATUS Stat = STA_NOINIT;
 
