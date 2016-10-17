@@ -64,32 +64,21 @@
 
 #define  ART_ACCLERATOR_ENABLE  1 // To enable instruction cache and prefetch
 
-//{{{  Ethernet MAC ADDRESS: MAC_ADDR0:MAC_ADDR1:MAC_ADDR2:MAC_ADDR3:MAC_ADDR4:MAC_ADDR5 
-#define MAC_ADDR0   2U
-#define MAC_ADDR1   0U
-#define MAC_ADDR2   0U
-#define MAC_ADDR3   0U
-#define MAC_ADDR4   0U
-#define MAC_ADDR5   0U
-//}}}
 //{{{  Ethernet driver buffers size and count
 #define ETH_RX_BUF_SIZE                ETH_MAX_PACKET_SIZE /* buffer size for receive               */
 #define ETH_TX_BUF_SIZE                ETH_MAX_PACKET_SIZE /* buffer size for transmit              */
 #define ETH_RXBUFNB                    4U       /* 4 Rx buffers of size ETH_RX_BUF_SIZE  */
 #define ETH_TXBUFNB                    4U       /* 4 Tx buffers of size ETH_TX_BUF_SIZE  */
 //}}}
-//{{{  Ethernet PHY configuration section
-/* DP83848 PHY Address*/
+//{{{  Ethernet PHY Registers
 #define DP83848_PHY_ADDRESS             0x01U
-/* PHY Reset delay these values are based on a 1 ms Systick interrupt*/
+
 #define PHY_RESET_DELAY                 0x000000FFU
-/* PHY Configuration delay */
-#define PHY_CONFIG_DELAY                0x00000FFFU
+#define PHY_CONFIG_DELAY                0x00000100U
 
 #define PHY_READ_TO                     0x0000FFFFU
 #define PHY_WRITE_TO                    0x0000FFFFU
-//}}}
-//{{{  Ethernet Common PHY Registers 
+
 #define PHY_BCR                         ((uint16_t)0x00U)    /*!< Transceiver Basic Control Register   */
 #define PHY_BSR                         ((uint16_t)0x01U)    /*!< Transceiver Basic Status Register    */
 
@@ -108,8 +97,6 @@
 #define PHY_LINKED_STATUS               ((uint16_t)0x0004U)  /*!< Valid link established               */
 #define PHY_JABBER_DETECTION            ((uint16_t)0x0002U)  /*!< Jabber condition detected            */
 
-//}}}
-//{{{  Ethernet Extended PHY Registers */
 #define PHY_SR                          ((uint16_t)0x10U)    /*!< PHY status register Offset                      */
 #define PHY_MICR                        ((uint16_t)0x11U)    /*!< MII Interrupt Control Register                  */
 #define PHY_MISR                        ((uint16_t)0x12U)    /*!< MII Interrupt Status and Misc. Control Register */

@@ -29,21 +29,10 @@ extern const uint8_t freeSansBold[64228];
 #define LCD_BL_CTRL_GPIO_PORT  GPIOK
 
 // DMA2D CR reg bits
-#define DMA2D_CR_MASK      ((uint32_t)0xFFFC3F07)  // unused bits mask
-#define DMA2D_CR_START     ((uint32_t)0x00000001)  // Start transfer
-#define DMA2D_CR_SUSP      ((uint32_t)0x00000002)  // Suspend transfer
-#define DMA2D_CR_ABORT     ((uint32_t)0x00000004)  // Abort transfer
-#define DMA2D_CR_TEIE      ((uint32_t)0x00000100)  // Transfer Error Interrupt Enable
-#define DMA2D_CR_TCIE      ((uint32_t)0x00000200)  // Transfer Complete Interrupt Enable
-#define DMA2D_CR_TWIE      ((uint32_t)0x00000400)  // Transfer Watermark Interrupt Enable
-#define DMA2D_CR_CAEIE     ((uint32_t)0x00000800)  // CLUT Access Error Interrupt Enable
-#define DMA2D_CR_CTCIE     ((uint32_t)0x00001000)  // CLUT Transfer Complete Interrupt Enable
-#define DMA2D_CR_CEIE      ((uint32_t)0x00002000)  // Configuration Error Interrupt Enable
-#define DMA2D_CR_MODE      ((uint32_t)0x00030000)  // DMA2D Mode mask
-#define DMA2D_CR_M2M       ((uint32_t)0x00000000)  // - DMA2D memory to memory transfer mode
-#define DMA2D_CR_M2M_PFC   ((uint32_t)0x00010000)  // - DMA2D memory to memory with pixel format conversion transfer mode
-#define DMA2D_CR_M2M_BLEND ((uint32_t)0x00020000)  // - DMA2D memory to memory with blending transfer mode
-#define DMA2D_CR_R2M       ((uint32_t)0x00030000)  // - DMA2D register to memory transfer mode
+#define DMA2D_CR_M2M       ((uint32_t)0x00000000)  // DMA2D memory to memory transfer mode
+#define DMA2D_CR_M2M_PFC   ((uint32_t)0x00010000)  // DMA2D memory to memory with pixel format conversion transfer mode
+#define DMA2D_CR_M2M_BLEND ((uint32_t)0x00020000)  // DMA2D memory to memory with blending transfer mode
+#define DMA2D_CR_R2M       ((uint32_t)0x00030000)  // DMA2D register to memory transfer mode
 
 // DMA2d color mode
 #define DMA2D_ARGB8888     ((uint32_t)0x00000000)  // ARGB8888 DMA2D color mode

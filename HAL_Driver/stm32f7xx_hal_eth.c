@@ -70,11 +70,6 @@
 
 #ifdef HAL_ETH_MODULE_ENABLED
 
-#define PHY_RESET_DELAY                 ((uint32_t)100) // PHY Reset delay these values are based on a 1 ms Systick interrupt
-#define PHY_CONFIG_DELAY                ((uint32_t)100) // PHY Configuration delay
-#define PHY_READ_TO                     ((uint32_t)1000)
-#define PHY_WRITE_TO                    ((uint32_t)1000)
-
 #define ETH_TIMEOUT_SWRESET             ((uint32_t)500)
 #define ETH_TIMEOUT_LINKED_STATE        ((uint32_t)5000)
 #define ETH_TIMEOUT_AUTONEGO_COMPLETED  ((uint32_t)5000)
