@@ -7,6 +7,8 @@
 
 #include "memory.h"
 #include "stm32746g_discovery.h"
+#include "stm32f7xx_hal_dma2d.h"
+
 #include "cLcd.h"
 #include "cLcdPrivate.h"
 
@@ -27,25 +29,6 @@ extern const uint8_t freeSansBold[64228];
 
 #define LCD_BL_CTRL_PIN        GPIO_PIN_3
 #define LCD_BL_CTRL_GPIO_PORT  GPIOK
-
-// DMA2D CR reg bits
-#define DMA2D_CR_M2M       ((uint32_t)0x00000000)  // DMA2D memory to memory transfer mode
-#define DMA2D_CR_M2M_PFC   ((uint32_t)0x00010000)  // DMA2D memory to memory with pixel format conversion transfer mode
-#define DMA2D_CR_M2M_BLEND ((uint32_t)0x00020000)  // DMA2D memory to memory with blending transfer mode
-#define DMA2D_CR_R2M       ((uint32_t)0x00030000)  // DMA2D register to memory transfer mode
-
-// DMA2d color mode
-#define DMA2D_ARGB8888     ((uint32_t)0x00000000)  // ARGB8888 DMA2D color mode
-#define DMA2D_RGB888       ((uint32_t)0x00000001)  // RGB888 DMA2D color mode
-#define DMA2D_RGB565       ((uint32_t)0x00000002)  // RGB565 DMA2D color mode
-#define DMA2D_ARGB1555     ((uint32_t)0x00000003)  // ARGB1555 DMA2D color mode
-#define DMA2D_ARGB4444     ((uint32_t)0x00000004)  // ARGB4444 DMA2D color mode
-#define DMA2D_L8           ((uint32_t)0x00000005)  // L8 color mode
-#define DMA2D_AL44         ((uint32_t)0x00000006)  // AL44 color mode
-#define DMA2D_AL88         ((uint32_t)0x00000007)  // AL88 color mode
-#define DMA2D_L4           ((uint32_t)0x00000008)  // L4 color mode
-#define DMA2D_A8           ((uint32_t)0x00000009)  // A8 color mode
-#define DMA2D_A4           ((uint32_t)0x0000000A)  // A4 color mode
 
 #define kWipe  1
 #define kStamp 2
@@ -138,7 +121,7 @@ void LCD_DMA2D_IRQHandler() {
         DMA2D->OMAR  = *mDma2dIsrBuf++;  // fb start address
         DMA2D->OOR   = *mDma2dIsrBuf++;  // stride
         DMA2D->NLR   = *mDma2dIsrBuf++;  // width:height
-        DMA2D->CR = DMA2D_CR_R2M | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
+        DMA2D->CR = DMA2D_R2M | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
         return;
 
       case kStamp:
@@ -149,7 +132,7 @@ void LCD_DMA2D_IRQHandler() {
         DMA2D->BGOR   = *mDma2dIsrBuf++;
         DMA2D->NLR    = *mDma2dIsrBuf++; // width:height
         DMA2D->FGMAR  = *mDma2dIsrBuf++; // src start address
-        DMA2D->CR = DMA2D_CR_M2M_BLEND | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
+        DMA2D->CR = DMA2D_M2M_BLEND | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
         return;
 
       default: // normally 0
@@ -421,7 +404,7 @@ void cLcd::rect (uint32_t colour, int16_t x, int16_t y, uint16_t width, uint16_t
     DMA2D->OMAR  = curFrameBufferAddress + ((y * getWidth()) + x) * 4;
     DMA2D->OOR   = getWidth() - width;
     DMA2D->NLR   = (width << 16) | height;
-    DMA2D->CR = DMA2D_CR_R2M | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
+    DMA2D->CR = DMA2D_R2M | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
     while (!(DMA2D->ISR & DMA2D_ISR_TCIF)) {}
     DMA2D->IFCR |= DMA2D_IFSR_CTEIF | DMA2D_IFSR_CTCIF | DMA2D_IFSR_CTWIF|
                    DMA2D_IFSR_CCAEIF | DMA2D_IFSR_CCTCIF | DMA2D_IFSR_CCEIF;
@@ -453,7 +436,7 @@ void cLcd::stamp (uint32_t colour, uint8_t* src, int16_t x, int16_t y, uint16_t 
     DMA2D->BGOR   = getWidth() - width;
     DMA2D->NLR    = (width << 16) | height;
     DMA2D->FGMAR  = (uint32_t)src;
-    DMA2D->CR = DMA2D_CR_M2M_BLEND | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
+    DMA2D->CR = DMA2D_M2M_BLEND | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
     while (!(DMA2D->ISR & DMA2D_ISR_TCIF)) {}
     DMA2D->IFCR |= DMA2D_IFSR_CTEIF | DMA2D_IFSR_CTCIF | DMA2D_IFSR_CTWIF|
                    DMA2D_IFSR_CCAEIF | DMA2D_IFSR_CCTCIF | DMA2D_IFSR_CCEIF;
@@ -719,9 +702,9 @@ void cLcd::init (std::string title, bool buffered) {
 
   //  dma2d init
   // unchanging dma2d regs
-  DMA2D->OPFCCR  = DMA2D_ARGB8888; // bgnd fb ARGB
-  DMA2D->BGPFCCR = DMA2D_ARGB8888;
-  DMA2D->FGPFCCR = DMA2D_A8;       // src alpha
+  DMA2D->OPFCCR  = DMA2D_INPUT_ARGB8888; // bgnd fb ARGB
+  DMA2D->BGPFCCR = DMA2D_INPUT_ARGB8888;
+  DMA2D->FGPFCCR = DMA2D_INPUT_A8;       // src alpha
   DMA2D->FGOR    = 0;              // src stride
   //DMA2D->AMTCR = 0x1001;
 

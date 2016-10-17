@@ -58,17 +58,17 @@
 #endif /* EXTERNAL_CLOCK_VALUE */
 //}}}
 
-#define  VDD_VALUE              ((uint32_t)3300) // Value of VDD in mv
-#define  TICK_INT_PRIORITY      ((uint32_t)0x0F) // tick interrupt priority
+#define  VDD_VALUE             ((uint32_t)3300) // Value of VDD in mv
+#define  TICK_INT_PRIORITY     ((uint32_t)0x0F) // tick interrupt priority
 #define  USE_RTOS               0
 
 #define  ART_ACCLERATOR_ENABLE  1 // To enable instruction cache and prefetch
 
 //{{{  Ethernet driver buffers size and count
-#define ETH_RX_BUF_SIZE                ETH_MAX_PACKET_SIZE /* buffer size for receive               */
-#define ETH_TX_BUF_SIZE                ETH_MAX_PACKET_SIZE /* buffer size for transmit              */
-#define ETH_RXBUFNB                    4U       /* 4 Rx buffers of size ETH_RX_BUF_SIZE  */
-#define ETH_TXBUFNB                    4U       /* 4 Tx buffers of size ETH_TX_BUF_SIZE  */
+#define ETH_RX_BUF_SIZE         ETH_MAX_PACKET_SIZE /* buffer size for receive               */
+#define ETH_TX_BUF_SIZE         ETH_MAX_PACKET_SIZE /* buffer size for transmit              */
+#define ETH_RXBUFNB             4U       /* 4 Rx buffers of size ETH_RX_BUF_SIZE  */
+#define ETH_TXBUFNB             4U       /* 4 Tx buffers of size ETH_TX_BUF_SIZE  */
 //}}}
 //{{{  Ethernet PHY Registers
 #define DP83848_PHY_ADDRESS             0x01U
