@@ -1,13 +1,14 @@
 // stm32f7xx_it.c  18 November-2015
-#include "stm32f7xx_hal.h"
 #include "stm32f7xx_it.h"
+
+#include "stm32f7xx_hal.h"
+#include "stm32F7_disco_sd.h"
+#include "stm32F7_disco_audio.h"
 
 #include "cmsis_os.h"
 #include "ethernetif.h"
 
-#include "stm32F7_disco_sd.h"
 #include "cLcdPrivate.h"
-#include "stm32F7_disco_audio.h"
 
 extern SAI_HandleTypeDef haudio_in_sai;
 extern SAI_HandleTypeDef haudio_out_sai;

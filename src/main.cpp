@@ -15,18 +15,16 @@
 #include "lwip/dhcp.h"
 #include "ipv4/lwip/ip_addr.h"
 #include "lwip/api.h"
-
 #include "ethernetif.h"
 
-#include "stm32746g_disco.h"
-#include "stm32746g_disco_ts.h"
 #include "stm32F7_disco_audio.h"
-#include "clcd.h"
 
 #include "stm32F7_disco_sd.h"
 #include "../fatfs/fatFs.h"
 
-#include "../httpServer/httpServer.h"
+#include "stm32746g_disco.h"
+#include "stm32746g_disco_ts.h"
+#include "clcd.h"
 
 #include "../../shared/widgets/cRootContainer.h"
 #include "../../shared/widgets/cWidget.h"
@@ -36,6 +34,8 @@
 #include "../../shared/widgets/cWaveCentredWidget.h"
 
 #include "../../shared/decoders/cMp3decoder.h"
+
+#include "../httpServer/httpServer.h"
 //}}}
 //{{{  static vars
 static osSemaphoreId mAudSem;
