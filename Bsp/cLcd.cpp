@@ -347,21 +347,6 @@ void OTM8009A_IO_Delay (uint32_t Delay);
 //{{{
 static void DSI_LCD_Reset() {
 
-  __HAL_RCC_GPIOJ_CLK_ENABLE();
-
-  // Configure the GPIO on PJ15
-  GPIO_InitTypeDef gpio_init_structure;
-  gpio_init_structure.Pin   = GPIO_PIN_15;
-  gpio_init_structure.Mode  = GPIO_MODE_OUTPUT_PP;
-  gpio_init_structure.Pull  = GPIO_PULLUP;
-  gpio_init_structure.Speed = GPIO_SPEED_HIGH;
-  HAL_GPIO_Init (GPIOJ, &gpio_init_structure);
-
-  // pulse XRES active low
-  HAL_GPIO_WritePin (GPIOJ, GPIO_PIN_15, GPIO_PIN_RESET);
-  HAL_Delay(20);
-  HAL_GPIO_WritePin (GPIOJ, GPIO_PIN_15, GPIO_PIN_SET);
-  HAL_Delay(10);
   }
 //}}}
 //{{{
@@ -597,8 +582,23 @@ void DSI_LCD_Init() {
 
   uint32_t LcdClock  = 27429; /*!< LcdClk = 27429 kHz */
 
-  // Toggle Hardware Reset of the DSI LCD using * its XRES signal (active low) */
-  DSI_LCD_Reset();
+  //{{{  Toggle Hardware Reset of the DSI LCD using * its XRES signal (active low) */
+  __HAL_RCC_GPIOJ_CLK_ENABLE();
+
+  // Configure the GPIO on PJ15
+  GPIO_InitTypeDef gpio_init_structure;
+  gpio_init_structure.Pin   = GPIO_PIN_15;
+  gpio_init_structure.Mode  = GPIO_MODE_OUTPUT_PP;
+  gpio_init_structure.Pull  = GPIO_PULLUP;
+  gpio_init_structure.Speed = GPIO_SPEED_HIGH;
+  HAL_GPIO_Init (GPIOJ, &gpio_init_structure);
+
+  // pulse XRES active low
+  HAL_GPIO_WritePin (GPIOJ, GPIO_PIN_15, GPIO_PIN_RESET);
+  HAL_Delay(20);
+  HAL_GPIO_WritePin (GPIOJ, GPIO_PIN_15, GPIO_PIN_SET);
+  HAL_Delay(10);
+  //}}}
 
   // MSP Initialize set IP blocks LTDC, DSI and DMA2D  out of reset clocked  NVIC IRQ related to IP blocks enabled
   //BSP_LCD_MspInit();
