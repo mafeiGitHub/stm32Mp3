@@ -383,10 +383,10 @@ void SystemInit() {
   // Disable all interrupts
   RCC->CIR = 0x00000000;
 
-  #ifdef STM32F746xx
+  #ifdef STM32F746G_DISCO
     SystemSDram8Mb();
   #endif
-  #ifdef STM32F769xx
+  #ifdef STM32F769I_DISCO
     SystemSDram16Mb();
   #endif
 

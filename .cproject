@@ -49,6 +49,7 @@
 									<listOptionValue builtIn="false" value="STM32"/>
 									<listOptionValue builtIn="false" value="STM32F7"/>
 									<listOptionValue builtIn="false" value="STM32F746xx"/>
+									<listOptionValue builtIn="false" value="STM32F746G_DISCO"/>
 								</option>
 								<option id="gnu.c.compiler.option.dialect.std.1591778648" name="Language standard" superClass="gnu.c.compiler.option.dialect.std" useByScannerDiscovery="true" value="gnu.c.compiler.dialect.c99" valueType="enumerated"/>
 								<inputType id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.c.1340536327" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.c"/>
@@ -76,6 +77,7 @@
 									<listOptionValue builtIn="false" value="STM32"/>
 									<listOptionValue builtIn="false" value="STM32F7"/>
 									<listOptionValue builtIn="false" value="STM32F746xx"/>
+									<listOptionValue builtIn="false" value="STM32F746G_DISCO"/>
 								</option>
 								<option id="gnu.cpp.compiler.option.dialect.std.2038013955" name="Language standard" superClass="gnu.cpp.compiler.option.dialect.std" useByScannerDiscovery="true" value="gnu.cpp.compiler.dialect.c++11" valueType="enumerated"/>
 								<inputType id="fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.input.cpp.1060767720" superClass="fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.input.cpp"/>
@@ -179,6 +181,7 @@
 									<listOptionValue builtIn="false" value="STM32"/>
 									<listOptionValue builtIn="false" value="STM32F7"/>
 									<listOptionValue builtIn="false" value="STM32F769xx"/>
+									<listOptionValue builtIn="false" value="STM32F769I_DISCO"/>
 								</option>
 								<option id="gnu.c.compiler.option.dialect.std.789176022" name="Language standard" superClass="gnu.c.compiler.option.dialect.std" useByScannerDiscovery="true" value="gnu.c.compiler.dialect.c99" valueType="enumerated"/>
 								<inputType id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.c.1949854391" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.c"/>
@@ -206,6 +209,7 @@
 									<listOptionValue builtIn="false" value="STM32"/>
 									<listOptionValue builtIn="false" value="STM32F7"/>
 									<listOptionValue builtIn="false" value="STM32F769xx"/>
+									<listOptionValue builtIn="false" value="STM32F769I_DISCO"/>
 								</option>
 								<option id="gnu.cpp.compiler.option.dialect.std.1575986730" name="Language standard" superClass="gnu.cpp.compiler.option.dialect.std" useByScannerDiscovery="true" value="gnu.cpp.compiler.dialect.c++11" valueType="enumerated"/>
 								<inputType id="fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.input.cpp.838332171" superClass="fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.input.cpp"/>

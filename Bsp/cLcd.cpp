@@ -341,7 +341,7 @@ void LCD_DMA2D_IRQHandler() {
 
 cLcd* cLcd::mLcd = nullptr;
 
-#ifdef STM32F769xx
+#ifdef STM32F769I_DISCO
 //{{{
 static void DSI_IO_WriteCmd (uint32_t NbrParams, uint8_t* pParams) {
 
@@ -1181,8 +1181,10 @@ void cLcd::init (std::string title, bool buffered) {
 //{{{
 void cLcd::ltdcInit (uint32_t frameBufferAddress) {
 
-  #ifdef STM32F746xx
-  //{{{  LTDC, dma2d clock enable
+  hLtdc.Instance = LTDC;
+
+  #ifdef STM32F746G_DISCO
+  //{{{  LTDC dma2d clock enable
   // enable the LTDC and DMA2D clocks
   __HAL_RCC_LTDC_CLK_ENABLE();
   __HAL_RCC_DMA2D_CLK_ENABLE();
@@ -1240,7 +1242,7 @@ void cLcd::ltdcInit (uint32_t frameBufferAddress) {
   gpio_init_structure.Mode      = GPIO_MODE_OUTPUT_PP;
   HAL_GPIO_Init (LCD_BL_CTRL_GPIO_PORT, &gpio_init_structure);
   //}}}
-  //{{{  LTDC timing config
+  //{{{  LTDC info
   #define RK043FN48H_WIDTH   480 // LCD PIXEL WIDTH
   #define RK043FN48H_HSYNC   41  // Horizontal synchronization
   #define RK043FN48H_HBP     13  // Horizontal back porch
@@ -1271,27 +1273,26 @@ void cLcd::ltdcInit (uint32_t frameBufferAddress) {
   periph_clk_init_struct.PLLSAI.PLLSAIR = 5; // could be 7
   periph_clk_init_struct.PLLSAIDivR = RCC_PLLSAIDIVR_4;
   HAL_RCCEx_PeriphCLKConfig (&periph_clk_init_struct);
-  //}}}
-  //{{{  LTDC Polarity
+
+  // LTDC Polarity
   hLtdc.Init.HSPolarity = LTDC_HSPOLARITY_AL;
   hLtdc.Init.VSPolarity = LTDC_VSPOLARITY_AL;
   hLtdc.Init.DEPolarity = LTDC_DEPOLARITY_AL;
   hLtdc.Init.PCPolarity = LTDC_PCPOLARITY_IPC;
-  //}}}
-  //{{{  LTDC width height
+
+  // LTDC width height
   hLtdc.LayerCfg->ImageWidth = RK043FN48H_WIDTH;
   hLtdc.LayerCfg->ImageHeight = RK043FN48H_HEIGHT;
-  //}}}
-  //{{{  LTDC Background value
+
+  // LTDC Background value
   hLtdc.Init.Backcolor.Blue = 0;
   hLtdc.Init.Backcolor.Green = 0;
   hLtdc.Init.Backcolor.Red = 0;
   //}}}
-  hLtdc.Instance = LTDC;
   HAL_LTDC_Init (&hLtdc);
   #endif
 
-  #ifdef STM32F769xx
+  #ifdef STM32F769I_DISCO
   //{{{  DSI LCD
   uint32_t LcdClock  = 27429; /*!< LcdClk = 27429 kHz */
 
@@ -1370,9 +1371,6 @@ void cLcd::ltdcInit (uint32_t frameBufferAddress) {
   hdsivideo_handle.LPVerticalBackPorchEnable    = DSI_LP_VBP_ENABLE;    /* Allow sending LP commands during VBP period */
   hdsivideo_handle.LPVerticalSyncActiveEnable    = DSI_LP_VSYNC_ENABLE; /* Allow sending LP commands during VSync = VSA period */
   HAL_DSI_ConfigVideoMode (&(hdsi_discovery), &(hdsivideo_handle));
-
-  // LTDC init
-  hLtdc.Instance = LTDC;
 
   /* Timing Configuration */
   hLtdc.Init.HorizontalSync = (HSA - 1);
