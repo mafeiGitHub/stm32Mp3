@@ -385,8 +385,7 @@ void SystemInit() {
 
   #ifdef STM32F746G_DISCO
     SystemSDram8Mb();
-  #endif
-  #ifdef STM32F769I_DISCO
+  #elif  STM32F769I_DISCO
     SystemSDram16Mb();
   #endif
 

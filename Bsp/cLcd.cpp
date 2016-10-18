@@ -9,8 +9,7 @@
 
 #ifdef STM32F746G_DISCO
 #include "stm32746g_discovery.h"
-#endif
-#ifdef STM32F769I_DISCO
+#elif STM32F769I_DISCO
 #include "stm32F769i_discovery.h"
 #endif
 #include "stm32f7xx_hal_dma2d.h"
