@@ -1,4 +1,4 @@
-// system_stm32f7xx.c 
+// system_stm32f7xx.c
 #include "stm32f7xx.h"
 
 //#define VECT_TAB_SRAM
@@ -383,8 +383,12 @@ void SystemInit() {
   // Disable all interrupts
   RCC->CIR = 0x00000000;
 
-  SystemSDram8Mb();
-  //SystemSDram16Mb();
+  #ifdef STM32F746xx
+    SystemSDram8Mb();
+  #endif
+  #ifdef STM32F769xx
+    SystemSDram16Mb();
+  #endif
 
   // Configure the Vector Table location add offset address
 #ifdef VECT_TAB_SRAM
