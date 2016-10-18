@@ -1,4 +1,3 @@
-#ifdef STM32F746xx
 /**
   ******************************************************************************
   * @file    stm32746g_discovery_sd.h
@@ -156,4 +155,3 @@ void    BSP_SD_MspDeInit(SD_HandleTypeDef *hsd, void *Params);
 #endif /* __STM32746G_DISCOVERY_SD_H */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
-#endif

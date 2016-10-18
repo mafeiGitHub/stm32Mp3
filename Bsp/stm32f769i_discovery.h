@@ -1,4 +1,3 @@
-#ifdef STM32F769xx
 /**
   ******************************************************************************
   * @file    stm32f769i_discovery.h
@@ -338,4 +337,3 @@ uint32_t         BSP_PB_GetState(Button_TypeDef Button);
 #endif /* __STM32F769I_DISCOVERY_H */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
-#endif

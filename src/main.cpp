@@ -17,14 +17,18 @@
 #include "lwip/api.h"
 #include "ethernetif.h"
 
-#include "stm32746g_discovery.h"
-#include "stm32746g_discovery_ts.h"
-#include "stm32746g_discovery_audio.h"
-#include "stm32746g_discovery_sd.h"
-#include "stm32f769i_discovery.h"
-#include "stm32f769i_discovery_ts.h"
-#include "stm32f769i_discovery_audio.h"
-#include "stm32f769i_discovery_sd.h"
+#ifdef STM32F746G_DISCO
+  #include "stm32746g_discovery.h"
+  #include "stm32746g_discovery_ts.h"
+  #include "stm32746g_discovery_audio.h"
+  #include "stm32746g_discovery_sd.h"
+#endif
+#ifdef STM32F769I_DISCO
+  #include "stm32f769i_discovery.h"
+  #include "stm32f769i_discovery_ts.h"
+  #include "stm32f769i_discovery_audio.h"
+  #include "stm32f769i_discovery_sd.h"
+#endif
 
 #include "../fatfs/fatFs.h"
 #include "clcd.h"

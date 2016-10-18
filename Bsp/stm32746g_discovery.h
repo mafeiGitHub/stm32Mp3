@@ -1,4 +1,3 @@
-#ifdef STM32F746xx
 /**
 	******************************************************************************
 	* @file    stm32746g_discovery.h
@@ -340,4 +339,3 @@ void      BSP_COM_DeInit(COM_TypeDef COM, UART_HandleTypeDef *huart);
 #endif /* __STM32746G_DISCOVERY_H */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
-#endif

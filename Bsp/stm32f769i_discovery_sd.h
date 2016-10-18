@@ -1,4 +1,3 @@
-#ifdef STM32F769xx
 /**
   ******************************************************************************
   * @file    stm32f769i_discovery_sd.h
@@ -158,4 +157,3 @@ void    BSP_SD_MspDeInit(SD_HandleTypeDef *hsd, void *Params);
 #endif /* __STM32F769I_DISCOVERY_SD_H */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
-#endif

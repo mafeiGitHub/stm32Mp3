@@ -1,4 +1,3 @@
-#ifdef STM32F746xx
 /**
   ******************************************************************************
   * @file    stm32746g_discovery_ts.h
@@ -213,4 +212,3 @@ uint8_t BSP_TS_ResetTouchData(TS_StateTypeDef *TS_State);
 #endif /* __STM32746G_DISCOVERY_TS_H */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
-#endif

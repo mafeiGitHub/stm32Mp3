@@ -1,4 +1,3 @@
-#ifdef STM32F769xx
 /**
   ******************************************************************************
   * @file    stm32f769i_discovery_audio.h
@@ -343,4 +342,3 @@ void BSP_AUDIO_IN_MspDeInit(void);
 #endif /* __STM32F769I_DISCOVERY_AUDIO_H */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
-#endif

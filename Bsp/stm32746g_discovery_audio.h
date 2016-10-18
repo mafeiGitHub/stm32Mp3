@@ -1,4 +1,3 @@
-#ifdef STM32F746xx
 /**
   ******************************************************************************
   * @file    stm32746g_discovery_audio.h
@@ -293,4 +292,3 @@ void  BSP_AUDIO_IN_MspDeInit(SAI_HandleTypeDef *hsai, void *Params);
 #endif /* __STM32746G_DISCOVERY_AUDIO_H */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
-#endif
