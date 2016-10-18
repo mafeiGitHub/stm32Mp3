@@ -1,4 +1,4 @@
-// stm32f7xx_it.c
+// stm32f7xx_it.c - BSP HAL glue
 #include "stm32f7xx_it.h"
 
 #include "stm32f7xx_hal.h"

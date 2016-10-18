@@ -1,4 +1,4 @@
-// stm32f7xx_it.h version V1.0.2  18-November-2015
+// stm32f7xx_it.h - BSP HAL glue
 #pragma once
 
 #include "stm32f7xx.h"
