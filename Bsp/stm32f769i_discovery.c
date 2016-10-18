@@ -1,14 +1,15 @@
 #include "stm32f7xx.h"
-#ifdef STM32F746xx
+#ifdef STM32F769xx
 /**
   ******************************************************************************
-  * @file    stm32746g_discovery.c
+  * @file    stm32f769i_discovery.c
   * @author  MCD Application Team
-  * @version V1.1.1
-  * @date    02-June-2016
+  * @version V1.1.0
+  * @date    29-August-2016
   * @brief   This file provides a set of firmware functions to manage LEDs,
-  *          push-buttons and COM ports available on STM32746G-Discovery
-  *          board(MB1191) from STMicroelectronics.
+  *          push-buttons, external SDRAM, external QSPI Flash, RF EEPROM,
+  *          available on STM32F769I-Discovery board (MB1225) from
+  *          STMicroelectronics.
   ******************************************************************************
   * @attention
   *
@@ -40,83 +41,67 @@
   */
 
 /* Includes ------------------------------------------------------------------*/
-#include "stm32746g_discovery.h"
+#include "stm32f769i_discovery.h"
 
 /** @addtogroup BSP
   * @{
   */
 
-/** @addtogroup STM32746G_DISCOVERY
+/** @addtogroup STM32F769I_Discovery
   * @{
   */
 
-/** @defgroup STM32746G_DISCOVERY_LOW_LEVEL STM32746G_DISCOVERY_LOW_LEVEL
+/** @defgroup STM32F769I_Discovery_LOW_LEVEL STM32F769I-Discovery LOW LEVEL
   * @{
   */
 
-/** @defgroup STM32746G_DISCOVERY_LOW_LEVEL_Private_TypesDefinitions STM32746G_DISCOVERY_LOW_LEVEL Private Types Definitions
+/** @defgroup STM32F769I_Discovery_LOW_LEVEL_Private_TypesDefinitions STM32F769I Discovery Low Level Private Typedef
   * @{
   */
 /**
   * @}
   */
 
-/** @defgroup STM32746G_DISCOVERY_LOW_LEVEL_Private_Defines STM32746G_DISCOVERY_LOW_LEVEL Private Defines
+/** @defgroup STM32F769I_Discovery_LOW_LEVEL_Private_Defines LOW_LEVEL Private Defines
   * @{
   */
 /**
- * @brief STM32746G DISCOVERY BSP Driver version number V1.1.1
+ * @brief STM32F769I Discovery BSP Driver version number V1.1.0
    */
-#define __STM32746G_DISCO_BSP_VERSION_MAIN   (0x01) /*!< [31:24] main version */
-#define __STM32746G_DISCO_BSP_VERSION_SUB1   (0x01) /*!< [23:16] sub1 version */
-#define __STM32746G_DISCO_BSP_VERSION_SUB2   (0x01) /*!< [15:8]  sub2 version */
-#define __STM32746G_DISCO_BSP_VERSION_RC     (0x00) /*!< [7:0]  release candidate */
-#define __STM32746G_DISCO_BSP_VERSION         ((__STM32746G_DISCO_BSP_VERSION_MAIN << 24)\
-                                             |(__STM32746G_DISCO_BSP_VERSION_SUB1 << 16)\
-                                             |(__STM32746G_DISCO_BSP_VERSION_SUB2 << 8 )\
-                                             |(__STM32746G_DISCO_BSP_VERSION_RC))
+#define __STM32F769I_DISCOVERY_BSP_VERSION_MAIN   (0x01) /*!< [31:24] main version */
+#define __STM32F769I_DISCOVERY_BSP_VERSION_SUB1   (0x01) /*!< [23:16] sub1 version */
+#define __STM32F769I_DISCOVERY_BSP_VERSION_SUB2   (0x00) /*!< [15:8]  sub2 version */
+#define __STM32F769I_DISCOVERY_BSP_VERSION_RC     (0x00) /*!< [7:0]  release candidate */
+#define __STM32F769I_DISCOVERY_BSP_VERSION        ((__STM32F769I_DISCOVERY_BSP_VERSION_MAIN << 24)\
+                                                 |(__STM32F769I_DISCOVERY_BSP_VERSION_SUB1 << 16)\
+                                                 |(__STM32F769I_DISCOVERY_BSP_VERSION_SUB2 << 8 )\
+                                                 |(__STM32F769I_DISCOVERY_BSP_VERSION_RC))
 /**
   * @}
   */
 
-/** @defgroup STM32746G_DISCOVERY_LOW_LEVEL_Private_Macros STM32746G_DISCOVERY_LOW_LEVEL Private Macros
+/** @defgroup STM32F769I_Discovery_LOW_LEVEL_Private_Macros  LOW_LEVEL Private Macros
   * @{
   */
 /**
   * @}
   */
 
-/** @defgroup STM32746G_DISCOVERY_LOW_LEVEL_Private_Variables STM32746G_DISCOVERY_LOW_LEVEL Private Variables
+/** @defgroup STM32F769I_Discovery_LOW_LEVEL_Private_Variables LOW_LEVEL Private Variables
   * @{
   */
+uint32_t GPIO_PIN[LEDn] = {LED1_PIN,
+                           LED2_PIN};
 
-const uint32_t GPIO_PIN[LEDn] = {LED1_PIN};
+GPIO_TypeDef* GPIO_PORT[LEDn] = {LED1_GPIO_PORT,
+                                 LED2_GPIO_PORT};
 
-GPIO_TypeDef* BUTTON_PORT[BUTTONn] = {WAKEUP_BUTTON_GPIO_PORT,
-                                      TAMPER_BUTTON_GPIO_PORT,
-                                      KEY_BUTTON_GPIO_PORT};
+GPIO_TypeDef* BUTTON_PORT[BUTTONn] = {WAKEUP_BUTTON_GPIO_PORT };
 
-const uint16_t BUTTON_PIN[BUTTONn] = {WAKEUP_BUTTON_PIN,
-                                      TAMPER_BUTTON_PIN,
-                                      KEY_BUTTON_PIN};
+const uint16_t BUTTON_PIN[BUTTONn] = {WAKEUP_BUTTON_PIN };
 
-const uint16_t BUTTON_IRQn[BUTTONn] = {WAKEUP_BUTTON_EXTI_IRQn,
-                                       TAMPER_BUTTON_EXTI_IRQn,
-                                       KEY_BUTTON_EXTI_IRQn};
+const uint16_t BUTTON_IRQn[BUTTONn] = {WAKEUP_BUTTON_EXTI_IRQn };
 
-USART_TypeDef* COM_USART[COMn] = {DISCOVERY_COM1};
-
-GPIO_TypeDef* COM_TX_PORT[COMn] = {DISCOVERY_COM1_TX_GPIO_PORT};
-
-GPIO_TypeDef* COM_RX_PORT[COMn] = {DISCOVERY_COM1_RX_GPIO_PORT};
-
-const uint16_t COM_TX_PIN[COMn] = {DISCOVERY_COM1_TX_PIN};
-
-const uint16_t COM_RX_PIN[COMn] = {DISCOVERY_COM1_RX_PIN};
-
-const uint16_t COM_TX_AF[COMn] = {DISCOVERY_COM1_TX_AF};
-
-const uint16_t COM_RX_AF[COMn] = {DISCOVERY_COM1_RX_AF};
 
 static I2C_HandleTypeDef hI2cAudioHandler = {0};
 static I2C_HandleTypeDef hI2cExtHandler = {0};
@@ -125,7 +110,7 @@ static I2C_HandleTypeDef hI2cExtHandler = {0};
   * @}
   */
 
-/** @defgroup STM32746G_DISCOVERY_LOW_LEVEL_Private_FunctionPrototypes STM32746G_DISCOVERY_LOW_LEVEL Private Function Prototypes
+/** @defgroup STM32F769I_Discovery_LOW_LEVEL_Private_FunctionPrototypes LOW_LEVEL Private FunctionPrototypes
   * @{
   */
 static void     I2Cx_MspInit(I2C_HandleTypeDef *i2c_handler);
@@ -143,93 +128,88 @@ void            AUDIO_IO_Write(uint8_t Addr, uint16_t Reg, uint16_t Value);
 uint16_t        AUDIO_IO_Read(uint8_t Addr, uint16_t Reg);
 void            AUDIO_IO_Delay(uint32_t Delay);
 
-/* TOUCHSCREEN IO functions */
-void            TS_IO_Init(void);
-void            TS_IO_Write(uint8_t Addr, uint8_t Reg, uint8_t Value);
-uint8_t         TS_IO_Read(uint8_t Addr, uint8_t Reg);
-void            TS_IO_Delay(uint32_t Delay);
-
-/* CAMERA IO functions */
-void            CAMERA_IO_Init(void);
-void            CAMERA_Delay(uint32_t Delay);
-void            CAMERA_IO_Write(uint8_t Addr, uint8_t Reg, uint8_t Value);
-uint8_t         CAMERA_IO_Read(uint8_t Addr, uint8_t Reg);
+/* HDMI IO functions */
+void            HDMI_IO_Init(void);
+void            HDMI_IO_Delay(uint32_t Delay);
+void            HDMI_IO_Write(uint8_t Addr, uint8_t Reg, uint8_t Value);
+uint8_t         HDMI_IO_Read(uint8_t Addr, uint8_t Reg);
 
 /* I2C EEPROM IO function */
 void                EEPROM_IO_Init(void);
 HAL_StatusTypeDef   EEPROM_IO_WriteData(uint16_t DevAddress, uint16_t MemAddress, uint8_t* pBuffer, uint32_t BufferSize);
 HAL_StatusTypeDef   EEPROM_IO_ReadData(uint16_t DevAddress, uint16_t MemAddress, uint8_t* pBuffer, uint32_t BufferSize);
 HAL_StatusTypeDef   EEPROM_IO_IsDeviceReady(uint16_t DevAddress, uint32_t Trials);
+
+/* TouchScreen (TS) IO functions */
+void     TS_IO_Init(void);
+void     TS_IO_Write(uint8_t Addr, uint8_t Reg, uint8_t Value);
+uint8_t  TS_IO_Read(uint8_t Addr, uint8_t Reg);
+uint16_t TS_IO_ReadMultiple(uint8_t Addr, uint8_t Reg, uint8_t *Buffer, uint16_t Length);
+void     TS_IO_WriteMultiple(uint8_t Addr, uint8_t Reg, uint8_t *Buffer, uint16_t Length);
+void     TS_IO_Delay(uint32_t Delay);
+
+/* LCD Display IO functions */
+void     OTM8009A_IO_Delay(uint32_t Delay);
 /**
   * @}
   */
 
-/** @defgroup STM32746G_DISCOVERY_LOW_LEVEL_Exported_Functions STM32746G_DISCOVERY_LOW_LEVELSTM32746G_DISCOVERY_LOW_LEVEL Exported Functions
+/** @defgroup STM32F769I_Discovery_BSP_Public_Functions BSP Public Functions
   * @{
   */
 
   /**
-  * @brief  This method returns the STM32746G DISCOVERY BSP Driver revision
+  * @brief  This method returns the STM32F769I Discovery BSP Driver revision
   * @retval version: 0xXYZR (8bits for each decimal, R for RC)
   */
 uint32_t BSP_GetVersion(void)
 {
-  return __STM32746G_DISCO_BSP_VERSION;
+  return __STM32F769I_DISCOVERY_BSP_VERSION;
 }
 
 /**
-  * @brief  Configures LED on GPIO.
+  * @brief  Configures LED GPIO.
   * @param  Led: LED to be configured.
   *          This parameter can be one of the following values:
   *            @arg  LED1
+  *            @arg  LED2
   * @retval None
   */
 void BSP_LED_Init(Led_TypeDef Led)
 {
   GPIO_InitTypeDef  gpio_init_structure;
-  GPIO_TypeDef*     gpio_led;
 
-  if (Led == LED1)
-  {
-    gpio_led = LED1_GPIO_PORT;
-    /* Enable the GPIO_LED clock */
-    LED1_GPIO_CLK_ENABLE();
+  LEDx_GPIO_CLK_ENABLE();
+  /* Configure the GPIO_LED pin */
+  gpio_init_structure.Pin   = GPIO_PIN[Led];
+  gpio_init_structure.Mode  = GPIO_MODE_OUTPUT_PP;
+  gpio_init_structure.Pull  = GPIO_PULLUP;
+  gpio_init_structure.Speed = GPIO_SPEED_HIGH;
 
-    /* Configure the GPIO_LED pin */
-    gpio_init_structure.Pin = GPIO_PIN[Led];
-    gpio_init_structure.Mode = GPIO_MODE_OUTPUT_PP;
-    gpio_init_structure.Pull = GPIO_PULLUP;
-    gpio_init_structure.Speed = GPIO_SPEED_HIGH;
+  HAL_GPIO_Init(GPIO_PORT[Led], &gpio_init_structure);
 
-    HAL_GPIO_Init(gpio_led, &gpio_init_structure);
-
-    /* By default, turn off LED */
-    HAL_GPIO_WritePin(gpio_led, GPIO_PIN[Led], GPIO_PIN_RESET);
-  }
 }
+
 
 /**
   * @brief  DeInit LEDs.
   * @param  Led: LED to be configured.
   *          This parameter can be one of the following values:
   *            @arg  LED1
+  *            @arg  LED2
   * @note Led DeInit does not disable the GPIO clock
   * @retval None
   */
 void BSP_LED_DeInit(Led_TypeDef Led)
 {
   GPIO_InitTypeDef  gpio_init_structure;
-  GPIO_TypeDef*     gpio_led;
 
-  if (Led == LED1)
-  {
-    gpio_led = LED1_GPIO_PORT;
-    /* Turn off LED */
-    HAL_GPIO_WritePin(gpio_led, GPIO_PIN[Led], GPIO_PIN_RESET);
-    /* Configure the GPIO_LED pin */
-    gpio_init_structure.Pin = GPIO_PIN[Led];
-    HAL_GPIO_DeInit(gpio_led, gpio_init_structure.Pin);
-  }
+  /* DeInit the GPIO_LED pin */
+  gpio_init_structure.Pin = GPIO_PIN[Led];
+
+  /* Turn off LED */
+  HAL_GPIO_WritePin(GPIO_PORT[Led], GPIO_PIN[Led], GPIO_PIN_RESET);
+  HAL_GPIO_DeInit(GPIO_PORT[Led], gpio_init_structure.Pin);
 }
 
 /**
@@ -237,17 +217,12 @@ void BSP_LED_DeInit(Led_TypeDef Led)
   * @param  Led: LED to be set on
   *          This parameter can be one of the following values:
   *            @arg  LED1
+  *            @arg  LED2
   * @retval None
   */
 void BSP_LED_On(Led_TypeDef Led)
 {
-  GPIO_TypeDef*     gpio_led;
-
-  if (Led == LED1)  /* Switch On LED connected to GPIO */
-  {
-    gpio_led = LED1_GPIO_PORT;
-    HAL_GPIO_WritePin(gpio_led, GPIO_PIN[Led], GPIO_PIN_SET);
-  }
+  HAL_GPIO_WritePin(GPIO_PORT[Led], GPIO_PIN[Led], GPIO_PIN_SET);
 }
 
 /**
@@ -255,17 +230,12 @@ void BSP_LED_On(Led_TypeDef Led)
   * @param  Led: LED to be set off
   *          This parameter can be one of the following values:
   *            @arg  LED1
+  *            @arg  LED2
   * @retval None
   */
 void BSP_LED_Off(Led_TypeDef Led)
 {
-  GPIO_TypeDef*     gpio_led;
-
-  if (Led == LED1) /* Switch Off LED connected to GPIO */
-  {
-    gpio_led = LED1_GPIO_PORT;
-    HAL_GPIO_WritePin(gpio_led, GPIO_PIN[Led], GPIO_PIN_RESET);
-  }
+  HAL_GPIO_WritePin(GPIO_PORT[Led], GPIO_PIN[Led], GPIO_PIN_RESET);
 }
 
 /**
@@ -273,17 +243,12 @@ void BSP_LED_Off(Led_TypeDef Led)
   * @param  Led: LED to be toggled
   *          This parameter can be one of the following values:
   *            @arg  LED1
+  *            @arg  LED2
   * @retval None
   */
 void BSP_LED_Toggle(Led_TypeDef Led)
 {
-  GPIO_TypeDef*     gpio_led;
-
-  if (Led == LED1)  /* Toggle LED connected to GPIO */
-  {
-    gpio_led = LED1_GPIO_PORT;
-    HAL_GPIO_TogglePin(gpio_led, GPIO_PIN[Led]);
-  }
+  HAL_GPIO_TogglePin(GPIO_PORT[Led], GPIO_PIN[Led]);
 }
 
 /**
@@ -291,26 +256,22 @@ void BSP_LED_Toggle(Led_TypeDef Led)
   * @param  Button: Button to be configured
   *          This parameter can be one of the following values:
   *            @arg  BUTTON_WAKEUP: Wakeup Push Button
-  *            @arg  BUTTON_TAMPER: Tamper Push Button
-  *            @arg  BUTTON_KEY: Key Push Button
-  * @param  ButtonMode: Button mode
+  *            @arg  BUTTON_USER: User Push Button
+  * @param  Button_Mode: Button mode
   *          This parameter can be one of the following values:
   *            @arg  BUTTON_MODE_GPIO: Button will be used as simple IO
   *            @arg  BUTTON_MODE_EXTI: Button will be connected to EXTI line
   *                                    with interrupt generation capability
-  * @note On STM32746G-Discovery board, the three buttons (Wakeup, Tamper and key buttons)
-  *       are mapped on the same push button named "User"
-  *       on the board serigraphy.
   * @retval None
   */
-void BSP_PB_Init(Button_TypeDef Button, ButtonMode_TypeDef ButtonMode)
+void BSP_PB_Init(Button_TypeDef Button, ButtonMode_TypeDef Button_Mode)
 {
   GPIO_InitTypeDef gpio_init_structure;
 
   /* Enable the BUTTON clock */
-  BUTTONx_GPIO_CLK_ENABLE(Button);
+  BUTTON_GPIO_CLK_ENABLE();
 
-  if(ButtonMode == BUTTON_MODE_GPIO)
+  if(Button_Mode == BUTTON_MODE_GPIO)
   {
     /* Configure Button pin as input */
     gpio_init_structure.Pin = BUTTON_PIN[Button];
@@ -320,21 +281,14 @@ void BSP_PB_Init(Button_TypeDef Button, ButtonMode_TypeDef ButtonMode)
     HAL_GPIO_Init(BUTTON_PORT[Button], &gpio_init_structure);
   }
 
-  if(ButtonMode == BUTTON_MODE_EXTI)
+  if(Button_Mode == BUTTON_MODE_EXTI)
   {
     /* Configure Button pin as input with External interrupt */
     gpio_init_structure.Pin = BUTTON_PIN[Button];
     gpio_init_structure.Pull = GPIO_NOPULL;
     gpio_init_structure.Speed = GPIO_SPEED_FAST;
 
-    if(Button != BUTTON_WAKEUP)
-    {
-      gpio_init_structure.Mode = GPIO_MODE_IT_FALLING;
-    }
-    else
-    {
-      gpio_init_structure.Mode = GPIO_MODE_IT_RISING;
-    }
+    gpio_init_structure.Mode = GPIO_MODE_IT_RISING;
 
     HAL_GPIO_Init(BUTTON_PORT[Button], &gpio_init_structure);
 
@@ -349,11 +303,7 @@ void BSP_PB_Init(Button_TypeDef Button, ButtonMode_TypeDef ButtonMode)
   * @param  Button: Button to be configured
   *          This parameter can be one of the following values:
   *            @arg  BUTTON_WAKEUP: Wakeup Push Button
-  *            @arg  BUTTON_TAMPER: Tamper Push Button
-  *            @arg  BUTTON_KEY: Key Push Button
-  * @note On STM32746G-Discovery board, the three buttons (Wakeup, Tamper and key buttons)
-  *       are mapped on the same push button named "User"
-  *       on the board serigraphy.
+  *            @arg  BUTTON_USER: User Push Button
   * @note PB DeInit does not disable the GPIO clock
   * @retval None
   */
@@ -372,11 +322,7 @@ void BSP_PB_DeInit(Button_TypeDef Button)
   * @param  Button: Button to be checked
   *          This parameter can be one of the following values:
   *            @arg  BUTTON_WAKEUP: Wakeup Push Button
-  *            @arg  BUTTON_TAMPER: Tamper Push Button
-  *            @arg  BUTTON_KEY: Key Push Button
-  * @note On STM32746G-Discovery board, the three buttons (Wakeup, Tamper and key buttons)
-  *       are mapped on the same push button named "User"
-  *       on the board serigraphy.
+  *            @arg  BUTTON_USER: User Push Button
   * @retval The Button GPIO pin value
   */
 uint32_t BSP_PB_GetState(Button_TypeDef Button)
@@ -385,70 +331,13 @@ uint32_t BSP_PB_GetState(Button_TypeDef Button)
 }
 
 /**
-  * @brief  Configures COM port.
-  * @param  COM: COM port to be configured.
-  *          This parameter can be one of the following values:
-  *            @arg  COM1
-  *            @arg  COM2
-  * @param  huart: Pointer to a UART_HandleTypeDef structure that contains the
-  *                configuration information for the specified USART peripheral.
-  * @retval None
+  * @}
   */
-void BSP_COM_Init(COM_TypeDef COM, UART_HandleTypeDef *huart)
-{
-  GPIO_InitTypeDef gpio_init_structure;
 
-  /* Enable GPIO clock */
-  DISCOVERY_COMx_TX_GPIO_CLK_ENABLE(COM);
-  DISCOVERY_COMx_RX_GPIO_CLK_ENABLE(COM);
-
-  /* Enable USART clock */
-  DISCOVERY_COMx_CLK_ENABLE(COM);
-
-  /* Configure USART Tx as alternate function */
-  gpio_init_structure.Pin = COM_TX_PIN[COM];
-  gpio_init_structure.Mode = GPIO_MODE_AF_PP;
-  gpio_init_structure.Speed = GPIO_SPEED_FAST;
-  gpio_init_structure.Pull = GPIO_PULLUP;
-  gpio_init_structure.Alternate = COM_TX_AF[COM];
-  HAL_GPIO_Init(COM_TX_PORT[COM], &gpio_init_structure);
-
-  /* Configure USART Rx as alternate function */
-  gpio_init_structure.Pin = COM_RX_PIN[COM];
-  gpio_init_structure.Mode = GPIO_MODE_AF_PP;
-  gpio_init_structure.Alternate = COM_RX_AF[COM];
-  HAL_GPIO_Init(COM_RX_PORT[COM], &gpio_init_structure);
-
-  /* USART configuration */
-  huart->Instance = COM_USART[COM];
-  HAL_UART_Init(huart);
-}
-
-/**
-  * @brief  DeInit COM port.
-  * @param  COM: COM port to be configured.
-  *          This parameter can be one of the following values:
-  *            @arg  COM1
-  *            @arg  COM2
-  * @param  huart: Pointer to a UART_HandleTypeDef structure that contains the
-  *                configuration information for the specified USART peripheral.
-  * @retval None
+/** @defgroup STM32F769I_Discovery_LOW_LEVEL_Private_Functions STM32F769I_Discovery_LOW_LEVEL Private Functions
+  * @{
   */
-void BSP_COM_DeInit(COM_TypeDef COM, UART_HandleTypeDef *huart)
-{
-  /* USART configuration */
-  huart->Instance = COM_USART[COM];
-  HAL_UART_DeInit(huart);
 
-  /* Enable USART clock */
-  DISCOVERY_COMx_CLK_DISABLE(COM);
-
-  /* DeInit GPIO pins can be done in the application
-     (by surcharging this __weak function) */
-
-  /* GPIO pins clock, DMA clock can be shut down in the application
-     by surcharging this __weak function */
-}
 
 /*******************************************************************************
                             BUS OPERATIONS
@@ -466,79 +355,77 @@ static void I2Cx_MspInit(I2C_HandleTypeDef *i2c_handler)
 
   if (i2c_handler == (I2C_HandleTypeDef*)(&hI2cAudioHandler))
   {
-    /* AUDIO and LCD I2C MSP init */
+  /*** Configure the GPIOs ***/
+  /* Enable GPIO clock */
+  DISCOVERY_AUDIO_I2Cx_SCL_GPIO_CLK_ENABLE();
+  DISCOVERY_AUDIO_I2Cx_SDA_GPIO_CLK_ENABLE();
+  /* Configure I2C Tx as alternate function */
+  gpio_init_structure.Pin = DISCOVERY_AUDIO_I2Cx_SCL_PIN;
+  gpio_init_structure.Mode = GPIO_MODE_AF_OD;
+  gpio_init_structure.Pull = GPIO_NOPULL;
+  gpio_init_structure.Speed = GPIO_SPEED_FAST;
+  gpio_init_structure.Alternate = DISCOVERY_AUDIO_I2Cx_SCL_AF;
+  HAL_GPIO_Init(DISCOVERY_AUDIO_I2Cx_SCL_GPIO_PORT, &gpio_init_structure);
 
-    /*** Configure the GPIOs ***/
-    /* Enable GPIO clock */
-    DISCOVERY_AUDIO_I2Cx_SCL_SDA_GPIO_CLK_ENABLE();
+  /* Configure I2C Rx as alternate function */
+  gpio_init_structure.Pin = DISCOVERY_AUDIO_I2Cx_SDA_PIN;
+  gpio_init_structure.Alternate = DISCOVERY_AUDIO_I2Cx_SDA_AF;
+  HAL_GPIO_Init(DISCOVERY_AUDIO_I2Cx_SDA_GPIO_PORT, &gpio_init_structure);
 
-    /* Configure I2C Tx as alternate function */
-    gpio_init_structure.Pin = DISCOVERY_AUDIO_I2Cx_SCL_PIN;
-    gpio_init_structure.Mode = GPIO_MODE_AF_OD;
-    gpio_init_structure.Pull = GPIO_NOPULL;
-    gpio_init_structure.Speed = GPIO_SPEED_FAST;
-    gpio_init_structure.Alternate = DISCOVERY_AUDIO_I2Cx_SCL_SDA_AF;
-    HAL_GPIO_Init(DISCOVERY_AUDIO_I2Cx_SCL_SDA_GPIO_PORT, &gpio_init_structure);
+  /*** Configure the I2C peripheral ***/
+  /* Enable I2C clock */
+  DISCOVERY_AUDIO_I2Cx_CLK_ENABLE();
 
-    /* Configure I2C Rx as alternate function */
-    gpio_init_structure.Pin = DISCOVERY_AUDIO_I2Cx_SDA_PIN;
-    HAL_GPIO_Init(DISCOVERY_AUDIO_I2Cx_SCL_SDA_GPIO_PORT, &gpio_init_structure);
+  /* Force the I2C peripheral clock reset */
+  DISCOVERY_AUDIO_I2Cx_FORCE_RESET();
 
-    /*** Configure the I2C peripheral ***/
-    /* Enable I2C clock */
-    DISCOVERY_AUDIO_I2Cx_CLK_ENABLE();
+  /* Release the I2C peripheral clock reset */
+  DISCOVERY_AUDIO_I2Cx_RELEASE_RESET();
 
-    /* Force the I2C peripheral clock reset */
-    DISCOVERY_AUDIO_I2Cx_FORCE_RESET();
+  /* Enable and set I2C1 Interrupt to a lower priority */
+  HAL_NVIC_SetPriority(DISCOVERY_AUDIO_I2Cx_EV_IRQn, 0x0F, 0);
+  HAL_NVIC_EnableIRQ(DISCOVERY_AUDIO_I2Cx_EV_IRQn);
 
-    /* Release the I2C peripheral clock reset */
-    DISCOVERY_AUDIO_I2Cx_RELEASE_RESET();
+  /* Enable and set I2C1 Interrupt to a lower priority */
+  HAL_NVIC_SetPriority(DISCOVERY_AUDIO_I2Cx_ER_IRQn, 0x0F, 0);
+  HAL_NVIC_EnableIRQ(DISCOVERY_AUDIO_I2Cx_ER_IRQn);
 
-    /* Enable and set I2Cx Interrupt to a lower priority */
-    HAL_NVIC_SetPriority(DISCOVERY_AUDIO_I2Cx_EV_IRQn, 0x0F, 0);
-    HAL_NVIC_EnableIRQ(DISCOVERY_AUDIO_I2Cx_EV_IRQn);
-
-    /* Enable and set I2Cx Interrupt to a lower priority */
-    HAL_NVIC_SetPriority(DISCOVERY_AUDIO_I2Cx_ER_IRQn, 0x0F, 0);
-    HAL_NVIC_EnableIRQ(DISCOVERY_AUDIO_I2Cx_ER_IRQn);
   }
   else
   {
-    /* External, camera and Arduino connector I2C MSP init */
+  /*** Configure the GPIOs ***/
+  /* Enable GPIO clock */
+  DISCOVERY_EXT_I2Cx_SCL_SDA_GPIO_CLK_ENABLE();
 
-    /*** Configure the GPIOs ***/
-    /* Enable GPIO clock */
-    DISCOVERY_EXT_I2Cx_SCL_SDA_GPIO_CLK_ENABLE();
+  /* Configure I2C Tx as alternate function */
+  gpio_init_structure.Pin = DISCOVERY_EXT_I2Cx_SCL_PIN;
+  gpio_init_structure.Mode = GPIO_MODE_AF_OD;
+  gpio_init_structure.Pull = GPIO_NOPULL;
+  gpio_init_structure.Speed = GPIO_SPEED_FAST;
+  gpio_init_structure.Alternate = DISCOVERY_EXT_I2Cx_SCL_SDA_AF;
+  HAL_GPIO_Init(DISCOVERY_EXT_I2Cx_SCL_SDA_GPIO_PORT, &gpio_init_structure);
 
-    /* Configure I2C Tx as alternate function */
-    gpio_init_structure.Pin = DISCOVERY_EXT_I2Cx_SCL_PIN;
-    gpio_init_structure.Mode = GPIO_MODE_AF_OD;
-    gpio_init_structure.Pull = GPIO_NOPULL;
-    gpio_init_structure.Speed = GPIO_SPEED_FAST;
-    gpio_init_structure.Alternate = DISCOVERY_EXT_I2Cx_SCL_SDA_AF;
-    HAL_GPIO_Init(DISCOVERY_EXT_I2Cx_SCL_SDA_GPIO_PORT, &gpio_init_structure);
+  /* Configure I2C Rx as alternate function */
+  gpio_init_structure.Pin = DISCOVERY_EXT_I2Cx_SDA_PIN;
+  HAL_GPIO_Init(DISCOVERY_EXT_I2Cx_SCL_SDA_GPIO_PORT, &gpio_init_structure);
 
-    /* Configure I2C Rx as alternate function */
-    gpio_init_structure.Pin = DISCOVERY_EXT_I2Cx_SDA_PIN;
-    HAL_GPIO_Init(DISCOVERY_EXT_I2Cx_SCL_SDA_GPIO_PORT, &gpio_init_structure);
+  /*** Configure the I2C peripheral ***/
+  /* Enable I2C clock */
+  DISCOVERY_EXT_I2Cx_CLK_ENABLE();
 
-    /*** Configure the I2C peripheral ***/
-    /* Enable I2C clock */
-    DISCOVERY_EXT_I2Cx_CLK_ENABLE();
+  /* Force the I2C peripheral clock reset */
+  DISCOVERY_EXT_I2Cx_FORCE_RESET();
 
-    /* Force the I2C peripheral clock reset */
-    DISCOVERY_EXT_I2Cx_FORCE_RESET();
+  /* Release the I2C peripheral clock reset */
+  DISCOVERY_EXT_I2Cx_RELEASE_RESET();
 
-    /* Release the I2C peripheral clock reset */
-    DISCOVERY_EXT_I2Cx_RELEASE_RESET();
+  /* Enable and set I2C1 Interrupt to a lower priority */
+  HAL_NVIC_SetPriority(DISCOVERY_EXT_I2Cx_EV_IRQn, 0x0F, 0);
+  HAL_NVIC_EnableIRQ(DISCOVERY_EXT_I2Cx_EV_IRQn);
 
-    /* Enable and set I2Cx Interrupt to a lower priority */
-    HAL_NVIC_SetPriority(DISCOVERY_EXT_I2Cx_EV_IRQn, 0x0F, 0);
-    HAL_NVIC_EnableIRQ(DISCOVERY_EXT_I2Cx_EV_IRQn);
-
-    /* Enable and set I2Cx Interrupt to a lower priority */
-    HAL_NVIC_SetPriority(DISCOVERY_EXT_I2Cx_ER_IRQn, 0x0F, 0);
-    HAL_NVIC_EnableIRQ(DISCOVERY_EXT_I2Cx_ER_IRQn);
+  /* Enable and set I2C1 Interrupt to a lower priority */
+  HAL_NVIC_SetPriority(DISCOVERY_EXT_I2Cx_ER_IRQn, 0x0F, 0);
+  HAL_NVIC_EnableIRQ(DISCOVERY_EXT_I2Cx_ER_IRQn);
   }
 }
 
@@ -580,17 +467,12 @@ static void I2Cx_Init(I2C_HandleTypeDef *i2c_handler)
   * @param  i2c_handler : I2C handler
   * @param  Addr: I2C address
   * @param  Reg: Reg address
-  * @param  MemAddress: Memory address
+  * @param  MemAddress: memory address
   * @param  Buffer: Pointer to data buffer
   * @param  Length: Length of the data
-  * @retval Number of read data
+  * @retval HAL status
   */
-static HAL_StatusTypeDef I2Cx_ReadMultiple(I2C_HandleTypeDef *i2c_handler,
-                                           uint8_t Addr,
-                                           uint16_t Reg,
-                                           uint16_t MemAddress,
-                                           uint8_t *Buffer,
-                                           uint16_t Length)
+static HAL_StatusTypeDef I2Cx_ReadMultiple(I2C_HandleTypeDef *i2c_handler, uint8_t Addr, uint16_t Reg, uint16_t MemAddress, uint8_t *Buffer, uint16_t Length)
 {
   HAL_StatusTypeDef status = HAL_OK;
 
@@ -599,28 +481,24 @@ static HAL_StatusTypeDef I2Cx_ReadMultiple(I2C_HandleTypeDef *i2c_handler,
   /* Check the communication status */
   if(status != HAL_OK)
   {
-    /* I2C error occurred */
+    /* I2C error occured */
     I2Cx_Error(i2c_handler, Addr);
   }
   return status;
 }
+
 
 /**
   * @brief  Writes a value in a register of the device through BUS in using DMA mode.
   * @param  i2c_handler : I2C handler
   * @param  Addr: Device address on BUS Bus.
   * @param  Reg: The target register address to write
-  * @param  MemAddress: Memory address
+  * @param  MemAddress: memory address
   * @param  Buffer: The target register value to be written
   * @param  Length: buffer size to be written
   * @retval HAL status
   */
-static HAL_StatusTypeDef I2Cx_WriteMultiple(I2C_HandleTypeDef *i2c_handler,
-                                            uint8_t Addr,
-                                            uint16_t Reg,
-                                            uint16_t MemAddress,
-                                            uint8_t *Buffer,
-                                            uint16_t Length)
+static HAL_StatusTypeDef I2Cx_WriteMultiple(I2C_HandleTypeDef *i2c_handler, uint8_t Addr, uint16_t Reg, uint16_t MemAddress, uint8_t *Buffer, uint16_t Length)
 {
   HAL_StatusTypeDef status = HAL_OK;
 
@@ -663,6 +541,10 @@ static void I2Cx_Error(I2C_HandleTypeDef *i2c_handler, uint8_t Addr)
   I2Cx_Init(i2c_handler);
 }
 
+/**
+  * @}
+  */
+
 /*******************************************************************************
                             LINK OPERATIONS
 *******************************************************************************/
@@ -671,7 +553,6 @@ static void I2Cx_Error(I2C_HandleTypeDef *i2c_handler, uint8_t Addr)
 
 /**
   * @brief  Initializes Audio low level.
-  * @retval None
   */
 void AUDIO_IO_Init(void)
 {
@@ -679,11 +560,11 @@ void AUDIO_IO_Init(void)
 }
 
 /**
-  * @brief  Deinitializes Audio low level.
-  * @retval None
+  * @brief  DeInitializes Audio low level.
   */
 void AUDIO_IO_DeInit(void)
 {
+
 }
 
 /**
@@ -728,57 +609,8 @@ uint16_t AUDIO_IO_Read(uint8_t Addr, uint16_t Reg)
 /**
   * @brief  AUDIO Codec delay
   * @param  Delay: Delay in ms
-  * @retval None
   */
 void AUDIO_IO_Delay(uint32_t Delay)
-{
-  HAL_Delay(Delay);
-}
-
-/********************************* LINK CAMERA ********************************/
-
-/**
-  * @brief  Initializes Camera low level.
-  * @retval None
-  */
-void CAMERA_IO_Init(void)
-{
-  I2Cx_Init(&hI2cExtHandler);
-}
-
-/**
-  * @brief  Camera writes single data.
-  * @param  Addr: I2C address
-  * @param  Reg: Register address
-  * @param  Value: Data to be written
-  * @retval None
-  */
-void CAMERA_IO_Write(uint8_t Addr, uint8_t Reg, uint8_t Value)
-{
-  I2Cx_WriteMultiple(&hI2cExtHandler, Addr, (uint16_t)Reg, I2C_MEMADD_SIZE_8BIT,(uint8_t*)&Value, 1);
-}
-
-/**
-  * @brief  Camera reads single data.
-  * @param  Addr: I2C address
-  * @param  Reg: Register address
-  * @retval Read data
-  */
-uint8_t CAMERA_IO_Read(uint8_t Addr, uint8_t Reg)
-{
-  uint8_t read_value = 0;
-
-  I2Cx_ReadMultiple(&hI2cExtHandler, Addr, Reg, I2C_MEMADD_SIZE_8BIT, (uint8_t*)&read_value, 1);
-
-  return read_value;
-}
-
-/**
-  * @brief  Camera delay
-  * @param  Delay: Delay in ms
-  * @retval None
-  */
-void CAMERA_Delay(uint32_t Delay)
 {
   HAL_Delay(Delay);
 }
@@ -787,7 +619,6 @@ void CAMERA_Delay(uint32_t Delay)
 
 /**
   * @brief  Initializes peripherals used by the I2C EEPROM driver.
-  * @retval None
   */
 void EEPROM_IO_Init(void)
 {
@@ -832,7 +663,7 @@ HAL_StatusTypeDef EEPROM_IO_IsDeviceReady(uint16_t DevAddress, uint32_t Trials)
   return (I2Cx_IsDeviceReady(&hI2cExtHandler, DevAddress, Trials));
 }
 
-/********************************* LINK TOUCHSCREEN *********************************/
+/******************************** LINK TS (TouchScreen) ***********************/
 
 /**
   * @brief  Initializes Touchscreen low level.
@@ -871,7 +702,35 @@ uint8_t TS_IO_Read(uint8_t Addr, uint8_t Reg)
 }
 
 /**
-  * @brief  TS delay
+  * @brief  Reads multiple data with I2C communication
+  *         channel from TouchScreen.
+  * @param  Addr: I2C address
+  * @param  Reg: Register address
+  * @param  Buffer: Pointer to data buffer
+  * @param  Length: Length of the data
+  * @retval Number of read data
+  */
+uint16_t TS_IO_ReadMultiple(uint8_t Addr, uint8_t Reg, uint8_t *Buffer, uint16_t Length)
+{
+ return I2Cx_ReadMultiple(&hI2cAudioHandler, Addr, (uint16_t)Reg, I2C_MEMADD_SIZE_8BIT, Buffer, Length);
+}
+
+/**
+  * @brief  Writes multiple data with I2C communication
+  *         channel from MCU to TouchScreen.
+  * @param  Addr: I2C address
+  * @param  Reg: Register address
+  * @param  Buffer: Pointer to data buffer
+  * @param  Length: Length of the data
+  * @retval None
+  */
+void TS_IO_WriteMultiple(uint8_t Addr, uint8_t Reg, uint8_t *Buffer, uint16_t Length)
+{
+  I2Cx_WriteMultiple(&hI2cAudioHandler, Addr, (uint16_t)Reg, I2C_MEMADD_SIZE_8BIT, Buffer, Length);
+}
+
+/**
+  * @brief  Delay function used in TouchScreen low level driver.
   * @param  Delay: Delay in ms
   * @retval None
   */
@@ -880,6 +739,63 @@ void TS_IO_Delay(uint32_t Delay)
   HAL_Delay(Delay);
 }
 
+/**************************** LINK OTM8009A (Display driver) ******************/
+/**
+  * @brief  OTM8009A delay
+  * @param  Delay: Delay in ms
+  */
+void OTM8009A_IO_Delay(uint32_t Delay)
+{
+  HAL_Delay(Delay);
+}
+
+/**************************** LINK ADV7533 DSI-HDMI (Display driver) **********/
+/**
+  * @brief  Initializes HDMI IO low level.
+  * @retval None
+  */
+void HDMI_IO_Init(void)
+{
+  I2Cx_Init(&hI2cAudioHandler);
+}
+
+/**
+  * @brief  HDMI writes single data.
+  * @param  Addr: I2C address
+  * @param  Reg: Register address
+  * @param  Value: Data to be written
+  * @retval None
+  */
+void HDMI_IO_Write(uint8_t Addr, uint8_t Reg, uint8_t Value)
+{
+  I2Cx_WriteMultiple(&hI2cAudioHandler, Addr, (uint16_t)Reg, I2C_MEMADD_SIZE_8BIT, &Value, 1);
+}
+
+/**
+  * @brief  Reads single data with I2C communication
+  *         channel from HDMI bridge.
+  * @param  Addr: I2C address
+  * @param  Reg: Register address
+  * @retval Read data
+  */
+uint8_t HDMI_IO_Read(uint8_t Addr, uint8_t Reg)
+{
+  uint8_t value = 0x00;
+
+  I2Cx_ReadMultiple(&hI2cAudioHandler, Addr, (uint16_t)Reg, I2C_MEMADD_SIZE_8BIT, &value, 1);
+
+  return value;
+}
+
+/**
+  * @brief  HDMI delay
+  * @param  Delay: Delay in ms
+  * @retval None
+  */
+void HDMI_IO_Delay(uint32_t Delay)
+{
+  HAL_Delay(Delay);
+}
 /**
   * @}
   */

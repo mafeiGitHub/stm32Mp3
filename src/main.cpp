@@ -17,11 +17,14 @@
 #include "lwip/api.h"
 #include "ethernetif.h"
 
-
 #include "stm32746g_discovery.h"
 #include "stm32746g_discovery_ts.h"
 #include "stm32746g_discovery_audio.h"
 #include "stm32746g_discovery_sd.h"
+#include "stm32f769i_discovery.h"
+#include "stm32f769i_discovery_ts.h"
+#include "stm32f769i_discovery_audio.h"
+#include "stm32f769i_discovery_sd.h"
 
 #include "../fatfs/fatFs.h"
 #include "clcd.h"
@@ -518,7 +521,14 @@ static void uiThread (void const* argument) {
         auto yinc = pressed[touch] ? tsState.touchY[touch] - y[touch] : 0;
         x[touch] = tsState.touchX[touch];
         y[touch] = tsState.touchY[touch];
-        z[touch] = tsState.touchWeight[touch];
+
+        #ifdef STM32F746xx
+          z[touch] = tsState.touchWeight[touch];
+        #endif
+        #ifdef STM32F769xx
+          z[touch] = 0;
+        #endif
+
         if (!touch)
           mRoot->press (pressed[0], x[0], y[0], z[0], xinc, yinc);
         pressed[touch]++;

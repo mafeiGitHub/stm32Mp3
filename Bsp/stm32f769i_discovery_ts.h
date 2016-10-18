@@ -1,13 +1,13 @@
 #include "stm32f7xx.h"
-#ifdef STM32F746xx
+#ifdef STM32F769xx
 /**
   ******************************************************************************
-  * @file    stm32746g_discovery_ts.h
+  * @file    stm32f769i_discovery_ts.h
   * @author  MCD Application Team
-  * @version V1.1.1
-  * @date    02-June-2016
+  * @version V1.1.0
+  * @date    29-August-2016
   * @brief   This file contains the common defines and functions prototypes for
-  *          the stm32746g_discovery_ts.c driver.
+  *          the stm32f769i_discovery_ts.c driver.
   ******************************************************************************
   * @attention
   *
@@ -39,37 +39,38 @@
   */
 
 /* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef __STM32746G_DISCOVERY_TS_H
-#define __STM32746G_DISCOVERY_TS_H
+#ifndef __STM32F769I_DISCOVERY_TS_H
+#define __STM32F769I_DISCOVERY_TS_H
 
 #ifdef __cplusplus
  extern "C" {
 #endif
 
 /* Includes ------------------------------------------------------------------*/
-#include "stm32746g_discovery.h"
-/* Include touch screen FT5336 component Driver */
-#include "ft5336.h"
+#include "stm32f769i_discovery.h"
+//#include "stm32f769i_discovery_lcd.h"
+
+/* Include TouchScreen component driver */
+#include "ft6x06.h"
 
 /** @addtogroup BSP
   * @{
   */
 
-/** @addtogroup STM32746G_DISCOVERY
+/** @addtogroup STM32F769I-DISCOVERY
   * @{
   */
 
-/** @addtogroup STM32746G_DISCOVERY_TS
+/** @defgroup STM32F769I-DISCOVERY_TS STM32F769I-DISCOVERY TS
   * @{
   */
 
- /** @defgroup STM32746G_DISCOVERY_TS_Exported_Constants STM32746G_DISCOVERY_TS Exported Constants
+ /** @defgroup STM32F769I-DISCOVERY_TS_Exported_Constants TS Exported Constants
    * @{
    */
-
-/** @brief With FT5336 : maximum 5 touches detected simultaneously
+/** @brief With FT6206 : maximum 2 touches detected simultaneously
   */
-#define TS_MAX_NB_TOUCH                 ((uint32_t) FT5336_MAX_DETECTABLE_TOUCH)
+#define TS_MAX_NB_TOUCH                 ((uint32_t) FT6206_MAX_DETECTABLE_TOUCH)
 
 #define TS_NO_IRQ_PENDING               ((uint8_t) 0)
 #define TS_IRQ_PENDING                  ((uint8_t) 1)
@@ -79,11 +80,11 @@
 #define TS_SWAP_Y                       ((uint8_t) 0x04)
 #define TS_SWAP_XY                      ((uint8_t) 0x08)
 
-/**
-  * @}
-  */
+ /**
+   * @}
+   */
 
-/** @defgroup STM32746G_DISCOVERY_TS_Exported_Types  STM32746G_DISCOVERY_TS Exported Types
+/** @defgroup STM32F769I-DISCOVERY_TS_Exported_Types  TS Exported Types
   * @{
   */
 /**
@@ -106,20 +107,17 @@ typedef struct
 } TS_StateTypeDef;
 
 /**
-  * @}
-  */
-
-/** @defgroup STM32746G_DISCOVERY_TS_Exported_Constants STM32746G_DISCOVERY_TS Exported Constants
-  * @{
-  */
-
+ *  @brief TS_StatusTypeDef
+ *  Define BSP_TS_xxx() functions possible return value,
+ *  when status is returned by those functions.
+ */
 typedef enum
 {
   TS_OK                = 0x00, /*!< Touch Ok */
   TS_ERROR             = 0x01, /*!< Touch Error */
   TS_TIMEOUT           = 0x02, /*!< Touch Timeout */
   TS_DEVICE_NOT_FOUND  = 0x03  /*!< Touchscreen device not found */
-}TS_StatusTypeDef;
+} TS_StatusTypeDef;
 
 /**
  *  @brief TS_GestureIdTypeDef
@@ -135,8 +133,7 @@ typedef enum
   GEST_ID_MOVE_LEFT  = 0x04, /*!< Gesture Move Left */
   GEST_ID_ZOOM_IN    = 0x05, /*!< Gesture Zoom In */
   GEST_ID_ZOOM_OUT   = 0x06, /*!< Gesture Zoom Out */
-  GEST_ID_NB_MAX     = 0x07  /*!< max number of gesture id */
-
+  GEST_ID_NB_MAX     = 0x07 /*!< max number of gesture id */
 } TS_GestureIdTypeDef;
 
 /**
@@ -151,13 +148,13 @@ typedef enum
   TOUCH_EVENT_LIFT_UP       = 0x02, /*!< Touch Event Lift Up */
   TOUCH_EVENT_CONTACT       = 0x03, /*!< Touch Event Contact */
   TOUCH_EVENT_NB_MAX        = 0x04  /*!< max number of touch events kind */
-
 } TS_TouchEventTypeDef;
+
 /**
   * @}
   */
 
-/** @defgroup STM32746G_DISCOVERY_TS_Imported_Variables STM32746G_DISCOVERY_TS Imported Variables
+/** @defgroup STM32F769I-DISCOVERY_TS_Imported_Variables STM32F769I DISCOVERY TS Imported Variables
   * @{
   */
 /**
@@ -175,21 +172,23 @@ extern char * ts_gesture_id_string_tab[GEST_ID_NB_MAX];
   * @}
   */
 
-/** @addtogroup STM32746G_DISCOVERY_TS_Exported_Functions
+/** @defgroup STM32F769I-DISCOVERY_TS_Exported_Functions TS Exported Functions
   * @{
   */
 uint8_t BSP_TS_Init(uint16_t ts_SizeX, uint16_t ts_SizeY);
-uint8_t BSP_TS_DeInit(void);
 uint8_t BSP_TS_GetState(TS_StateTypeDef *TS_State);
 
 #if (TS_MULTI_TOUCH_SUPPORTED == 1)
 uint8_t BSP_TS_Get_GestureId(TS_StateTypeDef *TS_State);
+uint8_t BSP_TS_ResetTouchData(TS_StateTypeDef *TS_State);
 #endif /* TS_MULTI_TOUCH_SUPPORTED == 1 */
 
 uint8_t BSP_TS_ITConfig(void);
-uint8_t BSP_TS_ITGetStatus(void);
-void    BSP_TS_ITClear(void);
-uint8_t BSP_TS_ResetTouchData(TS_StateTypeDef *TS_State);
+
+/* These __weak function can be surcharged by application code in case the current settings
+   need to be changed for specific (example GPIO allocation) */
+void BSP_TS_INT_MspInit(void);
+
 /**
   * @}
   */
@@ -211,7 +210,7 @@ uint8_t BSP_TS_ResetTouchData(TS_StateTypeDef *TS_State);
 }
 #endif
 
-#endif /* __STM32746G_DISCOVERY_TS_H */
+#endif /* __STM32F769I_DISCOVERY_TS_H */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
 #endif

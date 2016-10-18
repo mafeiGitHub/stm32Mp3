@@ -6,6 +6,8 @@
 #include "diskio.h"
 
 #include "stm32746g_discovery_sd.h"
+#include "stm32F769i_discovery_sd.h"
+
 #include "cLcd.h"
 
 static volatile DSTATUS Stat = STA_NOINIT;

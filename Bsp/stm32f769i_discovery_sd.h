@@ -1,13 +1,13 @@
 #include "stm32f7xx.h"
-#ifdef STM32F746xx
+#ifdef STM32F769xx
 /**
   ******************************************************************************
-  * @file    stm32746g_discovery_sd.h
+  * @file    stm32f769i_discovery_sd.h
   * @author  MCD Application Team
-  * @version V1.1.1
-  * @date    02-June-2016
+  * @version V1.1.0
+  * @date    29-August-2016
   * @brief   This file contains the common defines and functions prototypes for
-  *          the stm32746g_discovery_sd.c driver.
+  *          the stm32f769i_discovery_sd.c driver.
   ******************************************************************************
   * @attention
   *
@@ -39,29 +39,29 @@
   */
 
 /* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef __STM32746G_DISCOVERY_SD_H
-#define __STM32746G_DISCOVERY_SD_H
+#ifndef __STM32F769I_DISCOVERY_SD_H
+#define __STM32F769I_DISCOVERY_SD_H
 
 #ifdef __cplusplus
  extern "C" {
 #endif
 
 /* Includes ------------------------------------------------------------------*/
-#include "stm32746g_discovery.h"
+#include "stm32f769i_discovery.h"
 
 /** @addtogroup BSP
   * @{
   */
 
-/** @addtogroup STM32746G_DISCOVERY
+/** @addtogroup STM32F769I-Discovery
   * @{
   */
 
-/** @addtogroup STM32746G_DISCOVERY_SD
+/** @defgroup STM32F769I-Discovery_SD STM32F769I-Discovery SD
   * @{
   */
 
-/** @defgroup STM32746G_DISCOVERY_SD_Exported_Types STM32746G_DISCOVERY_SD Exported Types
+/** @defgroup STM32F769I-Discovery_SD_Exported_Types SD Exported Types
   * @{
   */
 
@@ -76,11 +76,11 @@
 /**
   * @brief  SD status structure definition
   */
-#define MSD_OK                        ((uint8_t)0x00)
-#define MSD_ERROR                     ((uint8_t)0x01)
-#define MSD_ERROR_SD_NOT_PRESENT      ((uint8_t)0x02)
+#define   MSD_OK                        ((uint8_t)0x00)
+#define   MSD_ERROR                     ((uint8_t)0x01)
+#define   MSD_ERROR_SD_NOT_PRESENT      ((uint8_t)0x02)
 
-/** @defgroup STM32746G_DISCOVERY_SD_Exported_Constants STM32746G_DISCOVERY_SD Exported Constants
+/** @defgroup STM32F769I-Discovery_SD_Exported_Constants SD Exported Constants
   * @{
   */
 #define SD_PRESENT               ((uint8_t)0x01)
@@ -90,35 +90,37 @@
 
 /* DMA definitions for SD DMA transfer */
 #define __DMAx_TxRx_CLK_ENABLE            __HAL_RCC_DMA2_CLK_ENABLE
-#define SD_DMAx_Tx_CHANNEL                DMA_CHANNEL_4
-#define SD_DMAx_Rx_CHANNEL                DMA_CHANNEL_4
-#define SD_DMAx_Tx_STREAM                 DMA2_Stream6
-#define SD_DMAx_Rx_STREAM                 DMA2_Stream3
-#define SD_DMAx_Tx_IRQn                   DMA2_Stream6_IRQn
-#define SD_DMAx_Rx_IRQn                   DMA2_Stream3_IRQn
-#define BSP_SDMMC_IRQHandler              SDMMC1_IRQHandler
-#define BSP_SDMMC_DMA_Tx_IRQHandler       DMA2_Stream6_IRQHandler
-#define BSP_SDMMC_DMA_Rx_IRQHandler       DMA2_Stream3_IRQHandler
+#define SD_DMAx_Tx_CHANNEL                DMA_CHANNEL_11
+#define SD_DMAx_Rx_CHANNEL                DMA_CHANNEL_11
+#define SD_DMAx_Tx_STREAM                 DMA2_Stream5
+#define SD_DMAx_Rx_STREAM                 DMA2_Stream0
+#define SD_DMAx_Tx_IRQn                   DMA2_Stream5_IRQn
+#define SD_DMAx_Rx_IRQn                   DMA2_Stream0_IRQn
+#define BSP_SDMMC_IRQHandler              SDMMC2_IRQHandler
+#define BSP_SDMMC_DMA_Tx_IRQHandler       DMA2_Stream5_IRQHandler
+#define BSP_SDMMC_DMA_Rx_IRQHandler       DMA2_Stream0_IRQHandler
 #define SD_DetectIRQHandler()             HAL_GPIO_EXTI_IRQHandler(SD_DETECT_PIN)
+
+
 /**
   * @}
   */
 
-/** @defgroup STM32746G_DISCOVERY_SD_Exported_Macro STM32746G_DISCOVERY_SD Exported Macro
+/** @defgroup STM32F769I-Discovery_SD_Exported_Macro STM32F769I Discovery SD Exported Macro
   * @{
   */
 /**
   * @}
   */
 
-/** @addtogroup STM32746G_DISCOVERY_SD_Exported_Functions
+/** @defgroup STM32F769I-Discovery_SD_Exported_Functions STM32F769I Discovery SD Exported Functions
   * @{
   */
 uint8_t BSP_SD_Init(void);
 uint8_t BSP_SD_DeInit(void);
 uint8_t BSP_SD_ITConfig(void);
-void    BSP_SD_DetectIT(void);
-void    BSP_SD_DetectCallback(void);
+
+
 uint8_t BSP_SD_ReadBlocks(uint32_t *pData, uint64_t ReadAddr, uint32_t BlockSize, uint32_t NumOfBlocks);
 uint8_t BSP_SD_WriteBlocks(uint32_t *pData, uint64_t WriteAddr, uint32_t BlockSize, uint32_t NumOfBlocks);
 uint8_t BSP_SD_ReadBlocks_DMA(uint32_t *pData, uint64_t ReadAddr, uint32_t BlockSize, uint32_t NumOfBlocks);
@@ -128,8 +130,8 @@ HAL_SD_TransferStateTypedef BSP_SD_GetStatus(void);
 void    BSP_SD_GetCardInfo(HAL_SD_CardInfoTypedef *CardInfo);
 uint8_t BSP_SD_IsDetected(void);
 
-/* These functions can be modified in case the current settings (e.g. DMA stream)
-   need to be changed for specific application needs */
+/* These __weak function can be surcharged by application code in case the current settings (e.g. DMA stream)
+   need to be changed for specific needs */
 void    BSP_SD_MspInit(SD_HandleTypeDef *hsd, void *Params);
 void    BSP_SD_Detect_MspInit(SD_HandleTypeDef *hsd, void *Params);
 void    BSP_SD_MspDeInit(SD_HandleTypeDef *hsd, void *Params);
@@ -154,7 +156,7 @@ void    BSP_SD_MspDeInit(SD_HandleTypeDef *hsd, void *Params);
 }
 #endif
 
-#endif /* __STM32746G_DISCOVERY_SD_H */
+#endif /* __STM32F769I_DISCOVERY_SD_H */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
 #endif
