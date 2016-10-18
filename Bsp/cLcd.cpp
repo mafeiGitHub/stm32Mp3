@@ -345,11 +345,6 @@ static DSI_VidCfgTypeDef hdsivideo_handle;
 //}}}
 void OTM8009A_IO_Delay (uint32_t Delay);
 //{{{
-static void DSI_LCD_Reset() {
-
-  }
-//}}}
-//{{{
 static void DSI_IO_WriteCmd (uint32_t NbrParams, uint8_t* pParams) {
 
   if (NbrParams <= 1)
