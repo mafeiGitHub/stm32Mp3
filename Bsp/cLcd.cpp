@@ -6,7 +6,7 @@
 #include <iomanip>
 
 #include "memory.h"
-#include "stm32746g_disco.h"
+#include "stm32746g_discovery.h"
 #include "stm32f7xx_hal_dma2d.h"
 
 #include "cLcd.h"
@@ -32,134 +32,17 @@ extern const uint8_t freeSansBold[64228];
 
 #define kWipe  1
 #define kStamp 2
-//}}}
-//{{{  static vars
-static uint32_t curFrameBufferAddress;
-static uint32_t setFrameBufferAddress[2];
-static uint32_t showFrameBufferAddress[2];
-static uint8_t showAlpha[2];
 
-//{{{  struct tLTDC
-typedef struct {
-  osSemaphoreId sem;
-  uint32_t timeouts;
-  uint32_t lineIrq;
-  uint32_t fifoUnderunIrq;
-  uint32_t transferErrorIrq;
-  uint32_t lastTicks;
-  uint32_t lineTicks;
-  uint32_t frameWait;
-  } tLTDC;
-//}}}
-static tLTDC ltdc;
-
-static uint32_t* mDma2dBuf = nullptr;
-static uint32_t* mDma2dIsrBuf = nullptr;
-static osSemaphoreId mDma2dSem;
-
-#define maxChars 0x60
-//{{{  struct tFontChar
-typedef struct {
-  uint8_t* bitmap;
-  int16_t left;
-  int16_t top;
-  int16_t pitch;
-  int16_t rows;
-  int16_t advance;
-  } tFontChar;
-//}}}
-static tFontChar* chars[maxChars];
-
-static FT_Library FTlibrary;
-static FT_Face FTface;
-static FT_GlyphSlot FTglyphSlot;
-//}}}
-
-LTDC_HandleTypeDef hLtdc;
-//{{{
-void LCD_LTDC_IRQHandler() {
-
-  if (LTDC->ISR & LTDC_IT_FU) ltdc.fifoUnderunIrq++;
-  if (LTDC->ISR & LTDC_IT_TE) ltdc.transferErrorIrq++;
-
-  // line interrupt
-  if (LTDC->ISR & LTDC_IT_LI) {
-    // switch showFrameBuffer
-    LTDC_Layer_TypeDef* ltdcLayer = (LTDC_Layer_TypeDef*)((uint32_t)LTDC + 0x84); // + (0x80*layer));
-    ltdcLayer->CFBAR = showFrameBufferAddress[0];
-    if (showAlpha[0]) {
-      ltdcLayer->CR |= LTDC_LxCR_LEN;
-      ltdcLayer->CACR &= ~LTDC_LxCACR_CONSTA;
-      ltdcLayer->CACR = showAlpha[0];
-      }
-    else
-      ltdcLayer->CR &= ~LTDC_LxCR_LEN;
-    LTDC->SRCR |= LTDC_SRCR_IMR;
-
-    ltdc.lineTicks = osKernelSysTick() - ltdc.lastTicks;
-    ltdc.lastTicks = osKernelSysTick();
-    ltdc.lineIrq++;
-
-    if (ltdc.frameWait)
-      osSemaphoreRelease (ltdc.sem);
-    ltdc.frameWait = 0;
-    }
-
-  LTDC->ICR = LTDC_FLAG_LI | LTDC_FLAG_FU | LTDC_FLAG_TE;
-  }
-//}}}
-//{{{
-void LCD_DMA2D_IRQHandler() {
-
-  // clear interrupt flags
-  DMA2D->IFCR = DMA2D_ISR_TCIF | DMA2D_ISR_TEIF | DMA2D_ISR_CEIF;
-
-  while (true) {
-    switch (*mDma2dIsrBuf++) {
-      case kWipe:
-        DMA2D->OCOLR = *mDma2dIsrBuf++;  // colour
-        DMA2D->OMAR  = *mDma2dIsrBuf++;  // fb start address
-        DMA2D->OOR   = *mDma2dIsrBuf++;  // stride
-        DMA2D->NLR   = *mDma2dIsrBuf++;  // width:height
-        DMA2D->CR = DMA2D_R2M | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
-        return;
-
-      case kStamp:
-        DMA2D->FGCOLR = *mDma2dIsrBuf++; // src color
-        DMA2D->OMAR   = *mDma2dIsrBuf;   // bgnd fb start address
-        DMA2D->BGMAR  = *mDma2dIsrBuf++;
-        DMA2D->OOR    = *mDma2dIsrBuf;   // bgnd stride
-        DMA2D->BGOR   = *mDma2dIsrBuf++;
-        DMA2D->NLR    = *mDma2dIsrBuf++; // width:height
-        DMA2D->FGMAR  = *mDma2dIsrBuf++; // src start address
-        DMA2D->CR = DMA2D_M2M_BLEND | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
-        return;
-
-      default: // normally 0
-        // no more opCodes, disable interrupts and release semaphore to signal done
-        DMA2D->CR = 0;
-        mDma2dIsrBuf = mDma2dBuf;
-        osSemaphoreRelease (mDma2dSem);
-        return;
-      }
-    }
-  }
-//}}}
-
-cLcd* cLcd::mLcd = nullptr;
-
-#ifdef STM32F769xx
-//{{{  defines
+// DSI lcd
 #define LCD_OTM8009A_ID  ((uint32_t) 0)
 #define LCD_DSI_PIXEL_DATA_FMT_RBG888  DSI_RGB888 /*!< DSI packet pixel format chosen is RGB888 : 24 bpp */
 #define LCD_DSI_PIXEL_DATA_FMT_RBG565  DSI_RGB565 /*!< DSI packet pixel format chosen is RGB565 : 16 bpp */
 
-typedef enum
-{
+typedef enum {
   LCD_ORIENTATION_PORTRAIT  = 0x00, /*!< Portrait orientation choice of LCD screen  */
   LCD_ORIENTATION_LANDSCAPE = 0x01, /*!< Landscape orientation choice of LCD screen */
   LCD_ORIENTATION_INVALID   = 0x02  /*!< Invalid orientation choice of LCD screen   */
-} LCD_OrientationTypeDef;
+  } LCD_OrientationTypeDef;
 //{{{  OTM8009A defines
 #define OTM8009A_ORIENTATION_PORTRAIT    ((uint32_t)0x00) /* Portrait orientation choice of LCD screen  */
 #define OTM8009A_ORIENTATION_LANDSCAPE   ((uint32_t)0x01) /* Landscape orientation choice of LCD screen */
@@ -337,12 +220,126 @@ const uint8_t lcdRegData28[] = {0x00, 0x00, 0x01, 0xDF, OTM8009A_CMD_PASET};
 //}}}
 //}}}
 //{{{  static vars
-static uint32_t lcd_x_size = OTM8009A_800X480_WIDTH;
-static uint32_t lcd_y_size = OTM8009A_800X480_HEIGHT;
+#ifdef STM32F769xx
+  static DSI_HandleTypeDef hdsi_discovery;
+  static DSI_VidCfgTypeDef hdsivideo_handle;
+#endif
 
-static DSI_HandleTypeDef hdsi_discovery;
-static DSI_VidCfgTypeDef hdsivideo_handle;
+//{{{  struct tLTDC
+typedef struct {
+  osSemaphoreId sem;
+  uint32_t timeouts;
+  uint32_t lineIrq;
+  uint32_t fifoUnderunIrq;
+  uint32_t transferErrorIrq;
+  uint32_t lastTicks;
+  uint32_t lineTicks;
+  uint32_t frameWait;
+  } tLTDC;
 //}}}
+static tLTDC ltdc;
+
+static uint32_t* mDma2dBuf = nullptr;
+static uint32_t* mDma2dIsrBuf = nullptr;
+static osSemaphoreId mDma2dSem;
+
+static uint32_t curFrameBufferAddress;
+static uint32_t setFrameBufferAddress[2];
+static uint32_t showFrameBufferAddress[2];
+static uint8_t showAlpha[2];
+
+#define maxChars 0x60
+//{{{  struct tFontChar
+typedef struct {
+  uint8_t* bitmap;
+  int16_t left;
+  int16_t top;
+  int16_t pitch;
+  int16_t rows;
+  int16_t advance;
+  } tFontChar;
+//}}}
+static tFontChar* chars[maxChars];
+
+static FT_Library FTlibrary;
+static FT_Face FTface;
+static FT_GlyphSlot FTglyphSlot;
+//}}}
+
+LTDC_HandleTypeDef hLtdc;
+//{{{
+void LCD_LTDC_IRQHandler() {
+
+  if (LTDC->ISR & LTDC_IT_FU) ltdc.fifoUnderunIrq++;
+  if (LTDC->ISR & LTDC_IT_TE) ltdc.transferErrorIrq++;
+
+  // line interrupt
+  if (LTDC->ISR & LTDC_IT_LI) {
+    // switch showFrameBuffer
+    LTDC_Layer_TypeDef* ltdcLayer = (LTDC_Layer_TypeDef*)((uint32_t)LTDC + 0x84); // + (0x80*layer));
+    ltdcLayer->CFBAR = showFrameBufferAddress[0];
+    if (showAlpha[0]) {
+      ltdcLayer->CR |= LTDC_LxCR_LEN;
+      ltdcLayer->CACR &= ~LTDC_LxCACR_CONSTA;
+      ltdcLayer->CACR = showAlpha[0];
+      }
+    else
+      ltdcLayer->CR &= ~LTDC_LxCR_LEN;
+    LTDC->SRCR |= LTDC_SRCR_IMR;
+
+    ltdc.lineTicks = osKernelSysTick() - ltdc.lastTicks;
+    ltdc.lastTicks = osKernelSysTick();
+    ltdc.lineIrq++;
+
+    if (ltdc.frameWait)
+      osSemaphoreRelease (ltdc.sem);
+    ltdc.frameWait = 0;
+    }
+
+  LTDC->ICR = LTDC_FLAG_LI | LTDC_FLAG_FU | LTDC_FLAG_TE;
+  }
+//}}}
+//{{{
+void LCD_DMA2D_IRQHandler() {
+
+  // clear interrupt flags
+  DMA2D->IFCR = DMA2D_ISR_TCIF | DMA2D_ISR_TEIF | DMA2D_ISR_CEIF;
+
+  while (true) {
+    switch (*mDma2dIsrBuf++) {
+      case kWipe:
+        DMA2D->OCOLR = *mDma2dIsrBuf++;  // colour
+        DMA2D->OMAR  = *mDma2dIsrBuf++;  // fb start address
+        DMA2D->OOR   = *mDma2dIsrBuf++;  // stride
+        DMA2D->NLR   = *mDma2dIsrBuf++;  // width:height
+        DMA2D->CR = DMA2D_R2M | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
+        return;
+
+      case kStamp:
+        DMA2D->FGCOLR = *mDma2dIsrBuf++; // src color
+        DMA2D->OMAR   = *mDma2dIsrBuf;   // bgnd fb start address
+        DMA2D->BGMAR  = *mDma2dIsrBuf++;
+        DMA2D->OOR    = *mDma2dIsrBuf;   // bgnd stride
+        DMA2D->BGOR   = *mDma2dIsrBuf++;
+        DMA2D->NLR    = *mDma2dIsrBuf++; // width:height
+        DMA2D->FGMAR  = *mDma2dIsrBuf++; // src start address
+        DMA2D->CR = DMA2D_M2M_BLEND | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
+        return;
+
+      default: // normally 0
+        // no more opCodes, disable interrupts and release semaphore to signal done
+        DMA2D->CR = 0;
+        mDma2dIsrBuf = mDma2dBuf;
+        osSemaphoreRelease (mDma2dSem);
+        return;
+      }
+    }
+  }
+//}}}
+
+cLcd* cLcd::mLcd = nullptr;
+
+#ifdef STM32F769xx
 //{{{
 static void DSI_IO_WriteCmd (uint32_t NbrParams, uint8_t* pParams) {
 
@@ -1335,13 +1332,8 @@ void cLcd::ltdcInit (uint32_t frameBufferAddress) {
   hdsi_discovery.Init.TXEscapeCkdiv = laneByteClk_kHz/15620; // TXEscapeCkdiv = f(LaneByteClk)/15.62 = 4
   HAL_DSI_Init (&(hdsi_discovery), &(dsiPllInit));
 
-  //  lcd_x_size = OTM8009A_480X800_WIDTH;  /* 480 */
-  //  lcd_y_size = OTM8009A_480X800_HEIGHT; /* 800 */
-  lcd_x_size = OTM8009A_800X480_WIDTH;  /* 800 */
-  lcd_y_size = OTM8009A_800X480_HEIGHT; /* 480 */
-
-  uint32_t HACT = lcd_x_size; /*!< Horizontal Active time in units of lcdClk = imageSize X in pixels to display */
-  uint32_t VACT = lcd_y_size; /*!< Vertical Active time in units of lines = imageSize Y in pixels to display */
+  uint32_t HACT = getWidth(); /*!< Horizontal Active time in units of lcdClk = imageSize X in pixels to display */
+  uint32_t VACT = getHeight(); /*!< Vertical Active time in units of lines = imageSize Y in pixels to display */
 
   // The following values are same for portrait and landscape orientations
   uint32_t VSA = OTM8009A_480X800_VSYNC; // 12  - Vertical start active time in units of lines
@@ -1383,12 +1375,12 @@ void cLcd::ltdcInit (uint32_t frameBufferAddress) {
   /* Timing Configuration */
   hLtdc.Init.HorizontalSync = (HSA - 1);
   hLtdc.Init.AccumulatedHBP = (HSA + HBP - 1);
-  hLtdc.Init.AccumulatedActiveW = (lcd_x_size + HSA + HBP - 1);
-  hLtdc.Init.TotalWidth = (lcd_x_size + HSA + HBP + HFP - 1);
+  hLtdc.Init.AccumulatedActiveW = (getWidth() + HSA + HBP - 1);
+  hLtdc.Init.TotalWidth = (getWidth() + HSA + HBP + HFP - 1);
 
   /* Initialize the LCD pixel width and pixel height */
-  hLtdc.LayerCfg->ImageWidth  = lcd_x_size;
-  hLtdc.LayerCfg->ImageHeight = lcd_y_size;
+  hLtdc.LayerCfg->ImageWidth  = getWidth();
+  hLtdc.LayerCfg->ImageHeight = getHeight();
 
   // LCD clock configuration
   // Note: The following values should not be changed as the PLLSAI is also used to clock the USB FS
