@@ -24,3 +24,7 @@ void DMA2D_IRQHandler();
 void DMA2_Stream3_IRQHandler();
 void DMA2_Stream6_IRQHandler();
 void SDMMC1_IRQHandler();
+
+void DMA2_Stream0_IRQHandler();
+void DMA2_Stream5_IRQHandler();
+void SDMMC2_IRQHandler();

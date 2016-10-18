@@ -2,7 +2,7 @@
 #include "stm32f7xx_it.h"
 
 #include "stm32f7xx_hal.h"
-#include "stm32F7_disco_sd.h"
+#include "stm32f7_disco_sd.h"
 #include "stm32F7_disco_audio.h"
 
 #include "cmsis_os.h"
@@ -31,6 +31,8 @@ void AUDIO_OUT_SAIx_DMAx_IRQHandler() { HAL_DMA_IRQHandler (haudio_out_sai.hdmat
 void LTDC_IRQHandler() { LCD_LTDC_IRQHandler(); }
 void DMA2D_IRQHandler() { LCD_DMA2D_IRQHandler(); }
 
-void DMA2_Stream3_IRQHandler() { BSP_SD_DMA_Rx_IRQHandler(); }
-void DMA2_Stream6_IRQHandler() { BSP_SD_DMA_Tx_IRQHandler(); }
-void SDMMC1_IRQHandler() { BSP_SD_IRQHandler(); }
+void DMA2_Stream3_IRQHandler() { BSP_SDMMC_DMA_Rx_IRQHandler(); }
+void DMA2_Stream6_IRQHandler() { BSP_SDMMC_DMA_Tx_IRQHandler(); }
+void SDMMC1_IRQHandler() { BSP_SDMMC_IRQHandler(); }
+
+void SDMMC2_IRQHandler() { BSP_SDMMC_IRQHandler(); }
