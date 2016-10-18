@@ -343,6 +343,7 @@ static uint32_t lcd_y_size = OTM8009A_800X480_HEIGHT;
 static DSI_HandleTypeDef hdsi_discovery;
 static DSI_VidCfgTypeDef hdsivideo_handle;
 //}}}
+void OTM8009A_IO_Delay (uint32_t Delay);
 //{{{
 static void DSI_IO_WriteCmd (uint32_t NbrParams, uint8_t* pParams) {
 
@@ -369,12 +370,12 @@ static void OTM8009A_Init (uint32_t ColorCoding, uint32_t orientation) {
   /* -> Source output level during porch and non-display area to GND */
   DSI_IO_WriteCmd (0, (uint8_t*)ShortRegData2);
   DSI_IO_WriteCmd (0, (uint8_t*)ShortRegData3);
-  HAL_Delay(10);
+  OTM8009A_IO_Delay(10);
 
   /* Not documented */
   DSI_IO_WriteCmd (0, (uint8_t*)ShortRegData4);
   DSI_IO_WriteCmd (0, (uint8_t*)ShortRegData5);
-  HAL_Delay(10);
+  OTM8009A_IO_Delay(10);
 
   /* PWR_CTRL4 - 0xC4B0h - 178th parameter - Default 0xA8 */
   /* Set gvdd_en_test                                     */
@@ -534,7 +535,7 @@ static void OTM8009A_Init (uint32_t ColorCoding, uint32_t orientation) {
   DSI_IO_WriteCmd (0, (uint8_t*)ShortRegData36);
 
   /* Wait for sleep out exit*/
-  HAL_Delay (120);
+  OTM8009A_IO_Delay (120);
 
   switch (ColorCoding) {
     case OTM8009A_FORMAT_RBG565 : /* Set Pixel color format to RGB565 */
@@ -569,6 +570,130 @@ static void OTM8009A_Init (uint32_t ColorCoding, uint32_t orientation) {
   /* Send Command GRAM memory write (no parameters) : this initiates frame write via other DSI commands sent by */
   /* DSI host from LTDC incoming pixels in video mode */
   DSI_IO_WriteCmd (0, (uint8_t*)ShortRegData45);
+  }
+//}}}
+//{{{
+void DSI_LCD_Init() {
+
+  uint32_t LcdClock  = 27429; /*!< LcdClk = 27429 kHz */
+
+  //{{{  Toggle Hardware Reset of the DSI LCD using * its XRES signal (active low) */
+  __HAL_RCC_GPIOJ_CLK_ENABLE();
+
+  // Configure the GPIO on PJ15
+  GPIO_InitTypeDef gpio_init_structure;
+  gpio_init_structure.Pin   = GPIO_PIN_15;
+  gpio_init_structure.Mode  = GPIO_MODE_OUTPUT_PP;
+  gpio_init_structure.Pull  = GPIO_PULLUP;
+  gpio_init_structure.Speed = GPIO_SPEED_HIGH;
+  HAL_GPIO_Init (GPIOJ, &gpio_init_structure);
+
+  // pulse XRES active low
+  HAL_GPIO_WritePin (GPIOJ, GPIO_PIN_15, GPIO_PIN_RESET);
+  HAL_Delay(20);
+  HAL_GPIO_WritePin (GPIOJ, GPIO_PIN_15, GPIO_PIN_SET);
+  HAL_Delay(10);
+  //}}}
+
+  // MSP Initialize set IP blocks LTDC, DSI and DMA2D  out of reset clocked  NVIC IRQ related to IP blocks enabled
+  //BSP_LCD_MspInit();
+
+  // DSI Init, set base address of DSI Host/Wrapper registers
+  hdsi_discovery.Instance = DSI;
+  HAL_DSI_DeInit (&(hdsi_discovery));
+
+  DSI_PLLInitTypeDef dsiPllInit;
+  dsiPllInit.PLLNDIV = 100;
+  dsiPllInit.PLLIDF = DSI_PLL_IN_DIV5;
+  dsiPllInit.PLLODF = DSI_PLL_OUT_DIV1;
+  uint32_t laneByteClk_kHz = 62500; /* 500 MHz / 8 = 62.5 MHz = 62500 kHz */
+  hdsi_discovery.Init.NumberOfLanes = DSI_TWO_DATA_LANES;
+  hdsi_discovery.Init.TXEscapeCkdiv = laneByteClk_kHz/15620; // TXEscapeCkdiv = f(LaneByteClk)/15.62 = 4
+  HAL_DSI_Init (&(hdsi_discovery), &(dsiPllInit));
+
+  //  lcd_x_size = OTM8009A_480X800_WIDTH;  /* 480 */
+  //  lcd_y_size = OTM8009A_480X800_HEIGHT; /* 800 */
+  lcd_x_size = OTM8009A_800X480_WIDTH;  /* 800 */
+  lcd_y_size = OTM8009A_800X480_HEIGHT; /* 480 */
+
+  uint32_t HACT = lcd_x_size; /*!< Horizontal Active time in units of lcdClk = imageSize X in pixels to display */
+  uint32_t VACT = lcd_y_size; /*!< Vertical Active time in units of lines = imageSize Y in pixels to display */
+
+  // The following values are same for portrait and landscape orientations
+  uint32_t VSA = OTM8009A_480X800_VSYNC; // 12  - Vertical start active time in units of lines
+  uint32_t VBP = OTM8009A_480X800_VBP;   // 12  - Vertical Back Porch time in units of lines
+  uint32_t VFP = OTM8009A_480X800_VFP;   // 12  - Vertical Front Porch time in units of lines
+  uint32_t HSA = OTM8009A_480X800_HSYNC; // 63  - Horizontal start active time in units of lcdClk
+  uint32_t HBP = OTM8009A_480X800_HBP;   // 120 - Horizontal Back Porch time in units of lcdClk
+  uint32_t HFP = OTM8009A_480X800_HFP;   // 120 - Horizontal Front Porch time in units of lcdClk
+
+  hdsivideo_handle.ColorCoding          = LCD_DSI_PIXEL_DATA_FMT_RBG888;
+  hdsivideo_handle.VSPolarity           = DSI_VSYNC_ACTIVE_HIGH;
+  hdsivideo_handle.HSPolarity           = DSI_HSYNC_ACTIVE_HIGH;
+  hdsivideo_handle.DEPolarity           = DSI_DATA_ENABLE_ACTIVE_HIGH;
+  hdsivideo_handle.Mode                 = DSI_VID_MODE_BURST; /* Mode Video burst ie : one LgP per line */
+  hdsivideo_handle.NullPacketSize       = 0xFFF;
+  hdsivideo_handle.NumberOfChunks       = 0;
+  hdsivideo_handle.PacketSize           = HACT; /* Value depending on display orientation choice portrait/landscape */
+  hdsivideo_handle.HorizontalSyncActive = (HSA * laneByteClk_kHz) / LcdClock;
+  hdsivideo_handle.HorizontalBackPorch  = (HBP * laneByteClk_kHz) / LcdClock;
+  hdsivideo_handle.HorizontalLine       = ((HACT + HSA + HBP + HFP) * laneByteClk_kHz)/LcdClock; /* Value depending on display orientation choice portrait/landscape */
+  hdsivideo_handle.VerticalSyncActive   = VSA;
+  hdsivideo_handle.VerticalBackPorch    = VBP;
+  hdsivideo_handle.VerticalFrontPorch   = VFP;
+  hdsivideo_handle.VerticalActive       = VACT; /* Value depending on display orientation choice portrait/landscape */
+  hdsivideo_handle.LPCommandEnable      = DSI_LP_COMMAND_ENABLE; // Enable sending LP command while streaming active in video mode */
+  hdsivideo_handle.LPLargestPacketSize  = 16; // Largest packet size possible to transmit in LP mode in VSA, VBP, VFP regions
+  hdsivideo_handle.LPVACTLargestPacketSize = 0;  // Largest packet size possible to transmit in LP mode in HFP region during VACT period
+  hdsivideo_handle.LPHorizontalFrontPorchEnable = DSI_LP_HFP_ENABLE;    /* Allow sending LP commands during HFP period */
+  hdsivideo_handle.LPHorizontalBackPorchEnable  = DSI_LP_HBP_ENABLE;    /* Allow sending LP commands during HBP period */
+  hdsivideo_handle.LPVerticalActiveEnable       = DSI_LP_VACT_ENABLE;   /* Allow sending LP commands during VACT period */
+  hdsivideo_handle.LPVerticalFrontPorchEnable   = DSI_LP_VFP_ENABLE;    /* Allow sending LP commands during VFP period */
+  hdsivideo_handle.LPVerticalBackPorchEnable    = DSI_LP_VBP_ENABLE;    /* Allow sending LP commands during VBP period */
+  hdsivideo_handle.LPVerticalSyncActiveEnable    = DSI_LP_VSYNC_ENABLE; /* Allow sending LP commands during VSync = VSA period */
+  HAL_DSI_ConfigVideoMode (&(hdsi_discovery), &(hdsivideo_handle));
+
+  /************************LTDC Initialization***********************************/
+  /* Timing Configuration */
+  hLtdc.Init.HorizontalSync = (HSA - 1);
+  hLtdc.Init.AccumulatedHBP = (HSA + HBP - 1);
+  hLtdc.Init.AccumulatedActiveW = (lcd_x_size + HSA + HBP - 1);
+  hLtdc.Init.TotalWidth = (lcd_x_size + HSA + HBP + HFP - 1);
+
+  /* Initialize the LCD pixel width and pixel height */
+  hLtdc.LayerCfg->ImageWidth  = lcd_x_size;
+  hLtdc.LayerCfg->ImageHeight = lcd_y_size;
+
+  // LCD clock configuration
+  // Note: The following values should not be changed as the PLLSAI is also used to clock the USB FS
+  // PLLSAI_VCO Input = HSE_VALUE/PLL_M = 1 Mhz
+  // PLLSAI_VCO Output = PLLSAI_VCO Input * PLLSAIN = 384 Mhz
+  // PLLLCDCLK = PLLSAI_VCO Output/PLLSAIR = 384 MHz / 7 = 54.85 MHz
+  // LTDC clock frequency = PLLLCDCLK / LTDC_PLLSAI_DIVR_2 = 54.85 MHz / 2 = 27.429 MHz
+  RCC_PeriphCLKInitTypeDef PeriphClkInitStruct;
+  PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_LTDC;
+  PeriphClkInitStruct.PLLSAI.PLLSAIN = 384;
+  PeriphClkInitStruct.PLLSAI.PLLSAIR = 7;
+  PeriphClkInitStruct.PLLSAIDivR = RCC_PLLSAIDIVR_2;
+  HAL_RCCEx_PeriphCLKConfig (&PeriphClkInitStruct);
+
+  /* Background value */
+  hLtdc.Init.Backcolor.Blue = 0;
+  hLtdc.Init.Backcolor.Green = 0;
+  hLtdc.Init.Backcolor.Red = 0;
+  hLtdc.Init.PCPolarity = LTDC_PCPOLARITY_IPC;
+  hLtdc.Instance = LTDC;
+
+  /* Get LTDC Configuration from DSI Configuration */
+  HAL_LTDC_StructInitFromVideoConfig (&(hLtdc), &(hdsivideo_handle));
+
+  /* Initialize the LTDC */
+  HAL_LTDC_Init (&hLtdc);
+
+  // Enable DSI host, wrapper after the LTDC initialization
+  HAL_DSI_Start (&hdsi_discovery);
+
+  OTM8009A_Init (OTM8009A_FORMAT_RGB888, LCD_ORIENTATION_LANDSCAPE);
   }
 //}}}
 #endif
@@ -1182,7 +1307,6 @@ void cLcd::init (std::string title, bool buffered) {
 //{{{
 void cLcd::ltdcInit (uint32_t frameBufferAddress) {
 
-  #ifdef STM32F746xx
   //{{{  LTDC, dma2d clock enable
   // enable the LTDC and DMA2D clocks
   __HAL_RCC_LTDC_CLK_ENABLE();
@@ -1290,135 +1414,6 @@ void cLcd::ltdcInit (uint32_t frameBufferAddress) {
   //}}}
   hLtdc.Instance = LTDC;
   HAL_LTDC_Init (&hLtdc);
-  #endif
-
-  #ifdef STM32F769xx
-  //{{{  DSI LCD
-  uint32_t LcdClock  = 27429; /*!< LcdClk = 27429 kHz */
-
-  //{{{  Toggle Hardware Reset of the DSI LCD using * its XRES signal (active low) */
-  __HAL_RCC_GPIOJ_CLK_ENABLE();
-
-  // Configure the GPIO on PJ15
-  GPIO_InitTypeDef gpio_init_structure;
-  gpio_init_structure.Pin   = GPIO_PIN_15;
-  gpio_init_structure.Mode  = GPIO_MODE_OUTPUT_PP;
-  gpio_init_structure.Pull  = GPIO_PULLUP;
-  gpio_init_structure.Speed = GPIO_SPEED_HIGH;
-  HAL_GPIO_Init (GPIOJ, &gpio_init_structure);
-
-  // pulse XRES active low
-  HAL_GPIO_WritePin (GPIOJ, GPIO_PIN_15, GPIO_PIN_RESET);
-  HAL_Delay(20);
-  HAL_GPIO_WritePin (GPIOJ, GPIO_PIN_15, GPIO_PIN_SET);
-  HAL_Delay(10);
-  //}}}
-
-  // MSP Initialize set IP blocks LTDC, DSI and DMA2D  out of reset clocked  NVIC IRQ related to IP blocks enabled
-  //BSP_LCD_MspInit();
-
-  // DSI Init, set base address of DSI Host/Wrapper registers
-  hdsi_discovery.Instance = DSI;
-  HAL_DSI_DeInit (&(hdsi_discovery));
-
-  // enable the LTDC and DMA2D clocks
-  __HAL_RCC_LTDC_CLK_ENABLE();
-  __HAL_RCC_DMA2D_CLK_ENABLE();
-  __HAL_RCC_DSI_CLK_ENABLE();
-
-  DSI_PLLInitTypeDef dsiPllInit;
-  dsiPllInit.PLLNDIV = 100;
-  dsiPllInit.PLLIDF = DSI_PLL_IN_DIV5;
-  dsiPllInit.PLLODF = DSI_PLL_OUT_DIV1;
-  uint32_t laneByteClk_kHz = 62500; /* 500 MHz / 8 = 62.5 MHz = 62500 kHz */
-  hdsi_discovery.Init.NumberOfLanes = DSI_TWO_DATA_LANES;
-  hdsi_discovery.Init.TXEscapeCkdiv = laneByteClk_kHz/15620; // TXEscapeCkdiv = f(LaneByteClk)/15.62 = 4
-  HAL_DSI_Init (&(hdsi_discovery), &(dsiPllInit));
-
-  //  lcd_x_size = OTM8009A_480X800_WIDTH;  /* 480 */
-  //  lcd_y_size = OTM8009A_480X800_HEIGHT; /* 800 */
-  lcd_x_size = OTM8009A_800X480_WIDTH;  /* 800 */
-  lcd_y_size = OTM8009A_800X480_HEIGHT; /* 480 */
-
-  uint32_t HACT = lcd_x_size; /*!< Horizontal Active time in units of lcdClk = imageSize X in pixels to display */
-  uint32_t VACT = lcd_y_size; /*!< Vertical Active time in units of lines = imageSize Y in pixels to display */
-
-  // The following values are same for portrait and landscape orientations
-  uint32_t VSA = OTM8009A_480X800_VSYNC; // 12  - Vertical start active time in units of lines
-  uint32_t VBP = OTM8009A_480X800_VBP;   // 12  - Vertical Back Porch time in units of lines
-  uint32_t VFP = OTM8009A_480X800_VFP;   // 12  - Vertical Front Porch time in units of lines
-  uint32_t HSA = OTM8009A_480X800_HSYNC; // 63  - Horizontal start active time in units of lcdClk
-  uint32_t HBP = OTM8009A_480X800_HBP;   // 120 - Horizontal Back Porch time in units of lcdClk
-  uint32_t HFP = OTM8009A_480X800_HFP;   // 120 - Horizontal Front Porch time in units of lcdClk
-
-  hdsivideo_handle.ColorCoding          = LCD_DSI_PIXEL_DATA_FMT_RBG888;
-  hdsivideo_handle.VSPolarity           = DSI_VSYNC_ACTIVE_HIGH;
-  hdsivideo_handle.HSPolarity           = DSI_HSYNC_ACTIVE_HIGH;
-  hdsivideo_handle.DEPolarity           = DSI_DATA_ENABLE_ACTIVE_HIGH;
-  hdsivideo_handle.Mode                 = DSI_VID_MODE_BURST; /* Mode Video burst ie : one LgP per line */
-  hdsivideo_handle.NullPacketSize       = 0xFFF;
-  hdsivideo_handle.NumberOfChunks       = 0;
-  hdsivideo_handle.PacketSize           = HACT; /* Value depending on display orientation choice portrait/landscape */
-  hdsivideo_handle.HorizontalSyncActive = (HSA * laneByteClk_kHz) / LcdClock;
-  hdsivideo_handle.HorizontalBackPorch  = (HBP * laneByteClk_kHz) / LcdClock;
-  hdsivideo_handle.HorizontalLine       = ((HACT + HSA + HBP + HFP) * laneByteClk_kHz)/LcdClock; /* Value depending on display orientation choice portrait/landscape */
-  hdsivideo_handle.VerticalSyncActive   = VSA;
-  hdsivideo_handle.VerticalBackPorch    = VBP;
-  hdsivideo_handle.VerticalFrontPorch   = VFP;
-  hdsivideo_handle.VerticalActive       = VACT; /* Value depending on display orientation choice portrait/landscape */
-  hdsivideo_handle.LPCommandEnable      = DSI_LP_COMMAND_ENABLE; // Enable sending LP command while streaming active in video mode */
-  hdsivideo_handle.LPLargestPacketSize  = 16; // Largest packet size possible to transmit in LP mode in VSA, VBP, VFP regions
-  hdsivideo_handle.LPVACTLargestPacketSize = 0;  // Largest packet size possible to transmit in LP mode in HFP region during VACT period
-  hdsivideo_handle.LPHorizontalFrontPorchEnable = DSI_LP_HFP_ENABLE;    /* Allow sending LP commands during HFP period */
-  hdsivideo_handle.LPHorizontalBackPorchEnable  = DSI_LP_HBP_ENABLE;    /* Allow sending LP commands during HBP period */
-  hdsivideo_handle.LPVerticalActiveEnable       = DSI_LP_VACT_ENABLE;   /* Allow sending LP commands during VACT period */
-  hdsivideo_handle.LPVerticalFrontPorchEnable   = DSI_LP_VFP_ENABLE;    /* Allow sending LP commands during VFP period */
-  hdsivideo_handle.LPVerticalBackPorchEnable    = DSI_LP_VBP_ENABLE;    /* Allow sending LP commands during VBP period */
-  hdsivideo_handle.LPVerticalSyncActiveEnable    = DSI_LP_VSYNC_ENABLE; /* Allow sending LP commands during VSync = VSA period */
-  HAL_DSI_ConfigVideoMode (&(hdsi_discovery), &(hdsivideo_handle));
-
-  // LTDC init
-  hLtdc.Instance = LTDC;
-
-  /* Timing Configuration */
-  hLtdc.Init.HorizontalSync = (HSA - 1);
-  hLtdc.Init.AccumulatedHBP = (HSA + HBP - 1);
-  hLtdc.Init.AccumulatedActiveW = (lcd_x_size + HSA + HBP - 1);
-  hLtdc.Init.TotalWidth = (lcd_x_size + HSA + HBP + HFP - 1);
-
-  /* Initialize the LCD pixel width and pixel height */
-  hLtdc.LayerCfg->ImageWidth  = lcd_x_size;
-  hLtdc.LayerCfg->ImageHeight = lcd_y_size;
-
-  // LCD clock configuration
-  // Note: The following values should not be changed as the PLLSAI is also used to clock the USB FS
-  // PLLSAI_VCO Input = HSE_VALUE/PLL_M = 1 Mhz
-  // PLLSAI_VCO Output = PLLSAI_VCO Input * PLLSAIN = 384 Mhz
-  // PLLLCDCLK = PLLSAI_VCO Output/PLLSAIR = 384 MHz / 7 = 54.85 MHz
-  // LTDC clock frequency = PLLLCDCLK / LTDC_PLLSAI_DIVR_2 = 54.85 MHz / 2 = 27.429 MHz
-  RCC_PeriphCLKInitTypeDef PeriphClkInitStruct;
-  PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_LTDC;
-  PeriphClkInitStruct.PLLSAI.PLLSAIN = 384;
-  PeriphClkInitStruct.PLLSAI.PLLSAIR = 7;
-  PeriphClkInitStruct.PLLSAIDivR = RCC_PLLSAIDIVR_2;
-  HAL_RCCEx_PeriphCLKConfig (&PeriphClkInitStruct);
-
-  /* Background value */
-  hLtdc.Init.Backcolor.Blue = 0;
-  hLtdc.Init.Backcolor.Green = 0;
-  hLtdc.Init.Backcolor.Red = 0;
-  hLtdc.Init.PCPolarity = LTDC_PCPOLARITY_IPC;
-  hLtdc.Instance = LTDC;
-
-  /* Get LTDC Configuration from DSI Configuration */
-  HAL_LTDC_StructInitFromVideoConfig (&(hLtdc), &(hdsivideo_handle));
-
-  /* Initialize the LTDC */
-  HAL_LTDC_Init (&hLtdc);
-  HAL_DSI_Start (&hdsi_discovery);
-  OTM8009A_Init (OTM8009A_FORMAT_RGB888, LCD_ORIENTATION_LANDSCAPE);
-  //}}}
-  #endif
 
   layerInit (0, frameBufferAddress);
   setFrameBufferAddress[1] = frameBufferAddress;
