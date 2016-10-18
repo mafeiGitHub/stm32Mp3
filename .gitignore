@@ -67,3 +67,5 @@ UpgradeLog*.htm
 
 *.mdf
 *.ldf
+/769/
+/746/

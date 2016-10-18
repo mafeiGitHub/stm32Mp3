@@ -521,14 +521,7 @@ static void uiThread (void const* argument) {
         auto yinc = pressed[touch] ? tsState.touchY[touch] - y[touch] : 0;
         x[touch] = tsState.touchX[touch];
         y[touch] = tsState.touchY[touch];
-
-        #ifdef STM32F746xx
-          z[touch] = tsState.touchWeight[touch];
-        #endif
-        #ifdef STM32F769xx
-          z[touch] = 0;
-        #endif
-
+        z[touch] = tsState.touchWeight[touch];
         if (!touch)
           mRoot->press (pressed[0], x[0], y[0], z[0], xinc, yinc);
         pressed[touch]++;

@@ -5,11 +5,6 @@
 #endif /* __cplusplus */
 //}}}
 
-#define STM32
-#define STM32F7
-#define STM32F746xx
-//#define STM32F769xx
-
 #define __STM32F7xx_CMSIS_DEVICE_VERSION_MAIN   (0x01) /*!< [31:24] main version */
 #define __STM32F7xx_CMSIS_DEVICE_VERSION_SUB1   (0x00) /*!< [23:16] sub1 version */
 #define __STM32F7xx_CMSIS_DEVICE_VERSION_SUB2   (0x03) /*!< [15:8]  sub2 version */
@@ -49,8 +44,6 @@ typedef enum {
 #ifdef STM32F769xx
   #include "stm32f769xx.h"
 #endif
-
-#include "stm32f7xx_hal_conf.h"
 
 //{{{
 #ifdef __cplusplus

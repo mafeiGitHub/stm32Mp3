@@ -46,14 +46,14 @@ extern "C" {
 
 /* Set Multi-touch as non supported */
 #ifndef TS_MULTI_TOUCH_SUPPORTED
-  #define TS_MULTI_TOUCH_SUPPORTED 0
+  #define TS_MULTI_TOUCH_SUPPORTED 1
 #endif
 
-/* Set Auto-calibration as non supported */  
+/* Set Auto-calibration as non supported */
 #ifndef TS_AUTO_CALIBRATION_SUPPORTED
   #define TS_AUTO_CALIBRATION_SUPPORTED 0
 #endif
-  
+
 /* Includes ------------------------------------------------------------------*/
 #include "ts.h"
 
@@ -103,7 +103,7 @@ typedef struct
 #define  FT_6206_MAX_HEIGHT             ((uint16_t)480)     /* Touchscreen pad max height  */
 
   /* Touchscreen pad max width and height values for FT6x36 Touch*/
-#define  FT_6206_MAX_WIDTH_HEIGHT       ((uint16_t)240)     
+#define  FT_6206_MAX_WIDTH_HEIGHT       ((uint16_t)240)
 
   /* Possible values of driver functions return status */
 #define FT6206_STATUS_OK                0
