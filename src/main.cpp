@@ -22,8 +22,7 @@
   #include "stm32746g_discovery_ts.h"
   #include "stm32746g_discovery_audio.h"
   #include "stm32746g_discovery_sd.h"
-#endif
-#ifdef STM32F769I_DISCO
+#elif STM32F769I_DISCO
   #include "stm32f769i_discovery.h"
   #include "stm32f769i_discovery_ts.h"
   #include "stm32f769i_discovery_audio.h"
