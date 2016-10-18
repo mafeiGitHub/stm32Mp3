@@ -73,7 +73,7 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
   }
 //}}}
 //}}}
-static bool kPreload = true;
+static bool kPreload = false;
 static bool kStaticIp = true;
 
 //{{{
@@ -165,6 +165,7 @@ static void loadThread (void const* argument) {
       mPlayFrame = 0;
       mLoadedFrame = 0;
 
+      if (kPreload) {
       //{{{  preload wave
       do {
         file.read (chunkBuffer, fullChunkSize, bytesLeft);
@@ -214,6 +215,7 @@ static void loadThread (void const* argument) {
             } while (headerBytes && (bytesLeft > 0));
           }
         } while (bytesLeft > 0);
+      }
       //}}}
       //{{{  play fileindex file
       //{{{  init BSP_play
@@ -250,7 +252,18 @@ static void loadThread (void const* argument) {
                 //}}}
               if (bytesLeft >= mp3Decoder->getFrameBodySize()) {
                 osSemaphoreWait (mAudSem, 100);
-                auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, nullptr, (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
+                auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, 
+                  kPreload ? nullptr : mWave + 1 + (mLoadedFrame * 2), (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
+                if (kPreload) {
+                  if (*wavePtr > *mWave)
+                    *mWave = *wavePtr;
+                  wavePtr++;
+                  if (*wavePtr > *mWave)
+                    *mWave = *wavePtr;
+                  wavePtr++;
+                  mLoadedFrame++;
+                  }
+
                 if (frameBytes) {
                   chunkPtr += frameBytes;
                   bytesLeft -= frameBytes;
