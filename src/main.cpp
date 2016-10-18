@@ -166,57 +166,57 @@ static void loadThread (void const* argument) {
       mLoadedFrame = 0;
 
       if (kPreload) {
-      //{{{  preload wave
-      do {
-        file.read (chunkBuffer, fullChunkSize, bytesLeft);
-        if (bytesLeft) {
-          auto chunkPtr = chunkBuffer;
-          int headerBytes;
-          do {
-            headerBytes = mp3Decoder->findNextHeader (chunkPtr, bytesLeft);
-            if (headerBytes) {
-              chunkPtr += headerBytes;
-              bytesLeft -= headerBytes;
-              if (bytesLeft < mp3Decoder->getFrameBodySize() + 4) { // not enough for frameBody and next header
-                //{{{  move bytesLeft to front of chunkBuffer,  next read partial buffer 32bit aligned
-                auto nextChunkPtr = chunkBuffer + ((4 - (bytesLeft & 3)) & 3);
-                memcpy (nextChunkPtr, chunkPtr, bytesLeft);
+        //{{{  preload wave
+        do {
+          file.read (chunkBuffer, fullChunkSize, bytesLeft);
+          if (bytesLeft) {
+            auto chunkPtr = chunkBuffer;
+            int headerBytes;
+            do {
+              headerBytes = mp3Decoder->findNextHeader (chunkPtr, bytesLeft);
+              if (headerBytes) {
+                chunkPtr += headerBytes;
+                bytesLeft -= headerBytes;
+                if (bytesLeft < mp3Decoder->getFrameBodySize() + 4) { // not enough for frameBody and next header
+                  //{{{  move bytesLeft to front of chunkBuffer,  next read partial buffer 32bit aligned
+                  auto nextChunkPtr = chunkBuffer + ((4 - (bytesLeft & 3)) & 3);
+                  memcpy (nextChunkPtr, chunkPtr, bytesLeft);
 
-                // read next chunks worth, including rest of frame, 32bit aligned
-                int bytesLoaded;
-                file.read (nextChunkPtr + bytesLeft, chunkSize, bytesLoaded);
-                if (bytesLoaded) {
-                  chunkPtr = nextChunkPtr;
-                  bytesLeft += bytesLoaded;
+                  // read next chunks worth, including rest of frame, 32bit aligned
+                  int bytesLoaded;
+                  file.read (nextChunkPtr + bytesLeft, chunkSize, bytesLoaded);
+                  if (bytesLoaded) {
+                    chunkPtr = nextChunkPtr;
+                    bytesLeft += bytesLoaded;
+                    }
+                  else
+                    bytesLeft = 0;
                   }
-                else
-                  bytesLeft = 0;
-                }
-                //}}}
-              if (bytesLeft >= mp3Decoder->getFrameBodySize()) {
-                mFramePosition[mLoadedFrame] = file.getPosition(); // not right !!!!
-                auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, mWave + 1 + (mLoadedFrame * 2), nullptr);
-                if (*wavePtr > *mWave)
-                  *mWave = *wavePtr;
-                wavePtr++;
-                if (*wavePtr > *mWave)
-                  *mWave = *wavePtr;
-                wavePtr++;
-                mLoadedFrame++;
+                  //}}}
+                if (bytesLeft >= mp3Decoder->getFrameBodySize()) {
+                  mFramePosition[mLoadedFrame] = file.getPosition(); // not right !!!!
+                  auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, mWave + 1 + (mLoadedFrame * 2), nullptr);
+                  if (*wavePtr > *mWave)
+                    *mWave = *wavePtr;
+                  wavePtr++;
+                  if (*wavePtr > *mWave)
+                    *mWave = *wavePtr;
+                  wavePtr++;
+                  mLoadedFrame++;
 
-                if (frameBytes) {
-                  chunkPtr += frameBytes;
-                  bytesLeft -= frameBytes;
+                  if (frameBytes) {
+                    chunkPtr += frameBytes;
+                    bytesLeft -= frameBytes;
+                    }
+                  else
+                    bytesLeft = 0;
                   }
-                else
-                  bytesLeft = 0;
                 }
-              }
-            } while (headerBytes && (bytesLeft > 0));
-          }
-        } while (bytesLeft > 0);
-      }
-      //}}}
+              } while (headerBytes && (bytesLeft > 0));
+            }
+          } while (bytesLeft > 0);
+        }
+        //}}}
       //{{{  play fileindex file
       //{{{  init BSP_play
       memset ((void*)AUDIO_BUFFER, 0, AUDIO_BUFFER_SIZE);
@@ -252,9 +252,9 @@ static void loadThread (void const* argument) {
                 //}}}
               if (bytesLeft >= mp3Decoder->getFrameBodySize()) {
                 osSemaphoreWait (mAudSem, 100);
-                auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, 
-                  kPreload ? nullptr : mWave + 1 + (mLoadedFrame * 2), (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
-                if (kPreload) {
+                auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr,
+                  kPreload ? nullptr : wavePtr, (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
+                if (!kPreload) {
                   if (*wavePtr > *mWave)
                     *mWave = *wavePtr;
                   wavePtr++;
