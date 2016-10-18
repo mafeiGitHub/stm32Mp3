@@ -12,10 +12,18 @@ public:
   static cLcd* get() { return mLcd; }
 
   // static gets
+  #ifdef STM32F746xx
   static uint16_t getWidth() { return 480; }
   static uint16_t getHeight() { return 272; }
   static uint8_t getFontHeight() { return 16; }
   static uint8_t getLineHeight() { return 19; }
+  #endif
+  #ifdef STM32F769xx
+  static uint16_t getWidth() { return 800; }
+  static uint16_t getHeight() { return 480; }
+  static uint8_t getFontHeight() { return 24; }
+  static uint8_t getLineHeight() { return 26; }
+  #endif
 
   // static string utils
   static std::string hex (int value, uint8_t width = 0);

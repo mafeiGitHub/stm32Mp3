@@ -501,7 +501,7 @@ static void uiThread (void const* argument) {
   cLcd::debug ("uiThread started");
 
   // init touch
-  //BSP_TS_Init (mRoot->getWidth(),mRoot->getHeight());
+  BSP_TS_Init (mRoot->getWidth(),mRoot->getHeight());
   int pressed[5] = {0, 0, 0, 0, 0};
   int16_t x[5];
   int16_t y[5];
@@ -510,7 +510,7 @@ static void uiThread (void const* argument) {
   while (true) {
     // read touch and use it
     TS_StateTypeDef tsState;
-    //BSP_TS_GetState (&tsState);
+    BSP_TS_GetState (&tsState);
 
     for (auto touch = 0; touch < 5; touch++) {
       if (touch < tsState.touchDetected) { //) && tsState.touchWeight[touch]) {
