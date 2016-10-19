@@ -32,12 +32,12 @@
 #include "../fatfs/fatFs.h"
 #include "clcd.h"
 
-#include "../../shared/widgets/cRootContainer.h"
-#include "../../shared/widgets/cWidget.h"
-#include "../../shared/widgets/cListWidget.h"
-#include "../../shared/widgets/cValueBox.h"
-#include "../../shared/widgets/cWaveWidget.h"
-#include "../../shared/widgets/cWaveCentredWidget.h"
+#include "cRootContainer.h"
+#include "cWidget.h"
+#include "cListWidget.h"
+#include "cValueBox.h"
+#include "cWaveWidget.h"
+#include "cWaveCentredWidget.h"
 
 #include "../../shared/decoders/cMp3decoder.h"
 
