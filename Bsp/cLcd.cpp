@@ -48,6 +48,7 @@ typedef enum {
   LCD_ORIENTATION_LANDSCAPE = 0x01, /*!< Landscape orientation choice of LCD screen */
   LCD_ORIENTATION_INVALID   = 0x02  /*!< Invalid orientation choice of LCD screen   */
   } LCD_OrientationTypeDef;
+
 //{{{  OTM8009A defines
 #define OTM8009A_ORIENTATION_PORTRAIT    ((uint32_t)0x00) /* Portrait orientation choice of LCD screen  */
 #define OTM8009A_ORIENTATION_LANDSCAPE   ((uint32_t)0x01) /* Landscape orientation choice of LCD screen */
@@ -1187,232 +1188,223 @@ void cLcd::ltdcInit (uint32_t frameBufferAddress) {
   hLtdc.Instance = LTDC;
 
   #ifdef STM32F746G_DISCO
-  //{{{  LTDC dma2d clock enable
-  // enable the LTDC and DMA2D clocks
-  __HAL_RCC_LTDC_CLK_ENABLE();
-  __HAL_RCC_DMA2D_CLK_ENABLE();
+    //{{{  LTDC dma2d clock enable
+    // enable the LTDC and DMA2D clocks
+    __HAL_RCC_LTDC_CLK_ENABLE();
+    __HAL_RCC_DMA2D_CLK_ENABLE();
 
-  // enable GPIO clock, includes backlight, display enable
-  __HAL_RCC_GPIOE_CLK_ENABLE();
-  __HAL_RCC_GPIOG_CLK_ENABLE();
-  __HAL_RCC_GPIOI_CLK_ENABLE();
-  __HAL_RCC_GPIOJ_CLK_ENABLE();
-  __HAL_RCC_GPIOK_CLK_ENABLE();
-  //}}}
-  //{{{  LTDC pin config
-  // GPIOE config
-  GPIO_InitTypeDef gpio_init_structure;
-  gpio_init_structure.Pin       = GPIO_PIN_4;
-  gpio_init_structure.Mode      = GPIO_MODE_AF_PP;
-  gpio_init_structure.Pull      = GPIO_NOPULL;
-  gpio_init_structure.Speed     = GPIO_SPEED_FAST;
-  gpio_init_structure.Alternate = GPIO_AF14_LTDC;
-  HAL_GPIO_Init (GPIOE, &gpio_init_structure);
+    // enable GPIO clock, includes backlight, display enable
+    __HAL_RCC_GPIOE_CLK_ENABLE();
+    __HAL_RCC_GPIOG_CLK_ENABLE();
+    __HAL_RCC_GPIOI_CLK_ENABLE();
+    __HAL_RCC_GPIOJ_CLK_ENABLE();
+    __HAL_RCC_GPIOK_CLK_ENABLE();
+    //}}}
+    //{{{  LTDC pin config
+    // GPIOE config
+    GPIO_InitTypeDef gpio_init_structure;
+    gpio_init_structure.Pin       = GPIO_PIN_4;
+    gpio_init_structure.Mode      = GPIO_MODE_AF_PP;
+    gpio_init_structure.Pull      = GPIO_NOPULL;
+    gpio_init_structure.Speed     = GPIO_SPEED_FAST;
+    gpio_init_structure.Alternate = GPIO_AF14_LTDC;
+    HAL_GPIO_Init (GPIOE, &gpio_init_structure);
 
-  // GPIOG config
-  gpio_init_structure.Pin       = GPIO_PIN_12;
-  gpio_init_structure.Mode      = GPIO_MODE_AF_PP;
-  gpio_init_structure.Alternate = GPIO_AF9_LTDC;
-  HAL_GPIO_Init (GPIOG, &gpio_init_structure);
+    // GPIOG config
+    gpio_init_structure.Pin       = GPIO_PIN_12;
+    gpio_init_structure.Mode      = GPIO_MODE_AF_PP;
+    gpio_init_structure.Alternate = GPIO_AF9_LTDC;
+    HAL_GPIO_Init (GPIOG, &gpio_init_structure);
 
-  // GPIOI LTDC alternate config
-  gpio_init_structure.Pin       = GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15;
-  gpio_init_structure.Mode      = GPIO_MODE_AF_PP;
-  gpio_init_structure.Alternate = GPIO_AF14_LTDC;
-  HAL_GPIO_Init (GPIOI, &gpio_init_structure);
+    // GPIOI LTDC alternate config
+    gpio_init_structure.Pin       = GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15;
+    gpio_init_structure.Mode      = GPIO_MODE_AF_PP;
+    gpio_init_structure.Alternate = GPIO_AF14_LTDC;
+    HAL_GPIO_Init (GPIOI, &gpio_init_structure);
 
-  // GPIOJ config
-  gpio_init_structure.Pin       = GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 |
-                                  GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_6 | GPIO_PIN_7 |
-                                  GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10 | GPIO_PIN_11 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15;
-  gpio_init_structure.Mode      = GPIO_MODE_AF_PP;
-  gpio_init_structure.Alternate = GPIO_AF14_LTDC;
-  HAL_GPIO_Init (GPIOJ, &gpio_init_structure);
+    // GPIOJ config
+    gpio_init_structure.Pin       = GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 |
+                                    GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_6 | GPIO_PIN_7 |
+                                    GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10 | GPIO_PIN_11 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15;
+    gpio_init_structure.Mode      = GPIO_MODE_AF_PP;
+    gpio_init_structure.Alternate = GPIO_AF14_LTDC;
+    HAL_GPIO_Init (GPIOJ, &gpio_init_structure);
 
-  // GPIOK config
-  gpio_init_structure.Pin       = GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_6 | GPIO_PIN_7;
-  gpio_init_structure.Mode      = GPIO_MODE_AF_PP;
-  gpio_init_structure.Alternate = GPIO_AF14_LTDC;
-  HAL_GPIO_Init (GPIOK, &gpio_init_structure);
+    // GPIOK config
+    gpio_init_structure.Pin       = GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_6 | GPIO_PIN_7;
+    gpio_init_structure.Mode      = GPIO_MODE_AF_PP;
+    gpio_init_structure.Alternate = GPIO_AF14_LTDC;
+    HAL_GPIO_Init (GPIOK, &gpio_init_structure);
 
-  // LCD_DISP GPIO config
-  gpio_init_structure.Pin       = LCD_DISP_PIN;
-  gpio_init_structure.Mode      = GPIO_MODE_OUTPUT_PP;
-  HAL_GPIO_Init (LCD_DISP_GPIO_PORT, &gpio_init_structure);
+    // LCD_DISP GPIO config
+    gpio_init_structure.Pin       = LCD_DISP_PIN;
+    gpio_init_structure.Mode      = GPIO_MODE_OUTPUT_PP;
+    HAL_GPIO_Init (LCD_DISP_GPIO_PORT, &gpio_init_structure);
 
-  // LCD_BL_CTRL GPIO config
-  gpio_init_structure.Pin       = LCD_BL_CTRL_PIN;
-  gpio_init_structure.Mode      = GPIO_MODE_OUTPUT_PP;
-  HAL_GPIO_Init (LCD_BL_CTRL_GPIO_PORT, &gpio_init_structure);
-  //}}}
-  //{{{  LTDC info
-  #define RK043FN48H_WIDTH   480 // LCD PIXEL WIDTH
-  #define RK043FN48H_HSYNC   41  // Horizontal synchronization
-  #define RK043FN48H_HBP     13  // Horizontal back porch
-  #define RK043FN48H_HFP     32  // Horizontal front porch
+    // LCD_BL_CTRL GPIO config
+    gpio_init_structure.Pin       = LCD_BL_CTRL_PIN;
+    gpio_init_structure.Mode      = GPIO_MODE_OUTPUT_PP;
+    HAL_GPIO_Init (LCD_BL_CTRL_GPIO_PORT, &gpio_init_structure);
+    //}}}
+    //{{{  LTDC info
+    #define RK043FN48H_WIDTH   480 // LCD PIXEL WIDTH
+    #define RK043FN48H_HSYNC   41  // Horizontal synchronization
+    #define RK043FN48H_HBP     13  // Horizontal back porch
+    #define RK043FN48H_HFP     32  // Horizontal front porch
 
-  #define RK043FN48H_HEIGHT  272 // LCD PIXEL HEIGHT
-  #define RK043FN48H_VSYNC   10  // Vertical synchronization
-  #define RK043FN48H_VBP     2   // Vertical back porch
-  #define RK043FN48H_VFP     2   // Vertical front porch
+    #define RK043FN48H_HEIGHT  272 // LCD PIXEL HEIGHT
+    #define RK043FN48H_VSYNC   10  // Vertical synchronization
+    #define RK043FN48H_VBP     2   // Vertical back porch
+    #define RK043FN48H_VFP     2   // Vertical front porch
 
-  hLtdc.Init.HorizontalSync =     RK043FN48H_HSYNC - 1;
-  hLtdc.Init.AccumulatedHBP =     RK043FN48H_HSYNC + RK043FN48H_HBP - 1;
-  hLtdc.Init.AccumulatedActiveW = RK043FN48H_WIDTH + RK043FN48H_HSYNC + RK043FN48H_HBP - 1;
-  hLtdc.Init.TotalWidth =         RK043FN48H_WIDTH + RK043FN48H_HSYNC + RK043FN48H_HBP + RK043FN48H_HFP - 1;
+    hLtdc.Init.HorizontalSync =     RK043FN48H_HSYNC - 1;
+    hLtdc.Init.AccumulatedHBP =     RK043FN48H_HSYNC + RK043FN48H_HBP - 1;
+    hLtdc.Init.AccumulatedActiveW = RK043FN48H_WIDTH + RK043FN48H_HSYNC + RK043FN48H_HBP - 1;
+    hLtdc.Init.TotalWidth =         RK043FN48H_WIDTH + RK043FN48H_HSYNC + RK043FN48H_HBP + RK043FN48H_HFP - 1;
 
-  hLtdc.Init.VerticalSync =       RK043FN48H_VSYNC - 1;
-  hLtdc.Init.AccumulatedVBP =     RK043FN48H_VSYNC + RK043FN48H_VBP - 1;
-  hLtdc.Init.AccumulatedActiveH = RK043FN48H_HEIGHT + RK043FN48H_VSYNC + RK043FN48H_VBP - 1;
-  hLtdc.Init.TotalHeigh =         RK043FN48H_HEIGHT + RK043FN48H_VSYNC + RK043FN48H_VBP + RK043FN48H_VFP - 1;
+    hLtdc.Init.VerticalSync =       RK043FN48H_VSYNC - 1;
+    hLtdc.Init.AccumulatedVBP =     RK043FN48H_VSYNC + RK043FN48H_VBP - 1;
+    hLtdc.Init.AccumulatedActiveH = RK043FN48H_HEIGHT + RK043FN48H_VSYNC + RK043FN48H_VBP - 1;
+    hLtdc.Init.TotalHeigh =         RK043FN48H_HEIGHT + RK043FN48H_VSYNC + RK043FN48H_VBP + RK043FN48H_VFP - 1;
 
-  // - PLLSAI_VCO In  = HSE_VALUE / PLLM                        = 1 Mhz
-  // - PLLSAI_VCO Out = PLLSAI_VCO Input * PLLSAIN              = 192 Mhz
-  // - PLLLCDCLK      = PLLSAI_VCO Output / PLLSAIR    = 192/5  = 38.4 Mhz
-  // - LTDC clock     = PLLLCDCLK / LTDC_PLLSAI_DIVR_4 = 38.4/4 = 9.6Mhz
-  RCC_PeriphCLKInitTypeDef periph_clk_init_struct;
-  periph_clk_init_struct.PeriphClockSelection = RCC_PERIPHCLK_LTDC;
-  periph_clk_init_struct.PLLSAI.PLLSAIN = 192;
-  periph_clk_init_struct.PLLSAI.PLLSAIR = 5; // could be 7
-  periph_clk_init_struct.PLLSAIDivR = RCC_PLLSAIDIVR_4;
-  HAL_RCCEx_PeriphCLKConfig (&periph_clk_init_struct);
+    // - PLLSAI_VCO In  = HSE_VALUE / PLLM                        = 1 Mhz
+    // - PLLSAI_VCO Out = PLLSAI_VCO Input * PLLSAIN              = 192 Mhz
+    // - PLLLCDCLK      = PLLSAI_VCO Output / PLLSAIR    = 192/5  = 38.4 Mhz
+    // - LTDC clock     = PLLLCDCLK / LTDC_PLLSAI_DIVR_4 = 38.4/4 = 9.6Mhz
+    RCC_PeriphCLKInitTypeDef periph_clk_init_struct;
+    periph_clk_init_struct.PeriphClockSelection = RCC_PERIPHCLK_LTDC;
+    periph_clk_init_struct.PLLSAI.PLLSAIN = 192;
+    periph_clk_init_struct.PLLSAI.PLLSAIR = 5; // could be 7
+    periph_clk_init_struct.PLLSAIDivR = RCC_PLLSAIDIVR_4;
+    HAL_RCCEx_PeriphCLKConfig (&periph_clk_init_struct);
 
-  // LTDC Polarity
-  hLtdc.Init.HSPolarity = LTDC_HSPOLARITY_AL;
-  hLtdc.Init.VSPolarity = LTDC_VSPOLARITY_AL;
-  hLtdc.Init.DEPolarity = LTDC_DEPOLARITY_AL;
-  hLtdc.Init.PCPolarity = LTDC_PCPOLARITY_IPC;
+    // LTDC Polarity
+    hLtdc.Init.HSPolarity = LTDC_HSPOLARITY_AL;
+    hLtdc.Init.VSPolarity = LTDC_VSPOLARITY_AL;
+    hLtdc.Init.DEPolarity = LTDC_DEPOLARITY_AL;
+    hLtdc.Init.PCPolarity = LTDC_PCPOLARITY_IPC;
 
-  // LTDC width height
-  hLtdc.LayerCfg->ImageWidth = RK043FN48H_WIDTH;
-  hLtdc.LayerCfg->ImageHeight = RK043FN48H_HEIGHT;
+    // LTDC width height
+    hLtdc.LayerCfg->ImageWidth = RK043FN48H_WIDTH;
+    hLtdc.LayerCfg->ImageHeight = RK043FN48H_HEIGHT;
 
-  // LTDC Background value
-  hLtdc.Init.Backcolor.Blue = 0;
-  hLtdc.Init.Backcolor.Green = 0;
-  hLtdc.Init.Backcolor.Red = 0;
-  //}}}
-  HAL_LTDC_Init (&hLtdc);
-  #endif
+    // LTDC Background value
+    hLtdc.Init.Backcolor.Blue = 0;
+    hLtdc.Init.Backcolor.Green = 0;
+    hLtdc.Init.Backcolor.Red = 0;
+    //}}}
+    HAL_LTDC_Init (&hLtdc);
+  #elif STM32F769I_DISCO
+    //  DSI LCD
+    //{{{  Toggle Hardware Reset of the DSI LCD using * its XRES signal (active low) */
+    __HAL_RCC_GPIOJ_CLK_ENABLE();
 
-  #ifdef STM32F769I_DISCO
-  //{{{  DSI LCD
-  uint32_t LcdClock  = 27429; /*!< LcdClk = 27429 kHz */
+    // Configure the GPIO on PJ15
+    GPIO_InitTypeDef gpio_init_structure;
+    gpio_init_structure.Pin   = GPIO_PIN_15;
+    gpio_init_structure.Mode  = GPIO_MODE_OUTPUT_PP;
+    gpio_init_structure.Pull  = GPIO_PULLUP;
+    gpio_init_structure.Speed = GPIO_SPEED_HIGH;
+    HAL_GPIO_Init (GPIOJ, &gpio_init_structure);
 
-  //{{{  Toggle Hardware Reset of the DSI LCD using * its XRES signal (active low) */
-  __HAL_RCC_GPIOJ_CLK_ENABLE();
+    // pulse XRES active low
+    HAL_GPIO_WritePin (GPIOJ, GPIO_PIN_15, GPIO_PIN_RESET);
+    HAL_Delay(20);
+    HAL_GPIO_WritePin (GPIOJ, GPIO_PIN_15, GPIO_PIN_SET);
+    HAL_Delay(10);
+    //}}}
+    //{{{  DSI Init, set base address of DSI Host/Wrapper registers
+    hdsi_discovery.Instance = DSI;
+    HAL_DSI_DeInit (&(hdsi_discovery));
+    //}}}
+    //{{{  enable the LTDC and DMA2D clocks
+    __HAL_RCC_LTDC_CLK_ENABLE();
+    __HAL_RCC_DMA2D_CLK_ENABLE();
+    __HAL_RCC_DSI_CLK_ENABLE();
+    //}}}
+    //{{{  init DSI
+    DSI_PLLInitTypeDef dsiPllInit;
+    dsiPllInit.PLLNDIV = 100;
+    dsiPllInit.PLLIDF = DSI_PLL_IN_DIV5;
+    dsiPllInit.PLLODF = DSI_PLL_OUT_DIV1;
 
-  // Configure the GPIO on PJ15
-  GPIO_InitTypeDef gpio_init_structure;
-  gpio_init_structure.Pin   = GPIO_PIN_15;
-  gpio_init_structure.Mode  = GPIO_MODE_OUTPUT_PP;
-  gpio_init_structure.Pull  = GPIO_PULLUP;
-  gpio_init_structure.Speed = GPIO_SPEED_HIGH;
-  HAL_GPIO_Init (GPIOJ, &gpio_init_structure);
+    uint32_t laneByteClk_kHz = 62500; /* 500 MHz / 8 = 62.5 MHz = 62500 kHz */
+    hdsi_discovery.Init.NumberOfLanes = DSI_TWO_DATA_LANES;
+    hdsi_discovery.Init.TXEscapeCkdiv = laneByteClk_kHz / 15620; // TXEscapeCkdiv = f(LaneByteClk)/15.62 = 4
 
-  // pulse XRES active low
-  HAL_GPIO_WritePin (GPIOJ, GPIO_PIN_15, GPIO_PIN_RESET);
-  HAL_Delay(20);
-  HAL_GPIO_WritePin (GPIOJ, GPIO_PIN_15, GPIO_PIN_SET);
-  HAL_Delay(10);
-  //}}}
+    HAL_DSI_Init (&hdsi_discovery, &dsiPllInit);
 
-  // MSP Initialize set IP blocks LTDC, DSI and DMA2D  out of reset clocked  NVIC IRQ related to IP blocks enabled
-  //BSP_LCD_MspInit();
+    // config DSI
+    uint32_t HACT = getWidth(); /*!< Horizontal Active time in units of lcdClk = imageSize X in pixels to display */
+    uint32_t VACT = getHeight(); /*!< Vertical Active time in units of lines = imageSize Y in pixels to display */
 
-  // DSI Init, set base address of DSI Host/Wrapper registers
-  hdsi_discovery.Instance = DSI;
-  HAL_DSI_DeInit (&(hdsi_discovery));
+    // The following values are same for portrait and landscape orientations
+    uint32_t VSA = OTM8009A_480X800_VSYNC; // 12  - Vertical start active time in units of lines
+    uint32_t VBP = OTM8009A_480X800_VBP;   // 12  - Vertical Back Porch time in units of lines
+    uint32_t VFP = OTM8009A_480X800_VFP;   // 12  - Vertical Front Porch time in units of lines
+    uint32_t HSA = OTM8009A_480X800_HSYNC; // 63  - Horizontal start active time in units of lcdClk
+    uint32_t HBP = OTM8009A_480X800_HBP;   // 120 - Horizontal Back Porch time in units of lcdClk
+    uint32_t HFP = OTM8009A_480X800_HFP;   // 120 - Horizontal Front Porch time in units of lcdClk
 
-  // enable the LTDC and DMA2D clocks
-  __HAL_RCC_LTDC_CLK_ENABLE();
-  __HAL_RCC_DMA2D_CLK_ENABLE();
-  __HAL_RCC_DSI_CLK_ENABLE();
+    uint32_t LcdClock  = 27429; /*!< LcdClk = 27429 kHz */
 
-  DSI_PLLInitTypeDef dsiPllInit;
-  dsiPllInit.PLLNDIV = 100;
-  dsiPllInit.PLLIDF = DSI_PLL_IN_DIV5;
-  dsiPllInit.PLLODF = DSI_PLL_OUT_DIV1;
-  uint32_t laneByteClk_kHz = 62500; /* 500 MHz / 8 = 62.5 MHz = 62500 kHz */
-  hdsi_discovery.Init.NumberOfLanes = DSI_TWO_DATA_LANES;
-  hdsi_discovery.Init.TXEscapeCkdiv = laneByteClk_kHz/15620; // TXEscapeCkdiv = f(LaneByteClk)/15.62 = 4
-  HAL_DSI_Init (&(hdsi_discovery), &(dsiPllInit));
+    hdsivideo_handle.ColorCoding          = LCD_DSI_PIXEL_DATA_FMT_RBG888;
+    hdsivideo_handle.VSPolarity           = DSI_VSYNC_ACTIVE_HIGH;
+    hdsivideo_handle.HSPolarity           = DSI_HSYNC_ACTIVE_HIGH;
+    hdsivideo_handle.DEPolarity           = DSI_DATA_ENABLE_ACTIVE_HIGH;
+    hdsivideo_handle.Mode                 = DSI_VID_MODE_BURST; /* Mode Video burst ie : one LgP per line */
+    hdsivideo_handle.NullPacketSize       = 0xFFF;
+    hdsivideo_handle.NumberOfChunks       = 0;
+    hdsivideo_handle.PacketSize           = HACT; /* Value depending on display orientation choice portrait/landscape */
+    hdsivideo_handle.HorizontalSyncActive = (HSA * laneByteClk_kHz) / LcdClock;
+    hdsivideo_handle.HorizontalBackPorch  = (HBP * laneByteClk_kHz) / LcdClock;
+    hdsivideo_handle.HorizontalLine       = ((HACT + HSA + HBP + HFP) * laneByteClk_kHz)/LcdClock; /* Value depending on display orientation choice portrait/landscape */
+    hdsivideo_handle.VerticalSyncActive   = VSA;
+    hdsivideo_handle.VerticalBackPorch    = VBP;
+    hdsivideo_handle.VerticalFrontPorch   = VFP;
+    hdsivideo_handle.VerticalActive       = VACT; /* Value depending on display orientation choice portrait/landscape */
+    hdsivideo_handle.LPCommandEnable      = DSI_LP_COMMAND_ENABLE; // Enable sending LP command while streaming active in video mode */
+    hdsivideo_handle.LPLargestPacketSize  = 16; // Largest packet size possible to transmit in LP mode in VSA, VBP, VFP regions
+    hdsivideo_handle.LPVACTLargestPacketSize = 0;  // Largest packet size possible to transmit in LP mode in HFP region during VACT period
+    hdsivideo_handle.LPHorizontalFrontPorchEnable = DSI_LP_HFP_ENABLE;    /* Allow sending LP commands during HFP period */
+    hdsivideo_handle.LPHorizontalBackPorchEnable  = DSI_LP_HBP_ENABLE;    /* Allow sending LP commands during HBP period */
+    hdsivideo_handle.LPVerticalActiveEnable       = DSI_LP_VACT_ENABLE;   /* Allow sending LP commands during VACT period */
+    hdsivideo_handle.LPVerticalFrontPorchEnable   = DSI_LP_VFP_ENABLE;    /* Allow sending LP commands during VFP period */
+    hdsivideo_handle.LPVerticalBackPorchEnable    = DSI_LP_VBP_ENABLE;    /* Allow sending LP commands during VBP period */
+    hdsivideo_handle.LPVerticalSyncActiveEnable    = DSI_LP_VSYNC_ENABLE; /* Allow sending LP commands during VSync = VSA period */
+    HAL_DSI_ConfigVideoMode (&hdsi_discovery, &hdsivideo_handle);
+    //}}}
+    //{{{  configurte LTDC clock
+    // Note: The following values should not be changed as the PLLSAI is also used to clock the USB FS
+    // PLLSAI_VCO Input = HSE_VALUE/PLL_M = 1 Mhz
+    // PLLSAI_VCO Output = PLLSAI_VCO Input * PLLSAIN = 384 Mhz
+    // PLLLCDCLK = PLLSAI_VCO Output/PLLSAIR = 384 MHz / 7 = 54.85 MHz
+    // LTDC clock frequency = PLLLCDCLK / LTDC_PLLSAI_DIVR_2 = 54.85 MHz / 2 = 27.429 MHz
+    RCC_PeriphCLKInitTypeDef PeriphClkInitStruct;
+    PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_LTDC;
+    PeriphClkInitStruct.PLLSAI.PLLSAIN = 384;
+    PeriphClkInitStruct.PLLSAI.PLLSAIR = 7;
+    PeriphClkInitStruct.PLLSAIDivR = RCC_PLLSAIDIVR_2;
+    HAL_RCCEx_PeriphCLKConfig (&PeriphClkInitStruct);
+    //}}}
+    //{{{  LTDC timing Configuration
+    hLtdc.Init.HorizontalSync = (HSA - 1);
+    hLtdc.Init.AccumulatedHBP = (HSA + HBP - 1);
+    hLtdc.Init.AccumulatedActiveW = (getWidth() + HSA + HBP - 1);
+    hLtdc.Init.TotalWidth = (getWidth() + HSA + HBP + HFP - 1);
+    hLtdc.LayerCfg->ImageWidth  = getWidth();
+    hLtdc.LayerCfg->ImageHeight = getHeight();
 
-  uint32_t HACT = getWidth(); /*!< Horizontal Active time in units of lcdClk = imageSize X in pixels to display */
-  uint32_t VACT = getHeight(); /*!< Vertical Active time in units of lines = imageSize Y in pixels to display */
-
-  // The following values are same for portrait and landscape orientations
-  uint32_t VSA = OTM8009A_480X800_VSYNC; // 12  - Vertical start active time in units of lines
-  uint32_t VBP = OTM8009A_480X800_VBP;   // 12  - Vertical Back Porch time in units of lines
-  uint32_t VFP = OTM8009A_480X800_VFP;   // 12  - Vertical Front Porch time in units of lines
-  uint32_t HSA = OTM8009A_480X800_HSYNC; // 63  - Horizontal start active time in units of lcdClk
-  uint32_t HBP = OTM8009A_480X800_HBP;   // 120 - Horizontal Back Porch time in units of lcdClk
-  uint32_t HFP = OTM8009A_480X800_HFP;   // 120 - Horizontal Front Porch time in units of lcdClk
-
-  hdsivideo_handle.ColorCoding          = LCD_DSI_PIXEL_DATA_FMT_RBG888;
-  hdsivideo_handle.VSPolarity           = DSI_VSYNC_ACTIVE_HIGH;
-  hdsivideo_handle.HSPolarity           = DSI_HSYNC_ACTIVE_HIGH;
-  hdsivideo_handle.DEPolarity           = DSI_DATA_ENABLE_ACTIVE_HIGH;
-  hdsivideo_handle.Mode                 = DSI_VID_MODE_BURST; /* Mode Video burst ie : one LgP per line */
-  hdsivideo_handle.NullPacketSize       = 0xFFF;
-  hdsivideo_handle.NumberOfChunks       = 0;
-  hdsivideo_handle.PacketSize           = HACT; /* Value depending on display orientation choice portrait/landscape */
-  hdsivideo_handle.HorizontalSyncActive = (HSA * laneByteClk_kHz) / LcdClock;
-  hdsivideo_handle.HorizontalBackPorch  = (HBP * laneByteClk_kHz) / LcdClock;
-  hdsivideo_handle.HorizontalLine       = ((HACT + HSA + HBP + HFP) * laneByteClk_kHz)/LcdClock; /* Value depending on display orientation choice portrait/landscape */
-  hdsivideo_handle.VerticalSyncActive   = VSA;
-  hdsivideo_handle.VerticalBackPorch    = VBP;
-  hdsivideo_handle.VerticalFrontPorch   = VFP;
-  hdsivideo_handle.VerticalActive       = VACT; /* Value depending on display orientation choice portrait/landscape */
-  hdsivideo_handle.LPCommandEnable      = DSI_LP_COMMAND_ENABLE; // Enable sending LP command while streaming active in video mode */
-  hdsivideo_handle.LPLargestPacketSize  = 16; // Largest packet size possible to transmit in LP mode in VSA, VBP, VFP regions
-  hdsivideo_handle.LPVACTLargestPacketSize = 0;  // Largest packet size possible to transmit in LP mode in HFP region during VACT period
-  hdsivideo_handle.LPHorizontalFrontPorchEnable = DSI_LP_HFP_ENABLE;    /* Allow sending LP commands during HFP period */
-  hdsivideo_handle.LPHorizontalBackPorchEnable  = DSI_LP_HBP_ENABLE;    /* Allow sending LP commands during HBP period */
-  hdsivideo_handle.LPVerticalActiveEnable       = DSI_LP_VACT_ENABLE;   /* Allow sending LP commands during VACT period */
-  hdsivideo_handle.LPVerticalFrontPorchEnable   = DSI_LP_VFP_ENABLE;    /* Allow sending LP commands during VFP period */
-  hdsivideo_handle.LPVerticalBackPorchEnable    = DSI_LP_VBP_ENABLE;    /* Allow sending LP commands during VBP period */
-  hdsivideo_handle.LPVerticalSyncActiveEnable    = DSI_LP_VSYNC_ENABLE; /* Allow sending LP commands during VSync = VSA period */
-  HAL_DSI_ConfigVideoMode (&(hdsi_discovery), &(hdsivideo_handle));
-
-  /* Timing Configuration */
-  hLtdc.Init.HorizontalSync = (HSA - 1);
-  hLtdc.Init.AccumulatedHBP = (HSA + HBP - 1);
-  hLtdc.Init.AccumulatedActiveW = (getWidth() + HSA + HBP - 1);
-  hLtdc.Init.TotalWidth = (getWidth() + HSA + HBP + HFP - 1);
-
-  /* Initialize the LCD pixel width and pixel height */
-  hLtdc.LayerCfg->ImageWidth  = getWidth();
-  hLtdc.LayerCfg->ImageHeight = getHeight();
-
-  // LCD clock configuration
-  // Note: The following values should not be changed as the PLLSAI is also used to clock the USB FS
-  // PLLSAI_VCO Input = HSE_VALUE/PLL_M = 1 Mhz
-  // PLLSAI_VCO Output = PLLSAI_VCO Input * PLLSAIN = 384 Mhz
-  // PLLLCDCLK = PLLSAI_VCO Output/PLLSAIR = 384 MHz / 7 = 54.85 MHz
-  // LTDC clock frequency = PLLLCDCLK / LTDC_PLLSAI_DIVR_2 = 54.85 MHz / 2 = 27.429 MHz
-  RCC_PeriphCLKInitTypeDef PeriphClkInitStruct;
-  PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_LTDC;
-  PeriphClkInitStruct.PLLSAI.PLLSAIN = 384;
-  PeriphClkInitStruct.PLLSAI.PLLSAIR = 7;
-  PeriphClkInitStruct.PLLSAIDivR = RCC_PLLSAIDIVR_2;
-  HAL_RCCEx_PeriphCLKConfig (&PeriphClkInitStruct);
-
-  /* Background value */
-  hLtdc.Init.Backcolor.Blue = 0;
-  hLtdc.Init.Backcolor.Green = 0;
-  hLtdc.Init.Backcolor.Red = 0;
-  hLtdc.Init.PCPolarity = LTDC_PCPOLARITY_IPC;
-  hLtdc.Instance = LTDC;
-
-  /* Get LTDC Configuration from DSI Configuration */
-  HAL_LTDC_StructInitFromVideoConfig (&(hLtdc), &(hdsivideo_handle));
-
-  /* Initialize the LTDC */
-  HAL_LTDC_Init (&hLtdc);
-  HAL_DSI_Start (&hdsi_discovery);
-  OTM8009A_Init (OTM8009A_FORMAT_RGB888, LCD_ORIENTATION_LANDSCAPE);
-  //}}}
+    // LTDC background value
+    hLtdc.Init.Backcolor.Blue = 0;
+    hLtdc.Init.Backcolor.Green = 0;
+    hLtdc.Init.Backcolor.Red = 0;
+    hLtdc.Init.PCPolarity = LTDC_PCPOLARITY_IPC;
+    //}}}
+    HAL_LTDC_StructInitFromVideoConfig (&(hLtdc), &(hdsivideo_handle));
+    HAL_LTDC_Init (&hLtdc);
+    HAL_DSI_Start (&hdsi_discovery);
+    OTM8009A_Init (OTM8009A_FORMAT_RGB888, LCD_ORIENTATION_LANDSCAPE);
   #endif
 
   layerInit (0, frameBufferAddress);
