@@ -788,9 +788,7 @@ void cLcd::displayOn() {
 
     // turn on backlight
     HAL_GPIO_WritePin (LCD_BL_CTRL_GPIO_PORT, LCD_BL_CTRL_PIN, GPIO_PIN_SET);  /* Assert LCD_BL_CTRL pin */
-  #endif
-
-  #ifdef STM32F769xx
+  #else
     /* Send Display on DCS command to display */
     HAL_DSI_ShortWrite (&(hdsi_discovery), hdsivideo_handle.VirtualChannelID, DSI_DCS_SHORT_PKT_WRITE_P1,
                         OTM8009A_CMD_DISPON, 0x00);
@@ -809,9 +807,7 @@ void cLcd::displayOff() {
 
     // turn off backlight
     HAL_GPIO_WritePin (LCD_BL_CTRL_GPIO_PORT, LCD_BL_CTRL_PIN, GPIO_PIN_RESET);/* De-assert LCD_BL_CTRL pin */
-  #endif
-
-  #ifdef STM32F769xx
+  #else
     /* Send Display off DCS Command to display */
     HAL_DSI_ShortWrite (&(hdsi_discovery), hdsivideo_handle.VirtualChannelID, DSI_DCS_SHORT_PKT_WRITE_P1,
                         OTM8009A_CMD_DISPOFF, 0x00);
