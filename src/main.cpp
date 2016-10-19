@@ -347,7 +347,7 @@ static void uiThread (void const* argument) {
       mLcd->startRender();
       mRoot->render (mLcd);
       mLcd->endRender();
-      osDelay (2);
+      osDelay (1);
       }
 
     if (mVolumeChanged) {
@@ -461,8 +461,8 @@ static void startThread (void const* argument) {
   const osThreadDef_t osThreadLoad =  { (char*)"Load", loadThread, osPriorityNormal, 0, 16000 }; // 10000
   osThreadCreate (&osThreadLoad, NULL);
 
-  //const osThreadDef_t osThreadNet =  { (char*)"Net", netThread, osPriorityBelowNormal, 0, 1024 };
-  //osThreadCreate (&osThreadNet, NULL);
+  const osThreadDef_t osThreadNet =  { (char*)"Net", netThread, osPriorityBelowNormal, 0, 1024 };
+  osThreadCreate (&osThreadNet, NULL);
 
   for (;;)
     osThreadTerminate (NULL);
