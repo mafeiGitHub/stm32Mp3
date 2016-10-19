@@ -7,11 +7,12 @@
 
 #include "memory.h"
 
-#ifdef STM32F746G_DISCO
-#include "stm32746g_discovery.h"
-#elif STM32F769I_DISCO
-#include "stm32F769i_discovery.h"
+#ifdef STM32F746G_DISCO 
+  #include "stm32746g_discovery.h" 
+#else 
+  #include "stm32F769i_discovery.h"
 #endif
+
 #include "stm32f7xx_hal_dma2d.h"
 
 #include "cLcd.h"

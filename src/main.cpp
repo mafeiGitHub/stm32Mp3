@@ -150,20 +150,12 @@ static void loadThread (void const* argument) {
   // widgets
   mRoot->addTopLeft (new cListWidget (mMp3Files, fileIndex, fileIndexChanged, mRoot->getWidth(), mRoot->getHeight()));
   mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, cWidget::getBoxHeight()-1, mRoot->getHeight()-6));
-  mRoot->addTopLeft (new cWaveCentredWidget (mWave, mPlayFrame, mLoadedFrame, mLoadedFrame, mWaveChanged, mRoot->getWidth(), 50));
+  mRoot->addTopLeft (new cWaveCentredWidget (mWave, mPlayFrame, mLoadedFrame, mLoadedFrame, mWaveChanged, mRoot->getWidth(), mRoot->getHeight()/5));
 
-  //pause = true;
   listDirectory ("", "");
-  pause = false;
 
   auto mp3Decoder = new cMp3Decoder;
   cLcd::debug ("mp3Decoder created");
-
-  //BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 44100);
-  //BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);
-  BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mVolume * 100), 44100);
-  BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
-  cLcd::debug ("audio speaker 44.1k");
 
   //{{{  chunkSize and buffer
   auto chunkSize = 4096;
@@ -240,9 +232,7 @@ static void loadThread (void const* argument) {
       //{{{  play fileindex file
       file.seek (0);
       do {
-        //pause = true;
         file.read (chunkBuffer, fullChunkSize, bytesLeft);
-        pause = false;
         if (bytesLeft) {
           auto chunkPtr = chunkBuffer;
           int headerBytes;
@@ -258,9 +248,7 @@ static void loadThread (void const* argument) {
 
                 // read next chunks worth, including rest of frame, 32bit aligned
                 int bytesLoaded;
-                //pause = true;
                 file.read (nextChunkPtr + bytesLeft, chunkSize, bytesLoaded);
-                pause = false;
                 if (bytesLoaded) {
                   chunkPtr = nextChunkPtr;
                   bytesLeft += bytesLoaded;
@@ -359,8 +347,9 @@ static void uiThread (void const* argument) {
       mLcd->startRender();
       mRoot->render (mLcd);
       mLcd->endRender();
-      osDelay (10);
+      osDelay (2);
       }
+
     if (mVolumeChanged) {
       // change volume
       BSP_AUDIO_OUT_SetVolume (int(mVolume * 100));
@@ -461,6 +450,10 @@ static void startThread (void const* argument) {
 
   osSemaphoreDef (aud);
   mAudSem = osSemaphoreCreate (osSemaphore (aud), -1);
+  BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 44100);
+  BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);
+  //BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mVolume * 100), 44100);
+  //BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
 
   const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 4000 }; // 1000
   osThreadCreate (&osThreadUi, NULL);
