@@ -1,7 +1,7 @@
 // ethernetif.c
 /*{{{  includes*/
 #include <string.h>
-#include "ethernetif.h"
+#include "os/ethernetif.h"
 
 #include "memory.h"
 #include "cmsis_os.h"
@@ -335,12 +335,5 @@ void HAL_ETH_MspInit (ETH_HandleTypeDef* heth) {
 void HAL_ETH_RxCpltCallback (ETH_HandleTypeDef* heth) {
 
   osSemaphoreRelease (s_xSemaphore);
-  }
-/*}}}*/
-
-/*{{{*/
-void ETHERNET_IRQHandler() {
-
-  HAL_ETH_IRQHandler (&EthHandle);
   }
 /*}}}*/

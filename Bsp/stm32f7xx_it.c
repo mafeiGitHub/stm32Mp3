@@ -3,7 +3,7 @@
 #include "stm32f7xx_hal.h"
 
 #include "cmsis_os.h"
-#include "ethernetif.h"
+#include "os/ethernetif.h"
 #include "cLcdPrivate.h"
 
 #ifdef STM32F746G_DISCO
@@ -21,7 +21,9 @@ void UsageFault_Handler() { while (1) {} }
 
 void SysTick_Handler() { HAL_IncTick(); osSystickHandler(); }
 
-void ETH_IRQHandler() { ETHERNET_IRQHandler(); }
+// ethernet
+extern ETH_HandleTypeDef EthHandle;
+void ETH_IRQHandler() { HAL_ETH_IRQHandler (&EthHandle); }
 
 // lcd
 void LTDC_IRQHandler() { LCD_LTDC_IRQHandler(); }

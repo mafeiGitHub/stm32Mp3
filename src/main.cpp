@@ -15,7 +15,7 @@
 #include "lwip/dhcp.h"
 #include "ipv4/lwip/ip_addr.h"
 #include "lwip/api.h"
-#include "ethernetif.h"
+#include "os/ethernetif.h"
 
 #ifdef STM32F746G_DISCO
   #include "stm32746g_discovery.h"
