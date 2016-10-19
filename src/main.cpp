@@ -79,6 +79,7 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
   }
 //}}}
 //}}}
+static const bool kMaxTouch = 1;
 static const bool kPreload = false;
 static const bool kStaticIp = true;
 static bool pauseLcd = false;
@@ -118,10 +119,10 @@ static void listDirectory (std::string directoryName, std::string indent) {
 //{{{
 static void playThread (void const* argument) {
 
-  cLcd::debug ("playThread started");
+  cLcd::debug ("playThread");
 
-  pauseLcd = true;
   // mount sd fatfs, turn debug off when ok
+  pauseLcd = true;
   //{{{  init sd card
   BSP_SD_Init();
   while (BSP_SD_IsDetected() != SD_PRESENT) {
@@ -309,21 +310,22 @@ static void playThread (void const* argument) {
 //{{{
 static void uiThread (void const* argument) {
 
-  cLcd::debug ("uiThread started");
+  cLcd::debug ("uiThread");
 
-  // init touch
+  int16_t x[kMaxTouch];
+  int16_t y[kMaxTouch];
+  uint8_t z[kMaxTouch];
+  int pressed[kMaxTouch];
+  for (auto touch = 0; touch < kMaxTouch; touch++)
+    pressed[touch] = 0;
+
   BSP_TS_Init (mRoot->getWidth(),mRoot->getHeight());
-  int pressed[5] = {0, 0, 0, 0, 0};
-  int16_t x[5];
-  int16_t y[5];
-  uint8_t z[5];
-
   while (true) {
     // read touch and use it
     TS_StateTypeDef tsState;
     BSP_TS_GetState (&tsState);
 
-    for (auto touch = 0; touch < 5; touch++) {
+    for (auto touch = 0; touch < kMaxTouch; touch++) {
       if (touch < tsState.touchDetected) { //) && tsState.touchWeight[touch]) {
         auto xinc = pressed[touch] ? tsState.touchX[touch] - x[touch] : 0;
         auto yinc = pressed[touch] ? tsState.touchY[touch] - y[touch] : 0;
@@ -447,10 +449,6 @@ static void startThread (void const* argument) {
 
   mLcd = cLcd::create ("mp3 player built at " + std::string(__TIME__) + " on " + std::string(__DATE__));
 
-  mRoot = new cRootContainer (cLcd::getWidth(), cLcd::getHeight());
-  mWave = (uint8_t*)pvPortMalloc (60*60*40*2*sizeof(uint8_t));
-  mFrameOffsets = (int*)pvPortMalloc (60*60*40*2*sizeof(int));
-
   osSemaphoreDef (aud);
   mAudSem = osSemaphoreCreate (osSemaphore (aud), -1);
   BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 44100);
@@ -458,21 +456,16 @@ static void startThread (void const* argument) {
   //BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mVolume * 100), 44100);
   //BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
 
+  const osThreadDef_t osThreadPlay =  { (char*)"Play", playThread, osPriorityNormal, 0, 16000 }; // 10000
+  osThreadCreate (&osThreadPlay, NULL);
+
   const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 4000 }; // 1000
   osThreadCreate (&osThreadUi, NULL);
-
-  const osThreadDef_t osThreadPlay =  { (char*)"Load", playThread, osPriorityNormal, 0, 16000 }; // 10000
-  osThreadCreate (&osThreadPlay, NULL);
 
   const osThreadDef_t osThreadNet =  { (char*)"Net", netThread, osPriorityBelowNormal, 0, 1024 };
   osThreadCreate (&osThreadNet, NULL);
 
-  for (;;)
-    osThreadTerminate (NULL);
-
-  // never dellocated
-  //vPortFree (mWave);
-  //vPortFree (mFrameOffsets);
+  osThreadTerminate (NULL);
   }
 //}}}
 
@@ -576,6 +569,10 @@ int main() {
   // init freeRTOS heap_5c
   HeapRegion_t xHeapRegions[] = { {(uint8_t*)SDRAM_HEAP, SDRAM_HEAP_SIZE }, { nullptr, 0 } };
   vPortDefineHeapRegions (xHeapRegions);
+
+  mRoot = new cRootContainer (cLcd::getWidth(), cLcd::getHeight());
+  mWave = (uint8_t*)pvPortMalloc (60*60*40*2*sizeof(uint8_t));
+  mFrameOffsets = (int*)pvPortMalloc (60*60*40*2*sizeof(int));
 
   // launch startThread
   const osThreadDef_t osThreadStart = { (char*)"Start", startThread, osPriorityNormal, 0, 4000 };
