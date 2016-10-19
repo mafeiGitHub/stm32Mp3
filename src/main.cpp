@@ -61,7 +61,7 @@ static int mLoadedFrame = 0;
 
 static bool mWaveChanged = false;
 static uint8_t* mWave = nullptr;
-static int* mFramePosition = nullptr;
+static int* mFrameOffsets = nullptr;
 
 static cLcd* mLcd = nullptr;
 //}}}
@@ -116,9 +116,9 @@ static void listDirectory (std::string directoryName, std::string indent) {
 //}}}
 
 //{{{
-static void loadThread (void const* argument) {
+static void playThread (void const* argument) {
 
-  cLcd::debug ("loadThread started");
+  cLcd::debug ("playThread started");
 
   pauseLcd = true;
   // mount sd fatfs, turn debug off when ok
@@ -207,7 +207,7 @@ static void loadThread (void const* argument) {
                   }
                   //}}}
                 if (bytesLeft >= mp3Decoder->getFrameBodySize()) {
-                  mFramePosition[mLoadedFrame] = file.getPosition(); // not right !!!!
+                  mFrameOffsets[mLoadedFrame] = file.getPosition(); // not right !!!!
                   auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, mWave + 1 + (mLoadedFrame * 2), nullptr);
                   if (*wavePtr > *mWave)
                     *mWave = *wavePtr;
@@ -283,7 +283,7 @@ static void loadThread (void const* argument) {
               }
             if (mWaveChanged) {
               //{{{  seek new position
-              file.seek (mFramePosition [mPlayFrame] & 0xFFFFFFE0);
+              file.seek (mFrameOffsets [mPlayFrame] & 0xFFFFFFE0);
               mWaveChanged = false;
               headerBytes = 0;
               }
@@ -347,6 +347,8 @@ static void uiThread (void const* argument) {
     if (!pauseLcd) {
       mLcd->startRender();
       mRoot->render (mLcd);
+      if (tsState.touchDetected)
+        mLcd->renderCursor (COL_MAGENTA, x[0], y[0], z[0] ? z[0] : cLcd::getHeight()/10);
       mLcd->endRender();
       osDelay (1);
       }
@@ -447,7 +449,7 @@ static void startThread (void const* argument) {
 
   mRoot = new cRootContainer (cLcd::getWidth(), cLcd::getHeight());
   mWave = (uint8_t*)pvPortMalloc (60*60*40*2*sizeof(uint8_t));
-  mFramePosition = (int*)pvPortMalloc (60*60*40*2*sizeof(int));
+  mFrameOffsets = (int*)pvPortMalloc (60*60*40*2*sizeof(int));
 
   osSemaphoreDef (aud);
   mAudSem = osSemaphoreCreate (osSemaphore (aud), -1);
@@ -459,8 +461,8 @@ static void startThread (void const* argument) {
   const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 4000 }; // 1000
   osThreadCreate (&osThreadUi, NULL);
 
-  const osThreadDef_t osThreadLoad =  { (char*)"Load", loadThread, osPriorityNormal, 0, 16000 }; // 10000
-  osThreadCreate (&osThreadLoad, NULL);
+  const osThreadDef_t osThreadPlay =  { (char*)"Load", playThread, osPriorityNormal, 0, 16000 }; // 10000
+  osThreadCreate (&osThreadPlay, NULL);
 
   const osThreadDef_t osThreadNet =  { (char*)"Net", netThread, osPriorityBelowNormal, 0, 1024 };
   osThreadCreate (&osThreadNet, NULL);
@@ -470,7 +472,7 @@ static void startThread (void const* argument) {
 
   // never dellocated
   //vPortFree (mWave);
-  //vPortFree (mFramePosition);
+  //vPortFree (mFrameOffsets);
   }
 //}}}
 
