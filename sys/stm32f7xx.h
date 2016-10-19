@@ -40,8 +40,7 @@ typedef enum {
 
 #ifdef STM32F746xx
   #include "stm32f746xx.h"
-#endif
-#ifdef STM32F769xx
+#else
   #include "stm32f769xx.h"
 #endif
 

@@ -1,7 +1,6 @@
 // system_stm32f7xx.c
 #include "stm32f7xx.h"
 
-//#define VECT_TAB_SRAM
 #define VECT_TAB_OFFSET 0x00 // Vector Table base offset field, This value must be a multiple of 0x200
 
 #define HSE_VALUE ((uint32_t)25000000) // Default value of the External oscillator in Hz
@@ -385,7 +384,7 @@ void SystemInit() {
 
   #ifdef STM32F746G_DISCO
     SystemSDram8Mb();
-  #elif  STM32F769I_DISCO
+  #else
     SystemSDram16Mb();
   #endif
 

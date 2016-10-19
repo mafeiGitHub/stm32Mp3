@@ -18,19 +18,17 @@
 #define DMA2D_BUFFER_SIZE        0x9000  // SIZE = rest of dtcm
 
 #ifdef STM32F746G_DISCO
-// SDRAM        0xC0000000 - 0xC007FFFF
-#define SDRAM_FRAME0         0xC0000000
-#define SDRAM_FRAME_SIZE       0x07F800  // SIZE = 0x7F800 = 272*480*4 = 512k-2048b leave bit of guard for clipping errors
-#define SDRAM_FRAME1         0xC0080000
-#define SDRAM_HEAP           0xC0100000
-#define SDRAM_HEAP_SIZE        0x700000  // SIZE = 7m
-#endif
-
-#ifdef STM32F769I_DISCO
-// SDRAM        0xC0000000 - 0xC00FFFFF
-#define SDRAM_FRAME0         0xC0000000
-#define SDRAM_FRAME_SIZE       0x180000  // SIZE = 0x18000 = 800*480*4 = 0x177000
-#define SDRAM_FRAME1         0xC0180000
-#define SDRAM_HEAP           0xC0300000
-#define SDRAM_HEAP_SIZE        0xD00000  // SIZE = 13m
+  // SDRAM        0xC0000000 - 0xC007FFFF
+  #define SDRAM_FRAME0         0xC0000000
+ #define SDRAM_FRAME_SIZE       0x07F800  // SIZE = 0x7F800 = 272*480*4 = 512k-2048b leave bit of guard for clipping errors
+  # define SDRAM_FRAME1         0xC0080000
+  #define SDRAM_HEAP           0xC0100000
+  #define SDRAM_HEAP_SIZE        0x700000  // SIZE = 7m
+#else
+  // SDRAM        0xC0000000 - 0xC00FFFFF
+  #define SDRAM_FRAME0         0xC0000000
+  #define SDRAM_FRAME_SIZE       0x180000  // SIZE = 0x18000 = 800*480*4 = 0x177000
+  #define SDRAM_FRAME1         0xC0180000
+  #define SDRAM_HEAP           0xC0300000
+  #define SDRAM_HEAP_SIZE        0xD00000  // SIZE = 13m
 #endif

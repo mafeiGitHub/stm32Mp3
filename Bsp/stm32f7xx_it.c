@@ -6,7 +6,7 @@
 #ifdef STM32F746G_DISCO
   #include "stm32746g_discovery_sd.h"
   #include "stm32746g_discovery_audio.h"
-#elif STM32F769I_DISCO
+#else
   #include "stm32f769i_discovery_sd.h"
   #include "stm32f769i_discovery_audio.h"
 #endif
@@ -18,8 +18,10 @@
 
 extern SAI_HandleTypeDef haudio_in_sai;
 extern SAI_HandleTypeDef haudio_out_sai;
-extern DFSDM_Filter_HandleTypeDef hAudioInTopLeftFilter;
-extern DFSDM_Filter_HandleTypeDef hAudioInTopRightFilter;
+#ifdef STM32F769I_DISCO
+  extern DFSDM_Filter_HandleTypeDef hAudioInTopLeftFilter;
+  extern DFSDM_Filter_HandleTypeDef hAudioInTopRightFilter;
+#endif
 
 extern SD_HandleTypeDef uSdHandle;
 extern DMA_HandleTypeDef dma_rx_handle;
@@ -45,7 +47,7 @@ void AUDIO_OUT_SAIx_DMAx_IRQHandler() { HAL_DMA_IRQHandler (haudio_out_sai.hdmat
   void SDMMC1_IRQHandler() { HAL_SD_IRQHandler (&uSdHandle); }
   void DMA2_Stream3_IRQHandler() { HAL_DMA_IRQHandler (&dma_rx_handle); }
   void DMA2_Stream6_IRQHandler() { HAL_DMA_IRQHandler (&dma_tx_handle); }
-#elif STM32F769I_DISCO
+#else
   void SDMMC2_IRQHandler() { HAL_SD_IRQHandler (&uSdHandle); }
   void DMA2_Stream0_IRQHandler() { HAL_DMA_IRQHandler (&dma_rx_handle); }
   void DMA2_Stream5_IRQHandler() { HAL_DMA_IRQHandler (&dma_tx_handle); }

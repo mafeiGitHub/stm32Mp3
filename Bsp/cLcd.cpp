@@ -7,9 +7,9 @@
 
 #include "memory.h"
 
-#ifdef STM32F746G_DISCO 
-  #include "stm32746g_discovery.h" 
-#else 
+#ifdef STM32F746G_DISCO
+  #include "stm32746g_discovery.h"
+#else
   #include "stm32F769i_discovery.h"
 #endif
 
@@ -1295,7 +1295,7 @@ void cLcd::ltdcInit (uint32_t frameBufferAddress) {
     hLtdc.Init.Backcolor.Red = 0;
     //}}}
     HAL_LTDC_Init (&hLtdc);
-  #elif STM32F769I_DISCO
+  #else
     //  DSI LCD
     //{{{  Toggle Hardware Reset of the DSI LCD using * its XRES signal (active low) */
     __HAL_RCC_GPIOJ_CLK_ENABLE();

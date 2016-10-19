@@ -22,7 +22,7 @@
   #include "stm32746g_discovery_ts.h"
   #include "stm32746g_discovery_audio.h"
   #include "stm32746g_discovery_sd.h"
-#elif STM32F769I_DISCO
+#else
   #include "stm32f769i_discovery.h"
   #include "stm32f769i_discovery_ts.h"
   #include "stm32f769i_discovery_audio.h"
@@ -539,7 +539,9 @@ static void initClock() {
   RCC_OscInitStruct.PLL.PLLN = 432;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
   RCC_OscInitStruct.PLL.PLLQ = 9;
-  RCC_OscInitStruct.PLL.PLLR = 7;
+  #ifdef STM32F769x
+    RCC_OscInitStruct.PLL.PLLR = 7;
+  #endif
   if (HAL_RCC_OscConfig (&RCC_OscInitStruct) != HAL_OK)
     while (true) {;}
 
