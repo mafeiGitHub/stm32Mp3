@@ -176,10 +176,9 @@
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/src/include"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/src/include/ipv4"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/sys"/>
-									<listOptionValue builtIn="false" value="&quot;C:\Users\colin\Desktop\shared\widgets&quot;"/>
+									<listOptionValue builtIn="false" value="C:\Users\colin\Desktop\shared\widgets"/>
 								</option>
 								<option id="gnu.c.compiler.option.preprocessor.def.symbols.1875407145" name="Defined symbols (-D)" superClass="gnu.c.compiler.option.preprocessor.def.symbols" useByScannerDiscovery="false" valueType="definedSymbols">
-									<listOptionValue builtIn="false" value="DEBUG"/>
 									<listOptionValue builtIn="false" value="FT2_BUILD_LIBRARY"/>
 									<listOptionValue builtIn="false" value="STM32"/>
 									<listOptionValue builtIn="false" value="STM32F7"/>
@@ -205,10 +204,9 @@
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/src/include"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/src/include/ipv4"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/sys"/>
-									<listOptionValue builtIn="false" value="&quot;C:\Users\colin\Desktop\shared\widgets&quot;"/>
+									<listOptionValue builtIn="false" value="C:\Users\colin\Desktop\shared\widgets"/>
 								</option>
 								<option id="gnu.cpp.compiler.option.preprocessor.def.1756886511" name="Defined symbols (-D)" superClass="gnu.cpp.compiler.option.preprocessor.def" useByScannerDiscovery="false" valueType="definedSymbols">
-									<listOptionValue builtIn="false" value="DEBUG"/>
 									<listOptionValue builtIn="false" value="FT2_BUILD_LIBRARY"/>
 									<listOptionValue builtIn="false" value="STM32"/>
 									<listOptionValue builtIn="false" value="STM32F7"/>
@@ -278,9 +276,11 @@
 		<configuration configurationName="Release">
 			<resource resourceType="PROJECT" workspacePath="/stm32Mp3"/>
 		</configuration>
+		<configuration configurationName="746gDisco"/>
 		<configuration configurationName="Debug">
 			<resource resourceType="PROJECT" workspacePath="/stm32Mp3"/>
 		</configuration>
+		<configuration configurationName="769iDisco"/>
 		<configuration configurationName="769">
 			<resource resourceType="PROJECT" workspacePath="/stm32Mp3"/>
 		</configuration>
