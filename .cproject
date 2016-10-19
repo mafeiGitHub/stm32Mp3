@@ -32,17 +32,19 @@
 								<option id="fr.ac6.managedbuild.gnu.c.compiler.option.optimization.level.542217807" name="Optimization Level" superClass="fr.ac6.managedbuild.gnu.c.compiler.option.optimization.level" useByScannerDiscovery="false" value="fr.ac6.managedbuild.gnu.c.optimization.level.debug" valueType="enumerated"/>
 								<option id="gnu.c.compiler.option.debugging.level.1185719545" name="Debug Level" superClass="gnu.c.compiler.option.debugging.level" useByScannerDiscovery="false" value="gnu.c.debugging.level.max" valueType="enumerated"/>
 								<option id="gnu.c.compiler.option.include.paths.295881635" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" useByScannerDiscovery="false" valueType="includePath">
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/sys"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/sys/core"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/freetype/include"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/CMSIS_RTOS"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/include"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/portable/GCC/ARM_CM7/r0p1"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/Bsp"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/HAL_Driver"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/include"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/CMSIS_RTOS"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/portable/GCC/ARM_CM7/r0p1"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/system"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/src/include"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/src/include/ipv4"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/sys"/>
-									<listOptionValue builtIn="false" value="&quot;C:\Users\colin\Desktop\shared\widgets&quot;"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/freetype/include"/>
+									<listOptionValue builtIn="false" value="C:\Users\colin\Desktop\shared\widgets"/>
+									<listOptionValue builtIn="false" value="C:\Users\colin\Desktop\shared\decoders"/>
 								</option>
 								<option id="gnu.c.compiler.option.preprocessor.def.symbols.1842463227" name="Defined symbols (-D)" superClass="gnu.c.compiler.option.preprocessor.def.symbols" useByScannerDiscovery="false" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="DEBUG"/>
@@ -60,18 +62,19 @@
 								<option id="fr.ac6.managedbuild.gnu.cpp.compiler.option.optimization.level.1831958261" name="Optimization Level" superClass="fr.ac6.managedbuild.gnu.cpp.compiler.option.optimization.level" useByScannerDiscovery="false" value="fr.ac6.managedbuild.gnu.cpp.optimization.level.debug" valueType="enumerated"/>
 								<option id="gnu.cpp.compiler.option.debugging.level.884050275" name="Debug Level" superClass="gnu.cpp.compiler.option.debugging.level" useByScannerDiscovery="false" value="gnu.cpp.compiler.debugging.level.max" valueType="enumerated"/>
 								<option id="gnu.cpp.compiler.option.include.paths.19290575" name="Include paths (-I)" superClass="gnu.cpp.compiler.option.include.paths" useByScannerDiscovery="false" valueType="includePath">
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/sys"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/sys/core"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/freetype/include"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/CMSIS_RTOS"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/include"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/portable/GCC/ARM_CM7/r0p1"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/HAL_Driver"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/Bsp"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/HAL_Driver"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/include"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/CMSIS_RTOS"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/portable/GCC/ARM_CM7/r0p1"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/system"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/src/include"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/src/include/ipv4"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/sys"/>
-									<listOptionValue builtIn="false" value="&quot;C:\Users\colin\Desktop\shared\widgets&quot;"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/freetype/include"/>
+									<listOptionValue builtIn="false" value="C:\Users\colin\Desktop\shared\widgets"/>
+									<listOptionValue builtIn="false" value="C:\Users\colin\Desktop\shared\decoders"/>
 								</option>
 								<option id="gnu.cpp.compiler.option.preprocessor.def.736093321" name="Defined symbols (-D)" superClass="gnu.cpp.compiler.option.preprocessor.def" useByScannerDiscovery="false" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="DEBUG"/>
@@ -166,17 +169,19 @@
 								<option id="fr.ac6.managedbuild.gnu.c.compiler.option.optimization.level.1294871627" name="Optimization Level" superClass="fr.ac6.managedbuild.gnu.c.compiler.option.optimization.level" useByScannerDiscovery="false" value="fr.ac6.managedbuild.gnu.c.optimization.level.debug" valueType="enumerated"/>
 								<option id="gnu.c.compiler.option.debugging.level.542942922" name="Debug Level" superClass="gnu.c.compiler.option.debugging.level" useByScannerDiscovery="false" value="gnu.c.debugging.level.max" valueType="enumerated"/>
 								<option id="gnu.c.compiler.option.include.paths.338387789" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" useByScannerDiscovery="false" valueType="includePath">
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/sys"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/sys/core"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/freetype/include"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/CMSIS_RTOS"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/include"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/portable/GCC/ARM_CM7/r0p1"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/Bsp"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/HAL_Driver"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/include"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/CMSIS_RTOS"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/portable/GCC/ARM_CM7/r0p1"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/system"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/src/include"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/src/include/ipv4"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/sys"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/freetype/include"/>
 									<listOptionValue builtIn="false" value="C:\Users\colin\Desktop\shared\widgets"/>
+									<listOptionValue builtIn="false" value="C:\Users\colin\Desktop\shared\decoders"/>
 								</option>
 								<option id="gnu.c.compiler.option.preprocessor.def.symbols.1875407145" name="Defined symbols (-D)" superClass="gnu.c.compiler.option.preprocessor.def.symbols" useByScannerDiscovery="false" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="FT2_BUILD_LIBRARY"/>
@@ -193,18 +198,19 @@
 								<option id="fr.ac6.managedbuild.gnu.cpp.compiler.option.optimization.level.1813064299" name="Optimization Level" superClass="fr.ac6.managedbuild.gnu.cpp.compiler.option.optimization.level" useByScannerDiscovery="false" value="fr.ac6.managedbuild.gnu.cpp.optimization.level.debug" valueType="enumerated"/>
 								<option id="gnu.cpp.compiler.option.debugging.level.1475304435" name="Debug Level" superClass="gnu.cpp.compiler.option.debugging.level" useByScannerDiscovery="false" value="gnu.cpp.compiler.debugging.level.max" valueType="enumerated"/>
 								<option id="gnu.cpp.compiler.option.include.paths.1414907017" name="Include paths (-I)" superClass="gnu.cpp.compiler.option.include.paths" useByScannerDiscovery="false" valueType="includePath">
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/sys"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/sys/core"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/freetype/include"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/CMSIS_RTOS"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/include"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/portable/GCC/ARM_CM7/r0p1"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/HAL_Driver"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/Bsp"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/HAL_Driver"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/include"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/CMSIS_RTOS"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/FreeRTOS/portable/GCC/ARM_CM7/r0p1"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/system"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/src/include"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/src/include/ipv4"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/sys"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/freetype/include"/>
 									<listOptionValue builtIn="false" value="C:\Users\colin\Desktop\shared\widgets"/>
+									<listOptionValue builtIn="false" value="C:\Users\colin\Desktop\shared\decoders"/>
 								</option>
 								<option id="gnu.cpp.compiler.option.preprocessor.def.1756886511" name="Defined symbols (-D)" superClass="gnu.cpp.compiler.option.preprocessor.def" useByScannerDiscovery="false" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="FT2_BUILD_LIBRARY"/>

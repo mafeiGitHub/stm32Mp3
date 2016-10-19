@@ -39,7 +39,7 @@
 #include "cWaveWidget.h"
 #include "cWaveCentredWidget.h"
 
-#include "../../shared/decoders/cMp3decoder.h"
+#include "cMp3decoder.h"
 
 #include "../httpServer/httpServer.h"
 //}}}
@@ -79,14 +79,14 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
   }
 //}}}
 //}}}
-static bool kPreload = false;
-static bool kStaticIp = true;
-static bool pause = false;
+static const bool kPreload = false;
+static const bool kStaticIp = true;
+static bool pauseLcd = false;
 
 //{{{
 static void listDirectory (std::string directoryName, std::string indent) {
 
-  //cLcd::debug ("dir " + directoryName);
+  cLcd::debug ("dir " + directoryName);
 
   cDirectory directory (directoryName);
   if (!directory.isOk()) {
@@ -120,12 +120,13 @@ static void loadThread (void const* argument) {
 
   cLcd::debug ("loadThread started");
 
-  pause = true;
+  pauseLcd = true;
   // mount sd fatfs, turn debug off when ok
   //{{{  init sd card
   BSP_SD_Init();
   while (BSP_SD_IsDetected() != SD_PRESENT) {
     // wait for sd card loop
+    pauseLcd = false;
     cLcd::debug (COL_RED, "no SD card");
     osDelay (1000);
     }
@@ -144,13 +145,13 @@ static void loadThread (void const* argument) {
   cLcd::debug (fatFs->getLabel() + " vsn:" + cLcd::hex (fatFs->getVolumeSerialNumber()) +
                " freeSectors:" + cLcd::dec (fatFs->getFreeSectors()));
   //}}}
-  pause = false;
-  mLcd->setShowDebug (false, false, false, false);  // title, info, lcdStats, footer
+  pauseLcd = false;
+  mLcd->setShowDebug (false, false, false, true);  // title, info, lcdStats, footer
 
   // widgets
-  mRoot->addTopLeft (new cListWidget (mMp3Files, fileIndex, fileIndexChanged, mRoot->getWidth(), mRoot->getHeight()));
-  mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, cWidget::getBoxHeight()-1, mRoot->getHeight()-6));
-  mRoot->addTopLeft (new cWaveCentredWidget (mWave, mPlayFrame, mLoadedFrame, mLoadedFrame, mWaveChanged, mRoot->getWidth(), mRoot->getHeight()/5));
+  mRoot->addTopLeft (new cListWidget (mMp3Files, fileIndex, fileIndexChanged, mRoot->getWidth(), mRoot->getHeight()-mRoot->getHeight()/5));
+  mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, cWidget::getBoxHeight()-1, mRoot->getHeight()));
+  mRoot->addBottomLeft (new cWaveCentredWidget (mWave, mPlayFrame, mLoadedFrame, mLoadedFrame, mWaveChanged, mRoot->getWidth(), mRoot->getHeight()/5));
 
   listDirectory ("", "");
 
@@ -343,7 +344,7 @@ static void uiThread (void const* argument) {
         }
       }
 
-    if (!pause) {
+    if (!pauseLcd) {
       mLcd->startRender();
       mRoot->render (mLcd);
       mLcd->endRender();
