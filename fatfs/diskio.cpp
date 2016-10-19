@@ -101,7 +101,7 @@ DRESULT diskRead (BYTE* buffer, DWORD sector, UINT count) {
     }
 
   else {
-    //cLcd::debug ("diskRead - sec:" + cLcd::dec (sector) + " num:" + cLcd::dec (count));
+    cLcd::debug ("diskRead - sec:" + cLcd::dec (sector) + " num:" + cLcd::dec (count));
     auto result = BSP_SD_ReadBlocks_DMA ((uint32_t*)buffer, (uint64_t)(sector * SECTOR_SIZE), SECTOR_SIZE, count) == MSD_OK ? RES_OK : RES_ERROR;
     SCB_InvalidateDCache_by_Addr ((uint32_t*)((uint32_t)buffer & 0xFFFFFFE0), (count * SECTOR_SIZE) + 32);
     return result;
