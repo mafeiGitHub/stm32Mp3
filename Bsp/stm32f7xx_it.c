@@ -2,8 +2,14 @@
 #include "stm32f7xx_it.h"
 
 #include "stm32f7xx_hal.h"
-#include "stm32746g_discovery_sd.h"
-#include "stm32746g_discovery_audio.h"
+
+#ifdef STM32F746G_DISCO
+  #include "stm32746g_discovery_sd.h"
+  #include "stm32746g_discovery_audio.h"
+#elif STM32F769I_DISCO
+  #include "stm32f769i_discovery_sd.h"
+  #include "stm32f769i_discovery_audio.h"
+#endif
 
 #include "cmsis_os.h"
 #include "ethernetif.h"
@@ -19,9 +25,6 @@ extern SD_HandleTypeDef uSdHandle;
 extern DMA_HandleTypeDef dma_rx_handle;
 extern DMA_HandleTypeDef dma_tx_handle;
 
-void NMI_Handler() {}
-void DebugMon_Handler() {}
-
 void HardFault_Handler()  { while (1) {} }
 void MemManage_Handler()  { while (1) {} }
 void BusFault_Handler()   { while (1) {} }
@@ -31,21 +34,21 @@ void SysTick_Handler() { HAL_IncTick(); osSystickHandler(); }
 
 void ETH_IRQHandler() { ETHERNET_IRQHandler(); }
 
-void AUDIO_IN_SAIx_DMAx_IRQHandler() { HAL_DMA_IRQHandler (haudio_in_sai.hdmarx); }
-void AUDIO_OUT_SAIx_DMAx_IRQHandler() { HAL_DMA_IRQHandler (haudio_out_sai.hdmatx); }
-void AUDIO_DFSDMx_DMAx_TOP_LEFT_IRQHandler() { HAL_DMA_IRQHandler (hAudioInTopLeftFilter.hdmaReg); }
-void AUDIO_DFSDMx_DMAx_TOP_RIGHT_IRQHandler() { HAL_DMA_IRQHandler (hAudioInTopRightFilter.hdmaReg); }
-
-
+// lcd
 void LTDC_IRQHandler() { LCD_LTDC_IRQHandler(); }
 void DMA2D_IRQHandler() { LCD_DMA2D_IRQHandler(); }
 
-// 746g disco sd
-void DMA2_Stream3_IRQHandler() { HAL_DMA_IRQHandler (&dma_rx_handle); }
-void DMA2_Stream6_IRQHandler() { HAL_DMA_IRQHandler (&dma_tx_handle); }
-void SDMMC1_IRQHandler() { HAL_SD_IRQHandler (&uSdHandle); }
+void AUDIO_IN_SAIx_DMAx_IRQHandler() { HAL_DMA_IRQHandler (haudio_in_sai.hdmarx); }
+void AUDIO_OUT_SAIx_DMAx_IRQHandler() { HAL_DMA_IRQHandler (haudio_out_sai.hdmatx); }
 
-// 769i disco sd
-void DMA2_Stream0_IRQHandler() { HAL_DMA_IRQHandler (&dma_rx_handle); }
-void DMA2_Stream5_IRQHandler() { HAL_DMA_IRQHandler (&dma_tx_handle); }
-void SDMMC2_IRQHandler() { HAL_SD_IRQHandler (&uSdHandle); }
+#ifdef STM32F746G_DISCO
+  void SDMMC1_IRQHandler() { HAL_SD_IRQHandler (&uSdHandle); }
+  void DMA2_Stream3_IRQHandler() { HAL_DMA_IRQHandler (&dma_rx_handle); }
+  void DMA2_Stream6_IRQHandler() { HAL_DMA_IRQHandler (&dma_tx_handle); }
+#elif STM32F769I_DISCO
+  void SDMMC2_IRQHandler() { HAL_SD_IRQHandler (&uSdHandle); }
+  void DMA2_Stream0_IRQHandler() { HAL_DMA_IRQHandler (&dma_rx_handle); }
+  void DMA2_Stream5_IRQHandler() { HAL_DMA_IRQHandler (&dma_tx_handle); }
+  //void AUDIO_DFSDMx_DMAx_TOP_LEFT_IRQHandler() { HAL_DMA_IRQHandler (hAudioInTopLeftFilter.hdmaReg); }
+  //void AUDIO_DFSDMx_DMAx_TOP_RIGHT_IRQHandler() { HAL_DMA_IRQHandler (hAudioInTopRightFilter.hdmaReg); }
+#endif
