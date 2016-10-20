@@ -12,7 +12,7 @@
 #include "stm32f7xx_hal.h"
 
 #define LEDn ((uint8_t)4)
-typedef enum { LED1 = 0, LED_RED = LED1, LED2 = 1, LED_GREEN = LED2, LED3 = 2, LED4 = 3 } Led_TypeDef;
+typedef enum { LED1 = 0, LED_RED = LED1, LED2 = 1, LED_GREEN = LED2, LED3 = 2 } Led_TypeDef;
 typedef enum { BUTTON_WAKEUP = 0, } Button_TypeDef;
 typedef enum { BUTTON_MODE_GPIO = 0, BUTTON_MODE_EXTI = 1 } ButtonMode_TypeDef;
 typedef enum { PB_SET = 0, PB_RESET = !PB_SET } ButtonValue_TypeDef;
@@ -24,12 +24,10 @@ typedef enum { DISCO_OK    = 0, DISCO_ERROR = 1 } DISCO_Status_TypeDef;
 #define LED1_GPIO_PORT                   ((GPIO_TypeDef*)GPIOJ)
 #define LED2_GPIO_PORT                   ((GPIO_TypeDef*)GPIOJ)
 #define LED3_GPIO_PORT                   ((GPIO_TypeDef*)GPIOA)
-#define LED4_GPIO_PORT                   ((GPIO_TypeDef*)GPIOD)
 
 #define LED1_PIN                         ((uint32_t)GPIO_PIN_13)
 #define LED2_PIN                         ((uint32_t)GPIO_PIN_5)
 #define LED3_PIN                         ((uint32_t)GPIO_PIN_12)
-#define LED4_PIN                         ((uint32_t)GPIO_PIN_4)
 
 #define BUTTONn                          ((uint8_t)1)
 

@@ -14,8 +14,8 @@
                                                  |(__STM32F769I_DISCOVERY_BSP_VERSION_SUB2 << 8 )\
                                                  |(__STM32F769I_DISCOVERY_BSP_VERSION_RC))
 
-uint32_t GPIO_PIN[LEDn]       = {LED1_PIN, LED2_PIN, LED3_PIN, LED4_PIN};
-GPIO_TypeDef* GPIO_PORT[LEDn] = {LED1_GPIO_PORT, LED2_GPIO_PORT, LED3_GPIO_PORT, LED4_GPIO_PORT};
+uint32_t GPIO_PIN[LEDn]       = {LED1_PIN, LED2_PIN, LED3_PIN};
+GPIO_TypeDef* GPIO_PORT[LEDn] = {LED1_GPIO_PORT, LED2_GPIO_PORT, LED3_GPIO_PORT};
 
 GPIO_TypeDef* BUTTON_PORT[BUTTONn]  = {WAKEUP_BUTTON_GPIO_PORT };
 const uint16_t BUTTON_PIN[BUTTONn]  = {WAKEUP_BUTTON_PIN };
@@ -60,9 +60,6 @@ void BSP_LED_Init(Led_TypeDef Led)
 {
    if (Led == 2) {
      __HAL_RCC_GPIOA_CLK_ENABLE();
-     }
-   else if (Led == 3) {
-     __HAL_RCC_GPIOD_CLK_ENABLE();
      }
    else {
      __HAL_RCC_GPIOJ_CLK_ENABLE();
