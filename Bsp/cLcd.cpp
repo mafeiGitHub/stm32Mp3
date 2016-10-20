@@ -700,7 +700,7 @@ void cLcd::renderCursor (uint32_t colour, int16_t x, int16_t y, int16_t z) {
 void cLcd::endRender (bool forceInfo) {
 
   auto y = 0;
-  if (mShowTitle && !mTitle.empty()) {
+  if ((mShowTitle || forceInfo) && !mTitle.empty()) {
     //{{{  draw title
     text (COL_WHITE, getFontHeight(), mTitle, 0, y, getWidth(), getLineHeight());
     y += getLineHeight();
@@ -740,7 +740,7 @@ void cLcd::endRender (bool forceInfo) {
     text (COL_WHITE, getFontHeight(), str, 0, getHeight() - 2 * getLineHeight(), getWidth(), 24);
     }
     //}}}
-  if (mShowFooter)
+  if (mShowFooter || forceInfo)
     //{{{  draw footer
     text (COL_YELLOW, getFontHeight(),
           dec (xPortGetFreeHeapSize()) + " " + dec (osGetCPUUsage()) + "% " + dec (mDrawTime) + "ms",

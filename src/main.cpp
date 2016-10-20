@@ -328,6 +328,10 @@ static void uiThread (void const* argument) {
   while (true) {
     TS_StateTypeDef tsState;
     BSP_TS_GetState (&tsState);
+    button = BSP_PB_GetState(BUTTON_WAKEUP) == GPIO_PIN_SET;
+    button ? BSP_LED_On (LED1) : BSP_LED_Off (LED1);
+    button ? BSP_LED_On (LED3) : BSP_LED_Off (LED3);
+    tsState.touchDetected ? BSP_LED_On (LED2) : BSP_LED_Off (LED2);
     for (auto touch = 0; touch < kMaxTouch; touch++) {
       if (touch < tsState.touchDetected) { //) && tsState.touchWeight[touch]) {
         auto xinc = pressed[touch] ? tsState.touchX[touch] - x[touch] : 0;
@@ -336,7 +340,7 @@ static void uiThread (void const* argument) {
         y[touch] = tsState.touchY[touch];
         z[touch] = tsState.touchWeight[touch];
         if (!touch)
-          mRoot->press (pressed[0], x[0], y[0], z[0], xinc, yinc);
+          button ? mLcd->press (pressed[0], x[0], y[0], z[0], xinc, yinc) : mRoot->press (pressed[0], x[0], y[0], z[0], xinc, yinc);
         pressed[touch]++;
         }
       else {
@@ -347,12 +351,6 @@ static void uiThread (void const* argument) {
           mRoot->release();
         pressed[touch] = 0;
         }
-      //{{{  button, leds
-      button = BSP_PB_GetState(BUTTON_WAKEUP) == GPIO_PIN_SET;
-      button ? BSP_LED_On (LED1) : BSP_LED_Off (LED1);
-      button ? BSP_LED_On (LED3) : BSP_LED_Off (LED3);
-      tsState.touchDetected ? BSP_LED_On (LED2) : BSP_LED_Off (LED2);
-      //}}}
       }
 
     if (!pauseLcd) {
