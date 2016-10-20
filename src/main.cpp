@@ -352,6 +352,7 @@ static void uiThread (void const* argument) {
 
       button = BSP_PB_GetState(BUTTON_WAKEUP) == GPIO_PIN_SET;
       button ? BSP_LED_On (LED1) : BSP_LED_Off (LED1);
+      button ? BSP_LED_On (LED3) : BSP_LED_Off (LED3);
       tsState.touchDetected ? BSP_LED_On (LED2) : BSP_LED_Off (LED2);
       }
 
@@ -553,6 +554,7 @@ int main() {
 
   BSP_LED_Init (LED1);
   BSP_LED_Init (LED2);
+  BSP_LED_Init (LED3);
   BSP_PB_Init (BUTTON_WAKEUP, BUTTON_MODE_GPIO);
 
   // init freeRTOS heap_5c
