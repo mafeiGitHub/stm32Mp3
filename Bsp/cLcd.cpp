@@ -872,10 +872,6 @@ int cLcd::text (uint32_t colour, int fontHeight, std::string str, int16_t x, int
 void cLcd::copy (uint32_t* src, int16_t x, int16_t y, uint16_t width, uint16_t height) {
   }
 //}}}
-//{{{
-void cLcd::copy (ID2D1Bitmap* bitMap, int16_t x, int16_t y, uint16_t width, uint16_t height) {
-  }
-//}}}
 
 //{{{
 void cLcd::pixelClipped (uint32_t colour, int16_t x, int16_t y) {
@@ -1121,17 +1117,32 @@ void cLcd::init (std::string title) {
 void cLcd::ltdcInit (uint32_t frameBufferAddress) {
 
   hLtdc.Instance = LTDC;
+  //{{{  common clock enables
   __HAL_RCC_LTDC_CLK_ENABLE();
   __HAL_RCC_DMA2D_CLK_ENABLE();
+  //}}}
 
   #ifdef STM32F746G_DISCO
-    //{{{  clock enables
+    //{{{  gpio clock enables
     // enable GPIO clock, includes backlight, display enable
     __HAL_RCC_GPIOE_CLK_ENABLE();
     __HAL_RCC_GPIOG_CLK_ENABLE();
     __HAL_RCC_GPIOI_CLK_ENABLE();
     __HAL_RCC_GPIOJ_CLK_ENABLE();
     __HAL_RCC_GPIOK_CLK_ENABLE();
+    //}}}
+    //{{{  pll config
+    // - PLLSAI_VCO In  = HSE_VALUE / PLLM                        = 1 Mhz
+    // - PLLSAI_VCO Out = PLLSAI_VCO Input * PLLSAIN              = 192 Mhz
+    // - PLLLCDCLK      = PLLSAI_VCO Output / PLLSAIR    = 192/5  = 38.4 Mhz
+    // - LTDC clock     = PLLLCDCLK / LTDC_PLLSAI_DIVR_4 = 38.4/4 = 9.6Mhz
+
+    RCC_PeriphCLKInitTypeDef periph_clk_init_struct;
+    periph_clk_init_struct.PeriphClockSelection = RCC_PERIPHCLK_LTDC;
+    periph_clk_init_struct.PLLSAI.PLLSAIN = 192;
+    periph_clk_init_struct.PLLSAI.PLLSAIR = 5; // could be 7
+    periph_clk_init_struct.PLLSAIDivR = RCC_PLLSAIDIVR_4;
+    HAL_RCCEx_PeriphCLKConfig (&periph_clk_init_struct);
     //}}}
     //{{{  LTDC pin config
     // GPIOE config
@@ -1200,17 +1211,6 @@ void cLcd::ltdcInit (uint32_t frameBufferAddress) {
     hLtdc.Init.AccumulatedActiveH = RK043FN48H_HEIGHT + RK043FN48H_VSYNC + RK043FN48H_VBP - 1;
     hLtdc.Init.TotalHeigh =         RK043FN48H_HEIGHT + RK043FN48H_VSYNC + RK043FN48H_VBP + RK043FN48H_VFP - 1;
 
-    // - PLLSAI_VCO In  = HSE_VALUE / PLLM                        = 1 Mhz
-    // - PLLSAI_VCO Out = PLLSAI_VCO Input * PLLSAIN              = 192 Mhz
-    // - PLLLCDCLK      = PLLSAI_VCO Output / PLLSAIR    = 192/5  = 38.4 Mhz
-    // - LTDC clock     = PLLLCDCLK / LTDC_PLLSAI_DIVR_4 = 38.4/4 = 9.6Mhz
-    RCC_PeriphCLKInitTypeDef periph_clk_init_struct;
-    periph_clk_init_struct.PeriphClockSelection = RCC_PERIPHCLK_LTDC;
-    periph_clk_init_struct.PLLSAI.PLLSAIN = 192;
-    periph_clk_init_struct.PLLSAI.PLLSAIR = 5; // could be 7
-    periph_clk_init_struct.PLLSAIDivR = RCC_PLLSAIDIVR_4;
-    HAL_RCCEx_PeriphCLKConfig (&periph_clk_init_struct);
-
     // LTDC Polarity
     hLtdc.Init.HSPolarity = LTDC_HSPOLARITY_AL;
     hLtdc.Init.VSPolarity = LTDC_VSPOLARITY_AL;
@@ -1229,11 +1229,25 @@ void cLcd::ltdcInit (uint32_t frameBufferAddress) {
     HAL_LTDC_Init (&hLtdc);
   #else
     hdsi_discovery.Instance = DSI;
-    //{{{  clock enables
+    //{{{  dsi, XRES gpio clock enables
     __HAL_RCC_DSI_CLK_ENABLE();
     __HAL_RCC_GPIOJ_CLK_ENABLE();
     //}}}
-    //{{{  pulse DSI LCD XRES signal - active low
+    //{{{  pll config
+    // Note: The following values should not be changed as the PLLSAI is also used to clock the USB FS
+    // PLLSAI_VCO Input = HSE_VALUE/PLL_M = 1 Mhz
+    // PLLSAI_VCO Output = PLLSAI_VCO Input * PLLSAIN = 384 Mhz
+    // PLLLCDCLK = PLLSAI_VCO Output/PLLSAIR = 384 MHz / 7 = 54.85 MHz
+    // LTDC clock frequency = PLLLCDCLK / LTDC_PLLSAI_DIVR_2 = 54.85 MHz / 2 = 27.429 MHz
+
+    RCC_PeriphCLKInitTypeDef PeriphClkInitStruct;
+    PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_LTDC;
+    PeriphClkInitStruct.PLLSAI.PLLSAIN = 384;
+    PeriphClkInitStruct.PLLSAI.PLLSAIR = 7;
+    PeriphClkInitStruct.PLLSAIDivR = RCC_PLLSAIDIVR_2;
+    HAL_RCCEx_PeriphCLKConfig (&PeriphClkInitStruct);
+    //}}}
+    //{{{  pulse DSI LCD XRES - active low
     // Configure the GPIO on PJ15
     GPIO_InitTypeDef gpio_init_structure;
     gpio_init_structure.Pin   = GPIO_PIN_15;
@@ -1299,24 +1313,12 @@ void cLcd::ltdcInit (uint32_t frameBufferAddress) {
     hdsivideo_handle.LPVerticalSyncActiveEnable    = DSI_LP_VSYNC_ENABLE; /* Allow sending LP commands during VSync = VSA period */
     HAL_DSI_ConfigVideoMode (&hdsi_discovery, &hdsivideo_handle);
     //}}}
-    //{{{  configurte LTDC clock
-    // Note: The following values should not be changed as the PLLSAI is also used to clock the USB FS
-    // PLLSAI_VCO Input = HSE_VALUE/PLL_M = 1 Mhz
-    // PLLSAI_VCO Output = PLLSAI_VCO Input * PLLSAIN = 384 Mhz
-    // PLLLCDCLK = PLLSAI_VCO Output/PLLSAIR = 384 MHz / 7 = 54.85 MHz
-    // LTDC clock frequency = PLLLCDCLK / LTDC_PLLSAI_DIVR_2 = 54.85 MHz / 2 = 27.429 MHz
-    RCC_PeriphCLKInitTypeDef PeriphClkInitStruct;
-    PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_LTDC;
-    PeriphClkInitStruct.PLLSAI.PLLSAIN = 384;
-    PeriphClkInitStruct.PLLSAI.PLLSAIR = 7;
-    PeriphClkInitStruct.PLLSAIDivR = RCC_PLLSAIDIVR_2;
-    HAL_RCCEx_PeriphCLKConfig (&PeriphClkInitStruct);
-    //}}}
-    //{{{  LTDC timing Configuration
-    hLtdc.Init.HorizontalSync = (HSA - 1);
-    hLtdc.Init.AccumulatedHBP = (HSA + HBP - 1);
-    hLtdc.Init.AccumulatedActiveW = (getWidth() + HSA + HBP - 1);
-    hLtdc.Init.TotalWidth = (getWidth() + HSA + HBP + HFP - 1);
+    //{{{  LTDC info
+    hLtdc.Init.HorizontalSync = HSA - 1;
+    hLtdc.Init.AccumulatedHBP = HSA + HBP - 1;
+    hLtdc.Init.AccumulatedActiveW = getWidth() + HSA + HBP - 1;
+    hLtdc.Init.TotalWidth = getWidth() + HSA + HBP + HFP - 1;
+
     hLtdc.LayerCfg->ImageWidth  = getWidth();
     hLtdc.LayerCfg->ImageHeight = getHeight();
 
