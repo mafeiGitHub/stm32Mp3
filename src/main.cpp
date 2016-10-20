@@ -313,8 +313,8 @@ static void playThread (void const* argument) {
 //{{{
 static void uiThread (void const* argument) {
 
-  cLcd::debug ("uiThread");
   mLcd->displayOn();
+  cLcd::debug ("uiThread");
 
   int16_t x[kMaxTouch];
   int16_t y[kMaxTouch];
@@ -557,10 +557,10 @@ int main() {
   osSemaphoreDef (aud);
   mAudSem = osSemaphoreCreate (osSemaphore (aud), -1);
 
-  const osThreadDef_t osThreadPlay =  { (char*)"Play", playThread, osPriorityNormal, 0, 16000 }; // 10000
+  const osThreadDef_t osThreadPlay =  { (char*)"Play", playThread, osPriorityNormal, 0, 16000 };
   osThreadCreate (&osThreadPlay, NULL);
 
-  const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 4000 }; // 1000
+  const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 4000 };
   osThreadCreate (&osThreadUi, NULL);
 
   const osThreadDef_t osThreadNet =  { (char*)"Net", netThread, osPriorityBelowNormal, 0, 1024 };
