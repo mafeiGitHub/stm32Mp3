@@ -316,6 +316,7 @@ static void uiThread (void const* argument) {
   mLcd->displayOn();
   cLcd::debug ("uiThread");
 
+  bool button = false;
   int16_t x[kMaxTouch];
   int16_t y[kMaxTouch];
   uint8_t z[kMaxTouch];
@@ -348,14 +349,18 @@ static void uiThread (void const* argument) {
           mRoot->release();
         pressed[touch] = 0;
         }
+
+      button = BSP_PB_GetState(BUTTON_WAKEUP) == GPIO_PIN_SET;
+      button ? BSP_LED_On (LED1) : BSP_LED_Off (LED1);
+      tsState.touchDetected ? BSP_LED_On (LED2) : BSP_LED_Off (LED2);
       }
 
     if (!pauseLcd) {
       mLcd->startRender();
-      mRoot->render (mLcd);
+      button ? mLcd->clear (COL_BLACK) : mRoot->render (mLcd);
       if (tsState.touchDetected)
         mLcd->renderCursor (COL_MAGENTA, x[0], y[0], z[0] ? z[0] : cLcd::getHeight()/10);
-      mLcd->endRender();
+      mLcd->endRender (button);
       osDelay (1);
       }
 
@@ -484,27 +489,28 @@ static void initMpuRegions() {
 static void initClock() {
 
   // Enable Power Control clock
-  //__HAL_RCC_PWR_CLK_ENABLE();
+  __HAL_RCC_PWR_CLK_ENABLE();
+
   // The voltage scaling allows optimizing the power consumption when the device is
   // clocked below the maximum system frequency, to update the voltage scaling value
   // regarding system frequency refer to product datasheet
-  // __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+   __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
-//  System Clock source            = PLL (HSE)
-//  SYSCLK(Hz)                     = 216000000
-//  HCLK(Hz)                       = 216000000
-//  HSE Frequency(Hz)              = 25000000
-//  PLL_M                          = 25
-//  PLL_N                          = 432
-//  PLL_P                          = 2
-//  PLL_Q                          = 9
-//  PLL_R                          = 7
-//  VDD(V)                         = 3.3
-//  Main regulator output voltage  = Scale1 mode
-//  AHB Prescaler                  = 1
-//  APB1 Prescaler                 = 4
-//  APB2 Prescaler                 = 2
-//  Flash Latency(WS)              = 7
+  //  System Clock source            = PLL (HSE)
+  //  SYSCLK(Hz)                     = 216000000
+  //  HCLK(Hz)                       = 216000000
+  //  HSE Frequency(Hz)              = 25000000
+  //  PLL_M                          = 25
+  //  PLL_N                          = 432
+  //  PLL_P                          = 2
+  //  PLL_Q                          = 9
+  //  PLL_R                          = 7
+  //  VDD(V)                         = 3.3
+  //  Main regulator output voltage  = Scale1 mode
+  //  AHB Prescaler                  = 1
+  //  APB1 Prescaler                 = 4
+  //  APB2 Prescaler                 = 2
+  //  Flash Latency(WS)              = 7
   RCC_OscInitTypeDef RCC_OscInitStruct;
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
@@ -545,14 +551,18 @@ int main() {
   initMpuRegions();
   initClock();
 
+  BSP_LED_Init (LED1);
+  BSP_LED_Init (LED2);
+  BSP_PB_Init (BUTTON_WAKEUP, BUTTON_MODE_GPIO);
+
   // init freeRTOS heap_5c
   HeapRegion_t xHeapRegions[] = { {(uint8_t*)SDRAM_HEAP, SDRAM_HEAP_SIZE }, { nullptr, 0 } };
   vPortDefineHeapRegions (xHeapRegions);
 
   mLcd = cLcd::create ("mp3 player built at " + std::string(__TIME__) + " on " + std::string(__DATE__));
   mRoot = new cRootContainer (cLcd::getWidth(), cLcd::getHeight());
-  mWave = (uint8_t*)pvPortMalloc (60*60*40*2*sizeof(uint8_t));
-  mFrameOffsets = (int*)pvPortMalloc (60*60*40*2*sizeof(int));
+  mWave = (uint8_t*)pvPortMalloc (60*60*40*2*sizeof(uint8_t));  // 1 hour of 40 mp3 frames per sec
+  mFrameOffsets = (int*)pvPortMalloc (60*60*40*sizeof(int));
 
   osSemaphoreDef (aud);
   mAudSem = osSemaphoreCreate (osSemaphore (aud), -1);

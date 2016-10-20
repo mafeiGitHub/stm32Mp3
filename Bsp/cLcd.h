@@ -43,7 +43,7 @@ public:
 
   void startRender();
   void renderCursor (uint32_t colour, int16_t x, int16_t y, int16_t z);
-  void endRender();
+  void endRender (bool forceInfo);
 
   void displayOn();
   void displayOff();

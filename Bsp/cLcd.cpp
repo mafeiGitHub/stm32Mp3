@@ -697,7 +697,7 @@ void cLcd::renderCursor (uint32_t colour, int16_t x, int16_t y, int16_t z) {
   }
 //}}}
 //{{{
-void cLcd::endRender() {
+void cLcd::endRender (bool forceInfo) {
 
   auto y = 0;
   if (mShowTitle && !mTitle.empty()) {
@@ -706,7 +706,7 @@ void cLcd::endRender() {
     y += getLineHeight();
     }
     //}}}
-  if (mShowInfo) {
+  if (mShowInfo || forceInfo) {
     //{{{  draw info lines
     if (mLastLine >= 0) {
       // draw scroll bar

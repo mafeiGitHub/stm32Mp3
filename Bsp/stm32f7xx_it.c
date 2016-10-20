@@ -1,4 +1,5 @@
 // stm32f7xx_it.c - BSP handler IRQ to HAL glue
+/*{{{  includes*/
 #include "stm32f7xx.h"
 #include "stm32f7xx_hal.h"
 
@@ -13,6 +14,7 @@
   #include "stm32f769i_discovery_sd.h"
   #include "stm32f769i_discovery_audio.h"
 #endif
+/*}}}*/
 
 void HardFault_Handler()  { while (1) {} }
 void MemManage_Handler()  { while (1) {} }
