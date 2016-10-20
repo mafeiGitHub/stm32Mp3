@@ -8,7 +8,7 @@ public:
   virtual ~cLcd();
 
   // static members
-  static cLcd* create (std::string title, bool buffered = true);
+  static cLcd* create (std::string title);
   static cLcd* get() { return mLcd; }
 
   // static gets
@@ -65,7 +65,7 @@ public:
   virtual void line (uint32_t colour, int16_t x1, int16_t y1, int16_t x2, int16_t y2);
 
 private:
-  void init (std::string title, bool buffered);
+  void init (std::string title);
   void ltdcInit (uint32_t frameBufferAddress);
   void layerInit (uint8_t layer, uint32_t frameBufferAddress);
 
@@ -86,7 +86,6 @@ private:
   static cLcd* mLcd;
 
   //{{{  vars
-  bool mBuffered = true;
   int mStartTime = 0;
 
   float mFirstLine = 0;

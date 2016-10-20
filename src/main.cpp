@@ -159,6 +159,9 @@ static void playThread (void const* argument) {
   auto mp3Decoder = new cMp3Decoder;
   cLcd::debug ("mp3Decoder created");
 
+  BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 44100);
+  BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);
+
   //{{{  chunkSize and buffer
   auto chunkSize = 4096;
   auto fullChunkSize = 2048 + chunkSize;
@@ -311,6 +314,7 @@ static void playThread (void const* argument) {
 static void uiThread (void const* argument) {
 
   cLcd::debug ("uiThread");
+  mLcd->displayOn();
 
   int16_t x[kMaxTouch];
   int16_t y[kMaxTouch];
@@ -356,7 +360,6 @@ static void uiThread (void const* argument) {
       }
 
     if (mVolumeChanged) {
-      // change volume
       BSP_AUDIO_OUT_SetVolume (int(mVolume * 100));
       mVolumeChanged = false;
       }
@@ -440,30 +443,6 @@ static void netThread (void const* argument) {
     cLcd::debug (COL_RED, "no ethernet");
     }
     //}}}
-
-  osThreadTerminate (NULL);
-  }
-//}}}
-//{{{
-static void startThread (void const* argument) {
-
-  mLcd = cLcd::create ("mp3 player built at " + std::string(__TIME__) + " on " + std::string(__DATE__));
-
-  osSemaphoreDef (aud);
-  mAudSem = osSemaphoreCreate (osSemaphore (aud), -1);
-  BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 44100);
-  BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);
-  //BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mVolume * 100), 44100);
-  //BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
-
-  const osThreadDef_t osThreadPlay =  { (char*)"Play", playThread, osPriorityNormal, 0, 16000 }; // 10000
-  osThreadCreate (&osThreadPlay, NULL);
-
-  const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 4000 }; // 1000
-  osThreadCreate (&osThreadUi, NULL);
-
-  const osThreadDef_t osThreadNet =  { (char*)"Net", netThread, osPriorityBelowNormal, 0, 1024 };
-  osThreadCreate (&osThreadNet, NULL);
 
   osThreadTerminate (NULL);
   }
@@ -570,13 +549,22 @@ int main() {
   HeapRegion_t xHeapRegions[] = { {(uint8_t*)SDRAM_HEAP, SDRAM_HEAP_SIZE }, { nullptr, 0 } };
   vPortDefineHeapRegions (xHeapRegions);
 
+  mLcd = cLcd::create ("mp3 player built at " + std::string(__TIME__) + " on " + std::string(__DATE__));
   mRoot = new cRootContainer (cLcd::getWidth(), cLcd::getHeight());
   mWave = (uint8_t*)pvPortMalloc (60*60*40*2*sizeof(uint8_t));
   mFrameOffsets = (int*)pvPortMalloc (60*60*40*2*sizeof(int));
 
-  // launch startThread
-  const osThreadDef_t osThreadStart = { (char*)"Start", startThread, osPriorityNormal, 0, 4000 };
-  osThreadCreate (&osThreadStart, NULL);
+  osSemaphoreDef (aud);
+  mAudSem = osSemaphoreCreate (osSemaphore (aud), -1);
+
+  const osThreadDef_t osThreadPlay =  { (char*)"Play", playThread, osPriorityNormal, 0, 16000 }; // 10000
+  osThreadCreate (&osThreadPlay, NULL);
+
+  const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 4000 }; // 1000
+  osThreadCreate (&osThreadUi, NULL);
+
+  const osThreadDef_t osThreadNet =  { (char*)"Net", netThread, osPriorityBelowNormal, 0, 1024 };
+  osThreadCreate (&osThreadNet, NULL);
 
   osKernelStart();
 
