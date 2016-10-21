@@ -73,10 +73,6 @@ private:
   void setLayer (uint8_t layer, uint32_t frameBufferAddress);
   void showLayer (uint8_t layer, uint32_t frameBufferAddress, uint8_t alpha);
 
-  void send();
-  void wait();
-  void sendWait();
-
   void reset();
   void displayTop();
   void displayTail();

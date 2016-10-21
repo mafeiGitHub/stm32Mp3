@@ -117,6 +117,65 @@ static void listDirectory (std::string directoryName, std::string indent) {
 //}}}
 
 //{{{
+static void uiThread (void const* argument) {
+
+  mLcd->displayOn();
+  cLcd::debug ("uiThread");
+
+  bool button = false;
+  int16_t x[kMaxTouch];
+  int16_t y[kMaxTouch];
+  uint8_t z[kMaxTouch];
+  int pressed[kMaxTouch];
+  for (auto touch = 0; touch < kMaxTouch; touch++)
+    pressed[touch] = 0;
+
+  BSP_TS_Init (mRoot->getWidth(),mRoot->getHeight());
+  while (true) {
+    TS_StateTypeDef tsState;
+    BSP_TS_GetState (&tsState);
+    button = BSP_PB_GetState(BUTTON_WAKEUP) == GPIO_PIN_SET;
+    button ? BSP_LED_On (LED1) : BSP_LED_Off (LED1);
+    button ? BSP_LED_On (LED3) : BSP_LED_Off (LED3);
+    tsState.touchDetected ? BSP_LED_On (LED2) : BSP_LED_Off (LED2);
+    for (auto touch = 0; touch < kMaxTouch; touch++) {
+      if (touch < tsState.touchDetected) { //) && tsState.touchWeight[touch]) {
+        auto xinc = pressed[touch] ? tsState.touchX[touch] - x[touch] : 0;
+        auto yinc = pressed[touch] ? tsState.touchY[touch] - y[touch] : 0;
+        x[touch] = tsState.touchX[touch];
+        y[touch] = tsState.touchY[touch];
+        z[touch] = tsState.touchWeight[touch];
+        if (!touch)
+          button ? mLcd->press (pressed[0], x[0], y[0], z[0], xinc, yinc) : mRoot->press (pressed[0], x[0], y[0], z[0], xinc, yinc);
+        pressed[touch]++;
+        }
+      else {
+        x[touch] = 0;
+        y[touch] = 0;
+        z[touch] = 0;
+        if (!touch && pressed[0])
+          mRoot->release();
+        pressed[touch] = 0;
+        }
+      }
+
+    if (!pauseLcd) {
+      mLcd->startRender();
+      button ? mLcd->clear (COL_BLACK) : mRoot->render (mLcd);
+      if (tsState.touchDetected)
+        mLcd->renderCursor (COL_MAGENTA, x[0], y[0], z[0] ? z[0] : cLcd::getHeight()/10);
+      mLcd->endRender (button);
+      osDelay (1);
+      }
+
+    if (mVolumeChanged) {
+      BSP_AUDIO_OUT_SetVolume (int(mVolume * 100));
+      mVolumeChanged = false;
+      }
+    }
+  }
+//}}}
+//{{{
 static void playThread (void const* argument) {
 
   cLcd::debug ("playThread");
@@ -308,65 +367,6 @@ static void playThread (void const* argument) {
     }
 
   vPortFree (chunkBuffer);
-  }
-//}}}
-//{{{
-static void uiThread (void const* argument) {
-
-  mLcd->displayOn();
-  cLcd::debug ("uiThread");
-
-  bool button = false;
-  int16_t x[kMaxTouch];
-  int16_t y[kMaxTouch];
-  uint8_t z[kMaxTouch];
-  int pressed[kMaxTouch];
-  for (auto touch = 0; touch < kMaxTouch; touch++)
-    pressed[touch] = 0;
-
-  BSP_TS_Init (mRoot->getWidth(),mRoot->getHeight());
-  while (true) {
-    TS_StateTypeDef tsState;
-    BSP_TS_GetState (&tsState);
-    button = BSP_PB_GetState(BUTTON_WAKEUP) == GPIO_PIN_SET;
-    button ? BSP_LED_On (LED1) : BSP_LED_Off (LED1);
-    button ? BSP_LED_On (LED3) : BSP_LED_Off (LED3);
-    tsState.touchDetected ? BSP_LED_On (LED2) : BSP_LED_Off (LED2);
-    for (auto touch = 0; touch < kMaxTouch; touch++) {
-      if (touch < tsState.touchDetected) { //) && tsState.touchWeight[touch]) {
-        auto xinc = pressed[touch] ? tsState.touchX[touch] - x[touch] : 0;
-        auto yinc = pressed[touch] ? tsState.touchY[touch] - y[touch] : 0;
-        x[touch] = tsState.touchX[touch];
-        y[touch] = tsState.touchY[touch];
-        z[touch] = tsState.touchWeight[touch];
-        if (!touch)
-          button ? mLcd->press (pressed[0], x[0], y[0], z[0], xinc, yinc) : mRoot->press (pressed[0], x[0], y[0], z[0], xinc, yinc);
-        pressed[touch]++;
-        }
-      else {
-        x[touch] = 0;
-        y[touch] = 0;
-        z[touch] = 0;
-        if (!touch && pressed[0])
-          mRoot->release();
-        pressed[touch] = 0;
-        }
-      }
-
-    if (!pauseLcd) {
-      mLcd->startRender();
-      button ? mLcd->clear (COL_BLACK) : mRoot->render (mLcd);
-      if (tsState.touchDetected)
-        mLcd->renderCursor (COL_MAGENTA, x[0], y[0], z[0] ? z[0] : cLcd::getHeight()/10);
-      mLcd->endRender (button);
-      osDelay (1);
-      }
-
-    if (mVolumeChanged) {
-      BSP_AUDIO_OUT_SetVolume (int(mVolume * 100));
-      mVolumeChanged = false;
-      }
-    }
   }
 //}}}
 //{{{
@@ -566,11 +566,11 @@ int main() {
   osSemaphoreDef (aud);
   mAudSem = osSemaphoreCreate (osSemaphore (aud), -1);
 
-  const osThreadDef_t osThreadPlay =  { (char*)"Play", playThread, osPriorityNormal, 0, 16000 };
-  osThreadCreate (&osThreadPlay, NULL);
-
   const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 4000 };
   osThreadCreate (&osThreadUi, NULL);
+
+  const osThreadDef_t osThreadPlay =  { (char*)"Play", playThread, osPriorityNormal, 0, 16000 };
+  osThreadCreate (&osThreadPlay, NULL);
 
   const osThreadDef_t osThreadNet =  { (char*)"Net", netThread, osPriorityBelowNormal, 0, 1024 };
   osThreadCreate (&osThreadNet, NULL);

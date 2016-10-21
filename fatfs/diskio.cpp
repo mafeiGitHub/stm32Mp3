@@ -1,4 +1,5 @@
 // diskio.c
+//{{{  includes
 #include "string.h"
 #include <stdlib.h>
 
@@ -12,6 +13,7 @@
 #endif
 
 #include "cLcd.h"
+//}}}
 
 static volatile DSTATUS Stat = STA_NOINIT;
 
