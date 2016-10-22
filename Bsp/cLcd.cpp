@@ -702,7 +702,7 @@ void cLcd::endRender (bool forceInfo) {
   auto y = 0;
   if ((mShowTitle || forceInfo) && !mTitle.empty()) {
     //{{{  draw title
-    text (COL_WHITE, getFontHeight(), mTitle, 0, y, getWidth(), getLineHeight());
+    text (COL_YELLOW, getFontHeight(), mTitle, 0, y, getWidth(), getLineHeight());
     y += getLineHeight();
     }
     //}}}
@@ -732,7 +732,7 @@ void cLcd::endRender (bool forceInfo) {
   if (mShowLcdStats) {
     //{{{  draw lcdStats
     std::string str = dec (ltdc.lineIrq) + ":f " +
-                  dec (ltdc.lineTicks) + "ms " +
+                      dec (ltdc.lineTicks) + "ms " +
                       dec (mDma2dHighWater-mDma2dBuf) + ":hi " +
                       dec (mDma2dTimeouts) + " " +
                       dec (ltdc.transferErrorIrq) + " " +

@@ -131,13 +131,13 @@ static void uiThread (void const* argument) {
     pressed[touch] = 0;
   //}}}
 
-  // widgets
+  // create widgets
   mRoot->addTopLeft (new cListWidget (mMp3Files, fileIndex, fileIndexChanged, mRoot->getWidth(), mRoot->getHeight()-mRoot->getHeight()/5));
   mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, cWidget::getBoxHeight()-1, mRoot->getHeight()));
   mRoot->addBottomLeft (new cWaveCentredWidget (mWave, mPlayFrame, mLoadedFrame, mLoadedFrame, mWaveChanged,
                                                 mRoot->getWidth()-100, mRoot->getHeight()/5));
 
-  BSP_TS_Init (mRoot->getWidth(),mRoot->getHeight());
+  BSP_TS_Init (mRoot->getWidth(), mRoot->getHeight());
   while (true) {
     TS_StateTypeDef tsState;
     BSP_TS_GetState (&tsState);
@@ -214,7 +214,7 @@ static void playThread (void const* argument) {
   listDirectory ("", "");
 
   auto mp3Decoder = new cMp3Decoder;
-  cLcd::debug ("mp3Decoder created");
+  cLcd::debug ("play mp3Decoder ok");
 
   BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 44100);
   BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);
@@ -318,15 +318,13 @@ static void waveThread (void const* argument) {
 
   cLcd::debug ("waveThread");
   auto mp3Decoder = new cMp3Decoder;
-  cLcd::debug ("wave mp3Decoder created");
+  auto chunkSize = 0x10000; // 64k
+  auto fullChunkSize = 2048 + chunkSize;
+  auto chunkBuffer = (uint8_t*)pvPortMalloc (fullChunkSize);
+  cLcd::debug ("wave mp3Decoder ok");
+
   int loadedFileIndex = -1;
-
-  // chunkSize and buffer
   while (true) {
-    auto chunkSize = 0x10000; // 64k
-    auto fullChunkSize = 2048 + chunkSize;
-    auto chunkBuffer = (uint8_t*)pvPortMalloc (fullChunkSize);
-
     while (fileIndex == loadedFileIndex)
       osDelay (100);
     loadedFileIndex = fileIndex;
@@ -336,7 +334,7 @@ static void waveThread (void const* argument) {
     auto wavePtr = mWave + 1;
 
     int count = 0;
-    cLcd::debug ("- wave load " + mMp3Files[fileIndex]);
+    cLcd::debug ("wave load " + mMp3Files[fileIndex]);
     cFile file (mMp3Files[fileIndex], FA_OPEN_EXISTING | FA_READ);
     if (file.getError())
       cLcd::debug ("- wave open failed " + cLcd::dec (file.getError()) + " " + mMp3Files[fileIndex]);
@@ -408,7 +406,6 @@ static void waveThread (void const* argument) {
       }
   exitWave:
     cLcd::debug ("wave loaded");
-    vPortFree (chunkBuffer);
     }
   }
 //}}}
