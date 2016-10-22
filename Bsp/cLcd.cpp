@@ -747,8 +747,17 @@ void cLcd::endRender (bool forceInfo) {
           0, getHeight()-getLineHeight(), getWidth(), getLineHeight());
     //}}}
 
-  sendWait();
+   // send opCode buffer
+  LCD_DMA2D_IRQHandler();
+
+  // wait
+  if (osSemaphoreWait (mDma2dSem, 500) != osOK)
+    mDma2dTimeouts++;
   showLayer (0, mBuffer[mDrawBuffer], 255);
+
+  // reset opcode buffer
+  mDma2dCurBuf = mDma2dBuf;
+  *mDma2dCurBuf++ = 0;
 
   mDrawTime = osKernelSysTick() - mDrawStartTime;
   }
@@ -1091,11 +1100,11 @@ void cLcd::init (std::string title) {
 
   // zero out first opcode, point past it
   mDma2dBuf = (uint32_t*)DMA2D_BUFFER; // pvPortMalloc (8192 * 4);
-  mDma2dCurBuf = mDma2dBuf;
-  *mDma2dCurBuf++ = 0;
   mDma2dHighWater = mDma2dCurBuf;
   mDma2dIsrBuf = mDma2dBuf;
   mDma2dTimeouts = 0;
+  mDma2dCurBuf = mDma2dBuf;
+  *mDma2dCurBuf++ = 0;
 
   // dma2d IRQ init
   osSemaphoreDef (dma2dSem);
@@ -1419,32 +1428,6 @@ void cLcd::showLayer (uint8_t layer, uint32_t frameBufferAddress, uint8_t alpha)
 
   showFrameBufferAddress[layer] = frameBufferAddress;
   showAlpha[layer] = alpha;
-  }
-//}}}
-
-//{{{
-void cLcd::send() {
-
-  // send first opCode using IRQhandler
-  LCD_DMA2D_IRQHandler();
-  }
-//}}}
-//{{{
-void cLcd::wait() {
-
-  if (osSemaphoreWait (mDma2dSem, 500) != osOK)
-    mDma2dTimeouts++;
-
-  // zero out first opcode, point past it
-  mDma2dCurBuf = mDma2dBuf;
-  *mDma2dCurBuf++ = 0;
-  }
-//}}}
-//{{{
-void cLcd::sendWait() {
-
-  send();
-  wait();
   }
 //}}}
 

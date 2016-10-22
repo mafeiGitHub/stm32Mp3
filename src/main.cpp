@@ -59,9 +59,10 @@ static bool fileIndexChanged = false;
 static int mPlayFrame = 0;
 static int mLoadedFrame = 0;
 
-static bool mWaveChanged = false;
-static uint8_t* mWave = nullptr;
 static int* mFrameOffsets = nullptr;
+static uint8_t* mWave = nullptr;
+static bool mWaveChanged = false;
+static bool mWaveLoad = false;
 
 static cLcd* mLcd = nullptr;
 //}}}
@@ -80,7 +81,6 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 //}}}
 //}}}
 static const bool kMaxTouch = 1;
-static const bool kPreload = false;
 static const bool kStaticIp = true;
 static bool pauseLcd = false;
 
@@ -90,9 +90,9 @@ static void listDirectory (std::string directoryName, std::string indent) {
   cLcd::debug ("dir " + directoryName);
 
   cDirectory directory (directoryName);
-  if (!directory.isOk()) {
+  if (directory.getError()) {
     //{{{  open error
-    cLcd::debug (COL_RED, "directory open error:"  + cLcd::dec (directory.getResult()));
+    cLcd::debug (COL_RED, "directory open error:"  + cLcd::dec (directory.getError()));
     return;
     }
     //}}}
@@ -121,7 +121,7 @@ static void uiThread (void const* argument) {
 
   mLcd->displayOn();
   cLcd::debug ("uiThread");
-
+  //{{{  init vars
   bool button = false;
   int16_t x[kMaxTouch];
   int16_t y[kMaxTouch];
@@ -129,6 +129,13 @@ static void uiThread (void const* argument) {
   int pressed[kMaxTouch];
   for (auto touch = 0; touch < kMaxTouch; touch++)
     pressed[touch] = 0;
+  //}}}
+
+  // widgets
+  mRoot->addTopLeft (new cListWidget (mMp3Files, fileIndex, fileIndexChanged, mRoot->getWidth(), mRoot->getHeight()-mRoot->getHeight()/5));
+  mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, cWidget::getBoxHeight()-1, mRoot->getHeight()));
+  mRoot->addBottomLeft (new cWaveCentredWidget (mWave, mPlayFrame, mLoadedFrame, mLoadedFrame, mWaveChanged,
+                                                mRoot->getWidth()-100, mRoot->getHeight()/5));
 
   BSP_TS_Init (mRoot->getWidth(),mRoot->getHeight());
   while (true) {
@@ -165,7 +172,7 @@ static void uiThread (void const* argument) {
       if (tsState.touchDetected)
         mLcd->renderCursor (COL_MAGENTA, x[0], y[0], z[0] ? z[0] : cLcd::getHeight()/10);
       mLcd->endRender (button);
-      osDelay (1);
+      osDelay (2);
       }
 
     if (mVolumeChanged) {
@@ -180,13 +187,10 @@ static void playThread (void const* argument) {
 
   cLcd::debug ("playThread");
 
-  // mount sd fatfs, turn debug off when ok
-  pauseLcd = true;
   //{{{  init sd card
   BSP_SD_Init();
   while (BSP_SD_IsDetected() != SD_PRESENT) {
     // wait for sd card loop
-    pauseLcd = false;
     cLcd::debug (COL_RED, "no SD card");
     osDelay (1000);
     }
@@ -205,13 +209,7 @@ static void playThread (void const* argument) {
   cLcd::debug (fatFs->getLabel() + " vsn:" + cLcd::hex (fatFs->getVolumeSerialNumber()) +
                " freeSectors:" + cLcd::dec (fatFs->getFreeSectors()));
   //}}}
-  pauseLcd = false;
-  mLcd->setShowDebug (false, false, false, true);  // title, info, lcdStats, footer
-
-  // widgets
-  mRoot->addTopLeft (new cListWidget (mMp3Files, fileIndex, fileIndexChanged, mRoot->getWidth(), mRoot->getHeight()-mRoot->getHeight()/5));
-  mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, cWidget::getBoxHeight()-1, mRoot->getHeight()));
-  mRoot->addBottomLeft (new cWaveCentredWidget (mWave, mPlayFrame, mLoadedFrame, mLoadedFrame, mWaveChanged, mRoot->getWidth(), mRoot->getHeight()/5));
+  mLcd->setShowDebug (false, false, false, true);  // disable debug - title, info, lcdStats, footer
 
   listDirectory ("", "");
 
@@ -228,75 +226,29 @@ static void playThread (void const* argument) {
   //}}}
   while (true) {
     cFile file (mMp3Files[fileIndex], FA_OPEN_EXISTING | FA_READ);
-    if (file.isOk()) {
+    if (file.getError())
+      cLcd::debug ("- play open failed " + cLcd::dec (file.getError()) + " " + mMp3Files[fileIndex]);
+    else {
       cLcd::debug ("play " + mMp3Files[fileIndex] + " " + cLcd::dec (file.getSize()));
-
-      // use mWave[0] as max
-      mWave[0] = 0;
-      auto wavePtr = mWave + 1;
-      int bytesLeft = 0;
-      mPlayFrame = 0;
-      mLoadedFrame = 0;
+      mWaveLoad = true;
 
       memset ((void*)AUDIO_BUFFER, 0, AUDIO_BUFFER_SIZE);
       BSP_AUDIO_OUT_Play ((uint16_t*)AUDIO_BUFFER, AUDIO_BUFFER_SIZE);
-
-      if (kPreload) {
-        //{{{  preload wave
-        do {
-          file.read (chunkBuffer, fullChunkSize, bytesLeft);
-          if (bytesLeft) {
-            auto chunkPtr = chunkBuffer;
-            int headerBytes;
-            do {
-              headerBytes = mp3Decoder->findNextHeader (chunkPtr, bytesLeft);
-              if (headerBytes) {
-                chunkPtr += headerBytes;
-                bytesLeft -= headerBytes;
-                if (bytesLeft < mp3Decoder->getFrameBodySize() + 4) { // not enough for frameBody and next header
-                  //{{{  move bytesLeft to front of chunkBuffer,  next read partial buffer 32bit aligned
-                  auto nextChunkPtr = chunkBuffer + ((4 - (bytesLeft & 3)) & 3);
-                  memcpy (nextChunkPtr, chunkPtr, bytesLeft);
-
-                  // read next chunks worth, including rest of frame, 32bit aligned
-                  int bytesLoaded;
-                  file.read (nextChunkPtr + bytesLeft, chunkSize, bytesLoaded);
-                  if (bytesLoaded) {
-                    chunkPtr = nextChunkPtr;
-                    bytesLeft += bytesLoaded;
-                    }
-                  else
-                    bytesLeft = 0;
-                  }
-                  //}}}
-                if (bytesLeft >= mp3Decoder->getFrameBodySize()) {
-                  mFrameOffsets[mLoadedFrame] = file.getPosition(); // not right !!!!
-                  auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, mWave + 1 + (mLoadedFrame * 2), nullptr);
-                  if (*wavePtr > *mWave)
-                    *mWave = *wavePtr;
-                  wavePtr++;
-                  if (*wavePtr > *mWave)
-                    *mWave = *wavePtr;
-                  wavePtr++;
-                  mLoadedFrame++;
-
-                  if (frameBytes) {
-                    chunkPtr += frameBytes;
-                    bytesLeft -= frameBytes;
-                    }
-                  else
-                    bytesLeft = 0;
-                  }
-                }
-              } while (headerBytes && (bytesLeft > 0));
-            }
-          } while (bytesLeft > 0);
-        }
-        //}}}
       //{{{  play fileindex file
-      file.seek (0);
+      int count = 0;
+      int bytesLeft = 0;
+      mPlayFrame = 0;
+
       do {
-        file.read (chunkBuffer, fullChunkSize, bytesLeft);
+        count++;
+        FRESULT fresult = file.read (chunkBuffer, fullChunkSize, bytesLeft);
+        if (fresult) {
+          //{{{  error
+          cLcd::debug ("play read " + cLcd::dec (count) + " " + cLcd::dec (fresult));
+          osDelay (100);
+          goto exitPlay;
+          }
+          //}}}
         if (bytesLeft) {
           auto chunkPtr = chunkBuffer;
           int headerBytes;
@@ -306,13 +258,21 @@ static void playThread (void const* argument) {
               chunkPtr += headerBytes;
               bytesLeft -= headerBytes;
               if (bytesLeft < mp3Decoder->getFrameBodySize() + 4) {
-                //{{{  partial frameBody+nextHeader, move bytesLeft to front of chunkBuffer,  next read partial buffer 32bit aligned
+                // partial frameBody+nextHeader, move bytesLeft to front of chunkBuffer,  next read partial buffer 32bit aligned
                 auto nextChunkPtr = chunkBuffer + ((4 - (bytesLeft & 3)) & 3);
                 memcpy (nextChunkPtr, chunkPtr, bytesLeft);
 
                 // read next chunks worth, including rest of frame, 32bit aligned
                 int bytesLoaded;
-                file.read (nextChunkPtr + bytesLeft, chunkSize, bytesLoaded);
+                count++;
+                FRESULT fresult = file.read (nextChunkPtr + bytesLeft, chunkSize, bytesLoaded);
+                if (fresult) {
+                  //{{{  error
+                  cLcd::debug ("play read " + cLcd::dec (count) + " " + cLcd::dec (fresult));
+                  osDelay (100);
+                  goto exitPlay;
+                  }
+                  //}}}
                 if (bytesLoaded) {
                   chunkPtr = nextChunkPtr;
                   bytesLeft += bytesLoaded;
@@ -320,21 +280,9 @@ static void playThread (void const* argument) {
                 else
                   bytesLeft = 0;
                 }
-                //}}}
               if (bytesLeft >= mp3Decoder->getFrameBodySize()) {
                 osSemaphoreWait (mAudSem, 100);
-                auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr,
-                  kPreload ? nullptr : wavePtr, (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
-                if (!kPreload) {
-                  if (*wavePtr > *mWave)
-                    *mWave = *wavePtr;
-                  wavePtr++;
-                  if (*wavePtr > *mWave)
-                    *mWave = *wavePtr;
-                  wavePtr++;
-                  mLoadedFrame++;
-                  }
-
+                auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, nullptr, (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
                 if (frameBytes) {
                   chunkPtr += frameBytes;
                   bytesLeft -= frameBytes;
@@ -354,19 +302,114 @@ static void playThread (void const* argument) {
             } while (!fileIndexChanged && headerBytes && (bytesLeft > 0));
           }
         } while (!fileIndexChanged && (bytesLeft > 0));
+      exitPlay:
       //}}}
-
       BSP_AUDIO_OUT_Stop (CODEC_PDWN_SW);
       }
-    else
-      cLcd::debug ("- open failed " + cLcd::dec (file.getResult()) + " " + mMp3Files[fileIndex]);
 
     if (!fileIndexChanged)
       fileIndex = fileIndex >= (int)mMp3Files.size() ? 0 : fileIndex + 1;
     fileIndexChanged = false;
     }
+  }
+//}}}
+//{{{
+static void waveThread (void const* argument) {
 
-  vPortFree (chunkBuffer);
+  cLcd::debug ("waveThread");
+  auto mp3Decoder = new cMp3Decoder;
+  cLcd::debug ("wave mp3Decoder created");
+  int loadedFileIndex = -1;
+
+  // chunkSize and buffer
+  while (true) {
+    auto chunkSize = 0x10000; // 64k
+    auto fullChunkSize = 2048 + chunkSize;
+    auto chunkBuffer = (uint8_t*)pvPortMalloc (fullChunkSize);
+
+    while (fileIndex == loadedFileIndex)
+      osDelay (100);
+    loadedFileIndex = fileIndex;
+
+    mLoadedFrame = 0;
+    mWave[0] = 0;
+    auto wavePtr = mWave + 1;
+
+    int count = 0;
+    cLcd::debug ("- wave load " + mMp3Files[fileIndex]);
+    cFile file (mMp3Files[fileIndex], FA_OPEN_EXISTING | FA_READ);
+    if (file.getError())
+      cLcd::debug ("- wave open failed " + cLcd::dec (file.getError()) + " " + mMp3Files[fileIndex]);
+    else {
+      int bytesLeft = 0;
+      do {
+        count++;
+        FRESULT fresult = file.read (chunkBuffer, fullChunkSize, bytesLeft);;
+        if (fresult) {
+          //{{{  error
+          cLcd::debug ("wave read " + cLcd::dec (count) + " " + cLcd::dec (fresult));
+          osDelay (100);
+          goto exitWave;
+          }
+          //}}}
+        if (bytesLeft) {
+          auto chunkPtr = chunkBuffer;
+          int headerBytes;
+          do {
+            headerBytes = mp3Decoder->findNextHeader (chunkPtr, bytesLeft);
+            if (headerBytes) {
+              chunkPtr += headerBytes;
+              bytesLeft -= headerBytes;
+              if (bytesLeft < mp3Decoder->getFrameBodySize() + 4) { // not enough for frameBody and next header
+                // move bytesLeft to front of chunkBuffer,  next read partial buffer 32bit aligned
+                auto nextChunkPtr = chunkBuffer + ((4 - (bytesLeft & 3)) & 3);
+                memcpy (nextChunkPtr, chunkPtr, bytesLeft);
+
+                // read next chunks worth, including rest of frame, 32bit aligned
+                count++;
+                int bytesLoaded;
+                FRESULT fresult = file.read (nextChunkPtr + bytesLeft, chunkSize, bytesLoaded);
+                if (fresult) {
+                  //{{{  error
+                  cLcd::debug ("wave read " + cLcd::dec (count) + " " + cLcd::dec (fresult));
+                  osDelay (100);
+                  goto exitWave;
+                  }
+                  //}}}
+                if (bytesLoaded) {
+                  chunkPtr = nextChunkPtr;
+                  bytesLeft += bytesLoaded;
+                  }
+                else
+                  bytesLeft = 0;
+                }
+              if (bytesLeft >= mp3Decoder->getFrameBodySize()) {
+                mFrameOffsets[mLoadedFrame] = file.getPosition(); // not right !!!!
+                auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, mWave + 1 + (mLoadedFrame * 2), nullptr);
+                if (*wavePtr > *mWave)
+                  *mWave = *wavePtr;
+                wavePtr++;
+                if (*wavePtr > *mWave)
+                  *mWave = *wavePtr;
+                wavePtr++;
+                mLoadedFrame++;
+
+                if (frameBytes) {
+                  chunkPtr += frameBytes;
+                  bytesLeft -= frameBytes;
+                  }
+                else
+                  bytesLeft = 0;
+                }
+              }
+            } while ((fileIndex == loadedFileIndex) && headerBytes && (bytesLeft > 0));
+          }
+        } while ((fileIndex == loadedFileIndex) && (bytesLeft > 0));
+      }
+  exitWave:
+    cLcd::debug ("wave loaded");
+    vPortFree (chunkBuffer);
+    }
   }
 //}}}
 //{{{
@@ -560,8 +603,11 @@ int main() {
 
   mLcd = cLcd::create ("mp3 player built at " + std::string(__TIME__) + " on " + std::string(__DATE__));
   mRoot = new cRootContainer (cLcd::getWidth(), cLcd::getHeight());
-  mWave = (uint8_t*)pvPortMalloc (60*60*40*2*sizeof(uint8_t));  // 1 hour of 40 mp3 frames per sec
   mFrameOffsets = (int*)pvPortMalloc (60*60*40*sizeof(int));
+  mWave = (uint8_t*)pvPortMalloc (60*60*40*2*sizeof(uint8_t));  // 1 hour of 40 mp3 frames per sec
+  mWave[0] = 0;
+  mLoadedFrame = 0;
+  mPlayFrame = 0;
 
   osSemaphoreDef (aud);
   mAudSem = osSemaphoreCreate (osSemaphore (aud), -1);
@@ -571,6 +617,9 @@ int main() {
 
   const osThreadDef_t osThreadPlay =  { (char*)"Play", playThread, osPriorityNormal, 0, 16000 };
   osThreadCreate (&osThreadPlay, NULL);
+
+  const osThreadDef_t osThreadWave =  { (char*)"Wave", waveThread, osPriorityBelowNormal, 0, 16000 };
+  osThreadCreate (&osThreadWave, NULL);
 
   const osThreadDef_t osThreadNet =  { (char*)"Net", netThread, osPriorityBelowNormal, 0, 1024 };
   osThreadCreate (&osThreadNet, NULL);

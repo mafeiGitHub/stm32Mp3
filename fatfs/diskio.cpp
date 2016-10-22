@@ -20,23 +20,13 @@ static volatile DSTATUS Stat = STA_NOINIT;
 //{{{
 DSTATUS diskStatus() {
 
-  Stat = STA_NOINIT;
-
-  if (BSP_SD_GetStatus() == MSD_OK)
-    Stat &= ~STA_NOINIT;
-
-  return Stat;
+  return BSP_SD_GetStatus() == MSD_OK ? 0 : STA_NOINIT;
   }
 //}}}
 //{{{
 DSTATUS diskInitialize() {
 
-  Stat = STA_NOINIT;
-
-  if (BSP_SD_Init() == MSD_OK)
-    Stat &= ~STA_NOINIT;
-
-  return Stat;
+  return BSP_SD_GetStatus() == MSD_OK ? 0 : STA_NOINIT;
   }
 //}}}
 
@@ -44,9 +34,6 @@ DSTATUS diskInitialize() {
 DRESULT diskIoctl (BYTE cmd, void* buff) {
 
   DRESULT res = RES_ERROR;
-
-  if (Stat & STA_NOINIT)
-    return RES_NOTRDY;
 
   switch (cmd) {
     // Make sure that no pending write process

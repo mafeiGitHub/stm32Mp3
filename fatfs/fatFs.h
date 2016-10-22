@@ -52,7 +52,7 @@ typedef unsigned long   DWORD;
 #define AM_MASK 0x3F  // Mask of defined bits
 //}}}
 //}}}
-//{{{  enum FRESULT
+//{{{  enum FR_RESULT
 typedef enum {
   FR_OK = 0,              //  0  Succeeded
   FR_DISK_ERR,            //  1  A hard error occurred in the low level disk I/O layer
@@ -118,8 +118,7 @@ public:
   //}}}
   //}}}
   //{{{  gets
-  bool isOk() { return mResult == FR_OK; }
-  FRESULT getResult() { return mResult; }
+  FRESULT getError() { return mResult; }
   std::string getLabel() { return mLabel; }
   int getVolumeSerialNumber() { return mVolumeSerialNumber; }
   int getFreeSectors() { return mFreeClusters * mSectorsPerCluster; }
@@ -190,7 +189,6 @@ private:
   char  mLabel[13];
   int   mVolumeSerialNumber = 0;
   BYTE  mFsType = 0;             // FAT sub-type (0:Not mounted)
-  WORD  mMountId = 0;            // File system mount ID
 
   BYTE  mSectorsPerCluster = 0;  // Sectors per cluster (1,2,4...128)
   BYTE  mNumFatCopies = 0;       // Number of FAT copies (1 or 2)
@@ -220,8 +218,7 @@ public:
   ~cDirectory();
   //}}}
   //{{{  gets
-  bool isOk() { return mResult == FR_OK; }
-  FRESULT getResult() { return mResult; }
+  FRESULT getError() { return mResult; }
   //}}}
   FRESULT find (cFileInfo& fileInfo);
   FRESULT findMatch (cFileInfo& fileInfo, const char* path, const char* pattern);
@@ -231,7 +228,6 @@ friend class cFatFs;
 friend class cFile;
 
 private:
-  bool validate();
   bool followPath (const char* path);
   FRESULT createName (const char** path);
 
@@ -246,7 +242,6 @@ private:
 
   FRESULT mResult = FR_UNUSED;
   cFatFs* mFatFs = nullptr;          // pointer to owner fileSystem
-  WORD mMountId = 0;                 // owner fileSystem mountId
   UINT mLockId = 0;                  // file lockId (index of file semaphore table Files[])
 
   WORD mIndex = 0;                   // Current read/write index number
@@ -270,8 +265,7 @@ public:
   ~cFile();
   //}}}
   //{{{  gets
-  bool isOk() { return mResult == FR_OK; }
-  FRESULT getResult() { return mResult; }
+  FRESULT getError() { return mResult; }
 
   int getPosition() { return mPosition; }
   int getSize() { return mFileSize; }
@@ -291,7 +285,6 @@ public:
  friend class cFatFs;
 
  private:
-   bool validate();
    DWORD clmtCluster (DWORD ofs);
 
    // vars
@@ -299,7 +292,6 @@ public:
    FRESULT mResult = FR_UNUSED; // Pointer to the related file system
 
    cFatFs* mFatFs = nullptr;    // pointer to owner fileSystem
-   WORD mMountId = 0;           // Owner file system mount ID
    UINT mLockId = 0;            // File lock ID origin from 1 (index of file semaphore table Files[])
 
    BYTE mFlag = 0;              // Status flags
