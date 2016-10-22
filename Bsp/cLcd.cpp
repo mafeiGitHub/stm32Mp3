@@ -36,8 +36,10 @@ extern const uint8_t freeSansBold[64228];
 #define LCD_BL_CTRL_PIN        GPIO_PIN_3
 #define LCD_BL_CTRL_GPIO_PORT  GPIOK
 
-#define kWipe  1
-#define kStamp 2
+#define kWipe            1
+#define kWipeLastColour  2
+#define kWipeLastColourWidth  3
+#define kStamp           4
 
 // DSI lcd
 //{{{  OTM8009A defines
@@ -240,6 +242,8 @@ static uint32_t* mDma2dBuf = nullptr;
 static uint32_t* mDma2dIsrBuf = nullptr;
 static osSemaphoreId mDma2dSem;
 
+static uint32_t curColour;
+static uint32_t curWidth;
 static uint32_t curFrameBufferAddress;
 static uint32_t setFrameBufferAddress[2];
 static uint32_t showFrameBufferAddress[2];
@@ -299,10 +303,9 @@ void LCD_LTDC_IRQHandler() {
 //{{{
 void LCD_DMA2D_IRQHandler() {
 
-  // clear interrupt flags
-  DMA2D->IFCR = DMA2D_ISR_TCIF | DMA2D_ISR_TEIF | DMA2D_ISR_CEIF;
-
-  while (true) {
+  //while (!(DMA2D->CR & DMA2D_CR_START)) {
+    // clear interrupt flags
+    DMA2D->IFCR = DMA2D_ISR_TCIF | DMA2D_ISR_TEIF | DMA2D_ISR_CEIF;
     switch (*mDma2dIsrBuf++) {
       case kWipe:
         DMA2D->OCOLR = *mDma2dIsrBuf++;  // colour
@@ -310,7 +313,20 @@ void LCD_DMA2D_IRQHandler() {
         DMA2D->OOR   = *mDma2dIsrBuf++;  // stride
         DMA2D->NLR   = *mDma2dIsrBuf++;  // width:height
         DMA2D->CR = DMA2D_R2M | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
-        return;
+        break;
+
+      case kWipeLastColour:
+        DMA2D->OMAR  = *mDma2dIsrBuf++;  // fb start address
+        DMA2D->OOR   = *mDma2dIsrBuf++;  // stride
+        DMA2D->NLR   = *mDma2dIsrBuf++;  // width:height
+        DMA2D->CR = DMA2D_R2M | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
+        break;
+
+      case kWipeLastColourWidth:
+        DMA2D->OMAR  = *mDma2dIsrBuf++;  // fb start address
+        DMA2D->NLR   = *mDma2dIsrBuf++;  // width:height
+        DMA2D->CR = DMA2D_R2M | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
+        break;
 
       case kStamp:
         DMA2D->FGCOLR = *mDma2dIsrBuf++; // src color
@@ -321,20 +337,18 @@ void LCD_DMA2D_IRQHandler() {
         DMA2D->NLR    = *mDma2dIsrBuf++; // width:height
         DMA2D->FGMAR  = *mDma2dIsrBuf++; // src start address
         DMA2D->CR = DMA2D_M2M_BLEND | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
-        return;
+        break;
 
       default: // normally 0
         // no more opCodes, disable interrupts and release semaphore to signal done
         DMA2D->CR = 0;
         mDma2dIsrBuf = mDma2dBuf;
         osSemaphoreRelease (mDma2dSem);
-        return;
+        break;
       }
-    }
+    //}
   }
 //}}}
-
-cLcd* cLcd::mLcd = nullptr;
 
 #ifdef STM32F769I_DISCO
 //{{{
@@ -571,7 +585,8 @@ cLcd::cLcd (uint32_t buffer0, uint32_t buffer1)  {
 //}}}
 cLcd::~cLcd() {}
 
-// static members
+// static
+cLcd* cLcd::mLcd = nullptr;
 //{{{
 cLcd* cLcd::create (std::string title) {
 
@@ -733,7 +748,6 @@ void cLcd::endRender (bool forceInfo) {
     //{{{  draw lcdStats
     std::string str = dec (ltdc.lineIrq) + ":f " +
                       dec (ltdc.lineTicks) + "ms " +
-                      dec (mDma2dHighWater-mDma2dBuf) + ":hi " +
                       dec (mDma2dTimeouts) + " " +
                       dec (ltdc.transferErrorIrq) + " " +
                       dec (ltdc.fifoUnderunIrq);
@@ -812,15 +826,32 @@ void cLcd::pixel (uint32_t colour, int16_t x, int16_t y) {
 //{{{
 void cLcd::rect (uint32_t colour, int16_t x, int16_t y, uint16_t width, uint16_t height) {
 
-  *mDma2dCurBuf++ = colour;                                             // colour
-  *mDma2dCurBuf++ = curFrameBufferAddress + ((y * getWidth()) + x) * 4; // fb start address
-  *mDma2dCurBuf++ = getWidth() - width;                                 // stride
-  *mDma2dCurBuf++ = (width << 16) | height;                             // width:height
-  *mDma2dCurBuf++ = 0;                                                  // terminate
-  *(mDma2dCurBuf-6) = kWipe;                                            // fill opCode
-
-  if (mDma2dCurBuf > mDma2dHighWater)
-    mDma2dHighWater = mDma2dCurBuf;
+  if (colour == curColour) {
+    if (width == curWidth) {
+    *  mDma2dCurBuf++ = curFrameBufferAddress + ((y * getWidth()) + x) * 4; // fb start address
+      *mDma2dCurBuf++ = (width << 16) | height;                             // width:height
+      *mDma2dCurBuf++ = 0;                                                  // terminate
+      *(mDma2dCurBuf-4) = kWipeLastColourWidth;                             // fill opCode
+      }
+    else {
+      *mDma2dCurBuf++ = curFrameBufferAddress + ((y * getWidth()) + x) * 4; // fb start address
+      *mDma2dCurBuf++ = getWidth() - width;                                 // stride
+      *mDma2dCurBuf++ = (width << 16) | height;                             // width:height
+      *mDma2dCurBuf++ = 0;                                                  // terminate
+      *(mDma2dCurBuf-5) = kWipeLastColour;                                  // fill opCode
+      curWidth = width;
+      }
+    }
+  else {
+    *mDma2dCurBuf++ = colour;                                             // colour
+    *mDma2dCurBuf++ = curFrameBufferAddress + ((y * getWidth()) + x) * 4; // fb start address
+    *mDma2dCurBuf++ = getWidth() - width;                                 // stride
+    *mDma2dCurBuf++ = (width << 16) | height;                             // width:height
+    *mDma2dCurBuf++ = 0;                                                  // terminate
+    *(mDma2dCurBuf-6) = kWipe;                                            // fill opCode
+    curColour = colour;
+    curWidth = width;
+    }
   }
 //}}}
 //{{{
@@ -833,9 +864,6 @@ void cLcd::stamp (uint32_t colour, uint8_t* src, int16_t x, int16_t y, uint16_t 
   *mDma2dCurBuf++ = (uint32_t)src;                                      // src start address
   *mDma2dCurBuf++ = 0;                                                  // terminate
   *(mDma2dCurBuf-7) = kStamp;                                           // stamp opCode
-
-  if (mDma2dCurBuf > mDma2dHighWater)
-    mDma2dHighWater = mDma2dCurBuf;
   }
 //}}}
 //{{{
@@ -1100,19 +1128,17 @@ void cLcd::init (std::string title) {
 
   // zero out first opcode, point past it
   mDma2dBuf = (uint32_t*)DMA2D_BUFFER; // pvPortMalloc (8192 * 4);
-  mDma2dHighWater = mDma2dCurBuf;
   mDma2dIsrBuf = mDma2dBuf;
   mDma2dTimeouts = 0;
   mDma2dCurBuf = mDma2dBuf;
   *mDma2dCurBuf++ = 0;
 
-  // dma2d IRQ init
   osSemaphoreDef (dma2dSem);
   mDma2dSem = osSemaphoreCreate (osSemaphore (dma2dSem), -1);
 
+  // dma2d IRQ init
   HAL_NVIC_SetPriority (DMA2D_IRQn, 0x0F, 0);
   HAL_NVIC_EnableIRQ (DMA2D_IRQn);
-
 
   // font init
   setFont (freeSansBold, freeSansBold_len);
@@ -1399,6 +1425,8 @@ void cLcd::layerInit (uint8_t layer, uint32_t frameBufferAddress) {
   HAL_LTDC_ConfigLayer (&hLtdc, curLayerCfg, layer);
 
   // local state
+  curColour = 0;
+  curWidth = 0;
   curFrameBufferAddress = frameBufferAddress;
   setFrameBufferAddress[layer] = frameBufferAddress;
   showFrameBufferAddress[layer] = frameBufferAddress;

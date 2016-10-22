@@ -38,6 +38,7 @@
 #include "cValueBox.h"
 #include "cWaveWidget.h"
 #include "cWaveCentredWidget.h"
+#include "cWaveLensWidget.h"
 
 #include "cMp3decoder.h"
 
@@ -57,7 +58,7 @@ static int fileIndex = 0;
 static bool fileIndexChanged = false;
 
 static int mPlayFrame = 0;
-static int mLoadedFrame = 0;
+static int mLoadFrame = 0;
 
 static int* mFrameOffsets = nullptr;
 static uint8_t* mWave = nullptr;
@@ -82,7 +83,6 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 //}}}
 static const bool kMaxTouch = 1;
 static const bool kStaticIp = true;
-static bool pauseLcd = false;
 
 //{{{
 static void listDirectory (std::string directoryName, std::string indent) {
@@ -134,8 +134,8 @@ static void uiThread (void const* argument) {
   // create widgets
   mRoot->addTopLeft (new cListWidget (mMp3Files, fileIndex, fileIndexChanged, mRoot->getWidth(), mRoot->getHeight()-mRoot->getHeight()/5));
   mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, cWidget::getBoxHeight()-1, mRoot->getHeight()));
-  mRoot->addBottomLeft (new cWaveCentredWidget (mWave, mPlayFrame, mLoadedFrame, mLoadedFrame, mWaveChanged,
-                                                mRoot->getWidth()-100, mRoot->getHeight()/5));
+  //mRoot->addBottomLeft (new cWaveCentredWidget (mWave, mPlayFrame, mLoadFrame, mLoadFrame, mWaveChanged, mRoot->getWidth(), mRoot->getHeight()/5));
+  mRoot->addBottomLeft (new cWaveLensWidget (mWave, mPlayFrame, mLoadFrame, mLoadFrame, mWaveChanged, mRoot->getWidth(), mRoot->getHeight()/5));
 
   BSP_TS_Init (mRoot->getWidth(), mRoot->getHeight());
   while (true) {
@@ -166,14 +166,11 @@ static void uiThread (void const* argument) {
         }
       }
 
-    if (!pauseLcd) {
-      mLcd->startRender();
-      button ? mLcd->clear (COL_BLACK) : mRoot->render (mLcd);
-      if (tsState.touchDetected)
-        mLcd->renderCursor (COL_MAGENTA, x[0], y[0], z[0] ? z[0] : cLcd::getHeight()/10);
-      mLcd->endRender (button);
-      osDelay (2);
-      }
+    mLcd->startRender();
+    button ? mLcd->clear (COL_BLACK) : mRoot->render (mLcd);
+    if (tsState.touchDetected)
+      mLcd->renderCursor (COL_MAGENTA, x[0], y[0], z[0] ? z[0] : cLcd::getHeight()/10);
+    mLcd->endRender (button);
 
     if (mVolumeChanged) {
       BSP_AUDIO_OUT_SetVolume (int(mVolume * 100));
@@ -329,7 +326,7 @@ static void waveThread (void const* argument) {
       osDelay (100);
     loadedFileIndex = fileIndex;
 
-    mLoadedFrame = 0;
+    mLoadFrame = 0;
     mWave[0] = 0;
     auto wavePtr = mWave + 1;
 
@@ -382,15 +379,15 @@ static void waveThread (void const* argument) {
                   bytesLeft = 0;
                 }
               if (bytesLeft >= mp3Decoder->getFrameBodySize()) {
-                mFrameOffsets[mLoadedFrame] = file.getPosition(); // not right !!!!
-                auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, mWave + 1 + (mLoadedFrame * 2), nullptr);
+                mFrameOffsets[mLoadFrame] = file.getPosition(); // not right !!!!
+                auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, mWave + 1 + (mLoadFrame * 2), nullptr);
                 if (*wavePtr > *mWave)
                   *mWave = *wavePtr;
                 wavePtr++;
                 if (*wavePtr > *mWave)
                   *mWave = *wavePtr;
                 wavePtr++;
-                mLoadedFrame++;
+                mLoadFrame++;
 
                 if (frameBytes) {
                   chunkPtr += frameBytes;
@@ -603,7 +600,8 @@ int main() {
   mFrameOffsets = (int*)pvPortMalloc (60*60*40*sizeof(int));
   mWave = (uint8_t*)pvPortMalloc (60*60*40*2*sizeof(uint8_t));  // 1 hour of 40 mp3 frames per sec
   mWave[0] = 0;
-  mLoadedFrame = 0;
+
+  mLoadFrame = 0;
   mPlayFrame = 0;
 
   osSemaphoreDef (aud);
