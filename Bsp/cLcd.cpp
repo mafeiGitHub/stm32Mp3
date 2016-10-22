@@ -322,7 +322,8 @@ void LCD_DMA2D_IRQHandler() {
       DMA2D->CR = DMA2D_M2M_BLEND | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
       break;
 
-    default: // normally 0
+    case 0:
+    default: 
       // no more opCodes, disable interrupts and release semaphore to signal done
       DMA2D->CR = 0;
       mDma2dIsrBuf = mDma2dBuf;
