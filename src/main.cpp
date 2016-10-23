@@ -220,8 +220,13 @@ static void playThread (void const* argument) {
   auto mp3Decoder = new cMp3Decoder;
   cLcd::debug ("play mp3Decoder ok");
 
-  BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 44100);
-  BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);
+  #ifdef STM32F746G_DISCO
+    BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mVolume * 100), 44100);
+    BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
+  #else
+    BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 44100);
+    BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);
+  #endif
 
   //{{{  chunkSize and buffer
   auto chunkSize = 4096;

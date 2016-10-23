@@ -12,7 +12,7 @@ public:
   static cLcd* get() { return mLcd; }
 
   // static gets
-  #ifdef STM32F746I_DISCO
+  #ifdef STM32F746G_DISCO
     static uint16_t getWidth() { return 480; }
     static uint16_t getHeight() { return 272; }
     static uint8_t getFontHeight() { return 16; }
