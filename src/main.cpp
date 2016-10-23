@@ -175,7 +175,6 @@ static void uiThread (void const* argument) {
     if (tsState.touchDetected)
       mLcd->renderCursor (COL_MAGENTA, x[0], y[0], z[0] ? z[0] : cLcd::getHeight()/10);
     mLcd->endRender (button);
-    osDelay (2);
 
     if (mVolumeChanged) {
       //{{{  set volume

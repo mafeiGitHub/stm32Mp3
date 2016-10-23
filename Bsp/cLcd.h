@@ -20,8 +20,8 @@ public:
   #else
     static uint16_t getWidth() { return 800; }
     static uint16_t getHeight() { return 480; }
-    static uint8_t getFontHeight() { return 24; }
-    static uint8_t getLineHeight() { return 27; }
+    static uint8_t getFontHeight() { return 26; }
+    static uint8_t getLineHeight() { return 30; }
   #endif
 
   // static string utils
