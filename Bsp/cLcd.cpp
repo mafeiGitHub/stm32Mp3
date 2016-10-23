@@ -598,12 +598,14 @@ void cLcd::pixel (uint32_t colour, int16_t x, int16_t y) {
 //{{{
 void cLcd::rect (uint32_t colour, int16_t x, int16_t y, uint16_t width, uint16_t height) {
 
+  // more often same colour
   if (colour != mCurDstColour) {
     *mDma2dCurBuf++ = kDstColour;
     *mDma2dCurBuf++ = colour;
     mCurDstColour = colour;
     }
 
+  // quite often same colour
   uint32_t stride = getWidth() - width;
   if (stride != mCurStride) {
     *mDma2dCurBuf++ = kStride;
@@ -620,6 +622,7 @@ void cLcd::rect (uint32_t colour, int16_t x, int16_t y, uint16_t width, uint16_t
 //{{{
 void cLcd::stamp (uint32_t colour, uint8_t* src, int16_t x, int16_t y, uint16_t width, uint16_t height) {
 
+  // more often same colour
   if (colour != mCurSrcColour) {
     *mDma2dCurBuf++ = kSrcColour;
     *mDma2dCurBuf++ = colour;
