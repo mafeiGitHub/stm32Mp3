@@ -172,7 +172,6 @@ static void httpServeConnection (struct netconn* conn) {
           netconn_write(conn, (const unsigned char*)(file->data), (size_t)file->len, NETCONN_NOCOPY);
           fs_close(file);
           }
-          /*}}}*/
         else if ((strncmp (buf, "GET /STM32F7xx.html", 19) == 0) || (strncmp(buf, "GET / ", 6) == 0)) {
           /*{{{  Load STM32F7xx page*/
           struct fs_file* file = fs_open ("/STM32F7xx.html");
@@ -181,7 +180,7 @@ static void httpServeConnection (struct netconn* conn) {
           }
           /*}}}*/
         else if (strncmp (buf, "GET /STM32F7xxTASKS.html", 24) == 0)
-           dynWebPage (conn);
+          dynWebPage (conn);
         else {
           /*{{{  Load Error page*/
           struct fs_file* file = fs_open ("/404.html");
@@ -200,6 +199,7 @@ static void httpServeConnection (struct netconn* conn) {
   netbuf_delete (inbuf);
   }
 /*}}}*/
+
 /*{{{*/
 static void serverThread() {
 

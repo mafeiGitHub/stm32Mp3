@@ -165,14 +165,17 @@ static void uiThread (void const* argument) {
     //{{{  button, leds
     button = BSP_PB_GetState(BUTTON_WAKEUP) == GPIO_PIN_SET;
     button ? BSP_LED_On (LED1) : BSP_LED_Off (LED1);
-    tsState.touchDetected ? BSP_LED_On (LED2) : BSP_LED_Off (LED2);
-    button ? BSP_LED_On (LED3) : BSP_LED_Off (LED3);
+    #ifdef STM32F769I_DISCO
+      tsState.touchDetected ? BSP_LED_On (LED2) : BSP_LED_Off (LED2);
+      button ? BSP_LED_On (LED3) : BSP_LED_Off (LED3);
+    #endif
     //}}}
     mLcd->startRender();
     button ? mLcd->clear (COL_BLACK) : mRoot->render (mLcd);
     if (tsState.touchDetected)
       mLcd->renderCursor (COL_MAGENTA, x[0], y[0], z[0] ? z[0] : cLcd::getHeight()/10);
     mLcd->endRender (button);
+    osDelay (2);
 
     if (mVolumeChanged) {
       //{{{  set volume
@@ -594,8 +597,10 @@ int main() {
   initClock();
 
   BSP_LED_Init (LED1);
-  BSP_LED_Init (LED2);
-  BSP_LED_Init (LED3);
+  #ifdef STM32F769I_DISCO
+    BSP_LED_Init (LED2);
+    BSP_LED_Init (LED3);
+  #endif
   BSP_PB_Init (BUTTON_WAKEUP, BUTTON_MODE_GPIO);
 
   // init freeRTOS heap_5c
@@ -614,16 +619,16 @@ int main() {
   osSemaphoreDef (aud);
   mAudSem = osSemaphoreCreate (osSemaphore (aud), -1);
 
-  const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 4000 };
+  const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 1024 };
   osThreadCreate (&osThreadUi, NULL);
 
-  const osThreadDef_t osThreadPlay =  { (char*)"Play", playThread, osPriorityNormal, 0, 16000 };
+  const osThreadDef_t osThreadPlay =  { (char*)"Play", playThread, osPriorityNormal, 0, 8192 };
   osThreadCreate (&osThreadPlay, NULL);
 
-  const osThreadDef_t osThreadWave =  { (char*)"Wave", waveThread, osPriorityBelowNormal, 0, 16000 };
+  const osThreadDef_t osThreadWave =  { (char*)"Wave", waveThread, osPriorityNormal, 0, 8192 };
   osThreadCreate (&osThreadWave, NULL);
 
-  const osThreadDef_t osThreadNet =  { (char*)"Net", netThread, osPriorityBelowNormal, 0, 1024 };
+  const osThreadDef_t osThreadNet =  { (char*)"Net", netThread, osPriorityNormal, 0, 1024 };
   osThreadCreate (&osThreadNet, NULL);
 
   osKernelStart();
