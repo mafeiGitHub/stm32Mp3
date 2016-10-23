@@ -473,14 +473,13 @@ static void aacPlayThread (void const* argument) {
   while (true) {
     if (osSemaphoreWait (mAudSem, 50) == osOK) {
       int seqNum;
-      int16_t* audioPtr = (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER + 4096);
       int16_t* audioSamples = hlsRadio->getAudioSamples (hlsRadio->mPlayFrame, seqNum);
       if (hlsRadio->mPlaying && audioSamples) {
-        memcpy (audioPtr, audioSamples, 4096);
+        memcpy ((int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER + 4096), audioSamples, 4096);
         hlsRadio->mPlayFrame++;
         }
       else
-        memset (audioPtr, 0, 4096);
+        memset ((int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER + 4096), 0, 4096);
 
       if (!seqNum ||(seqNum != lastSeqNum)) {
         //hlsRadio->setBitrateStrategy2 (seqNum != lastSeqNum+1);
