@@ -43,6 +43,9 @@
 #include "cMp3decoder.h"
 
 #include "../httpServer/httpServer.h"
+
+#include "../libfaad/neaacdec.h"
+#include "cHlsRadio.h"
 //}}}
 //{{{  static vars
 static osSemaphoreId mAudSem;
@@ -66,6 +69,8 @@ static bool mWaveChanged = false;
 static bool mWaveLoad = false;
 
 static cLcd* mLcd = nullptr;
+
+static osSemaphoreId loadedSem;
 //}}}
 //{{{  audio callbacks
 //{{{
@@ -82,7 +87,9 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 //}}}
 //}}}
 static const bool kMaxTouch = 1;
-static const bool kStaticIp = true;
+//static const bool kStaticIp = true;
+static const bool kStaticIp = false;
+static cHlsRadio* hlsRadio;
 
 //{{{
 static void listDirectory (std::string directoryName, std::string indent) {
@@ -132,10 +139,10 @@ static void uiThread (void const* argument) {
   //}}}
 
   // create widgets
-  mRoot->addTopLeft (new cListWidget (mMp3Files, fileIndex, fileIndexChanged, mRoot->getWidth(), mRoot->getHeight()-2*mRoot->getHeight()/5));
-  mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, cWidget::getBoxHeight()-1, mRoot->getHeight()));
-  mRoot->addBottomLeft (new cWaveLensWidget (mWave, mPlayFrame, mLoadFrame, mLoadFrame, mWaveChanged, mRoot->getWidth(), mRoot->getHeight()/5));
-  mRoot->addNextAbove (new cWaveCentreWidget (mWave, mPlayFrame, mLoadFrame, mLoadFrame, mWaveChanged, mRoot->getWidth(), mRoot->getHeight()/5));
+  //mRoot->addTopLeft (new cListWidget (mMp3Files, fileIndex, fileIndexChanged, mRoot->getWidth(), mRoot->getHeight()-2*mRoot->getHeight()/5));
+  //mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, cWidget::getBoxHeight()-1, mRoot->getHeight()));
+  //mRoot->addBottomLeft (new cWaveLensWidget (mWave, mPlayFrame, mLoadFrame, mLoadFrame, mWaveChanged, mRoot->getWidth(), mRoot->getHeight()/5));
+  //mRoot->addNextAbove (new cWaveCentreWidget (mWave, mPlayFrame, mLoadFrame, mLoadFrame, mWaveChanged, mRoot->getWidth(), mRoot->getHeight()/5));
 
   BSP_TS_Init (mRoot->getWidth(), mRoot->getHeight());
   while (true) {
@@ -420,6 +427,75 @@ static void waveThread (void const* argument) {
     }
   }
 //}}}
+
+//{{{
+static void aacLoadThread (void const* argument) {
+
+  cLcd::debug ("aacLoadThread");
+
+  cHttp http;
+  while (true) {
+    if (hlsRadio->getChan() != hlsRadio->mTuneChan)
+      hlsRadio->mPlayFrame = hlsRadio->changeChan (&http, hlsRadio->mTuneChan) - hlsRadio->getFramesFromSec(19);
+
+    cLcd::debug ("aacLoadThread chan " + cLcd::dec (hlsRadio->getChan()));
+    hlsRadio->setBitrate (128000);
+
+    if (!hlsRadio->load (&http, hlsRadio->mPlayFrame))
+      osDelay (1000);
+
+    hlsRadio->mRxBytes = http.getRxBytes();
+    cLcd::debug ("aac loaded " + cLcd::dec (hlsRadio->mRxBytes));
+    osSemaphoreWait (loadedSem, osWaitForever);
+    }
+  }
+//}}}
+//{{{
+static void aacPlayThread (void const* argument) {
+
+  cLcd::debug ("aacPlayThread");
+
+  int curVol = hlsRadio->mTuneVol;
+
+  #ifdef STM32F746G_DISCO
+    BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mVolume * 100), 44100);
+    BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
+  #else
+    BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 44100);
+    BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);
+  #endif
+
+  // should be 8192
+  memset ((void*)AUDIO_BUFFER, 0, AUDIO_BUFFER_SIZE);
+  BSP_AUDIO_OUT_Play ((uint16_t*)AUDIO_BUFFER, AUDIO_BUFFER_SIZE);
+
+  int lastSeqNum = 0;
+  while (true) {
+    if (osSemaphoreWait (mAudSem, 50) == osOK) {
+      int seqNum;
+      int16_t* audioPtr = (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF);
+      int16_t* audioSamples = hlsRadio->getAudioSamples (hlsRadio->mPlayFrame, seqNum);
+      if (hlsRadio->mPlaying && audioSamples) {
+        memcpy (audioPtr, audioSamples, 4096);
+        hlsRadio->mPlayFrame++;
+        }
+      else
+        memset (audioPtr, 0, 4096);
+
+      if (!seqNum ||(seqNum != lastSeqNum)) {
+        //hlsRadio->setBitrateStrategy2 (seqNum != lastSeqNum+1);
+        lastSeqNum = seqNum;
+        osSemaphoreRelease (loadedSem);
+        }
+      }
+
+    if (curVol != hlsRadio->mTuneVol) {
+      BSP_AUDIO_OUT_SetVolume (hlsRadio->mTuneVol);
+      curVol = hlsRadio->mTuneVol;
+      }
+    }
+  }
+//}}}
 //{{{
 static void netThread (void const* argument) {
 
@@ -488,8 +564,11 @@ static void netThread (void const* argument) {
       }
       //}}}
 
-    httpServerInit();
-    cLcd::debug ("httpServer started");
+    //httpServerInit();
+    const osThreadDef_t osThreadAacLoad =  { (char*)"AacLoad", aacLoadThread, osPriorityNormal, 0, 15000 };
+    osThreadCreate (&osThreadAacLoad, NULL);
+    const osThreadDef_t osThreadAacPlay =  { (char*)"AacPlay", aacPlayThread, osPriorityAboveNormal, 0, 2000 };
+    osThreadCreate (&osThreadAacPlay, NULL);
     }
   else {
     //{{{  no ethernet
@@ -501,6 +580,28 @@ static void netThread (void const* argument) {
   osThreadTerminate (NULL);
   }
 //}}}
+
+// waveform
+//int frames = 0;
+//uint8_t* power = nullptr;
+//int frame = hlsRadio->mPlayFrame - lcdGetXSize()/2;
+//for (auto x = 0; x < lcdGetXSize(); x++, frame++) {
+//  if (frames <= 0)
+//    power = hlsRadio->getPower (frame, frames);
+//  if (power) {
+//    uint8_t top = *power++;
+//    uint8_t ylen = *power++;
+//   lcdRect (LCD_BLUE, x, top, 1, ylen);
+//   frames--;
+//   }
+// }
+
+//lcdString (hlsRadio->getLoading() ? LCD_GREY : LCD_WHITE,
+//           20, hlsRadio->getInfoStr (hlsRadio->mPlayFrame).c_str(), 0, 0, lcdGetXSize(), 24);
+//lcdString (LCD_WHITE, 20, hlsRadio->getChunkInfoStr (0).c_str(), 0, lcdGetYSize()-120, lcdGetXSize(), 24);
+//lcdString (LCD_WHITE, 20, hlsRadio->getChunkInfoStr (1).c_str(), 0, lcdGetYSize()-96, lcdGetXSize(), 24);
+//lcdString (LCD_WHITE, 20, hlsRadio->getChunkInfoStr (2).c_str(), 0, lcdGetYSize()-72, lcdGetXSize(), 24);
+//lcdString (LCD_WHITE, 20, hlsRadio->getChanInfoStr().c_str(), 0, lcdGetYSize()-48, lcdGetXSize(), 24);
 
 //{{{
 static void initMpuRegions() {
@@ -613,24 +714,27 @@ int main() {
 
   mLcd = cLcd::create ("mp3 player built at " + std::string(__TIME__) + " on " + std::string(__DATE__));
   mRoot = new cRootContainer (cLcd::getWidth(), cLcd::getHeight());
-  mFrameOffsets = (int*)pvPortMalloc (60*60*40*sizeof(int));
-  mWave = (uint8_t*)pvPortMalloc (60*60*40*2*sizeof(uint8_t));  // 1 hour of 40 mp3 frames per sec
-  mWave[0] = 0;
+  //mFrameOffsets = (int*)pvPortMalloc (60*60*40*sizeof(int));
+  //mWave = (uint8_t*)pvPortMalloc (60*60*40*2*sizeof(uint8_t));  // 1 hour of 40 mp3 frames per sec
+  //mWave[0] = 0;
+  //mLoadFrame = 0;
+  //mPlayFrame = 0;
 
-  mLoadFrame = 0;
-  mPlayFrame = 0;
+  hlsRadio = new cHlsRadio();
 
   osSemaphoreDef (aud);
   mAudSem = osSemaphoreCreate (osSemaphore (aud), -1);
+  osSemaphoreDef (Loaded);
+  loadedSem = osSemaphoreCreate (osSemaphore (Loaded), -1);
 
   const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 1024 };
   osThreadCreate (&osThreadUi, NULL);
 
-  const osThreadDef_t osThreadPlay =  { (char*)"Play", playThread, osPriorityNormal, 0, 8192 };
-  osThreadCreate (&osThreadPlay, NULL);
+  //const osThreadDef_t osThreadPlay =  { (char*)"Play", playThread, osPriorityNormal, 0, 8192 };
+  //osThreadCreate (&osThreadPlay, NULL);
 
-  const osThreadDef_t osThreadWave =  { (char*)"Wave", waveThread, osPriorityNormal, 0, 8192 };
-  osThreadCreate (&osThreadWave, NULL);
+  //const osThreadDef_t osThreadWave =  { (char*)"Wave", waveThread, osPriorityNormal, 0, 8192 };
+  //osThreadCreate (&osThreadWave, NULL);
 
   const osThreadDef_t osThreadNet =  { (char*)"Net", netThread, osPriorityNormal, 0, 1024 };
   osThreadCreate (&osThreadNet, NULL);

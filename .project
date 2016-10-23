@@ -25,4 +25,31 @@
 		<nature>org.eclipse.cdt.managedbuilder.core.ScannerConfigNature</nature>
 		<nature>fr.ac6.mcu.ide.core.MCUProjectNature</nature>
 	</natures>
+	<linkedResources>
+		<link>
+			<name>src/cHlsChunk.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/radioPlus/src/cHlsChunk.h</locationURI>
+		</link>
+		<link>
+			<name>src/cHlsRadio.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/radioPlus/src/cHlsRadio.h</locationURI>
+		</link>
+		<link>
+			<name>src/cHttp.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/radioPlus/src/cHttp.h</locationURI>
+		</link>
+		<link>
+			<name>src/cParsedUrl.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/radioPlus/src/cParsedUrl.h</locationURI>
+		</link>
+		<link>
+			<name>src/cRadioChan.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/radioPlus/src/cRadioChan.h</locationURI>
+		</link>
+	</linkedResources>
 </projectDescription>
