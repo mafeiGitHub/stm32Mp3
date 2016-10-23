@@ -522,7 +522,10 @@ void cLcd::endRender (bool forceInfo) {
   if (mShowFooter || forceInfo)
     //{{{  draw footer
     text (COL_YELLOW, getFontHeight(),
-          dec (xPortGetFreeHeapSize()) + " " + dec (osGetCPUUsage()) + "% " + dec (mDrawTime) + "ms",
+          dec (xPortGetFreeHeapSize()) + " " +
+          dec (osGetCPUUsage()) + "% " +
+          dec (mDrawTime) + "ms " +
+          dec (mDma2dCurBuf - mDma2dBuf),
           0, getHeight()-getLineHeight(), getWidth(), getLineHeight());
     //}}}
 
@@ -904,7 +907,6 @@ void cLcd::init (std::string title) {
   // zero out first opcode, point past it
   mDma2dBuf = (uint32_t*)DMA2D_BUFFER; // pvPortMalloc (8192 * 4);
   mDma2dIsrBuf = mDma2dBuf;
-  mDma2dTimeouts = 0;
   mDma2dCurBuf = mDma2dBuf;
   *mDma2dCurBuf = kEnd;
 

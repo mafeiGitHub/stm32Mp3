@@ -130,7 +130,7 @@ private:
   uint32_t mBuffer[2] = {0,0};
 
   uint32_t* mDma2dCurBuf = nullptr;
-  uint32_t mDma2dTimeouts= 0;
+  uint32_t mDma2dTimeouts = 0;
 
   uint32_t mCurFrameBufferAddress = 0;
   uint32_t mSetFrameBufferAddress[2];
