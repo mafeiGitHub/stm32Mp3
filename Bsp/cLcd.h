@@ -69,6 +69,11 @@ private:
   void ltdcInit (uint32_t frameBufferAddress);
   void layerInit (uint8_t layer, uint32_t frameBufferAddress);
 
+  #ifdef STM32F769I_DISCO
+    void dsiWriteCmd (uint32_t NbrParams, uint8_t* pParams);
+    void otm8009aInit (bool landscape);
+  #endif
+
   void setFont (const uint8_t* font, int length);
   void setLayer (uint8_t layer, uint32_t frameBufferAddress);
   void showLayer (uint8_t layer, uint32_t frameBufferAddress, uint8_t alpha);
@@ -126,5 +131,8 @@ private:
 
   uint32_t* mDma2dCurBuf = nullptr;
   uint32_t mDma2dTimeouts= 0;
+
+  uint32_t curFrameBufferAddress;
+  uint32_t setFrameBufferAddress[2];
   //}}}
   };

@@ -239,11 +239,8 @@ static tLTDC ltdc;
 static uint32_t* mDma2dBuf = nullptr;
 static uint32_t* mDma2dIsrBuf = nullptr;
 static osSemaphoreId mDma2dSem;
-
-static uint32_t curFrameBufferAddress;
-static uint32_t setFrameBufferAddress[2];
-static uint32_t showFrameBufferAddress[2];
 static uint8_t showAlpha[2];
+uint32_t showFrameBufferAddress[2];
 
 #define maxChars 0x60
 //{{{  struct tFontChar
@@ -323,7 +320,7 @@ void LCD_DMA2D_IRQHandler() {
       break;
 
     case 0:
-    default: 
+    default:
       // no more opCodes, disable interrupts and release semaphore to signal done
       DMA2D->CR = 0;
       mDma2dIsrBuf = mDma2dBuf;
@@ -332,229 +329,6 @@ void LCD_DMA2D_IRQHandler() {
     }
   }
 //}}}
-
-#ifdef STM32F769I_DISCO
-//{{{
-static void dsiWriteCmd (uint32_t NbrParams, uint8_t* pParams) {
-
-  if (NbrParams <= 1)
-   HAL_DSI_ShortWrite (&hdsi_discovery, 0, DSI_DCS_SHORT_PKT_WRITE_P1, pParams[0], pParams[1]);
-  else
-   HAL_DSI_LongWrite (&hdsi_discovery,  0, DSI_DCS_LONG_PKT_WRITE, NbrParams, pParams[NbrParams], pParams);
-  }
-//}}}
-//{{{
-static void otm8009aInit (bool landscape) {
-
-  /* Enable CMD2 to access vendor specific commands                               */
-  /* Enter in command 2 mode and set EXTC to enable address shift function (0x00) */
-  dsiWriteCmd (0, (uint8_t*)ShortRegData1);
-  dsiWriteCmd (3, (uint8_t*)lcdRegData1);
-
-  /* Enter ORISE Command 2 */
-  dsiWriteCmd (0, (uint8_t*)ShortRegData2); /* Shift address to 0x80 */
-  dsiWriteCmd (2, (uint8_t*)lcdRegData2);
-
-  /* SD_PCH_CTRL - 0xC480h - 129th parameter - Default 0x00          */
-  /* Set SD_PT                                                       */
-  /* -> Source output level during porch and non-display area to GND */
-  dsiWriteCmd (0, (uint8_t*)ShortRegData2);
-  dsiWriteCmd (0, (uint8_t*)ShortRegData3);
-  HAL_Delay(10);
-
-  /* Not documented */
-  dsiWriteCmd (0, (uint8_t*)ShortRegData4);
-  dsiWriteCmd (0, (uint8_t*)ShortRegData5);
-  HAL_Delay(10);
-
-  /* PWR_CTRL4 - 0xC4B0h - 178th parameter - Default 0xA8 */
-  /* Set gvdd_en_test                                     */
-  /* -> enable GVDD test mode !!!                         */
-  dsiWriteCmd (0, (uint8_t*)ShortRegData6);
-  dsiWriteCmd (0, (uint8_t*)ShortRegData7);
-
-  /* PWR_CTRL2 - 0xC590h - 146th parameter - Default 0x79      */
-  /* Set pump 4 vgh voltage                                    */
-  /* -> from 15.0v down to 13.0v                               */
-  /* Set pump 5 vgh voltage                                    */
-  /* -> from -12.0v downto -9.0v                               */
-  dsiWriteCmd (0, (uint8_t*)ShortRegData8);
-  dsiWriteCmd (0, (uint8_t*)ShortRegData9);
-
-  /* P_DRV_M - 0xC0B4h - 181th parameter - Default 0x00 */
-  /* -> Column inversion                                */
-  dsiWriteCmd (0, (uint8_t*)ShortRegData10);
-  dsiWriteCmd (0, (uint8_t*)ShortRegData11);
-
-  /* VCOMDC - 0xD900h - 1st parameter - Default 0x39h */
-  /* VCOM Voltage settings                            */
-  /* -> from -1.0000v downto -1.2625v                 */
-  dsiWriteCmd (0, (uint8_t*)ShortRegData1);
-  dsiWriteCmd (0, (uint8_t*)ShortRegData12);
-
-  /* Oscillator adjustment for Idle/Normal mode (LPDT only) set to 65Hz (default is 60Hz) */
-  dsiWriteCmd (0, (uint8_t*)ShortRegData13);
-  dsiWriteCmd (0, (uint8_t*)ShortRegData14);
-
-  /* Video mode internal */
-  dsiWriteCmd (0, (uint8_t*)ShortRegData15);
-  dsiWriteCmd (0, (uint8_t*)ShortRegData16);
-
-  /* PWR_CTRL2 - 0xC590h - 147h parameter - Default 0x00 */
-  /* Set pump 4&5 x6                                     */
-  /* -> ONLY VALID when PUMP4_EN_ASDM_HV = "0"           */
-  dsiWriteCmd (0, (uint8_t*)ShortRegData17);
-  dsiWriteCmd (0, (uint8_t*)ShortRegData18);
-
-  /* PWR_CTRL2 - 0xC590h - 150th parameter - Default 0x33h */
-  /* Change pump4 clock ratio                              */
-  /* -> from 1 line to 1/2 line                            */
-  dsiWriteCmd (0, (uint8_t*)ShortRegData19);
-  dsiWriteCmd (0, (uint8_t*)ShortRegData9);
-
-  /* GVDD/NGVDD settings */
-  dsiWriteCmd (0, (uint8_t*)ShortRegData1);
-  dsiWriteCmd (2, (uint8_t*)lcdRegData5);
-
-  /* PWR_CTRL2 - 0xC590h - 149th parameter - Default 0x33h */
-  /* Rewrite the default value !                           */
-  dsiWriteCmd (0, (uint8_t*)ShortRegData20);
-  dsiWriteCmd (0, (uint8_t*)ShortRegData21);
-
-  /* Panel display timing Setting 3 */
-  dsiWriteCmd(0, (uint8_t*)ShortRegData22);
-  dsiWriteCmd (0, (uint8_t*)ShortRegData23);
-
-  /* Power control 1 */
-  dsiWriteCmd (0, (uint8_t*)ShortRegData24);
-  dsiWriteCmd (0, (uint8_t*)ShortRegData25);
-
-  /* Source driver precharge */
-  dsiWriteCmd (0, (uint8_t *)ShortRegData13);
-  dsiWriteCmd (0, (uint8_t*)ShortRegData26);
-
-  dsiWriteCmd (0, (uint8_t*)ShortRegData15);
-  dsiWriteCmd (0, (uint8_t*)ShortRegData27);
-
-  dsiWriteCmd (0, (uint8_t*)ShortRegData28);
-  dsiWriteCmd (2, (uint8_t *)lcdRegData6);
-
-  /* GOAVSt*/
-  dsiWriteCmd (0, (uint8_t*)ShortRegData2);
-  dsiWriteCmd (6, (uint8_t*)lcdRegData7);
-
-  dsiWriteCmd (0, (uint8_t*)ShortRegData29);
-  dsiWriteCmd (14, (uint8_t*)lcdRegData8);
-
-  dsiWriteCmd (0, (uint8_t*)ShortRegData30);
-  dsiWriteCmd (14, (uint8_t*)lcdRegData9);
-
-  dsiWriteCmd (0, (uint8_t*)ShortRegData31);
-  dsiWriteCmd (10, (uint8_t*)lcdRegData10);
-
-  dsiWriteCmd (0, (uint8_t*)ShortRegData32);
-  dsiWriteCmd (0, (uint8_t*)ShortRegData46);
-
-  dsiWriteCmd (0, (uint8_t*)ShortRegData2);
-  dsiWriteCmd (10, (uint8_t*)lcdRegData11);
-
-  dsiWriteCmd (0, (uint8_t*)ShortRegData33);
-  dsiWriteCmd (15, (uint8_t*)lcdRegData12);
-
-  dsiWriteCmd (0, (uint8_t*)ShortRegData29);
-  dsiWriteCmd (15, (uint8_t*)lcdRegData13);
-
-  dsiWriteCmd (0, (uint8_t*)ShortRegData30);
-  dsiWriteCmd (10, (uint8_t*)lcdRegData14);
-
-  dsiWriteCmd (0, (uint8_t*)ShortRegData31);
-  dsiWriteCmd (15, (uint8_t*)lcdRegData15);
-
-  dsiWriteCmd (0, (uint8_t*)ShortRegData32);
-  dsiWriteCmd (15, (uint8_t*)lcdRegData16);
-
-  dsiWriteCmd (0, (uint8_t*)ShortRegData34);
-  dsiWriteCmd (10, (uint8_t*)lcdRegData17);
-
-  dsiWriteCmd (0, (uint8_t*)ShortRegData35);
-  dsiWriteCmd (10, (uint8_t*)lcdRegData18);
-
-  dsiWriteCmd (0, (uint8_t*)ShortRegData2);
-  dsiWriteCmd (10, (uint8_t*)lcdRegData19);
-
-  dsiWriteCmd (0, (uint8_t*)ShortRegData33);
-  dsiWriteCmd (15, (uint8_t*)lcdRegData20);
-
-  dsiWriteCmd (0, (uint8_t*)ShortRegData29);
-  dsiWriteCmd (15, (uint8_t*)lcdRegData21);
-
-  dsiWriteCmd (0, (uint8_t*)ShortRegData30);
-  dsiWriteCmd (10, (uint8_t*)lcdRegData22);
-
-  dsiWriteCmd (0, (uint8_t*)ShortRegData31);
-  dsiWriteCmd (15, (uint8_t*)lcdRegData23);
-
-  dsiWriteCmd (0, (uint8_t*)ShortRegData32);
-  dsiWriteCmd (15, (uint8_t*)lcdRegData24);
-
-  /* PWR_CTRL1 - 0xc580h - 130th parameter - default 0x00 */
-  /* Pump 1 min and max DM                                */
-  dsiWriteCmd (0, (uint8_t*)ShortRegData13);
-  dsiWriteCmd (0, (uint8_t*)ShortRegData47);
-  dsiWriteCmd (0, (uint8_t*)ShortRegData48);
-  dsiWriteCmd (0, (uint8_t*)ShortRegData49);
-
-  /* Exit CMD2 mode */
-  dsiWriteCmd (0, (uint8_t*)ShortRegData1);
-  dsiWriteCmd (3, (uint8_t*)lcdRegData25);
-
-  // Standard DCS Initialization TO KEEP CAN BE DONE IN HSDT                   */
-
-  /* NOP - goes back to DCS std command ? */
-  dsiWriteCmd (0, (uint8_t*)ShortRegData1);
-
-  /* Gamma correction 2.2+ table (HSDT possible) */
-  dsiWriteCmd (0, (uint8_t*)ShortRegData1);
-  dsiWriteCmd (16, (uint8_t*)lcdRegData3);
-
-  /* Gamma correction 2.2- table (HSDT possible) */
-  dsiWriteCmd (0, (uint8_t*)ShortRegData1);
-  dsiWriteCmd (16, (uint8_t*)lcdRegData4);
-
-  /* Send Sleep Out command to display : no parameter */
-  dsiWriteCmd (0, (uint8_t*)ShortRegData36);
-
-  /* Wait for sleep out exit*/
-  HAL_Delay (120);
-
-  //dsiWriteCmd (0, (uint8_t*)ShortRegData37); // Set Pixel color format to RGB565
-  dsiWriteCmd (0, (uint8_t*)ShortRegData38); // Set Pixel color format to RGB888
-
-  // portrait by default
-  if (landscape) {
-    dsiWriteCmd (0, (uint8_t*)ShortRegData39);
-    dsiWriteCmd (4, (uint8_t*)lcdRegData27);
-    dsiWriteCmd (4, (uint8_t*)lcdRegData28);
-    }
-
-  // CABC : Content Adaptive Backlight Control section start
-  dsiWriteCmd (0, (uint8_t*)ShortRegData40); // defaut is 0 (lowest Brightness), 0xFF is highest Brightness, try 0x7F : intermediate value
-  dsiWriteCmd (0, (uint8_t*)ShortRegData41); // defaut is 0, try 0x2C - Brightness Control Block, Display Dimming & BackLight on
-  dsiWriteCmd (0, (uint8_t*)ShortRegData42); // defaut is 0, try 0x02 - image Content based Adaptive Brightness [Still Picture]
-  dsiWriteCmd (0, (uint8_t*)ShortRegData43); // defaut is 0 (lowest Brightness), 0xFF is highest Brightness
-
-  /* Send Command Display On */
-  dsiWriteCmd (0, (uint8_t*)ShortRegData44);
-
-  /* NOP command */
-  dsiWriteCmd (0, (uint8_t*)ShortRegData1);
-
-  /* Send Command GRAM memory write (no parameters) : this initiates frame write via other DSI commands sent by */
-  /* DSI host from LTDC incoming pixels in video mode */
-  dsiWriteCmd (0, (uint8_t*)ShortRegData45);
-  }
-//}}}
-#endif
 
 // cLcd
 //{{{
@@ -1394,6 +1168,230 @@ void cLcd::layerInit (uint8_t layer, uint32_t frameBufferAddress) {
   showAlpha[layer] = 255;
   }
 //}}}
+
+#ifdef STM32F769I_DISCO
+  //{{{
+  void cLcd::dsiWriteCmd (uint32_t NbrParams, uint8_t* pParams) {
+
+    if (NbrParams <= 1)
+     HAL_DSI_ShortWrite (&hdsi_discovery, 0, DSI_DCS_SHORT_PKT_WRITE_P1, pParams[0], pParams[1]);
+    else
+     HAL_DSI_LongWrite (&hdsi_discovery,  0, DSI_DCS_LONG_PKT_WRITE, NbrParams, pParams[NbrParams], pParams);
+    }
+  //}}}
+  //{{{
+  void cLcd::otm8009aInit (bool landscape) {
+
+    /* Enable CMD2 to access vendor specific commands                               */
+    /* Enter in command 2 mode and set EXTC to enable address shift function (0x00) */
+    dsiWriteCmd (0, (uint8_t*)ShortRegData1);
+    dsiWriteCmd (3, (uint8_t*)lcdRegData1);
+
+    /* Enter ORISE Command 2 */
+    dsiWriteCmd (0, (uint8_t*)ShortRegData2); /* Shift address to 0x80 */
+    dsiWriteCmd (2, (uint8_t*)lcdRegData2);
+
+    /* SD_PCH_CTRL - 0xC480h - 129th parameter - Default 0x00          */
+    /* Set SD_PT                                                       */
+    /* -> Source output level during porch and non-display area to GND */
+    dsiWriteCmd (0, (uint8_t*)ShortRegData2);
+    dsiWriteCmd (0, (uint8_t*)ShortRegData3);
+    HAL_Delay(10);
+
+    /* Not documented */
+    dsiWriteCmd (0, (uint8_t*)ShortRegData4);
+    dsiWriteCmd (0, (uint8_t*)ShortRegData5);
+    HAL_Delay(10);
+
+    /* PWR_CTRL4 - 0xC4B0h - 178th parameter - Default 0xA8 */
+    /* Set gvdd_en_test                                     */
+    /* -> enable GVDD test mode !!!                         */
+    dsiWriteCmd (0, (uint8_t*)ShortRegData6);
+    dsiWriteCmd (0, (uint8_t*)ShortRegData7);
+
+    /* PWR_CTRL2 - 0xC590h - 146th parameter - Default 0x79      */
+    /* Set pump 4 vgh voltage                                    */
+    /* -> from 15.0v down to 13.0v                               */
+    /* Set pump 5 vgh voltage                                    */
+    /* -> from -12.0v downto -9.0v                               */
+    dsiWriteCmd (0, (uint8_t*)ShortRegData8);
+    dsiWriteCmd (0, (uint8_t*)ShortRegData9);
+
+    /* P_DRV_M - 0xC0B4h - 181th parameter - Default 0x00 */
+    /* -> Column inversion                                */
+    dsiWriteCmd (0, (uint8_t*)ShortRegData10);
+    dsiWriteCmd (0, (uint8_t*)ShortRegData11);
+
+    /* VCOMDC - 0xD900h - 1st parameter - Default 0x39h */
+    /* VCOM Voltage settings                            */
+    /* -> from -1.0000v downto -1.2625v                 */
+    dsiWriteCmd (0, (uint8_t*)ShortRegData1);
+    dsiWriteCmd (0, (uint8_t*)ShortRegData12);
+
+    /* Oscillator adjustment for Idle/Normal mode (LPDT only) set to 65Hz (default is 60Hz) */
+    dsiWriteCmd (0, (uint8_t*)ShortRegData13);
+    dsiWriteCmd (0, (uint8_t*)ShortRegData14);
+
+    /* Video mode internal */
+    dsiWriteCmd (0, (uint8_t*)ShortRegData15);
+    dsiWriteCmd (0, (uint8_t*)ShortRegData16);
+
+    /* PWR_CTRL2 - 0xC590h - 147h parameter - Default 0x00 */
+    /* Set pump 4&5 x6                                     */
+    /* -> ONLY VALID when PUMP4_EN_ASDM_HV = "0"           */
+    dsiWriteCmd (0, (uint8_t*)ShortRegData17);
+    dsiWriteCmd (0, (uint8_t*)ShortRegData18);
+
+    /* PWR_CTRL2 - 0xC590h - 150th parameter - Default 0x33h */
+    /* Change pump4 clock ratio                              */
+    /* -> from 1 line to 1/2 line                            */
+    dsiWriteCmd (0, (uint8_t*)ShortRegData19);
+    dsiWriteCmd (0, (uint8_t*)ShortRegData9);
+
+    /* GVDD/NGVDD settings */
+    dsiWriteCmd (0, (uint8_t*)ShortRegData1);
+    dsiWriteCmd (2, (uint8_t*)lcdRegData5);
+
+    /* PWR_CTRL2 - 0xC590h - 149th parameter - Default 0x33h */
+    /* Rewrite the default value !                           */
+    dsiWriteCmd (0, (uint8_t*)ShortRegData20);
+    dsiWriteCmd (0, (uint8_t*)ShortRegData21);
+
+    /* Panel display timing Setting 3 */
+    dsiWriteCmd(0, (uint8_t*)ShortRegData22);
+    dsiWriteCmd (0, (uint8_t*)ShortRegData23);
+
+    /* Power control 1 */
+    dsiWriteCmd (0, (uint8_t*)ShortRegData24);
+    dsiWriteCmd (0, (uint8_t*)ShortRegData25);
+
+    /* Source driver precharge */
+    dsiWriteCmd (0, (uint8_t *)ShortRegData13);
+    dsiWriteCmd (0, (uint8_t*)ShortRegData26);
+
+    dsiWriteCmd (0, (uint8_t*)ShortRegData15);
+    dsiWriteCmd (0, (uint8_t*)ShortRegData27);
+
+    dsiWriteCmd (0, (uint8_t*)ShortRegData28);
+    dsiWriteCmd (2, (uint8_t *)lcdRegData6);
+
+    /* GOAVSt*/
+    dsiWriteCmd (0, (uint8_t*)ShortRegData2);
+    dsiWriteCmd (6, (uint8_t*)lcdRegData7);
+
+    dsiWriteCmd (0, (uint8_t*)ShortRegData29);
+    dsiWriteCmd (14, (uint8_t*)lcdRegData8);
+
+    dsiWriteCmd (0, (uint8_t*)ShortRegData30);
+    dsiWriteCmd (14, (uint8_t*)lcdRegData9);
+
+    dsiWriteCmd (0, (uint8_t*)ShortRegData31);
+    dsiWriteCmd (10, (uint8_t*)lcdRegData10);
+
+    dsiWriteCmd (0, (uint8_t*)ShortRegData32);
+    dsiWriteCmd (0, (uint8_t*)ShortRegData46);
+
+    dsiWriteCmd (0, (uint8_t*)ShortRegData2);
+    dsiWriteCmd (10, (uint8_t*)lcdRegData11);
+
+    dsiWriteCmd (0, (uint8_t*)ShortRegData33);
+    dsiWriteCmd (15, (uint8_t*)lcdRegData12);
+
+    dsiWriteCmd (0, (uint8_t*)ShortRegData29);
+    dsiWriteCmd (15, (uint8_t*)lcdRegData13);
+
+    dsiWriteCmd (0, (uint8_t*)ShortRegData30);
+    dsiWriteCmd (10, (uint8_t*)lcdRegData14);
+
+    dsiWriteCmd (0, (uint8_t*)ShortRegData31);
+    dsiWriteCmd (15, (uint8_t*)lcdRegData15);
+
+    dsiWriteCmd (0, (uint8_t*)ShortRegData32);
+    dsiWriteCmd (15, (uint8_t*)lcdRegData16);
+
+    dsiWriteCmd (0, (uint8_t*)ShortRegData34);
+    dsiWriteCmd (10, (uint8_t*)lcdRegData17);
+
+    dsiWriteCmd (0, (uint8_t*)ShortRegData35);
+    dsiWriteCmd (10, (uint8_t*)lcdRegData18);
+
+    dsiWriteCmd (0, (uint8_t*)ShortRegData2);
+    dsiWriteCmd (10, (uint8_t*)lcdRegData19);
+
+    dsiWriteCmd (0, (uint8_t*)ShortRegData33);
+    dsiWriteCmd (15, (uint8_t*)lcdRegData20);
+
+    dsiWriteCmd (0, (uint8_t*)ShortRegData29);
+    dsiWriteCmd (15, (uint8_t*)lcdRegData21);
+
+    dsiWriteCmd (0, (uint8_t*)ShortRegData30);
+    dsiWriteCmd (10, (uint8_t*)lcdRegData22);
+
+    dsiWriteCmd (0, (uint8_t*)ShortRegData31);
+    dsiWriteCmd (15, (uint8_t*)lcdRegData23);
+
+    dsiWriteCmd (0, (uint8_t*)ShortRegData32);
+    dsiWriteCmd (15, (uint8_t*)lcdRegData24);
+
+    /* PWR_CTRL1 - 0xc580h - 130th parameter - default 0x00 */
+    /* Pump 1 min and max DM                                */
+    dsiWriteCmd (0, (uint8_t*)ShortRegData13);
+    dsiWriteCmd (0, (uint8_t*)ShortRegData47);
+    dsiWriteCmd (0, (uint8_t*)ShortRegData48);
+    dsiWriteCmd (0, (uint8_t*)ShortRegData49);
+
+    /* Exit CMD2 mode */
+    dsiWriteCmd (0, (uint8_t*)ShortRegData1);
+    dsiWriteCmd (3, (uint8_t*)lcdRegData25);
+
+    // Standard DCS Initialization TO KEEP CAN BE DONE IN HSDT                   */
+
+    /* NOP - goes back to DCS std command ? */
+    dsiWriteCmd (0, (uint8_t*)ShortRegData1);
+
+    /* Gamma correction 2.2+ table (HSDT possible) */
+    dsiWriteCmd (0, (uint8_t*)ShortRegData1);
+    dsiWriteCmd (16, (uint8_t*)lcdRegData3);
+
+    /* Gamma correction 2.2- table (HSDT possible) */
+    dsiWriteCmd (0, (uint8_t*)ShortRegData1);
+    dsiWriteCmd (16, (uint8_t*)lcdRegData4);
+
+    /* Send Sleep Out command to display : no parameter */
+    dsiWriteCmd (0, (uint8_t*)ShortRegData36);
+
+    /* Wait for sleep out exit*/
+    HAL_Delay (120);
+
+    //dsiWriteCmd (0, (uint8_t*)ShortRegData37); // Set Pixel color format to RGB565
+    dsiWriteCmd (0, (uint8_t*)ShortRegData38); // Set Pixel color format to RGB888
+
+    // portrait by default
+    if (landscape) {
+      dsiWriteCmd (0, (uint8_t*)ShortRegData39);
+      dsiWriteCmd (4, (uint8_t*)lcdRegData27);
+      dsiWriteCmd (4, (uint8_t*)lcdRegData28);
+      }
+
+    // CABC : Content Adaptive Backlight Control section start
+    dsiWriteCmd (0, (uint8_t*)ShortRegData40); // defaut is 0 (lowest Brightness), 0xFF is highest Brightness, try 0x7F : intermediate value
+    dsiWriteCmd (0, (uint8_t*)ShortRegData41); // defaut is 0, try 0x2C - Brightness Control Block, Display Dimming & BackLight on
+    dsiWriteCmd (0, (uint8_t*)ShortRegData42); // defaut is 0, try 0x02 - image Content based Adaptive Brightness [Still Picture]
+    dsiWriteCmd (0, (uint8_t*)ShortRegData43); // defaut is 0 (lowest Brightness), 0xFF is highest Brightness
+
+    /* Send Command Display On */
+    dsiWriteCmd (0, (uint8_t*)ShortRegData44);
+
+    /* NOP command */
+    dsiWriteCmd (0, (uint8_t*)ShortRegData1);
+
+    /* Send Command GRAM memory write (no parameters) : this initiates frame write via other DSI commands sent by */
+    /* DSI host from LTDC incoming pixels in video mode */
+    dsiWriteCmd (0, (uint8_t*)ShortRegData45);
+    }
+  //}}}
+#endif
+
 //{{{
 void cLcd::setFont (const uint8_t* font, int length) {
 
@@ -1404,7 +1402,6 @@ void cLcd::setFont (const uint8_t* font, int length) {
   //FT_Done_FreeType (library);
   }
 //}}}
-
 //{{{
 void cLcd::setLayer (uint8_t layer, uint32_t frameBufferAddress) {
 

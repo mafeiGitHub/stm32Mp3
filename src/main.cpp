@@ -37,7 +37,7 @@
 #include "cListWidget.h"
 #include "cValueBox.h"
 #include "cWaveWidget.h"
-#include "cWaveCentredWidget.h"
+#include "cWaveCentreWidget.h"
 #include "cWaveLensWidget.h"
 
 #include "cMp3decoder.h"
@@ -132,19 +132,15 @@ static void uiThread (void const* argument) {
   //}}}
 
   // create widgets
-  mRoot->addTopLeft (new cListWidget (mMp3Files, fileIndex, fileIndexChanged, mRoot->getWidth(), mRoot->getHeight()-mRoot->getHeight()/5));
+  mRoot->addTopLeft (new cListWidget (mMp3Files, fileIndex, fileIndexChanged, mRoot->getWidth(), mRoot->getHeight()-2*mRoot->getHeight()/5));
   mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, cWidget::getBoxHeight()-1, mRoot->getHeight()));
-  //mRoot->addBottomLeft (new cWaveCentredWidget (mWave, mPlayFrame, mLoadFrame, mLoadFrame, mWaveChanged, mRoot->getWidth(), mRoot->getHeight()/5));
   mRoot->addBottomLeft (new cWaveLensWidget (mWave, mPlayFrame, mLoadFrame, mLoadFrame, mWaveChanged, mRoot->getWidth(), mRoot->getHeight()/5));
+  mRoot->addNextAbove (new cWaveCentreWidget (mWave, mPlayFrame, mLoadFrame, mLoadFrame, mWaveChanged, mRoot->getWidth(), mRoot->getHeight()/5));
 
   BSP_TS_Init (mRoot->getWidth(), mRoot->getHeight());
   while (true) {
     TS_StateTypeDef tsState;
     BSP_TS_GetState (&tsState);
-    button = BSP_PB_GetState(BUTTON_WAKEUP) == GPIO_PIN_SET;
-    button ? BSP_LED_On (LED1) : BSP_LED_Off (LED1);
-    button ? BSP_LED_On (LED3) : BSP_LED_Off (LED3);
-    tsState.touchDetected ? BSP_LED_On (LED2) : BSP_LED_Off (LED2);
     for (auto touch = 0; touch < kMaxTouch; touch++) {
       if (touch < tsState.touchDetected) { //) && tsState.touchWeight[touch]) {
         auto xinc = pressed[touch] ? tsState.touchX[touch] - x[touch] : 0;
@@ -166,6 +162,12 @@ static void uiThread (void const* argument) {
         }
       }
 
+    //{{{  button, leds
+    button = BSP_PB_GetState(BUTTON_WAKEUP) == GPIO_PIN_SET;
+    button ? BSP_LED_On (LED1) : BSP_LED_Off (LED1);
+    tsState.touchDetected ? BSP_LED_On (LED2) : BSP_LED_Off (LED2);
+    button ? BSP_LED_On (LED3) : BSP_LED_Off (LED3);
+    //}}}
     mLcd->startRender();
     button ? mLcd->clear (COL_BLACK) : mRoot->render (mLcd);
     if (tsState.touchDetected)
@@ -173,9 +175,11 @@ static void uiThread (void const* argument) {
     mLcd->endRender (button);
 
     if (mVolumeChanged) {
+      //{{{  set volume
       BSP_AUDIO_OUT_SetVolume (int(mVolume * 100));
       mVolumeChanged = false;
       }
+      //}}}
     }
   }
 //}}}
@@ -315,15 +319,14 @@ static void waveThread (void const* argument) {
 
   cLcd::debug ("waveThread");
   auto mp3Decoder = new cMp3Decoder;
-  auto chunkSize = 0x10000; // 64k
+  cLcd::debug ("wave mp3Decoder ok");
+
+  auto chunkSize = 0x10000 - 2048; // 64k
   auto fullChunkSize = 2048 + chunkSize;
   auto chunkBuffer = (uint8_t*)pvPortMalloc (fullChunkSize);
-  cLcd::debug ("wave mp3Decoder ok");
 
   int loadedFileIndex = -1;
   while (true) {
-    while (fileIndex == loadedFileIndex)
-      osDelay (100);
     loadedFileIndex = fileIndex;
 
     mLoadFrame = 0;
@@ -403,6 +406,10 @@ static void waveThread (void const* argument) {
       }
   exitWave:
     cLcd::debug ("wave loaded");
+
+    // wait for file change
+    while (fileIndex == loadedFileIndex)
+      osDelay (100);
     }
   }
 //}}}
