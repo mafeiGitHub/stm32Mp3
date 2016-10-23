@@ -466,14 +466,14 @@ static void aacPlayThread (void const* argument) {
   #endif
 
   // should be 8192
-  memset ((void*)AUDIO_BUFFER, 0, AUDIO_BUFFER_SIZE);
-  BSP_AUDIO_OUT_Play ((uint16_t*)AUDIO_BUFFER, AUDIO_BUFFER_SIZE);
+  memset ((void*)AUDIO_BUFFER, 0, 8192);
+  BSP_AUDIO_OUT_Play ((uint16_t*)AUDIO_BUFFER, 8192);
 
   int lastSeqNum = 0;
   while (true) {
     if (osSemaphoreWait (mAudSem, 50) == osOK) {
       int seqNum;
-      int16_t* audioPtr = (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF);
+      int16_t* audioPtr = (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER + 4096);
       int16_t* audioSamples = hlsRadio->getAudioSamples (hlsRadio->mPlayFrame, seqNum);
       if (hlsRadio->mPlaying && audioSamples) {
         memcpy (audioPtr, audioSamples, 4096);
