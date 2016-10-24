@@ -124,7 +124,6 @@ public:
   //}}}
 
 private:
-  const int kFramesPerPlay = 1;
   //{{{
   int getSeqNumFromFrame (int frame) {
   // works for -ve frame

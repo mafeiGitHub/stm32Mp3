@@ -61,18 +61,18 @@ public:
   //}}}
 
   //{{{
-  bool load (cHttp* http, cHlsChan* radioChan, int seqNum, int bitrate) {
+  bool load (cHttp* http, cHlsChan* hlsChan, int seqNum, int bitrate) {
 
     //cLcd::debug ("chunk load " + cLcd::dec (seqNum));
     mFramesLoaded = 0;
     mSeqNum = seqNum;
     mBitrate = bitrate;
 
-    auto response = http->get (radioChan->getHost(), radioChan->getTsPath (seqNum, mBitrate));
+    auto response = http->get (hlsChan->getHost(), hlsChan->getTsPath (seqNum, mBitrate));
     if (response == 200) {
       // aacHE has double size frames, treat as two normal frames
       int framesPerAacFrame = mBitrate <= 48000 ? 2 : 1;
-      mSamplesPerFrame = radioChan->getSamplesPerFrame();
+      mSamplesPerFrame = hlsChan->getSamplesPerFrame();
       int samplesPerAacFrame = mSamplesPerFrame * framesPerAacFrame;
 
       auto loadPtr = http->getContent();

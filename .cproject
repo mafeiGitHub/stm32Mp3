@@ -152,12 +152,22 @@
 							<option id="fr.ac6.managedbuild.option.gnu.cross.board.1670751641.933668918" name="Board" superClass="fr.ac6.managedbuild.option.gnu.cross.board.1670751641"/>
 							<option id="fr.ac6.managedbuild.option.gnu.cross.fpu.194367106.1066022961" name="Floating point hardware" superClass="fr.ac6.managedbuild.option.gnu.cross.fpu.194367106"/>
 							<option id="fr.ac6.managedbuild.option.gnu.cross.floatabi.785265181.901502521" name="Floating-point ABI" superClass="fr.ac6.managedbuild.option.gnu.cross.floatabi.785265181"/>
-							<tool id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1660098717" name="MCU GCC Compiler" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1902826541"/>
-							<tool id="fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.885045366" name="MCU G++ Compiler" superClass="fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.1260873934"/>
+							<targetPlatform archList="all" binaryParser="org.eclipse.cdt.core.ELF" id="fr.ac6.managedbuild.targetPlatform.gnu.cross" isAbstract="false" osList="all" superClass="fr.ac6.managedbuild.targetPlatform.gnu.cross"/>
+							<tool id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1660098717" name="MCU GCC Compiler" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1902826541">
+								<inputType id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.c.1429247863" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.c"/>
+								<inputType id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s.37153257" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s"/>
+							</tool>
+							<tool id="fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.885045366" name="MCU G++ Compiler" superClass="fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.1260873934">
+								<inputType id="fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.input.cpp.163834062" superClass="fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.input.cpp"/>
+								<inputType id="fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.input.s.711015429" superClass="fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.input.s"/>
+							</tool>
 							<tool id="fr.ac6.managedbuild.tool.gnu.cross.c.linker.1856413891" name="MCU GCC Linker" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.linker.37806325"/>
 							<tool id="fr.ac6.managedbuild.tool.gnu.cross.cpp.linker.690952581" name="MCU G++ Linker" superClass="fr.ac6.managedbuild.tool.gnu.cross.cpp.linker.1734062425"/>
 							<tool id="fr.ac6.managedbuild.tool.gnu.archiver.1674890546" name="MCU GCC Archiver" superClass="fr.ac6.managedbuild.tool.gnu.archiver.2051665393"/>
-							<tool id="fr.ac6.managedbuild.tool.gnu.cross.assembler.916291601" name="MCU GCC Assembler" superClass="fr.ac6.managedbuild.tool.gnu.cross.assembler.1679561408"/>
+							<tool id="fr.ac6.managedbuild.tool.gnu.cross.assembler.916291601" name="MCU GCC Assembler" superClass="fr.ac6.managedbuild.tool.gnu.cross.assembler.1679561408">
+								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.39562598" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
+								<inputType id="fr.ac6.managedbuild.tool.gnu.cross.assembler.input.526666820" superClass="fr.ac6.managedbuild.tool.gnu.cross.assembler.input"/>
+							</tool>
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
@@ -247,6 +257,7 @@
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/src/include"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/src/include/ipv4"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/freetype/include"/>
+									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/shared"/>
 								</option>
 								<option id="gnu.cpp.compiler.option.preprocessor.def.1756886511" name="Defined symbols (-D)" superClass="gnu.cpp.compiler.option.preprocessor.def" useByScannerDiscovery="false" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="FT2_BUILD_LIBRARY"/>
@@ -295,6 +306,20 @@
 							<inputType id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s.1751959566" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s"/>
 						</tool>
 					</fileInfo>
+					<folderInfo id="fr.ac6.managedbuild.config.gnu.cross.exe.debug.792794573.1172666407.1018300695" name="/" resourcePath="libfaad">
+						<toolChain id="fr.ac6.managedbuild.toolchain.gnu.cross.exe.debug.281959021" name="Ac6 STM32 MCU GCC" superClass="fr.ac6.managedbuild.toolchain.gnu.cross.exe.debug" unusedChildren="">
+							<option id="fr.ac6.managedbuild.option.gnu.cross.mcu.49412755.914221893" name="Mcu" superClass="fr.ac6.managedbuild.option.gnu.cross.mcu.49412755"/>
+							<option id="fr.ac6.managedbuild.option.gnu.cross.board.14252302.711188575" name="Board" superClass="fr.ac6.managedbuild.option.gnu.cross.board.14252302"/>
+							<option id="fr.ac6.managedbuild.option.gnu.cross.fpu.266826980.1394131934" name="Floating point hardware" superClass="fr.ac6.managedbuild.option.gnu.cross.fpu.266826980"/>
+							<option id="fr.ac6.managedbuild.option.gnu.cross.floatabi.867477977.1085059903" name="Floating-point ABI" superClass="fr.ac6.managedbuild.option.gnu.cross.floatabi.867477977"/>
+							<tool id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1078507500" name="MCU GCC Compiler" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1609548106"/>
+							<tool id="fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.1478792180" name="MCU G++ Compiler" superClass="fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.1052945268"/>
+							<tool id="fr.ac6.managedbuild.tool.gnu.cross.c.linker.464754090" name="MCU GCC Linker" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.linker.1777534834"/>
+							<tool id="fr.ac6.managedbuild.tool.gnu.cross.cpp.linker.1000081365" name="MCU G++ Linker" superClass="fr.ac6.managedbuild.tool.gnu.cross.cpp.linker.397492539"/>
+							<tool id="fr.ac6.managedbuild.tool.gnu.archiver.2029711906" name="MCU GCC Archiver" superClass="fr.ac6.managedbuild.tool.gnu.archiver.251905955"/>
+							<tool id="fr.ac6.managedbuild.tool.gnu.cross.assembler.992376978" name="MCU GCC Assembler" superClass="fr.ac6.managedbuild.tool.gnu.cross.assembler.1244633740"/>
+						</toolChain>
+					</folderInfo>
 					<sourceEntries>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Bsp"/>
 						<entry excluding="Source/portable/MemMang/heap_4.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="FreeRTOS"/>
@@ -303,6 +328,7 @@
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="fatfs"/>
 						<entry excluding="src/base/ftutil.c|src/autofit/hbshim.c|src/sfnt/ttpost.c|src/base/ftobjs.c|src/base/basepic.c|src/sfnt/ttmtx.c|src/autofit/afangles.c|src/autofit/aflatin.c|src/sfnt/ttbdf.c|src/truetype/ttpic.c|src/sfnt/sfntpic.c|src/truetype/ttinterp.c|src/sfnt/ttkern.c|src/base/ftfstype.c|src/raster/rastpic.c|src/autofit/afloader.c|src/base/ftgloadr.c|src/autofit/afindic.c|src/truetype/ttgload.c|src/autofit/aflatin2.c|src/sfnt/ttload.c|src/autofit/afhints.c|src/base/ftgxval.c|src/autofit/afmodule.c|src/autofit/afwarp.c|src/base/ftstream.c|src/sfnt/pngshim.c|src/base/fttrigon.c|src/autofit/afblue.c|src/base/ftpic.c|src/sfnt/ttsbit.c|src/base/ftdbgmem.c|src/truetype/ttdriver.c|src/truetype/ttsubpix.c|src/autofit/afglobal.c|src/sfnt/sfdriver.c|src/base/ftsnames.c|src/truetype/ttpload.c|src/sfnt/sfobjs.c|src/base/ftrfork.c|src/smooth/ftspic.c|src/autofit/afdummy.c|src/raster/ftraster.c|src/base/ftcalc.c|src/truetype/ttobjs.c|src/autofit/afranges.c|src/autofit/afpic.c|src/truetype/ttgxvar.c|src/base/ftotval.c|src/smooth/ftgrays.c|src/base/ftoutln.c|src/raster/ftrend1.c|src/autofit/afcjk.c|src/base/ftadvanc.c|src/sfnt/ttcmap.c|src/smooth/ftsmooth.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="freetype"/>
 						<entry excluding="fsdata.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="httpserver"/>
+						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="libfaad"/>
 						<entry excluding="new1.cpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="sys"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="tjpgd"/>
