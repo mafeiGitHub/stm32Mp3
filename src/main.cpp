@@ -573,10 +573,6 @@ static void aacLoadThread (void const* argument) {
 
   cLcd::debug ("aacLoadThread");
 
-  mRoot->addBottomLeft (new cPowerWidget (mHlsLoader, mRoot->getWidth(), mRoot->getHeight()));
-  mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, cWidget::getBoxHeight()-1, mRoot->getHeight()));
-  //mRoot->addTopRight (new cInfoTextBox (mRoot->getWidth()/4));
-
   mTuneChan = 4;
   mHlsLoader->setBitrate (mHlsLoader->getMidBitrate());
 
@@ -679,90 +675,10 @@ static void listDirectory (std::string directoryName, std::string indent) {
   }
 //}}}
 //{{{
-static void uiThread (void const* argument) {
+static void mp3PlayThread (void const* argument) {
 
-  mLcd->displayOn();
-  cLcd::debug ("uiThread");
-  //{{{  init vars
-  bool button = false;
-  int16_t x[kMaxTouch];
-  int16_t y[kMaxTouch];
-  uint8_t z[kMaxTouch];
-  int pressed[kMaxTouch];
-  for (auto touch = 0; touch < kMaxTouch; touch++)
-    pressed[touch] = 0;
-  //}}}
+  cLcd::debug ("mp3PlayThread");
 
-  // create widgets
-  //mRoot->addTopLeft (new cListWidget (mMp3Files, fileIndex, fileIndexChanged, mRoot->getWidth(), mRoot->getHeight()-2*mRoot->getHeight()/5));
-  //mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, cWidget::getBoxHeight()-1, mRoot->getHeight()));
-  //mRoot->addBottomLeft (new cWaveLensWidget (mWave, mPlayFrame, mLoadFrame, mLoadFrame, mWaveChanged, mRoot->getWidth(), mRoot->getHeight()/5));
-  //mRoot->addNextAbove (new cWaveCentreWidget (mWave, mPlayFrame, mLoadFrame, mLoadFrame, mWaveChanged, mRoot->getWidth(), mRoot->getHeight()/5));
-
-  BSP_TS_Init (mRoot->getWidth(), mRoot->getHeight());
-  while (true) {
-    TS_StateTypeDef tsState;
-    BSP_TS_GetState (&tsState);
-    for (auto touch = 0; touch < kMaxTouch; touch++) {
-      if (touch < tsState.touchDetected) { //) && tsState.touchWeight[touch]) {
-        auto xinc = pressed[touch] ? tsState.touchX[touch] - x[touch] : 0;
-        auto yinc = pressed[touch] ? tsState.touchY[touch] - y[touch] : 0;
-        x[touch] = tsState.touchX[touch];
-        y[touch] = tsState.touchY[touch];
-        z[touch] = tsState.touchWeight[touch];
-        if (!touch)
-          button ? mLcd->press (pressed[0], x[0], y[0], z[0], xinc, yinc) : mRoot->press (pressed[0], x[0], y[0], z[0], xinc, yinc);
-        pressed[touch]++;
-        }
-      else {
-        x[touch] = 0;
-        y[touch] = 0;
-        z[touch] = 0;
-        if (!touch && pressed[0])
-          mRoot->release();
-        pressed[touch] = 0;
-        }
-      }
-
-    //{{{  button, leds
-    button = BSP_PB_GetState(BUTTON_WAKEUP) == GPIO_PIN_SET;
-    button ? BSP_LED_On (LED1) : BSP_LED_Off (LED1);
-    #ifdef STM32F769I_DISCO
-      tsState.touchDetected ? BSP_LED_On (LED2) : BSP_LED_Off (LED2);
-      button ? BSP_LED_On (LED3) : BSP_LED_Off (LED3);
-    #endif
-    //}}}
-    mLcd->startRender();
-    button ? mLcd->clear (COL_BLACK) : mRoot->render (mLcd);
-    if (tsState.touchDetected)
-      mLcd->renderCursor (COL_MAGENTA, x[0], y[0], z[0] ? z[0] : cLcd::getHeight()/10);
-    mLcd->endRender (button);
-
-    if (mVolumeChanged && (int(mVolume * 100) != mIntVolume)) {
-      //{{{  set volume
-      mIntVolume = int(mVolume * 100);
-      BSP_AUDIO_OUT_SetVolume (mIntVolume);
-      mVolumeChanged = false;
-      }
-      //}}}
-    }
-  }
-//}}}
-//{{{
-static void playThread (void const* argument) {
-
-  cLcd::debug ("playThread");
-
-  //{{{  init sd card
-  BSP_SD_Init();
-  while (BSP_SD_IsDetected() != SD_PRESENT) {
-    // wait for sd card loop
-    cLcd::debug (COL_RED, "no SD card");
-    osDelay (1000);
-    }
-
-  cLcd::debug ("SD card found");
-  //}}}
   //{{{  mount fatfs
   cFatFs* fatFs = cFatFs::create();
   if (fatFs->mount() != FR_OK) {
@@ -1052,11 +968,12 @@ static void netThread (void const* argument) {
       }
       //}}}
 
-    httpServerInit();
     const osThreadDef_t osThreadAacLoad =  { (char*)"AacLoad", aacLoadThread, osPriorityNormal, 0, 15000 };
     osThreadCreate (&osThreadAacLoad, NULL);
     const osThreadDef_t osThreadAacPlay =  { (char*)"AacPlay", aacPlayThread, osPriorityAboveNormal, 0, 2000 };
     osThreadCreate (&osThreadAacPlay, NULL);
+
+    httpServerInit();
     }
   else {
     //{{{  no ethernet
@@ -1066,6 +983,99 @@ static void netThread (void const* argument) {
     //}}}
 
   osThreadTerminate (NULL);
+  }
+//}}}
+//{{{
+static void mainThread (void const* argument) {
+
+  mLcd->displayOn();
+  cLcd::debug ("mainThread");
+
+  BSP_SD_Init();
+  if (BSP_SD_IsDetected() == SD_PRESENT) {
+    //{{{  mp3 inits
+    mFrameOffsets = (int*)pvPortMalloc (60*60*40*sizeof(int));
+    mWave = (uint8_t*)pvPortMalloc (60*60*40*2*sizeof(uint8_t));  // 1 hour of 40 mp3 frames per sec
+    mWave[0] = 0;
+
+    mLoadFrame = 0;
+    mPlayFrame = 0;
+
+    mRoot->addTopLeft (new cListWidget (mMp3Files, fileIndex, fileIndexChanged, mRoot->getWidth(), mRoot->getHeight()-2*mRoot->getHeight()/5));
+    mRoot->addBottomLeft (new cWaveLensWidget (mWave, mPlayFrame, mLoadFrame, mLoadFrame, mWaveChanged, mRoot->getWidth(), mRoot->getHeight()/5));
+    mRoot->addNextAbove (new cWaveCentreWidget (mWave, mPlayFrame, mLoadFrame, mLoadFrame, mWaveChanged, mRoot->getWidth(), mRoot->getHeight()/5));
+    //}}}
+    const osThreadDef_t osThreadPlay =  { (char*)"Play", mp3PlayThread, osPriorityNormal, 0, 8192 };
+    osThreadCreate (&osThreadPlay, NULL);
+    const osThreadDef_t osThreadWave =  { (char*)"Wave", waveThread, osPriorityNormal, 0, 8192 };
+    osThreadCreate (&osThreadWave, NULL);
+    }
+  else {
+    mHlsLoader = new cHlsLoader();
+    mRoot->addBottomLeft (new cPowerWidget (mHlsLoader, mRoot->getWidth(), mRoot->getHeight()));
+    //mRoot->addTopRight (new cInfoTextBox (mRoot->getWidth()/4));
+
+    const osThreadDef_t osThreadNet =  { (char*)"Net", netThread, osPriorityNormal, 0, 1024 };
+    osThreadCreate (&osThreadNet, NULL);
+    }
+  mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, cWidget::getBoxHeight()-1, mRoot->getHeight()));
+
+  //{{{  init vars
+  bool button = false;
+  int16_t x[kMaxTouch];
+  int16_t y[kMaxTouch];
+  uint8_t z[kMaxTouch];
+  int pressed[kMaxTouch];
+  for (auto touch = 0; touch < kMaxTouch; touch++)
+    pressed[touch] = 0;
+  //}}}
+  BSP_TS_Init (mRoot->getWidth(), mRoot->getHeight());
+  while (true) {
+    TS_StateTypeDef tsState;
+    BSP_TS_GetState (&tsState);
+    for (auto touch = 0; touch < kMaxTouch; touch++) {
+      if (touch < tsState.touchDetected) { //) && tsState.touchWeight[touch]) {
+        auto xinc = pressed[touch] ? tsState.touchX[touch] - x[touch] : 0;
+        auto yinc = pressed[touch] ? tsState.touchY[touch] - y[touch] : 0;
+        x[touch] = tsState.touchX[touch];
+        y[touch] = tsState.touchY[touch];
+        z[touch] = tsState.touchWeight[touch];
+        if (!touch)
+          button ? mLcd->press (pressed[0], x[0], y[0], z[0], xinc, yinc) : mRoot->press (pressed[0], x[0], y[0], z[0], xinc, yinc);
+        pressed[touch]++;
+        }
+      else {
+        x[touch] = 0;
+        y[touch] = 0;
+        z[touch] = 0;
+        if (!touch && pressed[0])
+          mRoot->release();
+        pressed[touch] = 0;
+        }
+      }
+
+    //{{{  button, leds
+    button = BSP_PB_GetState(BUTTON_WAKEUP) == GPIO_PIN_SET;
+    button ? BSP_LED_On (LED1) : BSP_LED_Off (LED1);
+    #ifdef STM32F769I_DISCO
+      tsState.touchDetected ? BSP_LED_On (LED2) : BSP_LED_Off (LED2);
+      button ? BSP_LED_On (LED3) : BSP_LED_Off (LED3);
+    #endif
+    //}}}
+    mLcd->startRender();
+    button ? mLcd->clear (COL_BLACK) : mRoot->render (mLcd);
+    if (tsState.touchDetected)
+      mLcd->renderCursor (COL_MAGENTA, x[0], y[0], z[0] ? z[0] : cLcd::getHeight()/10);
+    mLcd->endRender (button);
+
+    if (mVolumeChanged && (int(mVolume * 100) != mIntVolume)) {
+      //{{{  set volume
+      mIntVolume = int(mVolume * 100);
+      BSP_AUDIO_OUT_SetVolume (mIntVolume);
+      mVolumeChanged = false;
+      }
+      //}}}
+    }
   }
 //}}}
 
@@ -1178,33 +1188,16 @@ int main() {
   HeapRegion_t xHeapRegions[] = { {(uint8_t*)SDRAM_HEAP, SDRAM_HEAP_SIZE }, { nullptr, 0 } };
   vPortDefineHeapRegions (xHeapRegions);
 
-  mLcd = cLcd::create ("mp3 player built at " + std::string(__TIME__) + " on " + std::string(__DATE__));
+  mLcd = cLcd::create ("Player built at " + std::string(__TIME__) + " on " + std::string(__DATE__));
   mRoot = new cRootContainer (cLcd::getWidth(), cLcd::getHeight());
-  //{{{  mp3 inits
-  //mFrameOffsets = (int*)pvPortMalloc (60*60*40*sizeof(int));
-  //mWave = (uint8_t*)pvPortMalloc (60*60*40*2*sizeof(uint8_t));  // 1 hour of 40 mp3 frames per sec
-  //mWave[0] = 0;
-  //mLoadFrame = 0;
-  //mPlayFrame = 0;
-  //}}}
-
-  mHlsLoader = new cHlsLoader();
-  osSemaphoreDef (hlsLoader);
-  mHlsLoaderSem = osSemaphoreCreate (osSemaphore (hlsLoader), -1);
 
   osSemaphoreDef (aud);
   mAudSem = osSemaphoreCreate (osSemaphore (aud), -1);
+  osSemaphoreDef (hlsLoader);
+  mHlsLoaderSem = osSemaphoreCreate (osSemaphore (hlsLoader), -1);
 
-  const osThreadDef_t osThreadUi = { (char*)"UI", uiThread, osPriorityNormal, 0, 1024 };
-  osThreadCreate (&osThreadUi, NULL);
-
-  //const osThreadDef_t osThreadPlay =  { (char*)"Play", playThread, osPriorityNormal, 0, 8192 };
-  //osThreadCreate (&osThreadPlay, NULL);
-  //const osThreadDef_t osThreadWave =  { (char*)"Wave", waveThread, osPriorityNormal, 0, 8192 };
-  //osThreadCreate (&osThreadWave, NULL);
-
-  const osThreadDef_t osThreadNet =  { (char*)"Net", netThread, osPriorityNormal, 0, 1024 };
-  osThreadCreate (&osThreadNet, NULL);
+  const osThreadDef_t osMainThread = { (char*)"main", mainThread, osPriorityNormal, 0, 1024 };
+  osThreadCreate (&osMainThread, NULL);
 
   osKernelStart();
 
