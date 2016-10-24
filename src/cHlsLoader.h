@@ -7,20 +7,11 @@ public:
   cHlsLoader() {}
   virtual ~cHlsLoader() {}
 
-  //{{{
-  int getBitrate() {
-    return mBitrate;
-    }
-  //}}}
-  //{{{
-  int getLoading() {
-    return mLoading;
-    }
-  //}}}
+  int getBitrate() { return mBitrate; }
+  int getLoading() { return mLoading; }
   //{{{
   std::string getInfoStr (int frame) {
     return getChanName (getChan()) + ':' + toString (getBitrate()/1000) + "k " + getFrameInfo (frame);
-           //+ getChunkNumStr (0) + ':' + getChunkNumStr (1) + ':' + getChunkNumStr (2);
     }
   //}}}
   //{{{
@@ -64,7 +55,6 @@ public:
   //{{{
   int changeChan (cHttp* http, int chan) {
 
-    printf ("cHlsChunks::setChan %d\n", chan);
     setChan (http, chan);
     mBitrate = getMidBitrate();
 
@@ -80,12 +70,7 @@ public:
     return mBaseFrame;
     }
   //}}}
-  //{{{
-  void setBitrate (int bitrate) {
-
-    mBitrate = bitrate;
-    }
-  //}}}
+  void setBitrate (int bitrate) { mBitrate = bitrate; }
 
   //{{{
   bool load (cHttp* http, int frame) {
@@ -103,20 +88,17 @@ public:
       ok &= mChunks[chunk].load (http, this, seqNum, mBitrate);
       }
 
-    if (!mJumped) {
-      if (!findSeqNumChunk (seqNum, mBitrate, 1, chunk)) {
-        // load chunk before
-        mLoading++;
-        ok &= mChunks[chunk].load (http, this, seqNum+1, mBitrate);
-        }
-
-      if (!findSeqNumChunk (seqNum, mBitrate, -1, chunk)) {
-        // load chunk after
-        mLoading++;
-        ok &= mChunks[chunk].load (http, this, seqNum-1, mBitrate);
-        }
+    if (!findSeqNumChunk (seqNum, mBitrate, 1, chunk)) {
+      // load chunk before
+      mLoading++;
+      ok &= mChunks[chunk].load (http, this, seqNum+1, mBitrate);
       }
-    mJumped = false;
+
+    if (!findSeqNumChunk (seqNum, mBitrate, -1, chunk)) {
+      // load chunk after
+      mLoading++;
+      ok &= mChunks[chunk].load (http, this, seqNum-1, mBitrate);
+      }
     mLoading = 0;
 
     return ok;
@@ -212,7 +194,6 @@ private:
   int mBaseFrame = 0;
   int mBitrate = 0;
   int mLoading = 0;
-  bool mJumped = false;
   std::string mInfoStr;
   cHlsChunk mChunks[3];
   };

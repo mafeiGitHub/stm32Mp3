@@ -6,12 +6,6 @@ class cHlsChunk {
 public:
   //{{{
   cHlsChunk() {
-    // create aac decoder
-    mDecoder = NeAACDecOpen();
-    NeAACDecConfiguration* config = NeAACDecGetCurrentConfiguration (mDecoder);
-    config->outputFormat = FAAD_FMT_16BIT;
-    NeAACDecSetConfiguration (mDecoder, config);
-
     mAudio = (int16_t*)pvPortMalloc (300 * 1024 * 2 * 2);
     mPower = (uint8_t*)malloc (300 * 2);
     }
@@ -27,43 +21,22 @@ public:
   //}}}
 
   // gets
-  //{{{
-  int getSeqNum() {
-    return mSeqNum;
-    }
-  //}}}
-  //{{{
-  int getBitrate() {
-    return mBitrate;
-    }
-  //}}}
-  //{{{
-  int getFramesLoaded() {
-    return mFramesLoaded;
-    }
-  //}}}
-  //{{{
-  std::string getInfoStr() {
-    return mInfoStr;
-    }
-  //}}}
+  int getSeqNum() { return mSeqNum; }
+  int getBitrate() { return mBitrate; }
+  int getFramesLoaded() { return mFramesLoaded; }
+  std::string getInfoStr() { return mInfoStr; }
+
+  int16_t* getSamples (int frameInChunk) { return (mAudio + (frameInChunk * mSamplesPerFrame * 2)); }
   //{{{
   uint8_t* getPower (int frameInChunk, int& frames) {
-
     frames = getFramesLoaded() - frameInChunk;
-    return mPower ? mPower + (frameInChunk * 2) : nullptr;
-    }
-  //}}}
-  //{{{
-  int16_t* getSamples (int frameInChunk) {
-    return mAudio ? (mAudio + (frameInChunk * mSamplesPerFrame * 2)) : nullptr;
+    return mPower + (frameInChunk * 2);
     }
   //}}}
 
   //{{{
   bool load (cHttp* http, cHlsChan* hlsChan, int seqNum, int bitrate) {
 
-    //cLcd::debug ("chunk load " + cLcd::dec (seqNum));
     mFramesLoaded = 0;
     mSeqNum = seqNum;
     mBitrate = bitrate;
@@ -80,18 +53,27 @@ public:
       loadEnd = packTsBuffer (loadPtr, loadEnd);
 
       int16_t* buffer = mAudio;
-      NeAACDecFrameInfo frameInfo;
 
-      if (!mDecoderInited) {
+      if (!mDecoder) {
+        //{{{  create, init aac decoder
+        mDecoder = NeAACDecOpen();
+
+        NeAACDecConfiguration* config = NeAACDecGetCurrentConfiguration (mDecoder);
+        config->outputFormat = FAAD_FMT_16BIT;
+        NeAACDecSetConfiguration (mDecoder, config);
+
         unsigned long sampleRate;
         uint8_t chans;
         NeAACDecInit (mDecoder, loadPtr, 2048, &sampleRate, &chans);
+
+        NeAACDecFrameInfo frameInfo;
         NeAACDecDecode2 (mDecoder, &frameInfo, loadPtr, 2048, (void**)(&buffer), samplesPerAacFrame * 2 * 2);
-        mDecoderInited = true;
         }
+        //}}}
 
       uint8_t* powerPtr = mPower;
       while (loadPtr < loadEnd) {
+        NeAACDecFrameInfo frameInfo;
         NeAACDecDecode2 (mDecoder, &frameInfo, loadPtr, 2048, (void**)(&buffer), samplesPerAacFrame * 2 * 2);
         loadPtr += frameInfo.bytesconsumed;
         for (int i = 0; i < framesPerAacFrame; i++) {
@@ -119,14 +101,13 @@ public:
       }
     else {
       mSeqNum = 0;
-      mInfoStr = toString(response) + ':' + toString (seqNum) + ':' + toString (bitrate/1000) + "k " + http->getInfoStr();
+      mInfoStr = toString (response) + ':' + toString (seqNum) + ':' + toString (bitrate/1000) + "k " + http->getInfoStr();
       return false;
       }
     }
   //}}}
   //{{{
   void invalidate() {
-
     mSeqNum = 0;
     mFramesLoaded = 0;
     }
@@ -135,7 +116,7 @@ public:
 private:
   //{{{
   uint8_t* packTsBuffer (uint8_t* ptr, uint8_t* endPtr) {
-  // pack transportStream down to aac frames in same buffer
+  // pack transportStream to aac frames in same buffer
 
     auto toPtr = ptr;
     while ((ptr < endPtr) && (*ptr++ == 0x47)) {
@@ -162,7 +143,6 @@ private:
 
   // vars
   NeAACDecHandle mDecoder = 0;
-  bool mDecoderInited = false;
   int16_t* mAudio = nullptr;
   uint8_t* mPower = nullptr;
 

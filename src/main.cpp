@@ -53,6 +53,7 @@ static osSemaphoreId mAudSem;
 static bool mAudHalf = false;
 
 static float mVolume = 0.7f;
+static int mIntVolume = 0;
 static bool mVolumeChanged = false;
 
 // mp3
@@ -143,7 +144,6 @@ static void aacLoadThread (void const* argument) {
   mRoot->addBottomLeft (new cPowerWidget (mHlsLoader, mRoot->getWidth(), mRoot->getHeight()));
   mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, cWidget::getBoxHeight()-1, mRoot->getHeight()));
   //mRoot->addTopRight (new cInfoTextBox (mRoot->getWidth()/4));
-  mLcd->setShowDebug (false, true, false, true);  // debug - title, info, lcdStats, footer
 
   mTuneChan = 4;
   mHlsLoader->setBitrate (mHlsLoader->getMidBitrate());
@@ -153,6 +153,7 @@ static void aacLoadThread (void const* argument) {
     if (mHlsLoader->getChan() != mTuneChan) {
       mPlayFrame = mHlsLoader->changeChan (&http, mTuneChan) - mHlsLoader->getFramesFromSec (19);
       mHlsLoader->setBitrate (mHlsLoader->getMidBitrate());
+      mLcd->setShowDebug (false, false, false, true);  // debug - title, info, lcdStats, footer
       }
 
     if (!mHlsLoader->load (&http, mPlayFrame))
@@ -305,9 +306,10 @@ static void uiThread (void const* argument) {
       mLcd->renderCursor (COL_MAGENTA, x[0], y[0], z[0] ? z[0] : cLcd::getHeight()/10);
     mLcd->endRender (button);
 
-    if (mVolumeChanged) {
+    if (mVolumeChanged && (int(mVolume * 100) != mIntVolume)) {
       //{{{  set volume
-      BSP_AUDIO_OUT_SetVolume (int(mVolume * 100));
+      mIntVolume = int(mVolume * 100);
+      BSP_AUDIO_OUT_SetVolume (mIntVolume);
       mVolumeChanged = false;
       }
       //}}}
