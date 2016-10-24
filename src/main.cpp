@@ -45,7 +45,7 @@
 
 #include "../httpServer/httpServer.h"
 
-#include "../libfaad/neaacdec.h"
+#include "../aac/neaacdec.h"
 #include "cHlsLoader.h"
 //}}}
 //{{{  static vars
@@ -141,6 +141,7 @@ static void aacLoadThread (void const* argument) {
   cLcd::debug ("aacLoadThread");
 
   mRoot->addBottomLeft (new cPowerWidget (mHlsLoader, mRoot->getWidth(), mRoot->getHeight()));
+  mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, cWidget::getBoxHeight()-1, mRoot->getHeight()));
   //mRoot->addTopRight (new cInfoTextBox (mRoot->getWidth()/4));
   mLcd->setShowDebug (false, true, false, true);  // debug - title, info, lcdStats, footer
 

@@ -123,6 +123,20 @@
 							</tool>
 						</toolChain>
 					</folderInfo>
+					<folderInfo id="fr.ac6.managedbuild.config.gnu.cross.exe.debug.792794573.1275133737" name="/" resourcePath="aac">
+						<toolChain id="fr.ac6.managedbuild.toolchain.gnu.cross.exe.debug.342042175" name="Ac6 STM32 MCU GCC" superClass="fr.ac6.managedbuild.toolchain.gnu.cross.exe.debug" unusedChildren="">
+							<option id="fr.ac6.managedbuild.option.gnu.cross.mcu.1121589177.1294968647" name="Mcu" superClass="fr.ac6.managedbuild.option.gnu.cross.mcu.1121589177"/>
+							<option id="fr.ac6.managedbuild.option.gnu.cross.board.1670751641.483959015" name="Board" superClass="fr.ac6.managedbuild.option.gnu.cross.board.1670751641"/>
+							<option id="fr.ac6.managedbuild.option.gnu.cross.fpu.194367106.310755254" name="Floating point hardware" superClass="fr.ac6.managedbuild.option.gnu.cross.fpu.194367106"/>
+							<option id="fr.ac6.managedbuild.option.gnu.cross.floatabi.785265181.1182219790" name="Floating-point ABI" superClass="fr.ac6.managedbuild.option.gnu.cross.floatabi.785265181"/>
+							<tool command="gcc" commandLinePattern="${COMMAND} ${FLAGS} ${OUTPUT_FLAG} ${OUTPUT_PREFIX}${OUTPUT} ${INPUTS}" id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1141961376" name="MCU GCC Compiler" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1902826541"/>
+							<tool id="fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.1255543265" name="MCU G++ Compiler" superClass="fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.1260873934"/>
+							<tool id="fr.ac6.managedbuild.tool.gnu.cross.c.linker.1280548121" name="MCU GCC Linker" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.linker.37806325"/>
+							<tool id="fr.ac6.managedbuild.tool.gnu.cross.cpp.linker.1517588576" name="MCU G++ Linker" superClass="fr.ac6.managedbuild.tool.gnu.cross.cpp.linker.1734062425"/>
+							<tool id="fr.ac6.managedbuild.tool.gnu.archiver.2131502346" name="MCU GCC Archiver" superClass="fr.ac6.managedbuild.tool.gnu.archiver.2051665393"/>
+							<tool id="fr.ac6.managedbuild.tool.gnu.cross.assembler.1237973430" name="MCU GCC Assembler" superClass="fr.ac6.managedbuild.tool.gnu.cross.assembler.1679561408"/>
+						</toolChain>
+					</folderInfo>
 					<fileInfo id="fr.ac6.managedbuild.config.gnu.cross.exe.debug.792794573.478752105" name="syscalls.c" rcbsApplicability="disable" resourcePath="sys/syscalls.c" toolsToInvoke="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1902826541.468745863">
 						<tool errorParsers="org.eclipse.cdt.core.GCCErrorParser" id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1902826541.468745863" name="MCU GCC Compiler" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1902826541">
 							<option id="gnu.c.compiler.option.dialect.std.544695214" name="Language standard" superClass="gnu.c.compiler.option.dialect.std" value="false" valueType="enumerated"/>
@@ -146,39 +160,15 @@
 							<inputType id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s.661094692" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s"/>
 						</tool>
 					</fileInfo>
-					<folderInfo id="fr.ac6.managedbuild.config.gnu.cross.exe.debug.792794573.365392356" name="/" resourcePath="libfaad">
-						<toolChain id="fr.ac6.managedbuild.toolchain.gnu.cross.exe.debug.776961600" name="Ac6 STM32 MCU GCC" superClass="fr.ac6.managedbuild.toolchain.gnu.cross.exe.debug" unusedChildren="">
-							<option id="fr.ac6.managedbuild.option.gnu.cross.mcu.1121589177.563518014" name="Mcu" superClass="fr.ac6.managedbuild.option.gnu.cross.mcu.1121589177"/>
-							<option id="fr.ac6.managedbuild.option.gnu.cross.board.1670751641.933668918" name="Board" superClass="fr.ac6.managedbuild.option.gnu.cross.board.1670751641"/>
-							<option id="fr.ac6.managedbuild.option.gnu.cross.fpu.194367106.1066022961" name="Floating point hardware" superClass="fr.ac6.managedbuild.option.gnu.cross.fpu.194367106"/>
-							<option id="fr.ac6.managedbuild.option.gnu.cross.floatabi.785265181.901502521" name="Floating-point ABI" superClass="fr.ac6.managedbuild.option.gnu.cross.floatabi.785265181"/>
-							<targetPlatform archList="all" binaryParser="org.eclipse.cdt.core.ELF" id="fr.ac6.managedbuild.targetPlatform.gnu.cross" isAbstract="false" osList="all" superClass="fr.ac6.managedbuild.targetPlatform.gnu.cross"/>
-							<tool id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1660098717" name="MCU GCC Compiler" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1902826541">
-								<inputType id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.c.1429247863" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.c"/>
-								<inputType id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s.37153257" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s"/>
-							</tool>
-							<tool id="fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.885045366" name="MCU G++ Compiler" superClass="fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.1260873934">
-								<inputType id="fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.input.cpp.163834062" superClass="fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.input.cpp"/>
-								<inputType id="fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.input.s.711015429" superClass="fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.input.s"/>
-							</tool>
-							<tool id="fr.ac6.managedbuild.tool.gnu.cross.c.linker.1856413891" name="MCU GCC Linker" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.linker.37806325"/>
-							<tool id="fr.ac6.managedbuild.tool.gnu.cross.cpp.linker.690952581" name="MCU G++ Linker" superClass="fr.ac6.managedbuild.tool.gnu.cross.cpp.linker.1734062425"/>
-							<tool id="fr.ac6.managedbuild.tool.gnu.archiver.1674890546" name="MCU GCC Archiver" superClass="fr.ac6.managedbuild.tool.gnu.archiver.2051665393"/>
-							<tool id="fr.ac6.managedbuild.tool.gnu.cross.assembler.916291601" name="MCU GCC Assembler" superClass="fr.ac6.managedbuild.tool.gnu.cross.assembler.1679561408">
-								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.39562598" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
-								<inputType id="fr.ac6.managedbuild.tool.gnu.cross.assembler.input.526666820" superClass="fr.ac6.managedbuild.tool.gnu.cross.assembler.input"/>
-							</tool>
-						</toolChain>
-					</folderInfo>
 					<sourceEntries>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Bsp"/>
 						<entry excluding="Source/portable/MemMang/heap_4.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="FreeRTOS"/>
 						<entry excluding="Src/stm32f7xx_hal_dma2d.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="HAL_Driver"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="LwIP"/>
+						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="aac"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="fatfs"/>
-						<entry excluding="src/base/ftrfork.c|src/smooth/ftspic.c|src/sfnt/ttbdf.c|src/raster/ftraster.c|src/sfnt/ttpost.c|src/truetype/ttpic.c|src/sfnt/sfntpic.c|src/truetype/ttinterp.c|src/base/ftcalc.c|src/sfnt/ttkern.c|src/truetype/ttdriver.c|src/truetype/ttobjs.c|src/base/ftobjs.c|src/base/basepic.c|src/autofit/afpic.c|src/base/ftsnames.c|src/base/ftgloadr.c|src/autofit/hbshim.c|src/base/ftutil.c|src/autofit/afangles.c|src/autofit/aflatin.c|src/autofit/afdummy.c|src/base/ftfstype.c|src/sfnt/ttmtx.c|src/truetype/ttsubpix.c|src/autofit/afranges.c|src/sfnt/sfdriver.c|src/autofit/afglobal.c|src/raster/rastpic.c|src/truetype/ttpload.c|src/autofit/afloader.c|src/truetype/ttgxvar.c|src/sfnt/sfobjs.c|src/smooth/ftgrays.c|src/autofit/aflatin2.c|src/autofit/afhints.c|src/autofit/afblue.c|src/autofit/afcjk.c|src/base/ftpic.c|src/base/ftdbgmem.c|src/base/ftotval.c|src/base/ftoutln.c|src/autofit/afindic.c|src/sfnt/pngshim.c|src/truetype/ttgload.c|src/raster/ftrend1.c|src/sfnt/ttload.c|src/base/fttrigon.c|src/autofit/afmodule.c|src/base/ftgxval.c|src/sfnt/ttsbit.c|src/autofit/afwarp.c|src/base/ftadvanc.c|src/base/ftstream.c|src/sfnt/ttcmap.c|src/smooth/ftsmooth.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="freetype"/>
+						<entry excluding="src/base/ftrfork.c|src/smooth/ftspic.c|src/sfnt/ttbdf.c|src/raster/ftraster.c|src/sfnt/ttpost.c|src/truetype/ttpic.c|src/sfnt/sfntpic.c|src/truetype/ttinterp.c|src/base/ftcalc.c|src/sfnt/ttkern.c|src/truetype/ttdriver.c|src/truetype/ttobjs.c|src/base/ftobjs.c|src/base/basepic.c|src/autofit/afpic.c|src/base/ftsnames.c|src/base/ftgloadr.c|src/autofit/hbshim.c|src/base/ftutil.c|src/autofit/afangles.c|src/autofit/aflatin.c|src/autofit/afdummy.c|src/base/ftfstype.c|src/sfnt/ttmtx.c|src/truetype/ttsubpix.c|src/autofit/afranges.c|src/sfnt/sfdriver.c|src/autofit/afglobal.c|src/raster/rastpic.c|src/truetype/ttpload.c|src/autofit/afloader.c|src/truetype/ttgxvar.c|src/sfnt/sfobjs.c|src/smooth/ftgrays.c|src/autofit/aflatin2.c|src/autofit/afhints.c|src/autofit/afblue.c|src/autofit/afcjk.c|src/base/ftpic.c|src/base/ftdbgmem.c|src/base/ftotval.c|src/base/ftoutln.c|src/autofit/afindic.c|src/sfnt/pngshim.c|src/truetype/ttgload.c|src/raster/ftrend1.c|src/sfnt/ttload.c|src/base/fttrigon.c|src/base/ftgxval.c|src/autofit/afmodule.c|src/autofit/afwarp.c|src/sfnt/ttsbit.c|src/base/ftadvanc.c|src/sfnt/ttcmap.c|src/base/ftstream.c|src/smooth/ftsmooth.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="freetype"/>
 						<entry excluding="fsdata.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="httpserver"/>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="libfaad"/>
 						<entry excluding="new1.cpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="sys"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="tjpgd"/>
@@ -297,6 +287,20 @@
 							</tool>
 						</toolChain>
 					</folderInfo>
+					<folderInfo id="fr.ac6.managedbuild.config.gnu.cross.exe.debug.792794573.1172666407.1058637436" name="/" resourcePath="aac">
+						<toolChain id="fr.ac6.managedbuild.toolchain.gnu.cross.exe.debug.692612708" name="Ac6 STM32 MCU GCC" superClass="fr.ac6.managedbuild.toolchain.gnu.cross.exe.debug" unusedChildren="">
+							<option id="fr.ac6.managedbuild.option.gnu.cross.mcu.49412755.1119356838" name="Mcu" superClass="fr.ac6.managedbuild.option.gnu.cross.mcu.49412755"/>
+							<option id="fr.ac6.managedbuild.option.gnu.cross.board.14252302.1887481501" name="Board" superClass="fr.ac6.managedbuild.option.gnu.cross.board.14252302"/>
+							<option id="fr.ac6.managedbuild.option.gnu.cross.fpu.266826980.1458627965" name="Floating point hardware" superClass="fr.ac6.managedbuild.option.gnu.cross.fpu.266826980"/>
+							<option id="fr.ac6.managedbuild.option.gnu.cross.floatabi.867477977.231131526" name="Floating-point ABI" superClass="fr.ac6.managedbuild.option.gnu.cross.floatabi.867477977"/>
+							<tool id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1258085352" name="MCU GCC Compiler" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1609548106"/>
+							<tool id="fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.789816127" name="MCU G++ Compiler" superClass="fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.1052945268"/>
+							<tool id="fr.ac6.managedbuild.tool.gnu.cross.c.linker.447267616" name="MCU GCC Linker" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.linker.1777534834"/>
+							<tool id="fr.ac6.managedbuild.tool.gnu.cross.cpp.linker.1119144528" name="MCU G++ Linker" superClass="fr.ac6.managedbuild.tool.gnu.cross.cpp.linker.397492539"/>
+							<tool id="fr.ac6.managedbuild.tool.gnu.archiver.1598812836" name="MCU GCC Archiver" superClass="fr.ac6.managedbuild.tool.gnu.archiver.251905955"/>
+							<tool id="fr.ac6.managedbuild.tool.gnu.cross.assembler.2143462839" name="MCU GCC Assembler" superClass="fr.ac6.managedbuild.tool.gnu.cross.assembler.1244633740"/>
+						</toolChain>
+					</folderInfo>
 					<fileInfo id="fr.ac6.managedbuild.config.gnu.cross.exe.debug.792794573.1172666407.sys/syscalls.c" name="syscalls.c" rcbsApplicability="disable" resourcePath="sys/syscalls.c" toolsToInvoke="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1804883275">
 						<tool errorParsers="org.eclipse.cdt.core.GCCErrorParser" id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1804883275" name="MCU GCC Compiler" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1609548106">
 							<option id="gnu.c.compiler.option.dialect.std.1837210049" name="Language standard" superClass="gnu.c.compiler.option.dialect.std" value="gnu.c.compiler.dialect.default" valueType="enumerated"/>
@@ -306,29 +310,15 @@
 							<inputType id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s.1751959566" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s"/>
 						</tool>
 					</fileInfo>
-					<folderInfo id="fr.ac6.managedbuild.config.gnu.cross.exe.debug.792794573.1172666407.1018300695" name="/" resourcePath="libfaad">
-						<toolChain id="fr.ac6.managedbuild.toolchain.gnu.cross.exe.debug.281959021" name="Ac6 STM32 MCU GCC" superClass="fr.ac6.managedbuild.toolchain.gnu.cross.exe.debug" unusedChildren="">
-							<option id="fr.ac6.managedbuild.option.gnu.cross.mcu.49412755.914221893" name="Mcu" superClass="fr.ac6.managedbuild.option.gnu.cross.mcu.49412755"/>
-							<option id="fr.ac6.managedbuild.option.gnu.cross.board.14252302.711188575" name="Board" superClass="fr.ac6.managedbuild.option.gnu.cross.board.14252302"/>
-							<option id="fr.ac6.managedbuild.option.gnu.cross.fpu.266826980.1394131934" name="Floating point hardware" superClass="fr.ac6.managedbuild.option.gnu.cross.fpu.266826980"/>
-							<option id="fr.ac6.managedbuild.option.gnu.cross.floatabi.867477977.1085059903" name="Floating-point ABI" superClass="fr.ac6.managedbuild.option.gnu.cross.floatabi.867477977"/>
-							<tool id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1078507500" name="MCU GCC Compiler" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1609548106"/>
-							<tool id="fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.1478792180" name="MCU G++ Compiler" superClass="fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.1052945268"/>
-							<tool id="fr.ac6.managedbuild.tool.gnu.cross.c.linker.464754090" name="MCU GCC Linker" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.linker.1777534834"/>
-							<tool id="fr.ac6.managedbuild.tool.gnu.cross.cpp.linker.1000081365" name="MCU G++ Linker" superClass="fr.ac6.managedbuild.tool.gnu.cross.cpp.linker.397492539"/>
-							<tool id="fr.ac6.managedbuild.tool.gnu.archiver.2029711906" name="MCU GCC Archiver" superClass="fr.ac6.managedbuild.tool.gnu.archiver.251905955"/>
-							<tool id="fr.ac6.managedbuild.tool.gnu.cross.assembler.992376978" name="MCU GCC Assembler" superClass="fr.ac6.managedbuild.tool.gnu.cross.assembler.1244633740"/>
-						</toolChain>
-					</folderInfo>
 					<sourceEntries>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Bsp"/>
 						<entry excluding="Source/portable/MemMang/heap_4.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="FreeRTOS"/>
 						<entry excluding="Src/stm32f7xx_hal_dma2d.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="HAL_Driver"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="LwIP"/>
+						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="aac"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="fatfs"/>
 						<entry excluding="src/base/ftutil.c|src/autofit/hbshim.c|src/sfnt/ttpost.c|src/base/ftobjs.c|src/base/basepic.c|src/sfnt/ttmtx.c|src/autofit/afangles.c|src/autofit/aflatin.c|src/sfnt/ttbdf.c|src/truetype/ttpic.c|src/sfnt/sfntpic.c|src/truetype/ttinterp.c|src/sfnt/ttkern.c|src/base/ftfstype.c|src/raster/rastpic.c|src/autofit/afloader.c|src/base/ftgloadr.c|src/autofit/afindic.c|src/truetype/ttgload.c|src/autofit/aflatin2.c|src/sfnt/ttload.c|src/autofit/afhints.c|src/base/ftgxval.c|src/autofit/afmodule.c|src/autofit/afwarp.c|src/base/ftstream.c|src/sfnt/pngshim.c|src/base/fttrigon.c|src/autofit/afblue.c|src/base/ftpic.c|src/sfnt/ttsbit.c|src/base/ftdbgmem.c|src/truetype/ttdriver.c|src/truetype/ttsubpix.c|src/autofit/afglobal.c|src/sfnt/sfdriver.c|src/base/ftsnames.c|src/truetype/ttpload.c|src/sfnt/sfobjs.c|src/base/ftrfork.c|src/smooth/ftspic.c|src/autofit/afdummy.c|src/raster/ftraster.c|src/base/ftcalc.c|src/truetype/ttobjs.c|src/autofit/afranges.c|src/autofit/afpic.c|src/truetype/ttgxvar.c|src/base/ftotval.c|src/smooth/ftgrays.c|src/base/ftoutln.c|src/raster/ftrend1.c|src/autofit/afcjk.c|src/base/ftadvanc.c|src/sfnt/ttcmap.c|src/smooth/ftsmooth.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="freetype"/>
 						<entry excluding="fsdata.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="httpserver"/>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="libfaad"/>
 						<entry excluding="new1.cpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="sys"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="tjpgd"/>
@@ -376,10 +366,10 @@
 		<scannerConfigBuildInfo instanceId="fr.ac6.managedbuild.config.gnu.cross.exe.debug.792794573;fr.ac6.managedbuild.config.gnu.cross.exe.debug.792794573.;fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1902826541;fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.c.1340536327">
 			<autodiscovery enabled="false" problemReportingEnabled="true" selectedProfileId=""/>
 		</scannerConfigBuildInfo>
-		<scannerConfigBuildInfo instanceId="fr.ac6.managedbuild.config.gnu.cross.exe.debug.792794573;fr.ac6.managedbuild.config.gnu.cross.exe.debug.792794573.;fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.1260873934;fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.input.cpp.1060767720">
+		<scannerConfigBuildInfo instanceId="fr.ac6.managedbuild.config.gnu.cross.exe.release.962948351;fr.ac6.managedbuild.config.gnu.cross.exe.release.962948351.;fr.ac6.managedbuild.tool.gnu.cross.c.compiler.2037190024;fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.c.1566968380">
 			<autodiscovery enabled="false" problemReportingEnabled="true" selectedProfileId=""/>
 		</scannerConfigBuildInfo>
-		<scannerConfigBuildInfo instanceId="fr.ac6.managedbuild.config.gnu.cross.exe.release.962948351;fr.ac6.managedbuild.config.gnu.cross.exe.release.962948351.;fr.ac6.managedbuild.tool.gnu.cross.c.compiler.2037190024;fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.c.1566968380">
+		<scannerConfigBuildInfo instanceId="fr.ac6.managedbuild.config.gnu.cross.exe.debug.792794573;fr.ac6.managedbuild.config.gnu.cross.exe.debug.792794573.;fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.1260873934;fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.input.cpp.1060767720">
 			<autodiscovery enabled="false" problemReportingEnabled="true" selectedProfileId=""/>
 		</scannerConfigBuildInfo>
 	</storageModule>
