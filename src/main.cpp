@@ -32,20 +32,21 @@
 #include "../fatfs/fatFs.h"
 #include "clcd.h"
 
-#include "cRootContainer.h"
-#include "cWidget.h"
-#include "cListWidget.h"
-#include "cValueBox.h"
-#include "cWaveWidget.h"
-#include "cWaveCentreWidget.h"
-#include "cWaveLensWidget.h"
+#include "widgets/cRootContainer.h"
+#include "widgets/cWidget.h"
+#include "widgets/cListWidget.h"
+#include "widgets/cValueBox.h"
+#include "widgets/cWaveWidget.h"
+#include "widgets/cWaveCentreWidget.h"
+#include "widgets/cWaveLensWidget.h"
+#include "cPowerWidget.h"
 
-#include "cMp3decoder.h"
+#include "decoders/cMp3decoder.h"
 
 #include "../httpServer/httpServer.h"
 
 #include "../libfaad/neaacdec.h"
-#include "cHls.h"
+#include "hls/cHls.h"
 //}}}
 //{{{  static vars
 static osSemaphoreId mAudSem;
@@ -101,7 +102,7 @@ static const bool kStaticIp = false;
 //{{{
 class cPowerWidget : public cWidget {
 public:
-  cPowerWidget (uint16_t width, uint16_t height) : cWidget (COL_BLUE, width, height) {}
+  cPowerWidget (cHls* hls, uint16_t width, uint16_t height) : cWidget (COL_BLUE, width, height), mHls(hls) {}
   virtual ~cPowerWidget() {}
 
   virtual void render (iDraw* draw) {
@@ -119,6 +120,8 @@ public:
         }
       }
     }
+private:
+  cHls* mHls;
   };
 //}}}
 //{{{
@@ -126,7 +129,7 @@ static void aacLoadThread (void const* argument) {
 
   cLcd::debug ("aacLoadThread");
 
-  mRoot->addBottomLeft (new cPowerWidget (mRoot->getWidth(), mRoot->getHeight()));
+  mRoot->addBottomLeft (new cPowerWidget (mHls, mRoot->getWidth(), mRoot->getHeight()));
   mLcd->setShowDebug (false, true, false, true);  // debug - title, info, lcdStats, footer
   mHls->setBitrate (mHls->getMidBitrate());
 
