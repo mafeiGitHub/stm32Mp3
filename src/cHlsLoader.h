@@ -63,8 +63,6 @@ public:
     int sec =  ((getDateTime()[17] - '0') * 10) + (getDateTime()[18] - '0');
     int secsSinceMidnight = (hour * 60 * 60) + (min * 60) + sec;
     mBaseFrame = getFramesFromSec (secsSinceMidnight);
-    printf ("cHls::changeChan- baseSeqNum:%d dateTime:%s %dh %dm %ds %d baseFrame:%d\n",
-            getBaseSeqNum(), getDateTime().c_str(), hour, min, sec, secsSinceMidnight, mBaseFrame);
 
     invalidateChunks();
     return mBaseFrame;
@@ -178,7 +176,6 @@ private:
       chunk++;
       }
 
-    printf ("cHls::findSeqNumChunk problem %d", seqNum);
     chunk = 0;
     return false;
     }
