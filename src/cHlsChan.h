@@ -68,11 +68,8 @@ private:
   const int kFramesPerChunk = 300;
 
   const int kPool        [7] = {      0,      7,      7,      7,      6,      6,      6 };
-  const int kLowBitrate  [7] = {  48000,  48000,  48000,  48000,  48000,  48000,  48000 };
-  const int kMidBitrate  [7] = { 128000, 128000, 128000, 128000, 128000, 128000, 128000 };
-  const int kHighBitrate [7] = { 320000, 320000, 320000, 320000, 320000, 320000, 320000 };
   const char* kChanNames [7] = { "none", "radio1", "radio2", "radio3", "radio4", "radio5", "radio6" };
-  const char* kPathNames [7] = { "none", "bbc_radio_one",    "bbc_radio_two",       "bbc_radio_three",
+  const char* kPathNames [7] = { "none", "bbc_radio_one", "bbc_radio_two", "bbc_radio_three",
                                          "bbc_radio_fourfm", "bbc_radio_five_live", "bbc_6music" };
   //}}}
   //{{{
