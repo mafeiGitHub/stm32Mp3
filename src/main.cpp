@@ -30,29 +30,29 @@
 #endif
 
 #include "../fatfs/fatFs.h"
-#include "clcd.h"
 
+#include "cLcd.h"
 #include "widgets/cRootContainer.h"
 #include "widgets/cWidget.h"
 #include "widgets/cListWidget.h"
+#include "widgets/cTextBox.h"
 #include "widgets/cValueBox.h"
 #include "widgets/cWaveWidget.h"
 #include "widgets/cWaveCentreWidget.h"
 #include "widgets/cWaveLensWidget.h"
-#include "cPowerWidget.h"
 
 #include "decoders/cMp3decoder.h"
 
 #include "../httpServer/httpServer.h"
 
 #include "../libfaad/neaacdec.h"
-#include "hls/cHls.h"
+#include "cHlsLoader.h"
 //}}}
 //{{{  static vars
 static osSemaphoreId mAudSem;
 static bool mAudHalf = false;
 
-static float mVolume = 0.5f;
+static float mVolume = 0.7f;
 static bool mVolumeChanged = false;
 
 // mp3
@@ -69,8 +69,10 @@ static bool mWaveChanged = false;
 static bool mWaveLoad = false;
 
 // hls
-static cHls* mHls;
-static osSemaphoreId mHlsLoadedSem;
+static cHlsLoader* mHlsLoader;
+static osSemaphoreId mHlsLoaderSem;
+static std::string mInfoStr;
+static int mTuneChan = 4;
 
 // ui
 static cLcd* mLcd = nullptr;
@@ -93,25 +95,22 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 static const bool kMaxTouch = 1;
 static const bool kStaticIp = false;
 //static const bool kStaticIp = true;
-//mHls->getLoading() ? mHls->getInfoStr (mHls->mPlayFrame).c_str()
-//mHls->getChunkInfoStr (0).c_str()
-//mHls->getChunkInfoStr (1).c_str()
-//mHls->getChunkInfoStr (2).c_str()
-//mHls->getChanInfoStr().c_str()
+//mHls->getLoading() mHls->getInfoStr (mHls->mPlayFrame).c_str() mHls->getChunkInfoStr (0).c_str() mHls->getChanInfoStr().c_str()
 
 //{{{
 class cPowerWidget : public cWidget {
 public:
-  cPowerWidget (cHls* hls, uint16_t width, uint16_t height) : cWidget (COL_BLUE, width, height), mHls(hls) {}
+  cPowerWidget (cHlsLoader* hlsLoader, uint16_t width, uint16_t height) :
+    cWidget (COL_BLUE, width, height), mHlsLoader(hlsLoader) {}
   virtual ~cPowerWidget() {}
 
   virtual void render (iDraw* draw) {
     uint8_t* power = nullptr;
-    int frame = mHls->mPlayFrame - mWidth/2;
+    int frame = mPlayFrame - mWidth/2;
     int frames = 0;
     for (auto x = 0; x < mWidth; x++, frame++) {
       if (frames <= 0)
-        power = mHls->getPower (frame, frames);
+        power = mHlsLoader->getPower (frame, frames);
       if (power) {
         uint8_t top = *power++;
         uint8_t ylen = *power++;
@@ -121,33 +120,44 @@ public:
       }
     }
 private:
-  cHls* mHls;
+  cHlsLoader* mHlsLoader;
   };
 //}}}
+//{{{
+class cInfoTextBox : public cWidget {
+public:
+  cInfoTextBox (uint16_t width) : cWidget (width) {}
+  virtual ~cInfoTextBox() {}
+
+  virtual void render (iDraw* draw) {
+    draw->text (COL_WHITE, getFontHeight(), mHlsLoader->getChunkInfoStr (0).c_str(), mX+2, mY+1, mWidth-1, mHeight-1);
+    }
+  };
+//}}}
+
 //{{{
 static void aacLoadThread (void const* argument) {
 
   cLcd::debug ("aacLoadThread");
 
-  mRoot->addBottomLeft (new cPowerWidget (mHls, mRoot->getWidth(), mRoot->getHeight()));
+  mRoot->addBottomLeft (new cPowerWidget (mHlsLoader, mRoot->getWidth(), mRoot->getHeight()));
+  //mRoot->addTopRight (new cInfoTextBox (mRoot->getWidth()/4));
   mLcd->setShowDebug (false, true, false, true);  // debug - title, info, lcdStats, footer
-  mHls->setBitrate (mHls->getMidBitrate());
 
-  mHls->mTuneChan = 4;
+  mTuneChan = 4;
+  mHlsLoader->setBitrate (mHlsLoader->getMidBitrate());
 
   cHttp http;
   while (true) {
-    if (mHls->getChan() != mHls->mTuneChan) {
-      mHls->mPlayFrame = mHls->changeChan (&http, mHls->mTuneChan) - mHls->getFramesFromSec(19);
-      mHls->setBitrate (mHls->getMidBitrate());
+    if (mHlsLoader->getChan() != mTuneChan) {
+      mPlayFrame = mHlsLoader->changeChan (&http, mTuneChan) - mHlsLoader->getFramesFromSec (19);
+      mHlsLoader->setBitrate (mHlsLoader->getMidBitrate());
       }
 
-    if (!mHls->load (&http, mHls->mPlayFrame))
+    if (!mHlsLoader->load (&http, mPlayFrame))
       osDelay (1000);
 
-    mHls->mRxBytes = http.getRxBytes();
-    cLcd::debug ("aac loaded " + cLcd::dec (mHls->getChan()) + " "+ cLcd::dec (mHls->mRxBytes));
-    osSemaphoreWait (mHlsLoadedSem, osWaitForever);
+    osSemaphoreWait (mHlsLoaderSem, osWaitForever);
     }
   }
 //}}}
@@ -171,21 +181,35 @@ static void aacPlayThread (void const* argument) {
   while (true) {
     if (osSemaphoreWait (mAudSem, 50) == osOK) {
       int seqNum;
-      int16_t* audioSamples = mHls->getAudioSamples (mHls->mPlayFrame, seqNum);
-      if (mHls->mPlaying && audioSamples) {
+      int16_t* audioSamples = mHlsLoader->getSamples (mPlayFrame, seqNum);
+      if (audioSamples) {
         memcpy ((int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER + 4096), audioSamples, 4096);
-        mHls->mPlayFrame++;
+        mPlayFrame++;
         }
       else
         memset ((int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER + 4096), 0, 4096);
 
       if (!seqNum || (seqNum != lastSeqNum)) {
-        //mHls->setBitrateStrategy2 (seqNum != lastSeqNum+1);
         lastSeqNum = seqNum;
-        osSemaphoreRelease (mHlsLoadedSem);
+        osSemaphoreRelease (mHlsLoaderSem);
         }
       }
     }
+  }
+//}}}
+//{{{
+static void setPlayFrame (int frame) {
+  mPlayFrame = frame;
+  }
+//}}}
+//{{{
+static void incPlayFrame (int inc) {
+  setPlayFrame (mPlayFrame + inc);
+  }
+//}}}
+//{{{
+static void incAlignPlayFrame (int inc) {
+  setPlayFrame (mPlayFrame + inc);
   }
 //}}}
 
@@ -721,15 +745,17 @@ int main() {
 
   mLcd = cLcd::create ("mp3 player built at " + std::string(__TIME__) + " on " + std::string(__DATE__));
   mRoot = new cRootContainer (cLcd::getWidth(), cLcd::getHeight());
+  //{{{  mp3 inits
   //mFrameOffsets = (int*)pvPortMalloc (60*60*40*sizeof(int));
   //mWave = (uint8_t*)pvPortMalloc (60*60*40*2*sizeof(uint8_t));  // 1 hour of 40 mp3 frames per sec
   //mWave[0] = 0;
   //mLoadFrame = 0;
   //mPlayFrame = 0;
+  //}}}
 
-  mHls = new cHls();
-  osSemaphoreDef (Loaded);
-  mHlsLoadedSem = osSemaphoreCreate (osSemaphore (Loaded), -1);
+  mHlsLoader = new cHlsLoader();
+  osSemaphoreDef (hlsLoader);
+  mHlsLoaderSem = osSemaphoreCreate (osSemaphore (hlsLoader), -1);
 
   osSemaphoreDef (aud);
   mAudSem = osSemaphoreCreate (osSemaphore (aud), -1);
