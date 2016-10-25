@@ -1003,12 +1003,18 @@ static void mainThread (void const* argument) {
 
     mRoot->addBottomLeft (new cPowerWidget (mHlsLoader, mRoot->getWidth(), mRoot->getHeight()));
     //mRoot->addTopRight (new cInfoTextBox (mRoot->getWidth()/4));
-    mRoot->addTopLeft (new cSelectValueBox (6, mTuneChan, mTuneChanChanged, COL_WHITE,
-                                            cWidget::getBoxHeight()*2,cWidget::getBoxHeight()*2));
-    mRoot->add (new cSelectValueBox (5, mTuneChan, mTuneChanChanged, COL_WHITE,
-                                     cWidget::getBoxHeight()*2,cWidget::getBoxHeight()*2), 100, 0);
-    mRoot->add (new cSelectValueBox (4, mTuneChan, mTuneChanChanged, COL_WHITE,
-                                     cWidget::getBoxHeight()*2,cWidget::getBoxHeight()*2), 200, 0);
+    mRoot->addTopLeft (new cSelectValueBox ("radio1", 1, mTuneChan, mTuneChanChanged,
+                                            cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
+    mRoot->addNextRight (new cSelectValueBox ("radio2", 2, mTuneChan, mTuneChanChanged,
+                                              cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
+    mRoot->addNextRight (new cSelectValueBox ("radio3", 3, mTuneChan, mTuneChanChanged,
+                                              cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
+    mRoot->addNextRight (new cSelectValueBox ("radio4", 4, mTuneChan, mTuneChanChanged,
+                                              cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
+    mRoot->addNextRight (new cSelectValueBox ("radio5", 5, mTuneChan, mTuneChanChanged,
+                                              cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
+    mRoot->addNextRight (new cSelectValueBox ("radio6", 6, mTuneChan, mTuneChanChanged,
+                                              cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
 
     const osThreadDef_t osThreadNet =  { (char*)"Net", netThread, osPriorityNormal, 0, 1024 };
     osThreadCreate (&osThreadNet, NULL);

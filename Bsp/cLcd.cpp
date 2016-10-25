@@ -594,11 +594,10 @@ void cLcd::rect (uint32_t colour, int16_t x, int16_t y, uint16_t width, uint16_t
     }
 
   // quite often same stride
-  uint32_t stride = getWidth() - width;
-  if (stride != mCurStride) {
+  if (getWidth() - width != mCurStride) {
+    mCurStride = getWidth() - width;
     *mDma2dCurBuf++ = AHB1PERIPH_BASE + 0xB000U + 0x40; // OOR
-    *mDma2dCurBuf++ = stride;
-    mCurStride = stride;
+    *mDma2dCurBuf++ = mCurStride;
     }
 
   *mDma2dCurBuf++ = AHB1PERIPH_BASE + 0xB000U + 0x3C; // OMAR
@@ -621,7 +620,8 @@ void cLcd::stamp (uint32_t colour, uint8_t* src, int16_t x, int16_t y, uint16_t 
 
   *mDma2dCurBuf++ = kStamp;
   *mDma2dCurBuf++ = mCurFrameBufferAddress + ((y * getWidth()) + x) * 4; // bgnd fb start address
-  *mDma2dCurBuf++ = getWidth() - width;                                  // stride
+  mCurStride = getWidth() - width;
+  *mDma2dCurBuf++ = mCurStride;                                          // stride
   *mDma2dCurBuf++ = (width << 16) | height;                              // width:height
   *mDma2dCurBuf++ = (uint32_t)src;                                       // src start address
   }

@@ -44,9 +44,6 @@
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/src/include/ipv4"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/freetype/include"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/shared"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/CMSIS/core"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/CMSIS/device"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/HAL_Driver/Inc"/>
 								</option>
 								<option id="gnu.c.compiler.option.preprocessor.def.symbols.1842463227" name="Defined symbols (-D)" superClass="gnu.c.compiler.option.preprocessor.def.symbols" useByScannerDiscovery="false" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="DEBUG"/>
@@ -76,9 +73,6 @@
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/src/include/ipv4"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/freetype/include"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/shared"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/CMSIS/core"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/CMSIS/device"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/HAL_Driver/Inc"/>
 								</option>
 								<option id="gnu.cpp.compiler.option.preprocessor.def.736093321" name="Defined symbols (-D)" superClass="gnu.cpp.compiler.option.preprocessor.def" useByScannerDiscovery="false" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="DEBUG"/>
@@ -114,9 +108,6 @@
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/LwIP/src/include/ipv4"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/freetype/include"/>
 									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/shared"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/CMSIS/core"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/CMSIS/device"/>
-									<listOptionValue builtIn="false" value="C:/Users/colin/Desktop/stm32Mp3/HAL_Driver/Inc"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.1869292139" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
 								<inputType id="fr.ac6.managedbuild.tool.gnu.cross.assembler.input.1652659358" superClass="fr.ac6.managedbuild.tool.gnu.cross.assembler.input"/>
