@@ -51,50 +51,6 @@
 static const bool kMaxTouch = 1;
 static const bool kStaticIp = false;
 //}}}
-//{{{  static vars
-static osSemaphoreId mAudSem;
-static bool mAudHalf = false;
-
-static float mVolume = 0.7f;
-static int mIntVolume = 0;
-static bool mVolumeChanged = false;
-
-// mp3
-static std::vector<std::string> mMp3Files;
-static int fileIndex = 0;
-static bool fileIndexChanged = false;
-
-static int mPlayFrame = 0;
-static int mWaveLoadedFrame = 0;
-
-static int* mFrameOffsets = nullptr;
-static uint8_t* mWave = nullptr;
-static bool mWaveChanged = false;
-static bool mWaveLoad = false;
-
-// hls
-static osSemaphoreId mHlsLoaderSem;
-static std::string mInfoStr;
-static int mTuneChan = 4;
-
-// ui
-static cLcd* mLcd = nullptr;
-static cRootContainer* mRoot = nullptr;
-//}}}
-//{{{  audio callbacks
-//{{{
-void BSP_AUDIO_OUT_HalfTransfer_CallBack() {
-  mAudHalf = true;
-  osSemaphoreRelease (mAudSem);
-  }
-//}}}
-//{{{
-void BSP_AUDIO_OUT_TransferComplete_CallBack() {
-  mAudHalf = false;
-  osSemaphoreRelease (mAudSem);
-  }
-//}}}
-//}}}
 
 //{{{
 class cHlsChan {
@@ -529,7 +485,52 @@ private:
   cHttp mHttp;
   };
 //}}}
+
+//{{{  static vars
+static osSemaphoreId mAudSem;
+static bool mAudHalf = false;
+
+static int mPlayFrame = 0;
+
+static float mVolume = 0.7f;
+static int mIntVolume = 0;
+static bool mVolumeChanged = false;
+
+// mp3
+static int fileIndex = 0;
+static bool fileIndexChanged = false;
+static std::vector<std::string> mMp3Files;
+
+static bool mWaveLoad = false;
+static bool mWaveChanged = false;
+static int mWaveLoadFrame = 0;
+static uint8_t* mWave = nullptr;
+static int* mFrameOffsets = nullptr;
+
+// hls
+static int mTuneChan = 4;
 static cHlsLoader* mHlsLoader;
+static osSemaphoreId mHlsLoaderSem;
+static std::string mInfoStr;
+
+// ui
+static cLcd* mLcd = nullptr;
+static cRootContainer* mRoot = nullptr;
+//}}}
+//{{{  audio callback
+//{{{
+void BSP_AUDIO_OUT_HalfTransfer_CallBack() {
+  mAudHalf = true;
+  osSemaphoreRelease (mAudSem);
+  }
+//}}}
+//{{{
+void BSP_AUDIO_OUT_TransferComplete_CallBack() {
+  mAudHalf = false;
+  osSemaphoreRelease (mAudSem);
+  }
+//}}}
+//}}}
 
 //{{{
 class cPowerWidget : public cWidget {
@@ -573,9 +574,6 @@ public:
 static void aacLoadThread (void const* argument) {
 
   cLcd::debug ("aacLoadThread");
-
-  mTuneChan = 4;
-  mHlsLoader->setBitrate (mHlsLoader->getMidBitrate());
 
   while (true) {
     if (mHlsLoader->getChan() != mTuneChan) {
@@ -815,7 +813,7 @@ static void waveThread (void const* argument) {
   while (true) {
     loadedFileIndex = fileIndex;
 
-    mWaveLoadedFrame = 0;
+    mWaveLoadFrame = 0;
     mWave[0] = 0;
     auto wavePtr = mWave + 1;
 
@@ -868,15 +866,15 @@ static void waveThread (void const* argument) {
                   bytesLeft = 0;
                 }
               if (bytesLeft >= mp3Decoder->getFrameBodySize()) {
-                mFrameOffsets[mWaveLoadedFrame] = file.getPosition(); // not right !!!!
-                auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, mWave + 1 + (mWaveLoadedFrame * 2), nullptr);
+                mFrameOffsets[mWaveLoadFrame] = file.getPosition(); // not right !!!!
+                auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, mWave + 1 + (mWaveLoadFrame * 2), nullptr);
                 if (*wavePtr > *mWave)
                   *mWave = *wavePtr;
                 wavePtr++;
                 if (*wavePtr > *mWave)
                   *mWave = *wavePtr;
                 wavePtr++;
-                mWaveLoadedFrame++;
+                mWaveLoadFrame++;
 
                 if (frameBytes) {
                   chunkPtr += frameBytes;
@@ -997,13 +995,13 @@ static void mainThread (void const* argument) {
     mFrameOffsets = (int*)pvPortMalloc (60*60*40*sizeof(int));
     mWave = (uint8_t*)pvPortMalloc (60*60*40*2*sizeof(uint8_t));  // 1 hour of 40 mp3 frames per sec
     mWave[0] = 0;
-    mWaveLoadedFrame = 0;
+    mWaveLoadFrame = 0;
 
-    mRoot->addTopLeft (new cListWidget (mMp3Files, fileIndex, fileIndexChanged, 
+    mRoot->addTopLeft (new cListWidget (mMp3Files, fileIndex, fileIndexChanged,
                                         mRoot->getWidth(), mRoot->getHeight()-2*mRoot->getHeight()/5));
-    mRoot->addBottomLeft (new cWaveLensWidget (mWave, mPlayFrame, mWaveLoadedFrame, mWaveLoadedFrame, mWaveChanged, 
+    mRoot->addBottomLeft (new cWaveLensWidget (mWave, mPlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
                                                mRoot->getWidth(), mRoot->getHeight()/5));
-    mRoot->addNextAbove (new cWaveCentreWidget (mWave, mPlayFrame, mWaveLoadedFrame, mWaveLoadedFrame, mWaveChanged, 
+    mRoot->addNextAbove (new cWaveCentreWidget (mWave, mPlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
                                                 mRoot->getWidth(), mRoot->getHeight()/5));
     //}}}
     const osThreadDef_t osThreadPlay =  { (char*)"Play", mp3PlayThread, osPriorityNormal, 0, 8192 };
@@ -1013,6 +1011,9 @@ static void mainThread (void const* argument) {
     }
   else {
     mHlsLoader = new cHlsLoader();
+    osSemaphoreDef (hlsLoader);
+    mHlsLoaderSem = osSemaphoreCreate (osSemaphore (hlsLoader), -1);
+
     mRoot->addBottomLeft (new cPowerWidget (mHlsLoader, mRoot->getWidth(), mRoot->getHeight()));
     //mRoot->addTopRight (new cInfoTextBox (mRoot->getWidth()/4));
 
@@ -1194,8 +1195,6 @@ int main() {
 
   osSemaphoreDef (aud);
   mAudSem = osSemaphoreCreate (osSemaphore (aud), -1);
-  osSemaphoreDef (hlsLoader);
-  mHlsLoaderSem = osSemaphoreCreate (osSemaphore (hlsLoader), -1);
 
   const osThreadDef_t osMainThread = { (char*)"main", mainThread, osPriorityNormal, 0, 1024 };
   osThreadCreate (&osMainThread, NULL);
