@@ -82,6 +82,10 @@ public:
     mChan = chan;
     mHost = "as-hls-uk-live.bbcfmt.vo.llnwd.net";
 
+    #ifdef STM32F769I_DISCO
+      BSP_LED_On (LED2);
+    #endif
+
     cLcd::debug (mHost);
     if (http.get (mHost, getM3u8path()) == 302) {
       mHost = http.getRedirectedHost();
@@ -91,6 +95,10 @@ public:
     else
       mHost = http.getRedirectedHost();
     cLcd::debug (getM3u8path());
+
+    #ifdef STM32F769I_DISCO
+      BSP_LED_Off (LED2);
+    #endif
 
     // find #EXT-X-MEDIA-SEQUENCE in .m3u8, point to seqNum string, extract seqNum from playListBuf
     auto extSeq = strstr ((char*)http.getContent(), "#EXT-X-MEDIA-SEQUENCE:") + strlen ("#EXT-X-MEDIA-SEQUENCE:");
@@ -171,6 +179,9 @@ public:
   //{{{
   bool load (cHttp& http, cHlsChan* hlsChan, int seqNum, int bitrate) {
 
+    auto ok = true;
+    BSP_LED_On (LED1);
+
     mFramesLoaded = 0;
     mSeqNum = seqNum;
     mBitrate = bitrate;
@@ -231,13 +242,16 @@ public:
 
       http.freeContent();
       mInfoStr = "ok " + toString (seqNum) + ':' + toString (bitrate/1000) + 'k';
-      return true;
       }
     else {
       mSeqNum = 0;
       mInfoStr = toString (response) + ':' + toString (seqNum) + ':' + toString (bitrate/1000) + "k " + http.getInfoStr();
-      return false;
+      ok = false;
+
       }
+
+    BSP_LED_Off (LED1);
+    return ok;
     }
   //}}}
   //{{{
@@ -1063,12 +1077,13 @@ static void mainThread (void const* argument) {
 
     //{{{  button, leds
     button = BSP_PB_GetState(BUTTON_WAKEUP) == GPIO_PIN_SET;
-    button ? BSP_LED_On (LED1) : BSP_LED_Off (LED1);
+
     #ifdef STM32F769I_DISCO
-      tsState.touchDetected ? BSP_LED_On (LED2) : BSP_LED_Off (LED2);
-      button ? BSP_LED_On (LED3) : BSP_LED_Off (LED3);
+      button ? BSP_LED_On (LED2) : BSP_LED_Off (LED2);
+      tsState.touchDetected ? BSP_LED_On (LED3) : BSP_LED_Off (LED3);
     #endif
     //}}}
+
     mLcd->startRender();
     button ? mLcd->clear (COL_BLACK) : mRoot->render (mLcd);
     if (tsState.touchDetected)
