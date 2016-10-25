@@ -288,11 +288,11 @@ public:
     return mContent;
     }
   //}}}
-   //{{{
-   int getContentSize() {
-     return mContentSize;
-     }
-   //}}}
+  //{{{
+  int getContentSize() {
+    return mContentSize;
+    }
+  //}}}
   //{{{
   uint8_t* getContentEnd() {
     return mContent + mContentSize;

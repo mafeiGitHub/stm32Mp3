@@ -43,6 +43,7 @@
 #include "widgets/cListWidget.h"
 #include "widgets/cTextBox.h"
 #include "widgets/cValueBox.h"
+#include "widgets/cSelectValueBox.h"
 #include "widgets/cWaveWidget.h"
 #include "widgets/cWaveCentreWidget.h"
 #include "widgets/cWaveLensWidget.h"
@@ -505,6 +506,7 @@ static int* mFrameOffsets = nullptr;
 
 // hls
 static int mTuneChan = 4;
+static bool mTuneChanChanged = false;
 static cHlsLoader* mHlsLoader;
 static osSemaphoreId mHlsLoaderSem;
 static std::string mInfoStr;
@@ -570,12 +572,13 @@ public:
 static void aacLoadThread (void const* argument) {
 
   cLcd::debug ("aacLoadThread");
+  mPlayFrame = mHlsLoader->changeChan (mTuneChan) - mHlsLoader->getFramesFromSec (19);
+  mLcd->setShowDebug (false, false, false, true);  // debug - title, info, lcdStats, footer
 
   while (true) {
-    if (mHlsLoader->getChan() != mTuneChan) {
+    if (mTuneChanChanged && (mHlsLoader->getChan() != mTuneChan)) {
       mPlayFrame = mHlsLoader->changeChan (mTuneChan) - mHlsLoader->getFramesFromSec (19);
-      mHlsLoader->setBitrate (mHlsLoader->getMidBitrate());
-      mLcd->setShowDebug (false, false, false, true);  // debug - title, info, lcdStats, footer
+      mTuneChanChanged = false;
       }
 
     if (!mHlsLoader->load (mPlayFrame))
@@ -1000,6 +1003,12 @@ static void mainThread (void const* argument) {
 
     mRoot->addBottomLeft (new cPowerWidget (mHlsLoader, mRoot->getWidth(), mRoot->getHeight()));
     //mRoot->addTopRight (new cInfoTextBox (mRoot->getWidth()/4));
+    mRoot->addTopLeft (new cSelectValueBox (6, mTuneChan, mTuneChanChanged, COL_WHITE,
+                                            cWidget::getBoxHeight()*2,cWidget::getBoxHeight()*2));
+    mRoot->add (new cSelectValueBox (5, mTuneChan, mTuneChanChanged, COL_WHITE,
+                                     cWidget::getBoxHeight()*2,cWidget::getBoxHeight()*2), 100, 0);
+    mRoot->add (new cSelectValueBox (4, mTuneChan, mTuneChanChanged, COL_WHITE,
+                                     cWidget::getBoxHeight()*2,cWidget::getBoxHeight()*2), 200, 0);
 
     const osThreadDef_t osThreadNet =  { (char*)"Net", netThread, osPriorityNormal, 0, 1024 };
     osThreadCreate (&osThreadNet, NULL);
@@ -1021,7 +1030,7 @@ static void mainThread (void const* argument) {
     TS_StateTypeDef tsState;
     BSP_TS_GetState (&tsState);
     for (auto touch = 0; touch < kMaxTouch; touch++) {
-      if (touch < tsState.touchDetected) { 
+      if (touch < tsState.touchDetected) {
         //{{{  pressed
         auto xinc = pressed[touch] ? tsState.touchX[touch] - x[touch] : 0;
         auto yinc = pressed[touch] ? tsState.touchY[touch] - y[touch] : 0;
