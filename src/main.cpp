@@ -65,7 +65,7 @@ static int fileIndex = 0;
 static bool fileIndexChanged = false;
 
 static int mPlayFrame = 0;
-static int mLoadFrame = 0;
+static int mWaveLoadedFrame = 0;
 
 static int* mFrameOffsets = nullptr;
 static uint8_t* mWave = nullptr;
@@ -386,9 +386,9 @@ public:
   //}}}
 
   //{{{
-  int changeChan (cHttp* http, int chan) {
+  int changeChan (int chan) {
 
-    setChan (http, chan);
+    setChan (&mHttp, chan);
     mBitrate = getMidBitrate();
 
     int hour = ((getDateTime()[11] - '0') * 10) + (getDateTime()[12] - '0');
@@ -404,7 +404,7 @@ public:
   void setBitrate (int bitrate) { mBitrate = bitrate; }
 
   //{{{
-  bool load (cHttp* http, int frame) {
+  bool load (int frame) {
   // return false if any load failed
 
     bool ok = true;
@@ -416,19 +416,19 @@ public:
     if (!findSeqNumChunk (seqNum, mBitrate, 0, chunk)) {
       // load required chunk
       mLoading++;
-      ok &= mChunks[chunk].load (http, this, seqNum, mBitrate);
+      ok &= mChunks[chunk].load (&mHttp, this, seqNum, mBitrate);
       }
 
     if (!findSeqNumChunk (seqNum, mBitrate, 1, chunk)) {
       // load chunk before
       mLoading++;
-      ok &= mChunks[chunk].load (http, this, seqNum+1, mBitrate);
+      ok &= mChunks[chunk].load (&mHttp, this, seqNum+1, mBitrate);
       }
 
     if (!findSeqNumChunk (seqNum, mBitrate, -1, chunk)) {
       // load chunk after
       mLoading++;
-      ok &= mChunks[chunk].load (http, this, seqNum-1, mBitrate);
+      ok &= mChunks[chunk].load (&mHttp, this, seqNum-1, mBitrate);
       }
     mLoading = 0;
 
@@ -526,6 +526,7 @@ private:
   int mLoading = 0;
   std::string mInfoStr;
   cHlsChunk mChunks[3];
+  cHttp mHttp;
   };
 //}}}
 static cHlsLoader* mHlsLoader;
@@ -576,15 +577,14 @@ static void aacLoadThread (void const* argument) {
   mTuneChan = 4;
   mHlsLoader->setBitrate (mHlsLoader->getMidBitrate());
 
-  cHttp http;
   while (true) {
     if (mHlsLoader->getChan() != mTuneChan) {
-      mPlayFrame = mHlsLoader->changeChan (&http, mTuneChan) - mHlsLoader->getFramesFromSec (19);
+      mPlayFrame = mHlsLoader->changeChan (mTuneChan) - mHlsLoader->getFramesFromSec (19);
       mHlsLoader->setBitrate (mHlsLoader->getMidBitrate());
       mLcd->setShowDebug (false, false, false, true);  // debug - title, info, lcdStats, footer
       }
 
-    if (!mHlsLoader->load (&http, mPlayFrame))
+    if (!mHlsLoader->load (mPlayFrame))
       osDelay (1000);
 
     osSemaphoreWait (mHlsLoaderSem, osWaitForever);
@@ -696,7 +696,7 @@ static void mp3PlayThread (void const* argument) {
   listDirectory ("", "");
 
   auto mp3Decoder = new cMp3Decoder;
-  cLcd::debug ("play mp3Decoder ok");
+  cLcd::debug ("play mp3Decoder");
 
   #ifdef STM32F746G_DISCO
     BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mVolume * 100), 44100);
@@ -805,7 +805,7 @@ static void waveThread (void const* argument) {
 
   cLcd::debug ("waveThread");
   auto mp3Decoder = new cMp3Decoder;
-  cLcd::debug ("wave mp3Decoder ok");
+  cLcd::debug ("wave mp3Decoder");
 
   auto chunkSize = 0x10000 - 2048; // 64k
   auto fullChunkSize = 2048 + chunkSize;
@@ -815,7 +815,7 @@ static void waveThread (void const* argument) {
   while (true) {
     loadedFileIndex = fileIndex;
 
-    mLoadFrame = 0;
+    mWaveLoadedFrame = 0;
     mWave[0] = 0;
     auto wavePtr = mWave + 1;
 
@@ -868,15 +868,15 @@ static void waveThread (void const* argument) {
                   bytesLeft = 0;
                 }
               if (bytesLeft >= mp3Decoder->getFrameBodySize()) {
-                mFrameOffsets[mLoadFrame] = file.getPosition(); // not right !!!!
-                auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, mWave + 1 + (mLoadFrame * 2), nullptr);
+                mFrameOffsets[mWaveLoadedFrame] = file.getPosition(); // not right !!!!
+                auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, mWave + 1 + (mWaveLoadedFrame * 2), nullptr);
                 if (*wavePtr > *mWave)
                   *mWave = *wavePtr;
                 wavePtr++;
                 if (*wavePtr > *mWave)
                   *mWave = *wavePtr;
                 wavePtr++;
-                mLoadFrame++;
+                mWaveLoadedFrame++;
 
                 if (frameBytes) {
                   chunkPtr += frameBytes;
@@ -997,13 +997,14 @@ static void mainThread (void const* argument) {
     mFrameOffsets = (int*)pvPortMalloc (60*60*40*sizeof(int));
     mWave = (uint8_t*)pvPortMalloc (60*60*40*2*sizeof(uint8_t));  // 1 hour of 40 mp3 frames per sec
     mWave[0] = 0;
+    mWaveLoadedFrame = 0;
 
-    mLoadFrame = 0;
-    mPlayFrame = 0;
-
-    mRoot->addTopLeft (new cListWidget (mMp3Files, fileIndex, fileIndexChanged, mRoot->getWidth(), mRoot->getHeight()-2*mRoot->getHeight()/5));
-    mRoot->addBottomLeft (new cWaveLensWidget (mWave, mPlayFrame, mLoadFrame, mLoadFrame, mWaveChanged, mRoot->getWidth(), mRoot->getHeight()/5));
-    mRoot->addNextAbove (new cWaveCentreWidget (mWave, mPlayFrame, mLoadFrame, mLoadFrame, mWaveChanged, mRoot->getWidth(), mRoot->getHeight()/5));
+    mRoot->addTopLeft (new cListWidget (mMp3Files, fileIndex, fileIndexChanged, 
+                                        mRoot->getWidth(), mRoot->getHeight()-2*mRoot->getHeight()/5));
+    mRoot->addBottomLeft (new cWaveLensWidget (mWave, mPlayFrame, mWaveLoadedFrame, mWaveLoadedFrame, mWaveChanged, 
+                                               mRoot->getWidth(), mRoot->getHeight()/5));
+    mRoot->addNextAbove (new cWaveCentreWidget (mWave, mPlayFrame, mWaveLoadedFrame, mWaveLoadedFrame, mWaveChanged, 
+                                                mRoot->getWidth(), mRoot->getHeight()/5));
     //}}}
     const osThreadDef_t osThreadPlay =  { (char*)"Play", mp3PlayThread, osPriorityNormal, 0, 8192 };
     osThreadCreate (&osThreadPlay, NULL);
@@ -1018,7 +1019,7 @@ static void mainThread (void const* argument) {
     const osThreadDef_t osThreadNet =  { (char*)"Net", netThread, osPriorityNormal, 0, 1024 };
     osThreadCreate (&osThreadNet, NULL);
     }
-  mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, cWidget::getBoxHeight()-1, mRoot->getHeight()));
+  mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, cWidget::getBoxHeight()*2, mRoot->getHeight()));
 
   //{{{  init vars
   bool button = false;
