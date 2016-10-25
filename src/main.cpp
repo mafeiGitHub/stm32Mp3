@@ -76,23 +76,23 @@ public:
 
   // set
   //{{{
-  void setChan (cHttp* http, int chan) {
+  void setChan (cHttp& http, int chan) {
 
     mChan = chan;
     mHost = "as-hls-uk-live.bbcfmt.vo.llnwd.net";
 
     cLcd::debug (mHost);
-    if (http->get (mHost, getM3u8path()) == 302) {
-      mHost = http->getRedirectedHost();
-      http->get (mHost, getM3u8path());
+    if (http.get (mHost, getM3u8path()) == 302) {
+      mHost = http.getRedirectedHost();
+      http.get (mHost, getM3u8path());
       cLcd::debug (mHost);
       }
     else
-      mHost = http->getRedirectedHost();
+      mHost = http.getRedirectedHost();
     cLcd::debug (getM3u8path());
 
     // find #EXT-X-MEDIA-SEQUENCE in .m3u8, point to seqNum string, extract seqNum from playListBuf
-    auto extSeq = strstr ((char*)http->getContent(), "#EXT-X-MEDIA-SEQUENCE:") + strlen ("#EXT-X-MEDIA-SEQUENCE:");
+    auto extSeq = strstr ((char*)http.getContent(), "#EXT-X-MEDIA-SEQUENCE:") + strlen ("#EXT-X-MEDIA-SEQUENCE:");
     auto extSeqEnd = strchr (extSeq, '\n');
     *extSeqEnd = '\0';
     mBaseSeqNum = atoi (extSeq) + 3;
@@ -102,7 +102,7 @@ public:
     *extDateTimeEnd = '\0';
     mDateTime = extDateTime;
 
-    mChanInfoStr = toString (http->getResponse()) + ' ' + http->getInfoStr() + ' ' + getM3u8path() + ' ' + mDateTime;
+    mChanInfoStr = toString (http.getResponse()) + ' ' + http.getInfoStr() + ' ' + getM3u8path() + ' ' + mDateTime;
     cLcd::debug (mDateTime + " " + cLcd::dec (mBaseSeqNum));
     }
   //}}}
@@ -168,21 +168,21 @@ public:
   //}}}
 
   //{{{
-  bool load (cHttp* http, cHlsChan* hlsChan, int seqNum, int bitrate) {
+  bool load (cHttp& http, cHlsChan* hlsChan, int seqNum, int bitrate) {
 
     mFramesLoaded = 0;
     mSeqNum = seqNum;
     mBitrate = bitrate;
 
-    auto response = http->get (hlsChan->getHost(), hlsChan->getTsPath (seqNum, mBitrate));
+    auto response = http.get (hlsChan->getHost(), hlsChan->getTsPath (seqNum, mBitrate));
     if (response == 200) {
       // aacHE has double size frames, treat as two normal frames
       int framesPerAacFrame = mBitrate <= 48000 ? 2 : 1;
       mSamplesPerFrame = hlsChan->getSamplesPerFrame();
       int samplesPerAacFrame = mSamplesPerFrame * framesPerAacFrame;
 
-      auto loadPtr = http->getContent();
-      auto loadEnd = http->getContentEnd();
+      auto loadPtr = http.getContent();
+      auto loadEnd = http.getContentEnd();
       loadEnd = packTsBuffer (loadPtr, loadEnd);
 
       int16_t* buffer = mAudio;
@@ -228,13 +228,13 @@ public:
           //}}}
         }
 
-      http->freeContent();
+      http.freeContent();
       mInfoStr = "ok " + toString (seqNum) + ':' + toString (bitrate/1000) + 'k';
       return true;
       }
     else {
       mSeqNum = 0;
-      mInfoStr = toString (response) + ':' + toString (seqNum) + ':' + toString (bitrate/1000) + "k " + http->getInfoStr();
+      mInfoStr = toString (response) + ':' + toString (seqNum) + ':' + toString (bitrate/1000) + "k " + http.getInfoStr();
       return false;
       }
     }
@@ -340,7 +340,7 @@ public:
   //{{{
   int changeChan (int chan) {
 
-    setChan (&mHttp, chan);
+    setChan (mHttp, chan);
     mBitrate = getMidBitrate();
 
     int hour = ((getDateTime()[11] - '0') * 10) + (getDateTime()[12] - '0');
@@ -368,19 +368,19 @@ public:
     if (!findSeqNumChunk (seqNum, mBitrate, 0, chunk)) {
       // load required chunk
       mLoading++;
-      ok &= mChunks[chunk].load (&mHttp, this, seqNum, mBitrate);
+      ok &= mChunks[chunk].load (mHttp, this, seqNum, mBitrate);
       }
 
     if (!findSeqNumChunk (seqNum, mBitrate, 1, chunk)) {
       // load chunk before
       mLoading++;
-      ok &= mChunks[chunk].load (&mHttp, this, seqNum+1, mBitrate);
+      ok &= mChunks[chunk].load (mHttp, this, seqNum+1, mBitrate);
       }
 
     if (!findSeqNumChunk (seqNum, mBitrate, -1, chunk)) {
       // load chunk after
       mLoading++;
-      ok &= mChunks[chunk].load (&mHttp, this, seqNum-1, mBitrate);
+      ok &= mChunks[chunk].load (mHttp, this, seqNum-1, mBitrate);
       }
     mLoading = 0;
 
@@ -1021,17 +1021,20 @@ static void mainThread (void const* argument) {
     TS_StateTypeDef tsState;
     BSP_TS_GetState (&tsState);
     for (auto touch = 0; touch < kMaxTouch; touch++) {
-      if (touch < tsState.touchDetected) { //) && tsState.touchWeight[touch]) {
+      if (touch < tsState.touchDetected) { 
+        //{{{  pressed
         auto xinc = pressed[touch] ? tsState.touchX[touch] - x[touch] : 0;
         auto yinc = pressed[touch] ? tsState.touchY[touch] - y[touch] : 0;
         x[touch] = tsState.touchX[touch];
         y[touch] = tsState.touchY[touch];
         z[touch] = tsState.touchWeight[touch];
-        if (!touch)
+        if (touch == 0)
           button ? mLcd->press (pressed[0], x[0], y[0], z[0], xinc, yinc) : mRoot->press (pressed[0], x[0], y[0], z[0], xinc, yinc);
         pressed[touch]++;
         }
+        //}}}
       else {
+        //{{{  released
         x[touch] = 0;
         y[touch] = 0;
         z[touch] = 0;
@@ -1039,6 +1042,7 @@ static void mainThread (void const* argument) {
           mRoot->release();
         pressed[touch] = 0;
         }
+        //}}}
       }
 
     //{{{  button, leds
@@ -1083,13 +1087,13 @@ static void initMpuRegions() {
   MPU_InitStruct.TypeExtField = MPU_TEX_LEVEL0;
   MPU_InitStruct.DisableExec = MPU_INSTRUCTION_ACCESS_DISABLE;
 
-  // config writeThrough for SRAM1,SRAM2 0x20010000, 256k, AXI - region0
+  // config writeThrough for SRAM1,SRAM2 0x20010000, 256kb, AXI - region0
   MPU_InitStruct.Number = MPU_REGION_NUMBER0;
   MPU_InitStruct.BaseAddress = 0x20010000;
   MPU_InitStruct.Size = MPU_REGION_SIZE_256KB;
   HAL_MPU_ConfigRegion (&MPU_InitStruct);
 
-  // config writeThrough for SDRAM 0xC0000000, 8m - region1
+  // config writeThrough for SDRAM 0xC0000000, 16mb - region1
   MPU_InitStruct.Number = MPU_REGION_NUMBER1;
   MPU_InitStruct.BaseAddress = 0xC0000000;
   MPU_InitStruct.Size = MPU_REGION_SIZE_16MB;
@@ -1158,12 +1162,18 @@ static void initClock() {
 //{{{
 int main() {
 
+  // init system
   SCB_EnableICache();
   SCB_EnableDCache();
   HAL_Init();
   initMpuRegions();
   initClock();
 
+  // init freeRTOS heap_5c
+  HeapRegion_t xHeapRegions[] = { {(uint8_t*)SDRAM_HEAP, SDRAM_HEAP_SIZE }, { nullptr, 0 } };
+  vPortDefineHeapRegions (xHeapRegions);
+
+  // init buttons, leds
   BSP_LED_Init (LED1);
   #ifdef STM32F769I_DISCO
     BSP_LED_Init (LED2);
@@ -1171,11 +1181,7 @@ int main() {
   #endif
   BSP_PB_Init (BUTTON_WAKEUP, BUTTON_MODE_GPIO);
 
-  // init freeRTOS heap_5c
-  HeapRegion_t xHeapRegions[] = { {(uint8_t*)SDRAM_HEAP, SDRAM_HEAP_SIZE }, { nullptr, 0 } };
-  vPortDefineHeapRegions (xHeapRegions);
-
-  // init lcd and widget root
+  // init lcd, root widget
   mLcd = cLcd::create ("Player built at " + std::string(__TIME__) + " on " + std::string(__DATE__));
   mRoot = new cRootContainer (cLcd::getWidth(), cLcd::getHeight());
 
