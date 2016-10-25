@@ -47,10 +47,6 @@
 #include "widgets/cWaveCentreWidget.h"
 #include "widgets/cWaveLensWidget.h"
 //}}}
-//{{{  static const
-static const bool kMaxTouch = 1;
-static const bool kStaticIp = false;
-//}}}
 
 //{{{
 class cHlsChan {
@@ -477,12 +473,12 @@ private:
   //}}}
 
   // private vars
+  cHttp mHttp;
+  cHlsChunk mChunks[3];
   int mBaseFrame = 0;
   int mBitrate = 0;
   int mLoading = 0;
   std::string mInfoStr;
-  cHlsChunk mChunks[3];
-  cHttp mHttp;
   };
 //}}}
 
@@ -623,21 +619,6 @@ static void aacPlayThread (void const* argument) {
         }
       }
     }
-  }
-//}}}
-//{{{
-static void setPlayFrame (int frame) {
-  mPlayFrame = frame;
-  }
-//}}}
-//{{{
-static void incPlayFrame (int inc) {
-  setPlayFrame (mPlayFrame + inc);
-  }
-//}}}
-//{{{
-static void incAlignPlayFrame (int inc) {
-  setPlayFrame (mPlayFrame + inc);
   }
 //}}}
 
@@ -901,6 +882,7 @@ static void waveThread (void const* argument) {
 //{{{
 static void netThread (void const* argument) {
 
+  const bool kStaticIp = false;
   tcpip_init (NULL, NULL);
   cLcd::debug ("configuring ethernet");
 
@@ -986,12 +968,13 @@ static void netThread (void const* argument) {
 //{{{
 static void mainThread (void const* argument) {
 
+  const bool kMaxTouch = 1;
   mLcd->displayOn();
   cLcd::debug ("mainThread");
 
   BSP_SD_Init();
   if (BSP_SD_IsDetected() == SD_PRESENT) {
-    //{{{  mp3 inits
+    //{{{  mp3 player
     mFrameOffsets = (int*)pvPortMalloc (60*60*40*sizeof(int));
     mWave = (uint8_t*)pvPortMalloc (60*60*40*2*sizeof(uint8_t));  // 1 hour of 40 mp3 frames per sec
     mWave[0] = 0;
@@ -1003,13 +986,14 @@ static void mainThread (void const* argument) {
                                                mRoot->getWidth(), mRoot->getHeight()/5));
     mRoot->addNextAbove (new cWaveCentreWidget (mWave, mPlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
                                                 mRoot->getWidth(), mRoot->getHeight()/5));
-    //}}}
     const osThreadDef_t osThreadPlay =  { (char*)"Play", mp3PlayThread, osPriorityNormal, 0, 8192 };
     osThreadCreate (&osThreadPlay, NULL);
     const osThreadDef_t osThreadWave =  { (char*)"Wave", waveThread, osPriorityNormal, 0, 8192 };
     osThreadCreate (&osThreadWave, NULL);
     }
+    //}}}
   else {
+    //{{{  hls aac player
     mHlsLoader = new cHlsLoader();
     osSemaphoreDef (hlsLoader);
     mHlsLoaderSem = osSemaphoreCreate (osSemaphore (hlsLoader), -1);
@@ -1020,6 +1004,7 @@ static void mainThread (void const* argument) {
     const osThreadDef_t osThreadNet =  { (char*)"Net", netThread, osPriorityNormal, 0, 1024 };
     osThreadCreate (&osThreadNet, NULL);
     }
+    //}}}
   mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, cWidget::getBoxHeight()*2, mRoot->getHeight()));
 
   //{{{  init vars
@@ -1190,12 +1175,15 @@ int main() {
   HeapRegion_t xHeapRegions[] = { {(uint8_t*)SDRAM_HEAP, SDRAM_HEAP_SIZE }, { nullptr, 0 } };
   vPortDefineHeapRegions (xHeapRegions);
 
+  // init lcd and widget root
   mLcd = cLcd::create ("Player built at " + std::string(__TIME__) + " on " + std::string(__DATE__));
   mRoot = new cRootContainer (cLcd::getWidth(), cLcd::getHeight());
 
+  // init audio play semaphore
   osSemaphoreDef (aud);
   mAudSem = osSemaphoreCreate (osSemaphore (aud), -1);
 
+  // main thread
   const osThreadDef_t osMainThread = { (char*)"main", mainThread, osPriorityNormal, 0, 1024 };
   osThreadCreate (&osMainThread, NULL);
 
