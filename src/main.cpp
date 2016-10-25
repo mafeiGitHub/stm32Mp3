@@ -487,11 +487,15 @@ private:
 static osSemaphoreId mAudSem;
 static bool mAudHalf = false;
 
-static int mPlayFrame = 0;
-
 static float mVolume = 0.7f;
 static int mIntVolume = 0;
 static bool mVolumeChanged = false;
+
+static int mPlayFrame = 0;
+
+// ui
+static cLcd* mLcd = nullptr;
+static cRootContainer* mRoot = nullptr;
 
 // mp3
 static int fileIndex = 0;
@@ -510,10 +514,6 @@ static bool mTuneChanChanged = false;
 static cHlsLoader* mHlsLoader;
 static osSemaphoreId mHlsLoaderSem;
 static std::string mInfoStr;
-
-// ui
-static cLcd* mLcd = nullptr;
-static cRootContainer* mRoot = nullptr;
 //}}}
 //{{{  audio callback
 //{{{
@@ -538,9 +538,9 @@ public:
   virtual ~cPowerWidget() {}
 
   virtual void render (iDraw* draw) {
-    uint8_t* power = nullptr;
     int frame = mPlayFrame - mWidth/2;
     int frames = 0;
+    uint8_t* power = nullptr;
     for (auto x = 0; x < mWidth; x++, frame++) {
       if (frames <= 0)
         power = mHlsLoader->getPower (frame, frames);
@@ -572,12 +572,12 @@ public:
 static void aacLoadThread (void const* argument) {
 
   cLcd::debug ("aacLoadThread");
-  mPlayFrame = mHlsLoader->changeChan (mTuneChan) - mHlsLoader->getFramesFromSec (19);
+  mPlayFrame = mHlsLoader->changeChan (mTuneChan) - mHlsLoader->getFramesFromSec (8);
   mLcd->setShowDebug (false, false, false, true);  // debug - title, info, lcdStats, footer
 
   while (true) {
     if (mTuneChanChanged && (mHlsLoader->getChan() != mTuneChan)) {
-      mPlayFrame = mHlsLoader->changeChan (mTuneChan) - mHlsLoader->getFramesFromSec (19);
+      mPlayFrame = mHlsLoader->changeChan (mTuneChan);
       mTuneChanChanged = false;
       }
 
@@ -951,6 +951,20 @@ static void netThread (void const* argument) {
       }
       //}}}
 
+    //mRoot->addTopRight (new cInfoTextBox (mRoot->getWidth()/4));
+    mRoot->addTopLeft (new cSelectValueBox ("radio1", 1, mTuneChan, mTuneChanChanged,
+                                            cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
+    mRoot->addNextRight (new cSelectValueBox ("radio2", 2, mTuneChan, mTuneChanChanged,
+                                              cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
+    mRoot->addNextRight (new cSelectValueBox ("radio3", 3, mTuneChan, mTuneChanChanged,
+                                              cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
+    mRoot->addNextRight (new cSelectValueBox ("radio4", 4, mTuneChan, mTuneChanChanged,
+                                              cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
+    mRoot->addNextRight (new cSelectValueBox ("radio5", 5, mTuneChan, mTuneChanChanged,
+                                              cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
+    mRoot->addNextRight (new cSelectValueBox ("radio6", 6, mTuneChan, mTuneChanChanged,
+                                              cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
+
     const osThreadDef_t osThreadAacLoad =  { (char*)"AacLoad", aacLoadThread, osPriorityNormal, 0, 15000 };
     osThreadCreate (&osThreadAacLoad, NULL);
     const osThreadDef_t osThreadAacPlay =  { (char*)"AacPlay", aacPlayThread, osPriorityAboveNormal, 0, 2000 };
@@ -1002,19 +1016,6 @@ static void mainThread (void const* argument) {
     mHlsLoaderSem = osSemaphoreCreate (osSemaphore (hlsLoader), -1);
 
     mRoot->addBottomLeft (new cPowerWidget (mHlsLoader, mRoot->getWidth(), mRoot->getHeight()));
-    //mRoot->addTopRight (new cInfoTextBox (mRoot->getWidth()/4));
-    mRoot->addTopLeft (new cSelectValueBox ("radio1", 1, mTuneChan, mTuneChanChanged,
-                                            cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
-    mRoot->addNextRight (new cSelectValueBox ("radio2", 2, mTuneChan, mTuneChanChanged,
-                                              cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
-    mRoot->addNextRight (new cSelectValueBox ("radio3", 3, mTuneChan, mTuneChanChanged,
-                                              cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
-    mRoot->addNextRight (new cSelectValueBox ("radio4", 4, mTuneChan, mTuneChanChanged,
-                                              cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
-    mRoot->addNextRight (new cSelectValueBox ("radio5", 5, mTuneChan, mTuneChanChanged,
-                                              cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
-    mRoot->addNextRight (new cSelectValueBox ("radio6", 6, mTuneChan, mTuneChanChanged,
-                                              cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
 
     const osThreadDef_t osThreadNet =  { (char*)"Net", netThread, osPriorityNormal, 0, 1024 };
     osThreadCreate (&osThreadNet, NULL);
