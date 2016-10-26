@@ -56,7 +56,10 @@ private:
   bool makePath (char* fullName);
   bool fs_exists (char* path);
 
+  char* int2strZ (char* s, uint32_t i, int8_t z );
+  char* int2str (char* s, int32_t i, int8_t ls );
   char* i2str (int32_t i );
+
   char* makeDateTimeStr (uint16_t date, uint16_t time);
   int8_t getDateTime (uint16_t* pdate, uint16_t* ptime);
 
@@ -73,7 +76,7 @@ private:
   char      parameters [FTP_PARAM_SIZE]; // parameters sent by client
   char      cwdName [FTP_CWD_SIZE];      // name of current directory
   char      cwdRNFR [FTP_CWD_SIZE];      // name of origin directory for Rename command
-  char      path[ FTP_CWD_SIZE];
+  char      path [FTP_CWD_SIZE];
   char      str [25];
   uint32_t  bytesTransfered;
   int8_t    nerr;
@@ -94,8 +97,8 @@ private:
 //              (must be <= than size of string s; leading space filled with '0')
 // Return pointer to string
 
-char* int2strZ (char* s, uint32_t i, int8_t z )
-{
+char* FtpServer::int2strZ (char* s, uint32_t i, int8_t z ) {
+
   char * psi = s + abs( z );
 
   * -- psi = 0;
@@ -107,8 +110,7 @@ char* int2strZ (char* s, uint32_t i, int8_t z )
     while( psi > s )
       * -- psi = '0';
   return psi;
-}
-
+  }
 //}}}
 //{{{
 // Convert an integer to string
@@ -117,24 +119,20 @@ char* int2strZ (char* s, uint32_t i, int8_t z )
 //   i: integer t convert
 //   ls: size of string s
 // Return pointer to string
-
-char* int2str (char* s, int32_t i, int8_t ls )
-{
-  if( i >= 0 )
+char* FtpServer::int2str (char* s, int32_t i, int8_t ls ) {
+  if ( i >= 0 )
     return int2strZ( s, i, ls );
   char * pstr = int2strZ( s + 1, - i, ls - 1 );
   * -- pstr = '-';
   return pstr;
-}
+  }
 //}}}
 //{{{
 //  Convert an integer to string
 //  Return pointer to string
-
-char* FtpServer::i2str (int32_t i)
-{
-  return int2str( str, i, 12 );
-}
+char* FtpServer::i2str (int32_t i) {
+  return int2str ( str, i, 12 );
+  }
 //}}}
 
 //{{{
