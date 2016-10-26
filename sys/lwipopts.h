@@ -12,7 +12,7 @@
 #define LWIP_STATS           0
 #define LWIP_PROVIDE_ERRNO   1
 #define LWIP_NETIF_LINK_CALLBACK  1 // 1 = support callback function from an interface
-#define LWIP_SO_RCVTIMEO     0
+#define LWIP_SO_RCVTIMEO     1
 //#define LWIP_DEBUG           1
 //#define TCP_DEBUG            LWIP_DBG_ON
 //#define ETHARP_DEBUG         LWIP_DBG_ON

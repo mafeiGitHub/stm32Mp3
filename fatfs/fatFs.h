@@ -271,7 +271,7 @@ public:
   int getSize() { return mFileSize; }
   //}}}
   FRESULT read (void* readBuffer, int bytestoRead, int& bytesRead);
-  FRESULT write (const void* buff, UINT btw, UINT* bw);
+  FRESULT write (const void* buff, UINT btw, UINT& bw);
   FRESULT seek (DWORD position);
   FRESULT truncate();
   FRESULT sync();

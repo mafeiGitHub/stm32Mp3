@@ -2924,13 +2924,13 @@ FRESULT cFile::read (void* readBuffer, int bytesToRead, int& bytesRead) {
   }
 //}}}
 //{{{
-FRESULT cFile::write (const void *buff, UINT btw, UINT* bw) {
+FRESULT cFile::write (const void *buff, UINT btw, UINT& bw) {
 
   DWORD clst, sect;
   UINT wcnt, cc;
   BYTE csect;
 
-  *bw = 0;
+  bw = 0;
   const BYTE *wbuff = (const BYTE*)buff;
 
   if (!mFatFs->lock()) {
@@ -2950,7 +2950,7 @@ FRESULT cFile::write (const void *buff, UINT btw, UINT* bw) {
   if (mPosition + btw < mPosition)
     btw = 0;
 
-  for ( ;  btw; wbuff += wcnt, mPosition += wcnt, *bw += wcnt, btw -= wcnt) {
+  for ( ;  btw; wbuff += wcnt, mPosition += wcnt, bw += wcnt, btw -= wcnt) {
     // Repeat until all data written
     if ((mPosition % SECTOR_SIZE) == 0) {
       //{{{  On the sector boundary? , Sector offset in the cluster
@@ -3340,7 +3340,7 @@ public:
     if (i >= (int)(sizeof buf) - 3) {
       // Write buffered characters to the file
       UINT bw;
-      file->write (buf, (UINT)i, &bw);
+      file->write (buf, (UINT)i, bw);
       i = (bw == (UINT)i) ? 0 : -1;
       }
 
@@ -3368,7 +3368,7 @@ int cFile::putCh (char c) {
   putBuffer.putChBuffered (c);
 
   UINT nw;
-  if (putBuffer.idx >= 0 && write (putBuffer.buf, (UINT)putBuffer.idx, &nw) == FR_OK && (UINT)putBuffer.idx == nw)
+  if (putBuffer.idx >= 0 && write (putBuffer.buf, (UINT)putBuffer.idx, nw) == FR_OK && (UINT)putBuffer.idx == nw)
     return putBuffer.nchr;
 
   return -1;
@@ -3387,7 +3387,7 @@ int cFile::putStr (const char* str) {
     putBuffer.putChBuffered (*str++);
 
   UINT nw;
-  if (putBuffer.idx >= 0 && write (putBuffer.buf, (UINT)putBuffer.idx, &nw) == FR_OK && (UINT)putBuffer.idx == nw)
+  if (putBuffer.idx >= 0 && write (putBuffer.buf, (UINT)putBuffer.idx, nw) == FR_OK && (UINT)putBuffer.idx == nw)
     return putBuffer.nchr;
 
   return -1;
@@ -3534,7 +3534,7 @@ int cFile::printf (const char* fmt, ...) {
 
   va_end (arp);
 
-  if (putBuffer.idx >= 0 && putBuffer.file->write (putBuffer.buf, (UINT)putBuffer.idx, &nw) == FR_OK && (UINT)putBuffer.idx == nw)
+  if (putBuffer.idx >= 0 && putBuffer.file->write (putBuffer.buf, (UINT)putBuffer.idx, nw) == FR_OK && (UINT)putBuffer.idx == nw)
     return putBuffer.nchr;
 
   return -1;
