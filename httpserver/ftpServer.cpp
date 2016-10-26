@@ -7,13 +7,28 @@
 #include "lwip/arch.h"
 #include "lwip/api.h"
 
+#include "ftpServer.h"
+#include "cmsis_os.h"
+
 #include "cLcd.h"
+
+#ifdef STM32F746G_DISCO
+  #include "stm32746g_discovery.h"
+  #include "stm32746g_discovery_ts.h"
+  #include "stm32746g_discovery_audio.h"
+  #include "stm32746g_discovery_sd.h"
+#else
+  #include "stm32f769i_discovery.h"
+  #include "stm32f769i_discovery_ts.h"
+  #include "stm32f769i_discovery_audio.h"
+  #include "stm32f769i_discovery_sd.h"
+#endif
 #include "../fatfs/fatFs.h"
 //}}}
 //{{{  defines
 #define FTP_VERSION              "FTP-2015-07-31"
-#define FTP_USER                 "Stm32"
-#define FTP_PASS                 "Chibi"
+#define FTP_USER                 "nnn"
+#define FTP_PASS                 "nnn"
 
 #define FTP_SERVER_PORT          21
 #define FTP_DATA_PORT            55600         // Data port in passive mode
@@ -220,7 +235,6 @@ int8_t FtpServer::getDateTime (uint16_t * pdate, uint16_t* ptime) {
 //}}}
 
 //{{{
-//             Get a command from the client
 // update variables command and parameters
 // return: -4 time out
 //         -3 error receiving data
@@ -235,56 +249,60 @@ int8_t FtpServer::readCommand() {
   int8_t   i;
   char     car;
 
-  command[ 0 ] = 0;
-  parameters[ 0 ] = 0;
-  nerr = netconn_recv( ctrlconn, & inbuf );
-  if( nerr == ERR_TIMEOUT )
+  command[0] = 0;
+  parameters[0] = 0;
+  nerr = netconn_recv (ctrlconn, & inbuf);
+  if (nerr == ERR_TIMEOUT)
     return -4;
-  if( nerr != ERR_OK )
+  if (nerr != ERR_OK)
     return -3;
 
-  netbuf_data( inbuf, (void **) & pbuf, & buflen );
-  if( buflen == 0 )
+  netbuf_data (inbuf, (void**)&pbuf, &buflen);
+  if (buflen == 0)
     goto deletebuf;
   i = 0;
-  car = pbuf[ 0 ];
+  car = pbuf[0];
   do {
-    if( ! isalpha( car ))
+    if (!isalpha (car))
       break;
-    command[ i ++ ] = car;
-    car = pbuf[ i ];
+    command[i++] = car;
+    car = pbuf[i];
     }
 
-  while( i < buflen && i < 4 );
-  command[ i ] = 0;
-  if( car != ' ' )
+  while (i < buflen && i < 4);
+  command[i] = 0;
+  if (car != ' ')
     goto deletebuf;
 
   do
-    if( i > buflen + 2 )
+    if (i > buflen + 2)
       goto deletebuf;
-  while( pbuf[ i ++ ] == ' ' );
+    while (pbuf[i++] == ' ');
 
   rc = i;
   do
-    car = pbuf[ rc ++ ];
-  while( car != '\n' && car != '\r' && rc < buflen );
-  if( rc == buflen ) {
+    car = pbuf [rc++];
+    while (car != '\n' && car != '\r' && rc < buflen);
+
+  if (rc == buflen) {
     rc = -1;
     goto deletebuf;
     }
-  if( rc - i - 1 >= FTP_PARAM_SIZE ) {
+
+  if (rc - i - 1 >= FTP_PARAM_SIZE) {
     rc = -2;
     goto deletebuf;
     }
 
-  strncpy( parameters, pbuf + i - 1, rc - i );
-  parameters[ rc - i ] = 0;
+  strncpy (parameters, pbuf + i - 1, rc - i);
+  parameters[rc - i] = 0;
   rc = rc - i;
 
   deletebuf:
-  //COMMAND_PRINT( "<%u< %s %s\r\n", num, command, parameters );
-  netbuf_delete( inbuf );
+
+  cLcd::debug ("rxcmd " + cLcd::dec (num) + " " + command + " " + parameters);
+
+  netbuf_delete (inbuf);
   return rc;
   }
 //}}}
@@ -479,14 +497,12 @@ bool FtpServer::fs_exists (char* path) {
 //{{{
 bool FtpServer::processCommand (char* command, char* parameters)
 {
-  if( ! strcmp( command, "QUIT" ))
-    return false;
-  else if(!strcmp( command, "PWD" ) || (!strcmp( command, "CWD" ) && !strcmp( parameters, "." )))  // 'CWD .' same as PWD
-  //{{{  pwd - password
+  if(!strcmp( command, "PWD" ) || (!strcmp( command, "CWD" ) && !strcmp( parameters, "." )))  // 'CWD .' same as PWD
+  //{{{  PWD - working directory
   {
-    sendBegin( "257 \"" );
-    sendCat( cwdName );
-    sendCatWrite( "\" is your current directory" );
+    sendBegin ("257 \"");
+    sendCat (cwdName);
+    sendCatWrite ("\" is your current directory");
   }
   //}}}
   else if( ! strcmp( command, "CWD" ))
@@ -532,6 +548,194 @@ bool FtpServer::processCommand (char* command, char* parameters)
     sendCatWrite( cwdName );
   }
   //}}}
+  else if( ! strcmp( command, "DELE" ))
+  //{{{  DELE - Delete a File
+  {
+    if( strlen( parameters ) == 0 )
+      sendWrite( "501 No file name" );
+    else if( makePath( path ))
+    {
+      if( ! fs_exists( path ))
+      {
+        sendBegin( "550 File " );
+        sendCat( parameters );
+        sendCatWrite( " not found" );
+      }
+      else
+      {
+        uint8_t ffs_result = fatFs->unlink (path);
+        if( ffs_result == FR_OK )
+        {
+          sendBegin( "250 Deleted " );
+          sendCatWrite( parameters );
+        }
+        else
+        {
+          sendBegin( "450 Can't delete " );
+          sendCatWrite( parameters );
+        }
+      }
+    }
+  }
+  //}}}
+  else if( ! strcmp( command, "FEAT" )) {
+  //{{{  FEAT - New Features
+  sendBegin ( "211-Extensions supported:\r\n");
+  sendCat (" MDTM\r\n");
+  sendCat (" MLSD\r\n");
+  sendCat (" SIZE\r\n");
+  sendCat (" SITE FREE\r\n");
+  sendCatWrite ("211 End.");
+  }
+  //}}}
+  else if( ! strcmp( command, "LIST" ) || ! strcmp( command, "NLST" ))
+  //{{{  LIST and NLST - List
+  {
+    uint16_t nm = 0;
+    cDirectory dir (cwdName);
+    if (dir.getError()) {
+      sendBegin( "550 Can't open directory " );
+      sendCatWrite( cwdName );
+      }
+    else if( dataConnect()) {
+      sendWrite( "150 Accepted data connection" );
+      for (;;) {
+        if ((dir.findNext (finfo) != FR_OK) || finfo.mShortFileName[0] == 0)
+          break;
+        if (finfo.mShortFileName[0] == '.')
+          continue;
+
+        if (!strcmp (command, "LIST")) {
+          if (finfo.mAttribute & AM_DIR)
+            strcpy (buf, "+/" );
+          else {
+            strcpy (buf, "+r,s" );
+            strcat (buf, i2str( finfo.mFileSize));
+            }
+          strcat (buf, ",\t" );
+          strcat (buf, finfo.mLongFileName[0] == 0 ? finfo.mShortFileName : finfo.mLongFileName);
+          }
+        else
+          strcpy (buf, finfo.mLongFileName[0] == 0 ? finfo.mShortFileName : finfo.mLongFileName);
+        strcat ( buf, "\r\n");
+        dataWrite (buf);
+        nm ++;
+        }
+
+      sendWrite ("226 Directory send OK.");
+      dataClose();
+      }
+    }
+  //}}}
+  else if( ! strcmp( command, "MDTM" ))
+  //{{{  MDTM - File Modification Time RFC 3659
+  {
+    char * fname;
+    uint16_t date, time;
+    uint8_t gettime;
+
+    gettime = getDateTime( & date, & time );
+    fname = parameters + gettime;
+
+    if( strlen( fname ) == 0 )
+      sendWrite( "501 No file name" );
+    else if( makePathFrom( path, fname )) {
+      if( ! fs_exists( path )) {
+        sendBegin( "550 File " );
+        sendCat( fname );
+        sendCatWrite( " not found" );
+      }
+      else if( gettime ) {
+        finfo.mDate = date;
+        finfo.mTime = time;
+        if (fatFs->utime (path, finfo) == FR_OK )
+          sendWrite( "200 Ok" );
+        else
+          sendWrite( "550 Unable to modify time" );
+      }
+      else {
+        sendBegin( "213 " );
+        sendCatWrite( makeDateTimeStr( finfo.mDate, finfo.mTime ));
+      }
+    }
+  }
+  //}}}
+  else if( ! strcmp( command, "MLSD" )) {
+  //{{{  MLSD - Listing for Machine Processing RFC 3659
+  uint16_t nm = 0;
+
+  cDirectory dir (cwdName);
+  if (dir.getError()) {
+    sendBegin ("550 Can't open directory ");
+    sendCatWrite (parameters);
+    }
+
+  else if (dataConnect()) {
+    sendWrite( "150 Accepted data connection");
+    while (dir.find (finfo) == FR_OK && !finfo.getEmpty()) {
+      if (finfo.mShortFileName[0] == '.')
+        continue;
+      strcpy (buf, "Type=");
+      strcat (buf, finfo.mAttribute & AM_DIR ? "dir" : "file");
+      strcat (buf, ";Size=");
+      strcat (buf, i2str (finfo.mFileSize));
+      if (finfo.mDate != 0) {
+        strcat( buf, ";Modify=");
+        strcat( buf, makeDateTimeStr (finfo.mDate, finfo.mTime));
+        }
+      strcat (buf, "; " );
+      strcat (buf, finfo.mLongFileName[0] == 0 ? finfo.mShortFileName : finfo.mLongFileName);
+      strcat (buf, "\r\n");
+      dataWrite (buf);
+      nm++;
+      }
+
+    sendBegin ("226-options: -a -l\r\n");
+    sendCat ("226 ");
+    sendCat (i2str (nm));
+    sendCatWrite (" matches total");
+    dataClose();
+    }
+  }
+  //}}}
+  else if( ! strcmp( command, "MKD" ))
+  //{{{  MKD - Make Directory
+  {
+    if( strlen( parameters ) == 0 )
+      sendWrite( "501 No directory name" );
+    else if( makePath (path)) {
+      if (fs_exists (path)) {
+        sendBegin("521 \"");
+        sendCat (parameters);
+        sendCatWrite ("\" directory already exists");
+      }
+      else {
+        //DEBUG_PRINT(  "Creating directory %s\r\n", parameters );
+        uint8_t ffs_result = fatFs->makeSubDirectory (path);
+
+        //RTCDateTime timespec;
+        //struct tm stm;
+        //rtcGetTime( & RTCD1, & timespec );
+        //rtcConvertDateTimeToStructTm( & timespec, & stm, NULL );
+        //DEBUG_PRINT( "Date/Time: %04u/%02u/%02u %02u:%02u:%02u\r\n",
+        //             stm.tm_year + 1900, stm.tm_mon + 1, stm.tm_mday,
+        //             stm.tm_hour, stm.tm_min, stm.tm_sec );
+
+
+        if (ffs_result == FR_OK) {
+          sendBegin ("257 \"");
+          sendCat (parameters);
+          sendCatWrite ("\" created");
+          }
+        else {
+          sendBegin ("550 Can't create \"");
+          sendCat (parameters);
+          sendCatWrite ("\"");
+        }
+      }
+    }
+  }
+  //}}}
   else if( ! strcmp( command, "MODE" ))
   //{{{  MODE - Transfer Mode
   {
@@ -543,24 +747,10 @@ bool FtpServer::processCommand (char* command, char* parameters)
       sendWrite( "504 Only S(tream) is suported" );
   }
   //}}}
-  else if( ! strcmp( command, "STRU" ))
-  //{{{  STRU - File Structure
+  else if( ! strcmp( command, "NOOP" ))
+  //{{{  NOOP
   {
-    if( ! strcmp( parameters, "F" ))
-      sendWrite( "200 F Ok" );
-    else
-      sendWrite( "504 Only F(ile) is suported" );
-  }
-  //}}}
-  else if( ! strcmp( command, "TYPE" ))
-  //{{{  TYPE - Data Type
-  {
-    if( ! strcmp( parameters, "A" ))
-      sendWrite( "200 TYPE is now ASCII" );
-    else if( ! strcmp( parameters, "I" ))
-      sendWrite( "200 TYPE is now 8-bit binary" );
-    else
-      sendWrite( "504 Unknow TYPE" );
+    sendWrite( "200 Zzz..." );
   }
   //}}}
   else if( ! strcmp( command, "PASV" ))
@@ -626,119 +816,6 @@ bool FtpServer::processCommand (char* command, char* parameters)
     }
   }
   //}}}
-  else if( ! strcmp( command, "LIST" ) || ! strcmp( command, "NLST" ))
-  //{{{  LIST and NLST - List
-  {
-    uint16_t nm = 0;
-    cDirectory dir (cwdName);
-    if (dir.getError()) {
-      sendBegin( "550 Can't open directory " );
-      sendCatWrite( cwdName );
-      }
-    else if( dataConnect()) {
-      sendWrite( "150 Accepted data connection" );
-      for (;;) {
-        if ((dir.findNext (finfo) != FR_OK) || finfo.mShortFileName[0] == 0)
-          break;
-        if (finfo.mShortFileName[0] == '.')
-          continue;
-
-        if (!strcmp (command, "LIST")) {
-          if (finfo.mAttribute & AM_DIR)
-            strcpy (buf, "+/" );
-          else {
-            strcpy (buf, "+r,s" );
-            strcat (buf, i2str( finfo.mFileSize));
-            }
-          strcat (buf, ",\t" );
-          strcat (buf, finfo.mLongFileName[0] == 0 ? finfo.mShortFileName : finfo.mLongFileName);
-          }
-        else
-          strcpy (buf, finfo.mLongFileName[0] == 0 ? finfo.mShortFileName : finfo.mLongFileName);
-        strcat ( buf, "\r\n");
-        dataWrite (buf);
-        nm ++;
-        }
-
-      sendWrite ("226 Directory send OK.");
-      dataClose();
-      }
-    }
-  //}}}
-  else if( ! strcmp( command, "MLSD" ))
-  //{{{  MLSD - Listing for Machine Processing (see RFC 3659)
-  {
-    uint16_t nm = 0;
-    cDirectory dir (cwdName);
-    if (dir.getError()) {
-      sendBegin ("550 Can't open directory ");
-      sendCatWrite (parameters);
-      }
-    else if (dataConnect()) {
-      sendWrite( "150 Accepted data connection");
-      for( ; ; ) {
-        if (dir.findNext (finfo) != FR_OK || finfo.mShortFileName[0] == 0)
-          break;
-        if (finfo.mShortFileName[0] == '.')
-          continue;
-        strcpy (buf, "Type=");
-        strcat (buf, finfo.mAttribute & AM_DIR ? "dir" : "file");
-        strcat (buf, ";Size=");
-        strcat (buf, i2str( finfo.mFileSize));
-        if (finfo.mDate != 0) {
-          strcat( buf, ";Modify=");
-          strcat( buf, makeDateTimeStr (finfo.mDate, finfo.mTime));
-          }
-        strcat (buf, "; " );
-        strcat (buf, finfo.mLongFileName[0] == 0 ? finfo.mShortFileName : finfo.mLongFileName);
-        strcat (buf, "\r\n");
-        dataWrite (buf);
-        nm++;
-        }
-      sendBegin ("226-options: -a -l\r\n");
-      sendCat ("226 ");
-      sendCat (i2str (nm));
-      sendCatWrite (" matches total");
-      dataClose();
-    }
-  }
-  //}}}
-  else if( ! strcmp( command, "DELE" ))
-  //{{{  DELE - Delete a File
-  {
-    if( strlen( parameters ) == 0 )
-      sendWrite( "501 No file name" );
-    else if( makePath( path ))
-    {
-      if( ! fs_exists( path ))
-      {
-        sendBegin( "550 File " );
-        sendCat( parameters );
-        sendCatWrite( " not found" );
-      }
-      else
-      {
-        uint8_t ffs_result = fatFs->unlink (path);
-        if( ffs_result == FR_OK )
-        {
-          sendBegin( "250 Deleted " );
-          sendCatWrite( parameters );
-        }
-        else
-        {
-          sendBegin( "450 Can't delete " );
-          sendCatWrite( parameters );
-        }
-      }
-    }
-  }
-  //}}}
-  else if( ! strcmp( command, "NOOP" ))
-  //{{{  NOOP
-  {
-    sendWrite( "200 Zzz..." );
-  }
-  //}}}
   else if( ! strcmp( command, "RETR" ))
   //{{{  RETR - Retrieve
   {
@@ -776,108 +853,6 @@ bool FtpServer::processCommand (char* command, char* parameters)
           //DEBUG_PRINT( "\n" );
           closeTransfer();
           dataClose();
-        }
-      }
-    }
-  }
-  //}}}
-  else if( ! strcmp( command, "STOR" ))
-  //{{{  STOR - Store
-    {
-    if (strlen  (parameters) == 0)
-      sendWrite ("501 No file name");
-    else if (makePath (path)) {
-      cFile file (path, FA_CREATE_ALWAYS | FA_WRITE );
-      if (file.getError() != FR_OK ) {
-        sendBegin( "451 Can't open/create " );
-        sendCatWrite( parameters );
-        }
-      else if (dataConnect()) {
-        struct pbuf* rcvbuf = NULL;
-        void* prcvbuf;
-        uint16_t buflen = 0;
-        uint16_t off = 0;
-        uint16_t copylen;
-        int8_t  ferr = 0;
-        UINT nb;
-
-        sendBegin ("150 Connected to port ");
-        sendCatWrite (i2str (dataPort));
-        bytesTransfered = 0;
-        do {
-          nerr = netconn_recv_tcp_pbuf (dataconn, &rcvbuf);
-          if (nerr != ERR_OK)
-            break;
-          prcvbuf = rcvbuf->payload;
-          buflen = rcvbuf->tot_len;
-          while (buflen > 0) {
-            if (buflen <= FTP_BUF_SIZE - off)
-              copylen = buflen;
-            else
-              copylen = FTP_BUF_SIZE - off;
-            buflen -= copylen;
-            memcpy (buf + off, prcvbuf, copylen);
-            prcvbuf += copylen;
-            off += copylen;
-            if (off == FTP_BUF_SIZE) {
-              if (ferr == 0 )
-                ferr = file.write (buf, FTP_BUF_SIZE, nb);
-              off = 0;
-              }
-            bytesTransfered += copylen;
-            }
-          } while (true); // ferr == 0 );
-
-        if (off > 0 && ferr == 0)
-          ferr = file.write (buf, off, nb);
-
-        if (nerr != ERR_CLSD) {
-          sendBegin ("451 Requested action aborted: communication error ");
-          sendCatWrite (i2str (abs(nerr)));
-          }
-        if (ferr != 0) {
-          sendBegin ("451 Requested action aborted: file error ");
-          sendCatWrite (i2str (abs (ferr)));
-          }
-        dataClose();
-        closeTransfer();
-        }
-      }
-    }
-  //}}}
-  else if( ! strcmp( command, "MKD" ))
-  //{{{  MKD - Make Directory
-  {
-    if( strlen( parameters ) == 0 )
-      sendWrite( "501 No directory name" );
-    else if( makePath (path)) {
-      if (fs_exists (path)) {
-        sendBegin("521 \"");
-        sendCat (parameters);
-        sendCatWrite ("\" directory already exists");
-      }
-      else {
-        //DEBUG_PRINT(  "Creating directory %s\r\n", parameters );
-        uint8_t ffs_result = fatFs->makeSubDirectory (path);
-
-        //RTCDateTime timespec;
-        //struct tm stm;
-        //rtcGetTime( & RTCD1, & timespec );
-        //rtcConvertDateTimeToStructTm( & timespec, & stm, NULL );
-        //DEBUG_PRINT( "Date/Time: %04u/%02u/%02u %02u:%02u:%02u\r\n",
-        //             stm.tm_year + 1900, stm.tm_mon + 1, stm.tm_mday,
-        //             stm.tm_hour, stm.tm_min, stm.tm_sec );
-
-
-        if (ffs_result == FR_OK) {
-          sendBegin ("257 \"");
-          sendCat (parameters);
-          sendCatWrite ("\" created");
-          }
-        else {
-          sendBegin ("550 Can't create \"");
-          sendCat (parameters);
-          sendCatWrite ("\"");
         }
       }
     }
@@ -969,66 +944,6 @@ bool FtpServer::processCommand (char* command, char* parameters)
       }
     }
   //}}}
-  else if( ! strcmp( command, "FEAT" ))
-  //{{{  FEAT - New Features
-  {
-    sendBegin( "211-Extensions supported:\r\n") ;
-    sendCat( " MDTM\r\n" );
-    sendCat( " MLSD\r\n" );
-    sendCat( " SIZE\r\n" );
-    sendCat( " SITE FREE\r\n" );
-    sendCatWrite( "211 End." );
-  }
-  //}}}
-  else if( ! strcmp( command, "MDTM" ))
-  //{{{  MDTM - File Modification Time (see RFC 3659)
-  {
-    char * fname;
-    uint16_t date, time;
-    uint8_t gettime;
-
-    gettime = getDateTime( & date, & time );
-    fname = parameters + gettime;
-
-    if( strlen( fname ) == 0 )
-      sendWrite( "501 No file name" );
-    else if( makePathFrom( path, fname )) {
-      if( ! fs_exists( path )) {
-        sendBegin( "550 File " );
-        sendCat( fname );
-        sendCatWrite( " not found" );
-      }
-      else if( gettime ) {
-        finfo.mDate = date;
-        finfo.mTime = time;
-        if (fatFs->utime (path, finfo) == FR_OK )
-          sendWrite( "200 Ok" );
-        else
-          sendWrite( "550 Unable to modify time" );
-      }
-      else {
-        sendBegin( "213 " );
-        sendCatWrite( makeDateTimeStr( finfo.mDate, finfo.mTime ));
-      }
-    }
-  }
-  //}}}
-  else if( ! strcmp( command, "SIZE" ))
-  //{{{  SIZE - Size of the file
-  {
-    if( strlen( parameters ) == 0 )
-      sendWrite( "501 No file name" );
-    else if( makePath( path )) {
-      if( ! fs_exists( path ) || finfo.mAttribute & AM_DIR )
-        sendWrite( "550 No such file" );
-      else {
-        sendBegin( "213 " );
-        sendCatWrite( i2str( finfo.mFileSize ));
-        //f_close( & file );
-      }
-    }
-  }
-  //}}}
   else if( ! strcmp( command, "SITE" ))
   //{{{  SITE - System command
   {
@@ -1049,6 +964,22 @@ bool FtpServer::processCommand (char* command, char* parameters)
     }
   }
   //}}}
+  else if( ! strcmp( command, "SIZE" )) {
+  //{{{  SIZE - Size of the file
+  if (strlen (parameters) == 0)
+    sendWrite ("501 No file name");
+  else if (makePath (path)) {
+    if (!strcmp (path, "/"))
+      sendWrite ( "550 No such file" );
+    else if ((fatFs->stat (path, finfo) == FR_OK) && !finfo.isDirectory()) { 
+      sendBegin ("213 ");
+      sendCatWrite (i2str (finfo.mFileSize));
+      }
+    else
+      sendWrite ( "550 No such file" );
+    }
+  }
+  //}}}
   else if( ! strcmp( command, "STAT" ))
   //{{{  STAT - Status command
   {
@@ -1063,26 +994,125 @@ bool FtpServer::processCommand (char* command, char* parameters)
     sendCatWrite( "211 End." );
   }
   //}}}
-  //else if( ! strcmp( command, "SYST" ))
-  //{
-  //  sendWrite( "215 UNIX Type: L8" );
-  //}
-  //  Unknow command
+  else if( ! strcmp( command, "STOR" ))
+  //{{{  STOR - Store
+    {
+    if (strlen  (parameters) == 0)
+      sendWrite ("501 No file name");
+    else if (makePath (path)) {
+      cFile file (path, FA_CREATE_ALWAYS | FA_WRITE );
+      if (file.getError() != FR_OK ) {
+        sendBegin( "451 Can't open/create " );
+        sendCatWrite( parameters );
+        }
+      else if (dataConnect()) {
+        struct pbuf* rcvbuf = NULL;
+        void* prcvbuf;
+        uint16_t buflen = 0;
+        uint16_t off = 0;
+        uint16_t copylen;
+        int8_t  ferr = 0;
+        UINT nb;
+
+        sendBegin ("150 Connected to port ");
+        sendCatWrite (i2str (dataPort));
+        bytesTransfered = 0;
+        do {
+          nerr = netconn_recv_tcp_pbuf (dataconn, &rcvbuf);
+          if (nerr != ERR_OK)
+            break;
+          prcvbuf = rcvbuf->payload;
+          buflen = rcvbuf->tot_len;
+          while (buflen > 0) {
+            if (buflen <= FTP_BUF_SIZE - off)
+              copylen = buflen;
+            else
+              copylen = FTP_BUF_SIZE - off;
+            buflen -= copylen;
+            memcpy (buf + off, prcvbuf, copylen);
+            prcvbuf += copylen;
+            off += copylen;
+            if (off == FTP_BUF_SIZE) {
+              if (ferr == 0 )
+                ferr = file.write (buf, FTP_BUF_SIZE, nb);
+              off = 0;
+              }
+            bytesTransfered += copylen;
+            }
+          } while (true); // ferr == 0 );
+
+        if (off > 0 && ferr == 0)
+          ferr = file.write (buf, off, nb);
+
+        if (nerr != ERR_CLSD) {
+          sendBegin ("451 Requested action aborted: communication error ");
+          sendCatWrite (i2str (abs(nerr)));
+          }
+        if (ferr != 0) {
+          sendBegin ("451 Requested action aborted: file error ");
+          sendCatWrite (i2str (abs (ferr)));
+          }
+        dataClose();
+        closeTransfer();
+        }
+      }
+    }
+  //}}}
+  else if( ! strcmp( command, "STRU" ))
+  //{{{  STRU - File Structure
+  {
+    if( ! strcmp( parameters, "F" ))
+      sendWrite( "200 F Ok" );
+    else
+      sendWrite( "504 Only F(ile) is suported" );
+  }
+  //}}}
+  else if( ! strcmp( command, "SYST" )) {
+    //{{{  SYST - command
+    sendWrite ("215 WIN32 ftpdmin v. 0.96");
+    }
+    //}}}
+  else if( ! strcmp( command, "TYPE" )) {
+  //{{{  TYPE - Data Type
+  if (!strcmp (parameters, "A"))
+    sendWrite ("200 TYPE is now ASCII");
+  else if (!strcmp (parameters, "I"))
+    sendWrite ("200 TYPE is now 8-bit binary");
   else
-    sendWrite( "500 Unknow command" );
+    sendWrite ("504 Unknow TYPE");
+  }
+  //}}}
+  else if( ! strcmp( command, "USER" )) {
+    //{{{  USER - command
+    //if (!strcmp (parameters, FTP_USER))
+      sendWrite ("331 OK. Password required");
+    //else
+    //  sendWrite ("530 ");
+    }
+    //}}}
+  else if( ! strcmp( command, "PASS" )) {
+    //{{{  PASS - command
+    //if (!strcmp (parameters, FTP_PASS))
+      sendWrite ("230 OK.");
+    //else
+    //  sendWrite ("530 ");
+    }
+    //}}}
+  else if (! strcmp( command, "QUIT" ))
+    return false;
+  else
+    sendWrite ("500 Unknow command");
   return true;
 }
 //}}}
 
 //{{{
-void FtpServer::service (int8_t n, struct netconn* ctrlcn)
-{
+void FtpServer::service (int8_t n, struct netconn* ctrlcn) {
+
   uint16_t dummy;
   struct ip_addr ippeer;
-
-  // variables initialization
   strcpy (cwdName, "/" );  // Set the root directory
-  cwdRNFR[ 0 ] = 0;
+  cwdRNFR[0] = 0;
   num = n;
   ctrlconn = ctrlcn;
   listdataconn = NULL;
@@ -1102,34 +1132,7 @@ void FtpServer::service (int8_t n, struct netconn* ctrlcn)
   sendCat (FTP_VERSION);
   sendCatWrite ("   --");
 
-  //  Wait for user name during 10 seconds
-  netconn_set_recvtimeout (ctrlconn, 10 * 1000);
-  if (readCommand() < 0)
-    goto close;
-  if (strcmp (command, "USER")) {
-    sendWrite ("500 Syntax error");
-    goto close;
-    }
-  if (strcmp (parameters, FTP_USER)) {
-    sendWrite ("530 ");
-    goto close;
-    }
-  sendWrite( "331 OK. Password required" );
-
-  //  Wait for password during 10 seconds
-  if (readCommand() < 0 )
-    goto close;
-  if (strcmp (command, "PASS")) {
-    sendWrite ("500 Syntax error");
-    goto close;
-    }
-  if (strcmp (parameters, FTP_PASS)) {
-    sendWrite ("530 ");
-    goto close;
-    }
-  sendWrite ("230 OK.");
-
-  //  Wait for user commands Disconnect if FTP_TIME_OUT minutes of inactivity
+  //  Wait for user commands, disconnect if FTP_TIME_OUT minutes of inactivity
   netconn_set_recvtimeout (ctrlconn, FTP_TIME_OUT * 60 * 1000);
   while (true) {
     int8_t err = readCommand();
@@ -1142,19 +1145,26 @@ void FtpServer::service (int8_t n, struct netconn* ctrlcn)
     }
 
 bye:
-  sendWrite( "221 Goodbye" );
+  sendWrite ("221 Goodbye");
 
 close:
   dataClose();
-  if( listdataconn != NULL ) {
-    netconn_close( listdataconn );
-    netconn_delete( listdataconn );
+  if (listdataconn != NULL) {
+    netconn_close (listdataconn);
+    netconn_delete (listdataconn);
     }
   }
 //}}}
 
 //{{{
-void ftp_server() {
+static void ftpServerThread (void const* argument) {
+
+  cLcd::debug ("ftpServerThread");
+
+  BSP_SD_Init();
+
+  if (BSP_SD_IsDetected() == SD_PRESENT)
+    cLcd::debug ("ftpServer SD CARD");
 
   fatFs = cFatFs::create();
   if (fatFs->mount() != FR_OK) {
@@ -1180,9 +1190,18 @@ void ftp_server() {
 
   while (true) {
     if (netconn_accept (ftpsrvconn, &ftpconn) == ERR_OK) {
+      cLcd::debug ("connection");
       ftpSrv.service (1, ftpconn);   // call the http function
       netconn_delete (ftpconn);      // delete the connection.
       }
     }
+  }
+//}}}
+
+//{{{
+void ftpServerInit() {
+
+  const osThreadDef_t osFtpThread = { (char*)"ftp", ftpServerThread, osPriorityNormal, 0, 16000 };
+  osThreadCreate (&osFtpThread, NULL);
   }
 //}}}
