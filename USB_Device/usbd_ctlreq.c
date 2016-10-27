@@ -1,14 +1,14 @@
 #include "usbd_ctlreq.h"
 #include "usbd_ioreq.h"
 
-static void USBD_GetDescriptor(USBD_HandleTypeDef *pdev , USBD_SetupReqTypedef *req);
-static void USBD_SetAddress(USBD_HandleTypeDef *pdev , USBD_SetupReqTypedef *req);
-static void USBD_SetConfig(USBD_HandleTypeDef *pdev , USBD_SetupReqTypedef *req);
-static void USBD_GetConfig(USBD_HandleTypeDef *pdev , USBD_SetupReqTypedef *req);
-static void USBD_GetStatus(USBD_HandleTypeDef *pdev , USBD_SetupReqTypedef *req);
-static void USBD_SetFeature(USBD_HandleTypeDef *pdev , USBD_SetupReqTypedef *req);
-static void USBD_ClrFeature(USBD_HandleTypeDef *pdev , USBD_SetupReqTypedef *req);
-static uint8_t USBD_GetLen(uint8_t *buf);
+static void USBD_GetDescriptor (USBD_HandleTypeDef *pdev , USBD_SetupReqTypedef *req);
+static void USBD_SetAddress (USBD_HandleTypeDef *pdev , USBD_SetupReqTypedef *req);
+static void USBD_SetConfig (USBD_HandleTypeDef *pdev , USBD_SetupReqTypedef *req);
+static void USBD_GetConfig (USBD_HandleTypeDef *pdev , USBD_SetupReqTypedef *req);
+static void USBD_GetStatus (USBD_HandleTypeDef *pdev , USBD_SetupReqTypedef *req);
+static void USBD_SetFeature (USBD_HandleTypeDef *pdev , USBD_SetupReqTypedef *req);
+static void USBD_ClrFeature (USBD_HandleTypeDef *pdev , USBD_SetupReqTypedef *req);
+static uint8_t USBD_GetLen (uint8_t *buf);
 
 /*{{{*/
 /**
@@ -18,7 +18,7 @@ static uint8_t USBD_GetLen(uint8_t *buf);
 * @param  req: usb request
 * @retval status
 */
-USBD_StatusTypeDef  USBD_StdDevReq (USBD_HandleTypeDef *pdev , USBD_SetupReqTypedef  *req)
+USBD_StatusTypeDef USBD_StdDevReq (USBD_HandleTypeDef *pdev , USBD_SetupReqTypedef  *req)
 {
   USBD_StatusTypeDef ret = USBD_OK;
 
@@ -70,7 +70,7 @@ USBD_StatusTypeDef  USBD_StdDevReq (USBD_HandleTypeDef *pdev , USBD_SetupReqType
 * @param  req: usb request
 * @retval status
 */
-USBD_StatusTypeDef  USBD_StdItfReq (USBD_HandleTypeDef *pdev , USBD_SetupReqTypedef  *req)
+USBD_StatusTypeDef USBD_StdItfReq (USBD_HandleTypeDef *pdev , USBD_SetupReqTypedef  *req)
 {
   USBD_StatusTypeDef ret = USBD_OK;
 
@@ -108,7 +108,7 @@ USBD_StatusTypeDef  USBD_StdItfReq (USBD_HandleTypeDef *pdev , USBD_SetupReqType
 * @param  req: usb request
 * @retval status
 */
-USBD_StatusTypeDef  USBD_StdEPReq (USBD_HandleTypeDef *pdev , USBD_SetupReqTypedef  *req)
+USBD_StatusTypeDef USBD_StdEPReq (USBD_HandleTypeDef *pdev , USBD_SetupReqTypedef  *req)
 {
 
   uint8_t   ep_addr;
@@ -235,8 +235,7 @@ USBD_StatusTypeDef  USBD_StdEPReq (USBD_HandleTypeDef *pdev , USBD_SetupReqTyped
 * @param  req: usb request
 * @retval status
 */
-static void USBD_GetDescriptor(USBD_HandleTypeDef *pdev ,
-                               USBD_SetupReqTypedef *req)
+static void USBD_GetDescriptor (USBD_HandleTypeDef *pdev , USBD_SetupReqTypedef *req)
 {
   uint16_t len;
   uint8_t *pbuf;
@@ -354,8 +353,7 @@ static void USBD_GetDescriptor(USBD_HandleTypeDef *pdev ,
 * @param  req: usb request
 * @retval status
 */
-static void USBD_SetAddress(USBD_HandleTypeDef *pdev ,
-                            USBD_SetupReqTypedef *req)
+static void USBD_SetAddress (USBD_HandleTypeDef *pdev , USBD_SetupReqTypedef *req)
 {
   uint8_t  dev_addr;
 
@@ -397,8 +395,7 @@ static void USBD_SetAddress(USBD_HandleTypeDef *pdev ,
 * @param  req: usb request
 * @retval status
 */
-static void USBD_SetConfig(USBD_HandleTypeDef *pdev ,
-                           USBD_SetupReqTypedef *req)
+static void USBD_SetConfig (USBD_HandleTypeDef *pdev , USBD_SetupReqTypedef *req)
 {
 
   static uint8_t  cfgidx;
@@ -475,8 +472,7 @@ static void USBD_SetConfig(USBD_HandleTypeDef *pdev ,
 * @param  req: usb request
 * @retval status
 */
-static void USBD_GetConfig(USBD_HandleTypeDef *pdev ,
-                           USBD_SetupReqTypedef *req)
+static void USBD_GetConfig (USBD_HandleTypeDef *pdev , USBD_SetupReqTypedef *req)
 {
 
   if (req->wLength != 1)
@@ -516,8 +512,7 @@ static void USBD_GetConfig(USBD_HandleTypeDef *pdev ,
 * @param  req: usb request
 * @retval status
 */
-static void USBD_GetStatus(USBD_HandleTypeDef *pdev ,
-                           USBD_SetupReqTypedef *req)
+static void USBD_GetStatus (USBD_HandleTypeDef *pdev , USBD_SetupReqTypedef *req)
 {
 
 
@@ -557,8 +552,7 @@ static void USBD_GetStatus(USBD_HandleTypeDef *pdev ,
 * @param  req: usb request
 * @retval status
 */
-static void USBD_SetFeature(USBD_HandleTypeDef *pdev ,
-                            USBD_SetupReqTypedef *req)
+static void USBD_SetFeature (USBD_HandleTypeDef *pdev , USBD_SetupReqTypedef *req)
 {
 
   if (req->wValue == USB_FEATURE_REMOTE_WAKEUP)
@@ -578,8 +572,7 @@ static void USBD_SetFeature(USBD_HandleTypeDef *pdev ,
 * @param  req: usb request
 * @retval status
 */
-static void USBD_ClrFeature(USBD_HandleTypeDef *pdev ,
-                            USBD_SetupReqTypedef *req)
+static void USBD_ClrFeature (USBD_HandleTypeDef *pdev , USBD_SetupReqTypedef *req)
 {
   switch (pdev->dev_state)
   {
@@ -609,7 +602,7 @@ static void USBD_ClrFeature(USBD_HandleTypeDef *pdev ,
 * @retval None
 */
 
-void USBD_ParseSetupRequest(USBD_SetupReqTypedef *req, uint8_t *pdata)
+void USBD_ParseSetupRequest (USBD_SetupReqTypedef *req, uint8_t *pdata)
 {
   req->bmRequest     = *(uint8_t *)  (pdata);
   req->bRequest      = *(uint8_t *)  (pdata +  1);
@@ -628,8 +621,7 @@ void USBD_ParseSetupRequest(USBD_SetupReqTypedef *req, uint8_t *pdata)
 * @retval None
 */
 
-void USBD_CtlError( USBD_HandleTypeDef *pdev ,
-                            USBD_SetupReqTypedef *req)
+void USBD_CtlError (USBD_HandleTypeDef *pdev , USBD_SetupReqTypedef *req)
 {
   USBD_LL_StallEP(pdev , 0x80);
   USBD_LL_StallEP(pdev , 0);
@@ -644,7 +636,7 @@ void USBD_CtlError( USBD_HandleTypeDef *pdev ,
   * @param  len : descriptor length
   * @retval None
   */
-void USBD_GetString(uint8_t *desc, uint8_t *unicode, uint16_t *len)
+void USBD_GetString (uint8_t *desc, uint8_t *unicode, uint16_t *len)
 {
   uint8_t idx = 0;
 
@@ -670,7 +662,7 @@ void USBD_GetString(uint8_t *desc, uint8_t *unicode, uint16_t *len)
    * @param  buf : pointer to the ascii string buffer
   * @retval string length
   */
-static uint8_t USBD_GetLen(uint8_t *buf)
+static uint8_t USBD_GetLen (uint8_t *buf)
 {
     uint8_t  len = 0;
 
