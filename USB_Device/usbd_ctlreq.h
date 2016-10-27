@@ -1,8 +1,9 @@
 #pragma once
-
+//{{{
 #ifdef __cplusplus
  extern "C" {
 #endif
+//}}}
 
 #include  "usbd_def.h"
 
@@ -16,7 +17,8 @@ void USBD_ParseSetupRequest (USBD_SetupReqTypedef *req, uint8_t *pdata);
 
 void USBD_GetString         (uint8_t *desc, uint8_t *unicode, uint16_t *len);
 
+//{{{
 #ifdef __cplusplus
 }
 #endif
-
+//}}}

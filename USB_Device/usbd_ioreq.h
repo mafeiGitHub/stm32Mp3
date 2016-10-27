@@ -4,8 +4,10 @@
  extern "C" {
 #endif
 //}}}
+//{{{  includes
 #include  "usbd_def.h"
 #include  "usbd_core.h"
+//}}}
 
 USBD_StatusTypeDef  USBD_CtlSendData (USBD_HandleTypeDef  *pdev, uint8_t *buf, uint16_t len);
 USBD_StatusTypeDef  USBD_CtlContinueSendData (USBD_HandleTypeDef  *pdev, uint8_t *pbuf, uint16_t len);

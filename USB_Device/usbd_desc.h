@@ -1,5 +1,4 @@
 #pragma once
-
 #include "usbd_def.h"
 
 #define         DEVICE_ID1          (0x1FFF7A10)

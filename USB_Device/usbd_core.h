@@ -1,13 +1,15 @@
 #pragma once
-
+//{{{
 #ifdef __cplusplus
  extern "C" {
 #endif
-
+//}}}
+//{{{  includes
 #include "usbd_conf.h"
 #include "usbd_def.h"
 #include "usbd_ioreq.h"
 #include "usbd_ctlreq.h"
+//}}}
 
 #define USBD_SOF          USBD_LL_SOF
 
@@ -56,6 +58,8 @@ USBD_StatusTypeDef  USBD_LL_PrepareReceive(USBD_HandleTypeDef *pdev, uint8_t  ep
 
 uint32_t USBD_LL_GetRxDataSize  (USBD_HandleTypeDef *pdev, uint8_t  ep_addr);
 void  USBD_LL_Delay (uint32_t Delay);
+//{{{
 #ifdef __cplusplus
 }
 #endif
+//}}}

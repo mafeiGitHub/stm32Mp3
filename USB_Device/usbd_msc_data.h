@@ -4,7 +4,6 @@
  extern "C" {
 #endif
 //}}}
-
 #include "usbd_conf.h"
 
 #define MODE_SENSE6_LEN      8
