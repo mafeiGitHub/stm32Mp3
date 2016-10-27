@@ -23,6 +23,10 @@ void UsageFault_Handler() { while (1) {} }
 
 void SysTick_Handler() { HAL_IncTick(); osSystickHandler(); }
 
+extern PCD_HandleTypeDef hpcd;
+//  void OTG_FS_IRQHandler() { HAL_PCD_IRQHandler(&hpcd); }
+void OTG_HS_IRQHandler() { HAL_PCD_IRQHandler (&hpcd); }
+
 // ethernet
 extern ETH_HandleTypeDef EthHandle;
 void ETH_IRQHandler() { HAL_ETH_IRQHandler (&EthHandle); }

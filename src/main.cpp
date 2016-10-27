@@ -19,7 +19,11 @@
 
 #include "cHttp.h"
 #include "../httpServer/httpServer.h"
-#include "../httpServer/ftpServer.h"
+
+#include "usbd_core.h"
+#include "usbd_desc.h"
+#include "usbd_msc.h"
+#include "usbd_storage.h"
 
 #ifdef STM32F746G_DISCO
   #include "stm32746g_discovery.h"
@@ -49,6 +53,7 @@
 #include "widgets/cWaveCentreWidget.h"
 #include "widgets/cWaveLensWidget.h"
 //}}}
+USBD_HandleTypeDef USBD_Device;
 
 //{{{
 class cHlsChan {
@@ -688,9 +693,8 @@ static void mp3PlayThread (void const* argument) {
   cLcd::debug (fatFs->getLabel() + " vsn:" + cLcd::hex (fatFs->getVolumeSerialNumber()) +
                " freeSectors:" + cLcd::dec (fatFs->getFreeSectors()));
   //}}}
-  mLcd->setShowDebug (false, false, false, true);  // disable debug - title, info, lcdStats, footer
-
   listDirectory ("", "");
+  mLcd->setShowDebug (false, false, false, true);  // disable debug - title, info, lcdStats, footer
 
   auto mp3Decoder = new cMp3Decoder;
   cLcd::debug ("play mp3Decoder");
@@ -901,7 +905,6 @@ static void waveThread (void const* argument) {
 static void netThread (void const* argument) {
 
   const bool kStaticIp = false;
-
   tcpip_init (NULL, NULL);
   cLcd::debug ("configuring ethernet");
 
@@ -967,8 +970,26 @@ static void netThread (void const* argument) {
       }
       //}}}
 
-    ftpServerInit();
-    //httpServerInit();
+    //mRoot->addTopRight (new cInfoTextBox (mRoot->getWidth()/4));
+    mRoot->addTopLeft (new cSelectValueBox ("radio1", 1, mTuneChan, mTuneChanChanged,
+                                            cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
+    mRoot->addNextRight (new cSelectValueBox ("radio2", 2, mTuneChan, mTuneChanChanged,
+                                              cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
+    mRoot->addNextRight (new cSelectValueBox ("radio3", 3, mTuneChan, mTuneChanChanged,
+                                              cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
+    mRoot->addNextRight (new cSelectValueBox ("radio4", 4, mTuneChan, mTuneChanChanged,
+                                              cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
+    mRoot->addNextRight (new cSelectValueBox ("radio5", 5, mTuneChan, mTuneChanChanged,
+                                              cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
+    mRoot->addNextRight (new cSelectValueBox ("radio6", 6, mTuneChan, mTuneChanChanged,
+                                              cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
+
+    const osThreadDef_t osThreadAacLoad =  { (char*)"AacLoad", aacLoadThread, osPriorityNormal, 0, 15000 };
+    osThreadCreate (&osThreadAacLoad, NULL);
+    const osThreadDef_t osThreadAacPlay =  { (char*)"AacPlay", aacPlayThread, osPriorityAboveNormal, 0, 2000 };
+    osThreadCreate (&osThreadAacPlay, NULL);
+
+    httpServerInit();
     }
   else {
     //{{{  no ethernet
@@ -987,8 +1008,39 @@ static void mainThread (void const* argument) {
   mLcd->displayOn();
   cLcd::debug ("mainThread");
 
-  const osThreadDef_t osThreadNet =  { (char*)"Net", netThread, osPriorityNormal, 0, 1024 };
-  osThreadCreate (&osThreadNet, NULL);
+  BSP_SD_Init();
+  if (BSP_SD_IsDetected() == SD_PRESENT) {
+    //{{{  mp3 player
+    mFrameOffsets = (int*)pvPortMalloc (60*60*40*sizeof(int));
+    mWave = (uint8_t*)pvPortMalloc (60*60*40*2*sizeof(uint8_t));  // 1 hour of 40 mp3 frames per sec
+    mWave[0] = 0;
+    mWaveLoadFrame = 0;
+
+    mRoot->addTopLeft (new cListWidget (mMp3Files, fileIndex, fileIndexChanged,
+                                        mRoot->getWidth(), mRoot->getHeight()-2*mRoot->getHeight()/5));
+    mRoot->addBottomLeft (new cWaveLensWidget (mWave, mPlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
+                                               mRoot->getWidth(), mRoot->getHeight()/5));
+    mRoot->addNextAbove (new cWaveCentreWidget (mWave, mPlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
+                                                mRoot->getWidth(), mRoot->getHeight()/5));
+    const osThreadDef_t osThreadPlay =  { (char*)"Play", mp3PlayThread, osPriorityNormal, 0, 8192 };
+    osThreadCreate (&osThreadPlay, NULL);
+    const osThreadDef_t osThreadWave =  { (char*)"Wave", waveThread, osPriorityNormal, 0, 8192 };
+    osThreadCreate (&osThreadWave, NULL);
+    }
+    //}}}
+  else {
+    //{{{  hls aac player
+    mHlsLoader = new cHlsLoader();
+    osSemaphoreDef (hlsLoader);
+    mHlsLoaderSem = osSemaphoreCreate (osSemaphore (hlsLoader), -1);
+
+    mRoot->addBottomLeft (new cPowerWidget (mHlsLoader, mRoot->getWidth(), mRoot->getHeight()));
+
+    const osThreadDef_t osThreadNet =  { (char*)"Net", netThread, osPriorityNormal, 0, 1024 };
+    osThreadCreate (&osThreadNet, NULL);
+    }
+    //}}}
+  mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, cWidget::getBoxHeight()*2, mRoot->getHeight()));
 
   //{{{  init vars
   bool button = false;
@@ -1178,6 +1230,12 @@ int main() {
   osThreadCreate (&osMainThread, NULL);
 
   osKernelStart();
+
+  //USBD_Init (&USBD_Device, &MSC_Desc, 0);
+  //USBD_RegisterClass (&USBD_Device, USBD_MSC_CLASS);
+  //USBD_MSC_RegisterStorage (&USBD_Device, &USBD_DISK_fops);
+  //USBD_Start (&USBD_Device);
+  //while (true) {}
 
   return 0;
   }

@@ -1103,17 +1103,17 @@ static void ftpServerThread (void const* argument) {
                " vsn:" + cLcd::hex (ftpServer.mFatFs->getVolumeSerialNumber()) +
                " freeSectors:" + cLcd::dec (ftpServer.mFatFs->getFreeSectors()));
 
-  // Create the TCP connection handle
-  struct netconn* ftpsrvconn = netconn_new (NETCONN_TCP);
-  LWIP_ERROR("http_server: invalid ftpsrvconn", (ftpsrvconn != NULL), return;);
+  // create the TCP connection handle
+  struct netconn* ftpServerNetConn = netconn_new (NETCONN_TCP);
+  LWIP_ERROR("http_server: invalid ftpsrvconn", (ftpServerNetConn != NULL), return;);
 
-  // Bind to port 21 (FTP) with default IP address, put connection into LISTEN state
-  netconn_bind (ftpsrvconn, NULL, FTP_SERVER_PORT);
-  netconn_listen (ftpsrvconn);
+  // bind to port 21 (FTP) with default IP address, put connection into LISTEN state
+  netconn_bind (ftpServerNetConn, NULL, FTP_SERVER_PORT);
+  netconn_listen (ftpServerNetConn);
 
   while (true) {
     struct netconn* ftpNetConn;
-    if (netconn_accept (ftpsrvconn, &ftpNetConn) == ERR_OK) {
+    if (netconn_accept (ftpServerNetConn, &ftpNetConn) == ERR_OK) {
       ftpServer.service (1, ftpNetConn);
       netconn_delete (ftpNetConn);
       cLcd::debug ("ftpServer connection dropped");
