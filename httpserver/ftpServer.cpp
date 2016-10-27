@@ -1082,7 +1082,7 @@ private:
   };
 
 //{{{
-static void ftpServerThread (void const* argument) {
+void ftpServerThread (void const* argument) {
 
   cLcd::debug ("ftpServerThread");
 
@@ -1119,12 +1119,5 @@ static void ftpServerThread (void const* argument) {
       cLcd::debug ("ftpServer connection dropped");
       }
     }
-  }
-//}}}
-//{{{
-void ftpServerInit() {
-
-  const osThreadDef_t osFtpThread = { (char*)"ftp", ftpServerThread, osPriorityNormal, 0, 16000 };
-  osThreadCreate (&osFtpThread, NULL);
   }
 //}}}

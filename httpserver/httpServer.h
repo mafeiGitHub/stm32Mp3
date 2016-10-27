@@ -1,10 +1,11 @@
 #pragma once
+
 //{{{
 #ifdef __cplusplus
 extern "C" {
 #endif
 //}}}
-void httpServerInit();
+  void httpServerThread (void const* argument);
 //{{{
 #ifdef __cplusplus
 }

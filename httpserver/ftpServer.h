@@ -4,7 +4,7 @@
 extern "C" {
 #endif
 //}}}
-void ftpServerInit();
+void ftpServerThread (void const* argument);
 //{{{
 #ifdef __cplusplus
 }

@@ -201,7 +201,7 @@ static void httpServeConnection (struct netconn* conn) {
 /*}}}*/
 
 /*{{{*/
-static void serverThread() {
+void httpServerThread (void const* argument) {
 
   // Create a new TCP connection handle
   struct netconn* conn = netconn_new (NETCONN_TCP);
@@ -228,13 +228,5 @@ static void serverThread() {
         }
       }
     }
-  }
-/*}}}*/
-
-/*{{{*/
-void httpServerInit() {
-
-  osThreadDef (httpServer, serverThread, osPriorityNormal, 0, DEFAULT_THREAD_STACKSIZE);
-  osThreadCreate (osThread (httpServer), NULL);
   }
 /*}}}*/
