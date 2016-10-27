@@ -985,16 +985,15 @@ static void netThread (void const* argument) {
     mRoot->addNextRight (new cSelectValueBox ("radio6", 6, mTuneChan, mTuneChanChanged,
                                               cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
 
-    //const osThreadDef_t osThreadAacLoad =  { (char*)"AacLoad", aacLoadThread, osPriorityNormal, 0, 15000 };
-    //osThreadCreate (&osThreadAacLoad, NULL);
-    //const osThreadDef_t osThreadAacPlay =  { (char*)"AacPlay", aacPlayThread, osPriorityAboveNormal, 0, 2000 };
-    //osThreadCreate (&osThreadAacPlay, NULL);
+    const osThreadDef_t osThreadAacLoad = { (char*)"aacLoad", aacLoadThread, osPriorityNormal, 0, 15000 };
+    osThreadCreate (&osThreadAacLoad, NULL);
+    const osThreadDef_t osThreadAacPlay = { (char*)"aacPlay", aacPlayThread, osPriorityAboveNormal, 0, 2000 };
+    osThreadCreate (&osThreadAacPlay, NULL);
 
-    const osThreadDef_t osThreadHttp =  { (char*)"http", httpServerThread, osPriorityNormal, 0, DEFAULT_THREAD_STACKSIZE };
-    osThreadCreate (&osThreadHttp, NULL);
-
-    const osThreadDef_t osFtpThread = { (char*)"ftp", ftpServerThread, osPriorityNormal, 0, DEFAULT_THREAD_STACKSIZE };
-    osThreadCreate (&osFtpThread, NULL);
+    //const osThreadDef_t osThreadHttp = { (char*)"http", httpServerThread, osPriorityNormal, 0, DEFAULT_THREAD_STACKSIZE };
+    //osThreadCreate (&osThreadHttp, NULL);
+    //const osThreadDef_t osThreadFtp = { (char*)"ftp", ftpServerThread, osPriorityNormal, 0, DEFAULT_THREAD_STACKSIZE };
+    //osThreadCreate (&osThreadFtp, NULL);
     }
   else {
     //{{{  no ethernet

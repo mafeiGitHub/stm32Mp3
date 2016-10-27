@@ -1,7 +1,10 @@
+// usbd_conf.c
+/*{{{  includes*/
 #include "usbd_core.h"
 #include "usbd_desc.h"
 #include "usbd_msc.h"
 #include "usbd_storage.h"
+/*}}}*/
 
 PCD_HandleTypeDef hpcd;
 
@@ -292,10 +295,9 @@ USBD_StatusTypeDef USBD_LL_ClearStallEP (USBD_HandleTypeDef *pdev, uint8_t ep_ad
 /*}}}*/
 
 /*{{{*/
-uint8_t USBD_LL_IsStallEP (USBD_HandleTypeDef *pdev, uint8_t ep_addr)
-{
-  PCD_HandleTypeDef *hpcd = pdev->pData;
+uint8_t USBD_LL_IsStallEP (USBD_HandleTypeDef *pdev, uint8_t ep_addr) {
 
+  PCD_HandleTypeDef *hpcd = pdev->pData;
   if ((ep_addr & 0x80) == 0x80)
     return hpcd->IN_ep[ep_addr & 0x7F].is_stall;
   else
