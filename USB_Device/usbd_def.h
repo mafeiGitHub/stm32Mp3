@@ -127,22 +127,9 @@ typedef struct _Device_cb {
   #endif
   } USBD_ClassTypeDef;
 //}}}
-
-/* Following USB Device Speed */
-typedef enum {
-  USBD_SPEED_HIGH  = 0,
-  USBD_SPEED_FULL  = 1,
-  USBD_SPEED_LOW   = 2,
-  } USBD_SpeedTypeDef;
-
-/* Following USB Device status */
-typedef enum {
-  USBD_OK   = 0,
-  USBD_BUSY,
-  USBD_FAIL,
-  } USBD_StatusTypeDef;
-
-//{{{  USB Device descriptors structure */
+typedef enum { USBD_SPEED_HIGH  = 0, USBD_SPEED_FULL  = 1, USBD_SPEED_LOW   = 2, } USBD_SpeedTypeDef;
+typedef enum { USBD_OK   = 0, USBD_BUSY, USBD_FAIL, } USBD_StatusTypeDef;
+//{{{  USB Device descriptors structure 
 typedef struct {
   uint8_t  *(*GetDeviceDescriptor)( USBD_SpeedTypeDef speed , uint16_t *length);
   uint8_t  *(*GetLangIDStrDescriptor)( USBD_SpeedTypeDef speed , uint16_t *length);
@@ -156,8 +143,7 @@ typedef struct {
   #endif
   } USBD_DescriptorsTypeDef;
 //}}}
-
-//{{{  USB Device handle structure */
+//{{{  USB Device handle structure 
 typedef struct {
   uint32_t                status;
   uint32_t                total_length;
@@ -165,7 +151,6 @@ typedef struct {
   uint32_t                maxpacket;
   } USBD_EndpointTypeDef;
 //}}}
-
 //{{{
 /* USB Device handle structure */
 typedef struct _USBD_HandleTypeDef {
@@ -194,13 +179,11 @@ typedef struct _USBD_HandleTypeDef {
   } USBD_HandleTypeDef;
 //}}}
 
-#define  SWAPBYTE(addr)        (((uint16_t)(*((uint8_t *)(addr)))) + \
-                               (((uint16_t)(*(((uint8_t *)(addr)) + 1))) << 8))
-
-#define LOBYTE(x)  ((uint8_t)(x & 0x00FF))
-#define HIBYTE(x)  ((uint8_t)((x & 0xFF00) >>8))
-#define MIN(a, b)  (((a) < (b)) ? (a) : (b))
-#define MAX(a, b)  (((a) > (b)) ? (a) : (b))
+#define SWAPBYTE(addr) (((uint16_t)(*((uint8_t *)(addr)))) + (((uint16_t)(*(((uint8_t *)(addr)) + 1))) << 8))
+#define LOBYTE(x) ((uint8_t)(x & 0x00FF))
+#define HIBYTE(x) ((uint8_t)((x & 0xFF00) >>8))
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+#define MAX(a, b) (((a) > (b)) ? (a) : (b))
 
 #if  defined ( __GNUC__ )
   #ifndef __weak

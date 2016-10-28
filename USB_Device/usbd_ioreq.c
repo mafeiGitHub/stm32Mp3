@@ -1,3 +1,4 @@
+// usbd_ioreq.c
 #include "usbd_ioreq.h"
 
 /*{{{*/
@@ -28,6 +29,7 @@ USBD_StatusTypeDef USBD_CtlPrepareRx (USBD_HandleTypeDef *pdev, uint8_t *pbuf, u
   pdev->ep0_state = USBD_EP0_DATA_OUT;
   pdev->ep_out[0].total_length = len;
   pdev->ep_out[0].rem_length   = len;
+
   /* Start the transfer */
   USBD_LL_PrepareReceive (pdev, 0, pbuf, len);
 
