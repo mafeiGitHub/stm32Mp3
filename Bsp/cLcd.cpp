@@ -342,10 +342,11 @@ cLcd::~cLcd() {}
 // static
 cLcd* cLcd::mLcd = nullptr;
 //{{{
-cLcd* cLcd::create (std::string title) {
+cLcd* cLcd::create (std::string title, bool isr) {
 
   if (!mLcd) {
     mLcd = new cLcd (SDRAM_FRAME0, SDRAM_FRAME1);
+    mLcd->mIsr = isr;
     mLcd->init (title);
     }
 
@@ -534,6 +535,98 @@ void cLcd::endRender (bool forceInfo) {
   *mDma2dCurBuf = kEnd;
 
   mDrawTime = osKernelSysTick() - mDrawStartTime;
+  }
+//}}}
+//{{{
+void cLcd::flush() {
+
+  clear (COL_BLACK);
+
+  auto y = 0;
+  if (!mTitle.empty()) {
+    //{{{  draw title
+    text (COL_YELLOW, getFontHeight(), mTitle, 0, y, getWidth(), getLineHeight());
+    y += getLineHeight();
+    }
+    //}}}
+  //{{{  draw info lines
+  if (mLastLine >= 0) {
+    // draw scroll bar
+    auto yorg = getLineHeight() + ((int)mFirstLine * mNumDrawLines * getLineHeight() / (mLastLine + 1));
+    auto height = mNumDrawLines * mNumDrawLines * getLineHeight() / (mLastLine + 1);
+    rectClipped (COL_YELLOW, 0, yorg, 8, height);
+    }
+
+  auto lastLine = (int)mFirstLine + mNumDrawLines - 1;
+  if (lastLine > mLastLine)
+    lastLine = mLastLine;
+  for (auto lineIndex = (int)mFirstLine; lineIndex <= lastLine; lineIndex++) {
+    auto x = 0;
+    auto xinc = text (COL_GREEN, getFontHeight(),
+                      dec ((mLines[lineIndex].mTime-mStartTime) / 1000) + "." +
+                      dec ((mLines[lineIndex].mTime-mStartTime) % 1000, 3, '0'), x, y, getWidth(), getLineHeight());
+    x += xinc + 3;
+    text (mLines[lineIndex].mColour, getFontHeight(), mLines[lineIndex].mString, x, y, getWidth(), getLineHeight());
+    y += getLineHeight();
+    }
+  //}}}
+  //{{{  draw footer
+  text (COL_YELLOW, getFontHeight(),
+        dec (xPortGetFreeHeapSize()) + " " +
+        dec (osGetCPUUsage()) + "% " +
+        dec (mDrawTime) + "ms " +
+        dec (mDma2dCurBuf - mDma2dBuf),
+        0, getHeight()-getLineHeight(), getWidth(), getLineHeight());
+  //}}}
+  *mDma2dCurBuf = kEnd;
+
+  mDrawBuffer = false;
+  mCurFrameBufferAddress = SDRAM_FRAME0;
+  mSetFrameBufferAddress[0] = SDRAM_FRAME0;
+
+  mDrawStartTime = osKernelSysTick();
+
+  // clear interrupts
+  DMA2D->IFCR = DMA2D_ISR_TCIF | DMA2D_ISR_TEIF | DMA2D_ISR_CEIF;
+
+  uint32_t opcode = *mDma2dIsrBuf++;
+  while (opcode != kEnd) {
+    if (opcode == kStamp) {
+      DMA2D->OMAR   = *mDma2dIsrBuf;   // bgnd dst start address
+      DMA2D->BGMAR  = *mDma2dIsrBuf++; // - repeated to bgnd src start addres
+      DMA2D->OOR    = *mDma2dIsrBuf;   // bgnd dst stride
+      DMA2D->BGOR   = *mDma2dIsrBuf++; // - repeated to bgnd src stride
+      DMA2D->NLR    = *mDma2dIsrBuf++; // width:height
+      DMA2D->FGMAR  = *mDma2dIsrBuf++; // src start address
+      DMA2D->CR = DMA2D_M2M_BLEND | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
+      while (!(DMA2D->ISR & DMA2D_FLAG_TC)) {}
+      DMA2D->IFCR |= DMA2D_IFSR_CTEIF | DMA2D_IFSR_CTCIF | DMA2D_IFSR_CTWIF|
+                    DMA2D_IFSR_CCAEIF | DMA2D_IFSR_CCTCIF | DMA2D_IFSR_CCEIF;
+      }
+    else {
+      *(uint32_t*)opcode = *mDma2dIsrBuf++;
+      if (opcode == AHB1PERIPH_BASE + 0xB000U) {
+        while (!(DMA2D->ISR & DMA2D_FLAG_TC)) {}
+        DMA2D->IFCR |= DMA2D_IFSR_CTEIF | DMA2D_IFSR_CTCIF | DMA2D_IFSR_CTWIF|
+                      DMA2D_IFSR_CCAEIF | DMA2D_IFSR_CCTCIF | DMA2D_IFSR_CCEIF;
+        }
+      }
+    opcode = *mDma2dIsrBuf++;
+    }
+  mDrawTime = osKernelSysTick() - mDrawStartTime;
+
+  showFrameBufferAddress[0] = SDRAM_FRAME0;
+  showAlpha[0] = 255;
+  LTDC_Layer_TypeDef* ltdcLayer = (LTDC_Layer_TypeDef*)((uint32_t)LTDC + 0x84); // + (0x80*layer));
+  ltdcLayer->CFBAR = showFrameBufferAddress[0];
+  ltdcLayer->CR |= LTDC_LxCR_LEN;
+  ltdcLayer->CACR &= ~LTDC_LxCACR_CONSTA;
+  ltdcLayer->CACR = 255;
+  LTDC->SRCR |= LTDC_SRCR_IMR;
+
+  mDma2dIsrBuf = mDma2dBuf;
+  mDma2dCurBuf = mDma2dBuf;
+  *mDma2dCurBuf = kEnd;
   }
 //}}}
 
@@ -892,12 +985,14 @@ void cLcd::init (std::string title) {
   mDma2dCurBuf = mDma2dBuf;
   *mDma2dCurBuf = kEnd;
 
-  osSemaphoreDef (dma2dSem);
-  mDma2dSem = osSemaphoreCreate (osSemaphore (dma2dSem), -1);
+  if (mIsr) {
+    osSemaphoreDef (dma2dSem);
+    mDma2dSem = osSemaphoreCreate (osSemaphore (dma2dSem), -1);
 
-  // dma2d IRQ init
-  HAL_NVIC_SetPriority (DMA2D_IRQn, 0x0F, 0);
-  HAL_NVIC_EnableIRQ (DMA2D_IRQn);
+    // dma2d IRQ init
+    HAL_NVIC_SetPriority (DMA2D_IRQn, 0x0F, 0);
+    HAL_NVIC_EnableIRQ (DMA2D_IRQn);
+    }
 
   // font init
   setFont (freeSansBold, freeSansBold_len);
@@ -930,7 +1025,6 @@ void cLcd::ltdcInit (uint32_t frameBufferAddress) {
     // - PLLSAI_VCO Out = PLLSAI_VCO Input * PLLSAIN              = 192 Mhz
     // - PLLLCDCLK      = PLLSAI_VCO Output / PLLSAIR    = 192/5  = 38.4 Mhz
     // - LTDC clock     = PLLLCDCLK / LTDC_PLLSAI_DIVR_4 = 38.4/4 = 9.6Mhz
-
     RCC_PeriphCLKInitTypeDef periph_clk_init_struct;
     periph_clk_init_struct.PeriphClockSelection = RCC_PERIPHCLK_LTDC;
     periph_clk_init_struct.PLLSAI.PLLSAIN = 192;
@@ -1133,9 +1227,11 @@ void cLcd::ltdcInit (uint32_t frameBufferAddress) {
   showFrameBufferAddress[1] = frameBufferAddress;
   showAlpha[1] = 0;
 
-  //  LTDC IRQ init
-  osSemaphoreDef (ltdcSem);
-  ltdc.sem = osSemaphoreCreate (osSemaphore (ltdcSem), -1);
+  if (mIsr) {
+    //  LTDC IRQ init
+    osSemaphoreDef (ltdcSem);
+    ltdc.sem = osSemaphoreCreate (osSemaphore (ltdcSem), -1);
+    }
 
   ltdc.timeouts = 0;
   ltdc.lineIrq = 0;
@@ -1145,14 +1241,16 @@ void cLcd::ltdcInit (uint32_t frameBufferAddress) {
   ltdc.lineTicks = 0;
   ltdc.frameWait = 0;
 
-  HAL_NVIC_SetPriority (LTDC_IRQn, 0xE, 0);
-  HAL_NVIC_EnableIRQ (LTDC_IRQn);
+  if (mIsr) {
+    HAL_NVIC_SetPriority (LTDC_IRQn, 0xE, 0);
+    HAL_NVIC_EnableIRQ (LTDC_IRQn);
 
-  // set line interupt line number
-  LTDC->LIPCR = 0;
+    // set line interupt line number
+    LTDC->LIPCR = 0;
 
-  // enable line interrupt
-  LTDC->IER |= LTDC_IT_LI;
+    // enable line interrupt
+    LTDC->IER |= LTDC_IT_LI;
+    }
   }
 //}}}
 //{{{
