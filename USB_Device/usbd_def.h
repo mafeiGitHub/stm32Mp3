@@ -84,13 +84,13 @@
 #define USB_FS_MAX_PACKET_SIZE                            64
 #define USB_MAX_EP0_SIZE                                  64
 //}}}
-//{{{  Device Status defines 
+//{{{  Device Status defines
 #define USBD_STATE_DEFAULT                                1
 #define USBD_STATE_ADDRESSED                              2
 #define USBD_STATE_CONFIGURED                             3
 #define USBD_STATE_SUSPENDED                              4
 //}}}
-//{{{  EP0 State defines 
+//{{{  EP0 State defines
 #define USBD_EP0_IDLE                                     0
 #define USBD_EP0_SETUP                                    1
 #define USBD_EP0_DATA_IN                                  2
@@ -123,10 +123,12 @@ struct _USBD_HandleTypeDef;
 typedef struct _Device_cb {
   uint8_t  (*Init)             (struct _USBD_HandleTypeDef *pdev , uint8_t cfgidx);
   uint8_t  (*DeInit)           (struct _USBD_HandleTypeDef *pdev , uint8_t cfgidx);
- /* Control Endpoints*/
+
+  /* Control Endpoints*/
   uint8_t  (*Setup)            (struct _USBD_HandleTypeDef *pdev , USBD_SetupReqTypedef  *req);
   uint8_t  (*EP0_TxSent)       (struct _USBD_HandleTypeDef *pdev );
   uint8_t  (*EP0_RxReady)      (struct _USBD_HandleTypeDef *pdev );
+
   /* Class Specific Endpoints*/
   uint8_t  (*DataIn)           (struct _USBD_HandleTypeDef *pdev , uint8_t epnum);
   uint8_t  (*DataOut)          (struct _USBD_HandleTypeDef *pdev , uint8_t epnum);

@@ -1,6 +1,8 @@
 // usbd_msc.c
 /*{{{  includes*/
 #include "usbd_msc.h"
+#include "usbd_core.h"
+
 #include "memory.h"
 /*}}}*/
 /*{{{  scsi const*/
@@ -79,8 +81,21 @@
 static const uint8_t MSC_Mode_Sense6_data[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 static const uint8_t MSC_Mode_Sense10_data[] = { 0x00, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 static const uint8_t MSC_Page00_Inquiry_Data[] = { 0x00, 0x00, 0x00, (LENGTH_INQUIRY_PAGE00 - 4), 0x00, 0x80, 0x83 };
+
+// struct USBD_SCSI_SenseTypeDef
+typedef struct _SENSE_ITEM {
+  char Skey;
+  union {
+    struct _ASCs {
+      char ASC;
+      char ASCQ;
+      } b;
+    unsigned int  ASC;
+    char *pData;
+    } w;
+  } USBD_SCSI_SenseTypeDef;
 /*}}}*/
-/*{{{  usbd_bot defines*/
+/*{{{  bot defines*/
 #define USBD_BOT_IDLE                      0       /* Idle state */
 #define USBD_BOT_DATA_OUT                  1       /* Data Out state */
 #define USBD_BOT_DATA_IN                   2       /* Data In state */
@@ -107,137 +122,194 @@ static const uint8_t MSC_Page00_Inquiry_Data[] = { 0x00, 0x00, 0x00, (LENGTH_INQ
 #define USBD_DIR_IN                        0
 #define USBD_DIR_OUT                       1
 #define USBD_BOTH_DIR                      2
-/*}}}*/
 
+#define BOT_GET_MAX_LUN          0xFE
+#define BOT_RESET                0xFF
+
+#define USB_MSC_CONFIG_DESC_SIZ  32
+#define SENSE_LIST_DEEPTH  4
+
+/*{{{  struct USBD_MSC_BOT_CBWTypeDef*/
+typedef struct {
+  uint32_t dSignature;
+  uint32_t dTag;
+  uint32_t dDataLength;
+  uint8_t  bmFlags;
+  uint8_t  bLUN;
+  uint8_t  bCBLength;
+  uint8_t  CB[16];
+  uint8_t  ReservedForAlign;
+  } USBD_MSC_BOT_CBWTypeDef;
+/*}}}*/
+/*{{{  struct USBD_MSC_BOT_CSWTypeDef*/
+typedef struct {
+  uint32_t dSignature;
+  uint32_t dTag;
+  uint32_t dDataResidue;
+  uint8_t  bStatus;
+  uint8_t  ReservedForAlign[3];
+  } USBD_MSC_BOT_CSWTypeDef;
+/*}}}*/
+/*{{{  struct USBD_MSC_BOT_HandleTypeDef*/
+typedef struct {
+  uint32_t                 max_lun;
+  uint32_t                 interface;
+  uint8_t                  bot_state;
+  uint8_t                  bot_status;
+  uint16_t                 bot_data_length;
+
+  uint8_t                  bot_data [MSC_MEDIA_PACKET];
+  USBD_MSC_BOT_CBWTypeDef  cbw;
+  USBD_MSC_BOT_CSWTypeDef  csw;
+
+  USBD_SCSI_SenseTypeDef   scsi_sense [SENSE_LIST_DEEPTH];
+  uint8_t                  scsi_sense_head;
+  uint8_t                  scsi_sense_tail;
+
+  uint16_t                 scsi_blk_size;
+  uint32_t                 scsi_blk_nbr;
+
+  uint32_t                 scsi_blk_addr;
+  uint32_t                 scsi_blk_len;
+  } USBD_MSC_BOT_HandleTypeDef;
+/*}}}*/
+/*}}}*/
+/*{{{  msc defines*/
+#define MSC_MAX_FS_PACKET  0x40
+#define MSC_MAX_HS_PACKET  0x200
+#define MSC_EPIN_ADDR      0x81
+#define MSC_EPOUT_ADDR     0x01
+/*}}}*/
+/*{{{  msc desc static const*/
 /*{{{*/
-__ALIGN_BEGIN uint8_t USBD_MSC_CfgHSDesc[USB_MSC_CONFIG_DESC_SIZ] __ALIGN_END = {
+__ALIGN_BEGIN static const uint8_t USBD_MSC_CfgHSDesc[USB_MSC_CONFIG_DESC_SIZ] __ALIGN_END = {
   0x09,   /* bLength: Configuation Descriptor size */
   USB_DESC_TYPE_CONFIGURATION,   /* bDescriptorType: Configuration */
   USB_MSC_CONFIG_DESC_SIZ,
 
   0x00,
-  0x01,   /* bNumInterfaces: 1 interface */
-  0x01,   /* bConfigurationValue: */
-  0x04,   /* iConfiguration: */
-  0xC0,   /* bmAttributes: */
-  0x32,   /* MaxPower 100 mA */
+  0x01, /* bNumInterfaces: 1 interface */
+  0x01, /* bConfigurationValue: */
+  0x04, /* iConfiguration: */
+  0xC0, /* bmAttributes: */
+  0x32, /* MaxPower 100 mA */
 
   /********************  Mass Storage interface ********************/
-  0x09,   /* bLength: Interface Descriptor size */
-  0x04,   /* bDescriptorType: */
-  0x00,   /* bInterfaceNumber: Number of Interface */
-  0x00,   /* bAlternateSetting: Alternate setting */
-  0x02,   /* bNumEndpoints*/
-  0x08,   /* bInterfaceClass: MSC Class */
-  0x06,   /* bInterfaceSubClass : SCSI transparent*/
-  0x50,   /* nInterfaceProtocol */
-  0x05,          /* iInterface: */
+  0x09, /* bLength: Interface Descriptor size */
+  0x04, /* bDescriptorType: */
+  0x00, /* bInterfaceNumber: Number of Interface */
+  0x00, /* bAlternateSetting: Alternate setting */
+  0x02, /* bNumEndpoints*/
+  0x08, /* bInterfaceClass: MSC Class */
+  0x06, /* bInterfaceSubClass : SCSI transparent*/
+  0x50, /* nInterfaceProtocol */
+  0x05, /* iInterface: */
 
   /********************  Mass Storage Endpoints ********************/
-  0x07,   /*Endpoint descriptor length = 7*/
-  0x05,   /*Endpoint descriptor type */
+  0x07, /*Endpoint descriptor length = 7*/
+  0x05, /*Endpoint descriptor type */
   MSC_EPIN_ADDR,   /*Endpoint address (IN, address 1) */
-  0x02,   /*Bulk endpoint type */
+  0x02, /*Bulk endpoint type */
   LOBYTE(MSC_MAX_HS_PACKET),
   HIBYTE(MSC_MAX_HS_PACKET),
-  0x00,   /*Polling interval in milliseconds */
+  0x00, /*Polling interval in milliseconds */
 
-  0x07,   /*Endpoint descriptor length = 7 */
-  0x05,   /*Endpoint descriptor type */
+  0x07, /*Endpoint descriptor length = 7 */
+  0x05, /*Endpoint descriptor type */
   MSC_EPOUT_ADDR,   /*Endpoint address (OUT, address 1) */
-  0x02,   /*Bulk endpoint type */
+  0x02, /*Bulk endpoint type */
   LOBYTE(MSC_MAX_HS_PACKET),
   HIBYTE(MSC_MAX_HS_PACKET),
-  0x00     /*Polling interval in milliseconds*/
+  0x00  /*Polling interval in milliseconds*/
   };
 /*}}}*/
 /*{{{*/
-__ALIGN_BEGIN uint8_t USBD_MSC_CfgFSDesc[USB_MSC_CONFIG_DESC_SIZ] __ALIGN_END = {
+__ALIGN_BEGIN static const uint8_t USBD_MSC_CfgFSDesc[USB_MSC_CONFIG_DESC_SIZ] __ALIGN_END = {
   0x09,   /* bLength: Configuation Descriptor size */
   USB_DESC_TYPE_CONFIGURATION,   /* bDescriptorType: Configuration */
   USB_MSC_CONFIG_DESC_SIZ,
 
   0x00,
-  0x01,   /* bNumInterfaces: 1 interface */
-  0x01,   /* bConfigurationValue: */
-  0x04,   /* iConfiguration: */
-  0xC0,   /* bmAttributes: */
-  0x32,   /* MaxPower 100 mA */
+  0x01, /* bNumInterfaces: 1 interface */
+  0x01, /* bConfigurationValue: */
+  0x04, /* iConfiguration: */
+  0xC0, /* bmAttributes: */
+  0x32, /* MaxPower 100 mA */
 
   /********************  Mass Storage interface ********************/
-  0x09,   /* bLength: Interface Descriptor size */
-  0x04,   /* bDescriptorType: */
-  0x00,   /* bInterfaceNumber: Number of Interface */
-  0x00,   /* bAlternateSetting: Alternate setting */
-  0x02,   /* bNumEndpoints*/
-  0x08,   /* bInterfaceClass: MSC Class */
-  0x06,   /* bInterfaceSubClass : SCSI transparent*/
-  0x50,   /* nInterfaceProtocol */
-  0x05,          /* iInterface: */
+  0x09, /* bLength: Interface Descriptor size */
+  0x04, /* bDescriptorType: */
+  0x00, /* bInterfaceNumber: Number of Interface */
+  0x00, /* bAlternateSetting: Alternate setting */
+  0x02, /* bNumEndpoints*/
+  0x08, /* bInterfaceClass: MSC Class */
+  0x06, /* bInterfaceSubClass : SCSI transparent*/
+  0x50, /* nInterfaceProtocol */
+  0x05, /* iInterface: */
 
   /********************  Mass Storage Endpoints ********************/
-  0x07,   /*Endpoint descriptor length = 7*/
-  0x05,   /*Endpoint descriptor type */
-  MSC_EPIN_ADDR,   /*Endpoint address (IN, address 1) */
-  0x02,   /*Bulk endpoint type */
+  0x07, /*Endpoint descriptor length = 7*/
+  0x05, /*Endpoint descriptor type */
+  MSC_EPIN_ADDR, /*Endpoint address (IN, address 1) */
+  0x02, /*Bulk endpoint type */
   LOBYTE(MSC_MAX_FS_PACKET),
   HIBYTE(MSC_MAX_FS_PACKET),
-  0x00,   /*Polling interval in milliseconds */
+  0x00, /*Polling interval in milliseconds */
 
-  0x07,   /*Endpoint descriptor length = 7 */
-  0x05,   /*Endpoint descriptor type */
-  MSC_EPOUT_ADDR,   /*Endpoint address (OUT, address 1) */
-  0x02,   /*Bulk endpoint type */
+  0x07, /*Endpoint descriptor length = 7 */
+  0x05, /*Endpoint descriptor type */
+  MSC_EPOUT_ADDR,  /*Endpoint address (OUT, address 1) */
+  0x02, /*Bulk endpoint type */
   LOBYTE(MSC_MAX_FS_PACKET),
   HIBYTE(MSC_MAX_FS_PACKET),
-  0x00     /*Polling interval in milliseconds*/
+  0x00  /*Polling interval in milliseconds*/
   };
 /*}}}*/
 /*{{{*/
-__ALIGN_BEGIN uint8_t USBD_MSC_OtherSpeedCfgDesc[USB_MSC_CONFIG_DESC_SIZ] __ALIGN_END  = {
+__ALIGN_BEGIN static const uint8_t USBD_MSC_OtherSpeedCfgDesc[USB_MSC_CONFIG_DESC_SIZ] __ALIGN_END  = {
   0x09,   /* bLength: Configuation Descriptor size */
   USB_DESC_TYPE_OTHER_SPEED_CONFIGURATION,
   USB_MSC_CONFIG_DESC_SIZ,
 
   0x00,
-  0x01,   /* bNumInterfaces: 1 interface */
-  0x01,   /* bConfigurationValue: */
-  0x04,   /* iConfiguration: */
-  0xC0,   /* bmAttributes: */
-  0x32,   /* MaxPower 100 mA */
+  0x01, /* bNumInterfaces: 1 interface */
+  0x01, /* bConfigurationValue: */
+  0x04, /* iConfiguration: */
+  0xC0, /* bmAttributes: */
+  0x32, /* MaxPower 100 mA */
 
   /********************  Mass Storage interface ********************/
-  0x09,   /* bLength: Interface Descriptor size */
-  0x04,   /* bDescriptorType: */
-  0x00,   /* bInterfaceNumber: Number of Interface */
-  0x00,   /* bAlternateSetting: Alternate setting */
-  0x02,   /* bNumEndpoints*/
-  0x08,   /* bInterfaceClass: MSC Class */
-  0x06,   /* bInterfaceSubClass : SCSI transparent command set*/
-  0x50,   /* nInterfaceProtocol */
-  0x05,          /* iInterface: */
+  0x09, /* bLength: Interface Descriptor size */
+  0x04, /* bDescriptorType: */
+  0x00, /* bInterfaceNumber: Number of Interface */
+  0x00, /* bAlternateSetting: Alternate setting */
+  0x02, /* bNumEndpoints*/
+  0x08, /* bInterfaceClass: MSC Class */
+  0x06, /* bInterfaceSubClass : SCSI transparent command set*/
+  0x50, /* nInterfaceProtocol */
+  0x05, /* iInterface: */
 
   /********************  Mass Storage Endpoints ********************/
-  0x07,   /*Endpoint descriptor length = 7*/
-  0x05,   /*Endpoint descriptor type */
-  MSC_EPIN_ADDR,   /*Endpoint address (IN, address 1) */
-  0x02,   /*Bulk endpoint type */
+  0x07, /*Endpoint descriptor length = 7*/
+  0x05, /*Endpoint descriptor type */
+  MSC_EPIN_ADDR, /*Endpoint address (IN, address 1) */
+  0x02, /*Bulk endpoint type */
   0x40,
   0x00,
-  0x00,   /*Polling interval in milliseconds */
+  0x00, /*Polling interval in milliseconds */
 
-  0x07,   /*Endpoint descriptor length = 7 */
-  0x05,   /*Endpoint descriptor type */
-  MSC_EPOUT_ADDR,   /*Endpoint address (OUT, address 1) */
-  0x02,   /*Bulk endpoint type */
+  0x07, /*Endpoint descriptor length = 7 */
+  0x05, /*Endpoint descriptor type */
+  MSC_EPOUT_ADDR, /*Endpoint address (OUT, address 1) */
+  0x02, /*Bulk endpoint type */
   0x40,
   0x00,
-  0x00     /*Polling interval in milliseconds*/
+  0x00  /*Polling interval in milliseconds*/
   };
 /*}}}*/
 /*{{{*/
 /* USB Standard Device Descriptor */
-__ALIGN_BEGIN uint8_t USBD_MSC_DeviceQualifierDesc[USB_LEN_DEV_QUALIFIER_DESC]  __ALIGN_END = {
+__ALIGN_BEGIN static const uint8_t USBD_MSC_DeviceQualifierDesc[USB_LEN_DEV_QUALIFIER_DESC]  __ALIGN_END = {
   USB_LEN_DEV_QUALIFIER_DESC,
   USB_DESC_TYPE_DEVICE_QUALIFIER,
   0x00,
@@ -249,6 +321,22 @@ __ALIGN_BEGIN uint8_t USBD_MSC_DeviceQualifierDesc[USB_LEN_DEV_QUALIFIER_DESC]  
   0x01,
   0x00,
   };
+/*}}}*/
+/*}}}*/
+
+/*{{{*/
+void MSC_BOT_SendCSW (USBD_HandleTypeDef* pdev, uint8_t CSW_Status) {
+
+  USBD_MSC_BOT_HandleTypeDef* hmsc = (USBD_MSC_BOT_HandleTypeDef*)pdev->pClassData;
+
+  hmsc->csw.dSignature = USBD_BOT_CSW_SIGNATURE;
+  hmsc->csw.bStatus = CSW_Status;
+  hmsc->bot_state = USBD_BOT_IDLE;
+  USBD_LL_Transmit (pdev, MSC_EPIN_ADDR, (uint8_t*)&hmsc->csw, USBD_BOT_CSW_LENGTH);
+
+  /* Prepare EP to Receive next Cmd */
+  USBD_LL_PrepareReceive (pdev, MSC_EPOUT_ADDR, (uint8_t*)&hmsc->cbw, USBD_BOT_CBW_LENGTH);
+  }
 /*}}}*/
 
 // scsi
@@ -343,7 +431,7 @@ static int8_t SCSI_TestUnitReady (USBD_HandleTypeDef* pdev, uint8_t lun, uint8_t
     return -1;
     }
 
-  if(((USBD_StorageTypeDef *)pdev->pUserData)->IsReady(lun) !=0 ) {
+  if (((USBD_StorageTypeDef *)pdev->pUserData)->IsReady(lun) !=0 ) {
     SCSI_SenseCode (pdev, lun, NOT_READY, MEDIUM_NOT_PRESENT);
 
     hmsc->bot_state = USBD_BOT_NO_DATA;
@@ -595,7 +683,7 @@ static int8_t SCSI_Verify10 (USBD_HandleTypeDef* pdev, uint8_t lun , uint8_t* pa
 
   USBD_MSC_BOT_HandleTypeDef* hmsc = (USBD_MSC_BOT_HandleTypeDef*) pdev->pClassData;
 
-  if ((params[1]& 0x02) == 0x02) {
+  if ((params[1] & 0x02) == 0x02) {
     SCSI_SenseCode (pdev, lun, ILLEGAL_REQUEST, INVALID_FIELED_IN_COMMAND);
     return -1; /* Error, Verify Mode Not supported*/
     }
@@ -656,21 +744,6 @@ int8_t SCSI_ProcessCmd (USBD_HandleTypeDef* pdev, uint8_t lun, uint8_t* params) 
 
 // bot
 /*{{{*/
-void MSC_BOT_SendCSW (USBD_HandleTypeDef* pdev, uint8_t CSW_Status) {
-
-  USBD_MSC_BOT_HandleTypeDef* hmsc = (USBD_MSC_BOT_HandleTypeDef*)pdev->pClassData;
-
-  hmsc->csw.dSignature = USBD_BOT_CSW_SIGNATURE;
-  hmsc->csw.bStatus = CSW_Status;
-  hmsc->bot_state = USBD_BOT_IDLE;
-
-  USBD_LL_Transmit (pdev, MSC_EPIN_ADDR, (uint8_t*)&hmsc->csw, USBD_BOT_CSW_LENGTH);
-
-  /* Prepare EP to Receive next Cmd */
-  USBD_LL_PrepareReceive (pdev, MSC_EPOUT_ADDR, (uint8_t*)&hmsc->cbw, USBD_BOT_CBW_LENGTH);
-  }
-/*}}}*/
-/*{{{*/
 static void MSC_BOT_Abort (USBD_HandleTypeDef* pdev) {
 
   USBD_MSC_BOT_HandleTypeDef* hmsc = (USBD_MSC_BOT_HandleTypeDef*)pdev->pClassData;
@@ -679,7 +752,7 @@ static void MSC_BOT_Abort (USBD_HandleTypeDef* pdev) {
     USBD_LL_StallEP(pdev, MSC_EPOUT_ADDR );
   USBD_LL_StallEP(pdev, MSC_EPIN_ADDR);
 
-  if(hmsc->bot_status == USBD_BOT_STATUS_ERROR)
+  if (hmsc->bot_status == USBD_BOT_STATUS_ERROR)
     USBD_LL_PrepareReceive (pdev, MSC_EPOUT_ADDR, (uint8_t*)&hmsc->cbw, USBD_BOT_CBW_LENGTH);
   }
 /*}}}*/
@@ -692,7 +765,6 @@ static void MSC_BOT_SendData (USBD_HandleTypeDef* pdev, uint8_t* buf, uint16_t l
   hmsc->csw.dDataResidue -= len;
   hmsc->csw.bStatus = USBD_CSW_CMD_PASSED;
   hmsc->bot_state = USBD_BOT_SEND_DATA;
-
   USBD_LL_Transmit (pdev, MSC_EPIN_ADDR, buf, len);
   }
 /*}}}*/
@@ -733,7 +805,80 @@ static void MSC_BOT_CBW_Decode (USBD_HandleTypeDef* pdev) {
   }
 /*}}}*/
 /*{{{*/
-void MSC_BOT_Init (USBD_HandleTypeDef* pdev) {
+void MSC_BOT_DataOut (USBD_HandleTypeDef* pdev, uint8_t epnum) {
+
+  USBD_MSC_BOT_HandleTypeDef* hmsc = (USBD_MSC_BOT_HandleTypeDef*)pdev->pClassData;
+
+  switch (hmsc->bot_state) {
+    case USBD_BOT_IDLE:
+      MSC_BOT_CBW_Decode (pdev);
+      break;
+
+    case USBD_BOT_DATA_OUT:
+      if (SCSI_ProcessCmd (pdev, hmsc->cbw.bLUN, &hmsc->cbw.CB[0]) < 0)
+        MSC_BOT_SendCSW (pdev, USBD_CSW_CMD_FAILED);
+      break;
+
+    default:
+      break;
+    }
+  }
+/*}}}*/
+/*{{{*/
+void MSC_BOT_CplClrFeature (USBD_HandleTypeDef* pdev, uint8_t epnum) {
+
+  USBD_MSC_BOT_HandleTypeDef* hmsc = (USBD_MSC_BOT_HandleTypeDef*)pdev->pClassData;
+
+  if (hmsc->bot_status == USBD_BOT_STATUS_ERROR) {
+    /* Bad CBW Signature */
+    USBD_LL_StallEP (pdev, MSC_EPIN_ADDR);
+    hmsc->bot_status = USBD_BOT_STATUS_NORMAL;
+    }
+  else if (((epnum & 0x80) == 0x80) && (hmsc->bot_status != USBD_BOT_STATUS_RECOVERY))
+    MSC_BOT_SendCSW (pdev, USBD_CSW_CMD_FAILED);
+  }
+/*}}}*/
+
+// msc
+/*{{{*/
+uint8_t* USBD_MSC_GetHSCfgDesc (uint16_t* length) {
+
+  *length = sizeof (USBD_MSC_CfgHSDesc);
+  return (uint8_t*)USBD_MSC_CfgHSDesc;
+  }
+/*}}}*/
+/*{{{*/
+uint8_t* USBD_MSC_GetFSCfgDesc (uint16_t* length) {
+  *length = sizeof (USBD_MSC_CfgFSDesc);
+  return (uint8_t*)USBD_MSC_CfgFSDesc;
+  }
+/*}}}*/
+/*{{{*/
+uint8_t* USBD_MSC_GetOtherSpeedCfgDesc (uint16_t* length) {
+  *length = sizeof (USBD_MSC_OtherSpeedCfgDesc);
+  return (uint8_t*)USBD_MSC_OtherSpeedCfgDesc;
+  }
+/*}}}*/
+/*{{{*/
+uint8_t* USBD_MSC_GetDeviceQualifierDescriptor (uint16_t* length) {
+  *length = sizeof (USBD_MSC_DeviceQualifierDesc);
+  return (uint8_t*)USBD_MSC_DeviceQualifierDesc;
+  }
+/*}}}*/
+/*{{{*/
+uint8_t USBD_MSC_Init (USBD_HandleTypeDef* pdev, uint8_t cfgidx) {
+
+  if (pdev->dev_speed == USBD_SPEED_HIGH) {
+    USBD_LL_OpenEP (pdev, MSC_EPOUT_ADDR, USBD_EP_TYPE_BULK, MSC_MAX_HS_PACKET);
+    USBD_LL_OpenEP (pdev, MSC_EPIN_ADDR, USBD_EP_TYPE_BULK, MSC_MAX_HS_PACKET);
+    }
+  else {
+    USBD_LL_OpenEP (pdev, MSC_EPOUT_ADDR, USBD_EP_TYPE_BULK, MSC_MAX_FS_PACKET);
+    USBD_LL_OpenEP (pdev, MSC_EPIN_ADDR, USBD_EP_TYPE_BULK, MSC_MAX_FS_PACKET);
+    }
+
+  //pdev->pClassData = USBD_malloc (sizeof (USBD_MSC_BOT_HandleTypeDef));
+  pdev->pClassData = (void*)USB_BUFFER;
 
   USBD_MSC_BOT_HandleTypeDef* hmsc = (USBD_MSC_BOT_HandleTypeDef*)pdev->pClassData;
 
@@ -750,104 +895,8 @@ void MSC_BOT_Init (USBD_HandleTypeDef* pdev) {
 
   /* Prapare EP to Receive First BOT Cmd */
   USBD_LL_PrepareReceive (pdev, MSC_EPOUT_ADDR, (uint8_t*)&hmsc->cbw, USBD_BOT_CBW_LENGTH);
-  }
-/*}}}*/
-/*{{{*/
-void MSC_BOT_Reset (USBD_HandleTypeDef* pdev) {
 
-  USBD_MSC_BOT_HandleTypeDef* hmsc = (USBD_MSC_BOT_HandleTypeDef*)pdev->pClassData;
-
-  hmsc->bot_state = USBD_BOT_IDLE;
-  hmsc->bot_status = USBD_BOT_STATUS_RECOVERY;
-
-  /* Prapare EP to Receive First BOT Cmd */
-  USBD_LL_PrepareReceive (pdev, MSC_EPOUT_ADDR, (uint8_t*)&hmsc->cbw, USBD_BOT_CBW_LENGTH);
-  }
-/*}}}*/
-/*{{{*/
-void MSC_BOT_DeInit (USBD_HandleTypeDef* pdev) {
-  USBD_MSC_BOT_HandleTypeDef* hmsc = (USBD_MSC_BOT_HandleTypeDef*)pdev->pClassData;
-  hmsc->bot_state = USBD_BOT_IDLE;
-  }
-/*}}}*/
-/*{{{*/
-void MSC_BOT_DataIn (USBD_HandleTypeDef* pdev, uint8_t epnum) {
-
-  USBD_MSC_BOT_HandleTypeDef* hmsc = (USBD_MSC_BOT_HandleTypeDef*)pdev->pClassData;
-
-  switch (hmsc->bot_state) {
-    case USBD_BOT_DATA_IN:
-      if (SCSI_ProcessCmd (pdev, hmsc->cbw.bLUN, &hmsc->cbw.CB[0]) < 0)
-        MSC_BOT_SendCSW (pdev, USBD_CSW_CMD_FAILED);
-      break;
-
-    case USBD_BOT_SEND_DATA:
-    case USBD_BOT_LAST_DATA_IN:
-      MSC_BOT_SendCSW (pdev, USBD_CSW_CMD_PASSED);
-      break;
-
-    default:
-      break;
-    }
-  }
-/*}}}*/
-/*{{{*/
-void MSC_BOT_DataOut (USBD_HandleTypeDef* pdev, uint8_t epnum) {
-
-  USBD_MSC_BOT_HandleTypeDef* hmsc = (USBD_MSC_BOT_HandleTypeDef*)pdev->pClassData;
-
-  switch (hmsc->bot_state) {
-    case USBD_BOT_IDLE:
-      MSC_BOT_CBW_Decode(pdev);
-      break;
-
-    case USBD_BOT_DATA_OUT:
-      if (SCSI_ProcessCmd (pdev, hmsc->cbw.bLUN, &hmsc->cbw.CB[0]) < 0)
-        MSC_BOT_SendCSW (pdev, USBD_CSW_CMD_FAILED);
-      break;
-
-    default:
-      break;
-    }
-  }
-/*}}}*/
-/*{{{*/
-void  MSC_BOT_CplClrFeature (USBD_HandleTypeDef* pdev, uint8_t epnum) {
-
-  USBD_MSC_BOT_HandleTypeDef* hmsc = (USBD_MSC_BOT_HandleTypeDef*)pdev->pClassData;
-
-  if (hmsc->bot_status == USBD_BOT_STATUS_ERROR) {
-    /* Bad CBW Signature */
-    USBD_LL_StallEP (pdev, MSC_EPIN_ADDR);
-    hmsc->bot_status = USBD_BOT_STATUS_NORMAL;
-    }
-  else if (((epnum & 0x80) == 0x80) && (hmsc->bot_status != USBD_BOT_STATUS_RECOVERY))
-    MSC_BOT_SendCSW (pdev, USBD_CSW_CMD_FAILED);
-  }
-/*}}}*/
-
-// msc
-/*{{{*/
-uint8_t USBD_MSC_Init (USBD_HandleTypeDef* pdev, uint8_t cfgidx) {
-
-  int16_t ret = 0;
-
-  if (pdev->dev_speed == USBD_SPEED_HIGH) {
-    USBD_LL_OpenEP (pdev, MSC_EPOUT_ADDR, USBD_EP_TYPE_BULK, MSC_MAX_HS_PACKET);
-    USBD_LL_OpenEP (pdev, MSC_EPIN_ADDR, USBD_EP_TYPE_BULK, MSC_MAX_HS_PACKET);
-    }
-  else {
-    USBD_LL_OpenEP (pdev, MSC_EPOUT_ADDR, USBD_EP_TYPE_BULK, MSC_MAX_FS_PACKET);
-    USBD_LL_OpenEP (pdev, MSC_EPIN_ADDR, USBD_EP_TYPE_BULK, MSC_MAX_FS_PACKET);
-    }
-
-  //pdev->pClassData = USBD_malloc (sizeof (USBD_MSC_BOT_HandleTypeDef));
-  pdev->pClassData = USB_BUFFER;
-
-  /* Init the BOT  layer */
-  MSC_BOT_Init (pdev);
-
-  ret = 0;
+  return 0;
   }
 /*}}}*/
 /*{{{*/
@@ -855,7 +904,9 @@ uint8_t USBD_MSC_DeInit (USBD_HandleTypeDef* pdev, uint8_t cfgidx) {
 
   USBD_LL_CloseEP (pdev, MSC_EPOUT_ADDR);
   USBD_LL_CloseEP (pdev, MSC_EPIN_ADDR);
-  MSC_BOT_DeInit (pdev);
+
+  USBD_MSC_BOT_HandleTypeDef* hmsc = (USBD_MSC_BOT_HandleTypeDef*)pdev->pClassData;
+  hmsc->bot_state = USBD_BOT_IDLE;
 
   return 0;
   }
@@ -882,8 +933,12 @@ uint8_t USBD_MSC_Setup (USBD_HandleTypeDef* pdev, USBD_SetupReqTypedef *req) {
         /*}}}*/
         /*{{{*/
         case BOT_RESET :
-          if ((req->wValue  == 0) && (req->wLength == 0) && ((req->bmRequest & 0x80) != 0x80))
-             MSC_BOT_Reset (pdev);
+          if ((req->wValue  == 0) && (req->wLength == 0) && ((req->bmRequest & 0x80) != 0x80)) {
+             USBD_MSC_BOT_HandleTypeDef* hmsc = (USBD_MSC_BOT_HandleTypeDef*)pdev->pClassData;
+             hmsc->bot_state = USBD_BOT_IDLE;
+             hmsc->bot_status = USBD_BOT_STATUS_RECOVERY;
+             USBD_LL_PrepareReceive (pdev, MSC_EPOUT_ADDR, (uint8_t*)&hmsc->cbw, USBD_BOT_CBW_LENGTH);
+             }
           else {
             USBD_CtlError (pdev , req);
             return USBD_FAIL;
@@ -910,25 +965,25 @@ uint8_t USBD_MSC_Setup (USBD_HandleTypeDef* pdev, USBD_SetupReqTypedef *req) {
         /*}}}*/
         /*{{{*/
         case USB_REQ_CLEAR_FEATURE:
-          /* Flush the FIFO and Clear the stall status */
+          // Flush the FIFO and Clear the stall status
           USBD_LL_FlushEP (pdev, (uint8_t)req->wIndex);
 
-          /* Reactivate the EP */
+          // Reactivate the EP
           USBD_LL_CloseEP (pdev , (uint8_t)req->wIndex);
           if ((((uint8_t)req->wIndex) & 0x80) == 0x80) {
-            if (pdev->dev_speed == USBD_SPEED_HIGH) /* Open EP IN */
+            if (pdev->dev_speed == USBD_SPEED_HIGH)
               USBD_LL_OpenEP (pdev, MSC_EPIN_ADDR, USBD_EP_TYPE_BULK, MSC_MAX_HS_PACKET);
-            else /* Open EP IN */
+            else
               USBD_LL_OpenEP (pdev, MSC_EPIN_ADDR, USBD_EP_TYPE_BULK, MSC_MAX_FS_PACKET);
             }
           else {
-            if (pdev->dev_speed == USBD_SPEED_HIGH) /* Open EP IN */
+            if (pdev->dev_speed == USBD_SPEED_HIGH)
               USBD_LL_OpenEP (pdev, MSC_EPOUT_ADDR, USBD_EP_TYPE_BULK, MSC_MAX_HS_PACKET);
-            else /* Open EP IN */
+            else
               USBD_LL_OpenEP (pdev, MSC_EPOUT_ADDR, USBD_EP_TYPE_BULK, MSC_MAX_FS_PACKET);
             }
 
-          /* Handle BOT error */
+          // Handle BOT error
           MSC_BOT_CplClrFeature (pdev, (uint8_t)req->wIndex);
           break;
         /*}}}*/
@@ -942,10 +997,26 @@ uint8_t USBD_MSC_Setup (USBD_HandleTypeDef* pdev, USBD_SetupReqTypedef *req) {
   return 0;
   }
 /*}}}*/
-
 /*{{{*/
 uint8_t USBD_MSC_DataIn (USBD_HandleTypeDef* pdev, uint8_t epnum) {
-  MSC_BOT_DataIn (pdev , epnum);
+
+  USBD_MSC_BOT_HandleTypeDef* hmsc = (USBD_MSC_BOT_HandleTypeDef*)pdev->pClassData;
+
+  switch (hmsc->bot_state) {
+    case USBD_BOT_DATA_IN:
+      if (SCSI_ProcessCmd (pdev, hmsc->cbw.bLUN, &hmsc->cbw.CB[0]) < 0)
+        MSC_BOT_SendCSW (pdev, USBD_CSW_CMD_FAILED);
+      break;
+
+    case USBD_BOT_SEND_DATA:
+    case USBD_BOT_LAST_DATA_IN:
+      MSC_BOT_SendCSW (pdev, USBD_CSW_CMD_PASSED);
+      break;
+
+    default:
+      break;
+    }
+
   return 0;
   }
 /*}}}*/
@@ -955,40 +1026,12 @@ uint8_t USBD_MSC_DataOut (USBD_HandleTypeDef* pdev, uint8_t epnum) {
   return 0;
   }
 /*}}}*/
-
 /*{{{*/
-uint8_t* USBD_MSC_GetHSCfgDesc (uint16_t* length) {
-  *length = sizeof (USBD_MSC_CfgHSDesc);
-  return USBD_MSC_CfgHSDesc;
-  }
-/*}}}*/
-/*{{{*/
-uint8_t* USBD_MSC_GetFSCfgDesc (uint16_t* length) {
-  *length = sizeof (USBD_MSC_CfgFSDesc);
-  return USBD_MSC_CfgFSDesc;
-  }
-/*}}}*/
-/*{{{*/
-uint8_t* USBD_MSC_GetOtherSpeedCfgDesc (uint16_t* length) {
-  *length = sizeof (USBD_MSC_OtherSpeedCfgDesc);
-  return USBD_MSC_OtherSpeedCfgDesc;
-  }
-/*}}}*/
-/*{{{*/
-uint8_t* USBD_MSC_GetDeviceQualifierDescriptor (uint16_t* length) {
-  *length = sizeof (USBD_MSC_DeviceQualifierDesc);
-  return USBD_MSC_DeviceQualifierDesc;
+void USBD_MSC_RegisterStorage (USBD_HandleTypeDef* pdev, USBD_StorageTypeDef* fops) {
+  pdev->pUserData = fops;
   }
 /*}}}*/
 
-/*{{{*/
-uint8_t USBD_MSC_RegisterStorage (USBD_HandleTypeDef* pdev, USBD_StorageTypeDef* fops) {
-
-  if (fops != NULL)
-    pdev->pUserData = fops;
-  return 0;
-  }
-/*}}}*/
 /*{{{*/
 USBD_ClassTypeDef USBD_MSC = {
   USBD_MSC_Init,

@@ -24,7 +24,6 @@
 #include "usbd_core.h"
 #include "usbd_desc.h"
 #include "usbd_msc.h"
-//#include "usbd_storage.h"
 
 #ifdef STM32F746G_DISCO
   #include "stm32746g_discovery.h"
@@ -1103,7 +1102,7 @@ static void mainThread (void const* argument) {
   bool sdPresent = BSP_SD_IsDetected() == SD_PRESENT;
   if (sdPresent) {
     USBD_Init (&USBD_Device, &MSC_Desc, 0);
-    USBD_RegisterClass (&USBD_Device, USBD_MSC_CLASS);
+    USBD_RegisterClass (&USBD_Device, &USBD_MSC);
     USBD_MSC_RegisterStorage (&USBD_Device, &USBD_DISK_fops);
     USBD_Start (&USBD_Device);
     cLcd::debug ("USB ok");
