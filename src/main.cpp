@@ -69,7 +69,7 @@ static uint32_t sdCapacity = 0;
 static const uint8_t SD_Inquirydata[] = {
   0x00, // LUN 0
   0x80, 0x02, 0x02,
-  (STANDARD_INQUIRY_DATA_LEN - 5),
+  (24 - 5),
   0x00, 0x00, 0x00,
   'C', 'o', 'l', 'i', 'n', ' ', ' ', ' ',                                         // Manufacturer: 8 bytes
   'S', 'D', ' ', 'd', 'i', 's', 'k', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', // Product     : 16 Bytes

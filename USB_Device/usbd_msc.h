@@ -4,11 +4,7 @@
  extern "C" {
 #endif
 //}}}
-//{{{  includes
-#include  "usbd_msc_bot.h"
-#include  "usbd_msc_scsi.h"
 #include  "usbd_ioreq.h"
-//}}}
 
 #define MSC_MAX_FS_PACKET        0x40
 #define MSC_MAX_HS_PACKET        0x200
@@ -18,6 +14,22 @@
 #define MSC_EPIN_ADDR            0x81
 #define MSC_EPOUT_ADDR           0x01
 
+#define SENSE_LIST_DEEPTH  4
+
+//{{{  struct USBD_SCSI_SenseTypeDef
+typedef struct _SENSE_ITEM {
+  char Skey;
+  union {
+    struct _ASCs {
+      char ASC;
+      char ASCQ;
+      } b;
+    unsigned int  ASC;
+    char *pData;
+    } w;
+  } USBD_SCSI_SenseTypeDef;
+//}}}
+//{{{  struct USBD_StorageTypeDef
 typedef struct _USBD_STORAGE {
   int8_t (*Init) (uint8_t lun);
   int8_t (*GetCapacity) (uint8_t lun, uint32_t* block_num, uint16_t* block_size);
@@ -28,7 +40,29 @@ typedef struct _USBD_STORAGE {
   int8_t (*GetMaxLun)(void);
   int8_t *pInquiry;
   } USBD_StorageTypeDef;
-
+//}}}
+//{{{  struct USBD_MSC_BOT_CBWTypeDef
+typedef struct {
+  uint32_t dSignature;
+  uint32_t dTag;
+  uint32_t dDataLength;
+  uint8_t  bmFlags;
+  uint8_t  bLUN;
+  uint8_t  bCBLength;
+  uint8_t  CB[16];
+  uint8_t  ReservedForAlign;
+  } USBD_MSC_BOT_CBWTypeDef;
+//}}}
+//{{{  struct USBD_MSC_BOT_CSWTypeDef
+typedef struct {
+  uint32_t dSignature;
+  uint32_t dTag;
+  uint32_t dDataResidue;
+  uint8_t  bStatus;
+  uint8_t  ReservedForAlign[3];
+  } USBD_MSC_BOT_CSWTypeDef;
+//}}}
+//{{{  struct USBD_MSC_BOT_HandleTypeDef
 typedef struct {
   uint32_t                 max_lun;
   uint32_t                 interface;
@@ -49,6 +83,7 @@ typedef struct {
   uint32_t                 scsi_blk_addr;
   uint32_t                 scsi_blk_len;
   } USBD_MSC_BOT_HandleTypeDef;
+//}}}
 
 extern USBD_ClassTypeDef USBD_MSC;
 #define USBD_MSC_CLASS &USBD_MSC
