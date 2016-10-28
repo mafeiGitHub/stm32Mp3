@@ -57,6 +57,11 @@
 USBD_HandleTypeDef USBD_Device;
 
 //{{{  usb sd
+static uint32_t sdReads = 0;
+static uint32_t sdWrites = 0;
+static uint32_t sdReadBlock = 0;
+static uint32_t sdCapacity = 0;
+
 #define SD_BLK_SIZ 512
 //{{{
 static const uint8_t SD_Inquirydata [] = { // 36 bytes*/
@@ -87,6 +92,7 @@ static int8_t SD_GetCapacity (uint8_t lun, uint32_t* block_num, uint16_t* block_
     BSP_SD_GetCardInfo (&info);
     *block_num = (info.CardCapacity) / SD_BLK_SIZ - 1;
     *block_size = SD_BLK_SIZ;
+    sdCapacity = (info.CardCapacity / 1024) / 1024;
     return 0;
     }
 
@@ -98,8 +104,8 @@ static int8_t SD_GetCapacity (uint8_t lun, uint32_t* block_num, uint16_t* block_
 static int8_t SD_Read (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t blk_len) {
 
   if (BSP_SD_IsDetected() != SD_NOT_PRESENT) {
-    //cLcd::debug ("usb SD_Read " + cLcd::dec (blk_addr) + " " + cLcd::dec (blk_len));
-
+    sdReads++;
+    sdReadBlock = blk_addr;
     BSP_SD_ReadBlocks_DMA ((uint32_t*)buf, blk_addr * SD_BLK_SIZ, SD_BLK_SIZ, blk_len);
     SCB_InvalidateDCache_by_Addr ((uint32_t*)((uint32_t)buf & 0xFFFFFFE0), (blk_len * SD_BLK_SIZ) + 32);
     return 0;
@@ -112,6 +118,7 @@ static int8_t SD_Read (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t bl
 static int8_t SD_Write (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t blk_len) {
 
   if (BSP_SD_IsDetected() != SD_NOT_PRESENT) {
+    sdWrites++;
     BSP_SD_WriteBlocks_DMA ((uint32_t*)buf, blk_addr * SD_BLK_SIZ, SD_BLK_SIZ, blk_len);
     return 0;
     }
@@ -1183,6 +1190,10 @@ static void mainThread (void const* argument) {
     button ? mLcd->clear (COL_BLACK) : mRoot->render (mLcd);
     //if (tsState.touchDetected)
     //  mLcd->renderCursor (COL_MAGENTA, x[0], y[0], z[0] ? z[0] : cLcd::getHeight()/10);
+    std::string str = "sd " + cLcd::dec (sdReads) + "r " + cLcd::dec (sdReadBlock) + "rb "
+                            + cLcd::dec (sdWrites) + "w "
+                            + cLcd::dec (sdCapacity) + "cap";
+    mLcd->text (COL_YELLOW, cLcd::getFontHeight(), str, 0, 200, cLcd::getWidth(), cLcd::getLineHeight());
     mLcd->endRender (button);
 
     if (mVolumeChanged && (int(mVolume * 100) != mIntVolume)) {
