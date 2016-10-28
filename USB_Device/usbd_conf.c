@@ -14,7 +14,7 @@ void HAL_PCD_MspInit (PCD_HandleTypeDef *hpcd) {
 
   if (hpcd->Instance == USB_OTG_FS) {
     __HAL_RCC_GPIOA_CLK_ENABLE();
-    /*{{{  Configure DM DP Pins */
+    /*{{{  Configure DM DP Pins*/
     GPIO_InitStruct.Pin = (GPIO_PIN_11 | GPIO_PIN_12);
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
@@ -36,7 +36,7 @@ void HAL_PCD_MspInit (PCD_HandleTypeDef *hpcd) {
     __HAL_RCC_GPIOB_CLK_ENABLE();
     __HAL_RCC_GPIOC_CLK_ENABLE();
     __HAL_RCC_GPIOH_CLK_ENABLE();
-    /*{{{  CLK */
+    /*{{{  CLK*/
     GPIO_InitStruct.Pin = GPIO_PIN_5;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
@@ -44,7 +44,7 @@ void HAL_PCD_MspInit (PCD_HandleTypeDef *hpcd) {
     GPIO_InitStruct.Alternate = GPIO_AF10_OTG_HS;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
     /*}}}*/
-    /*{{{  D0 */
+    /*{{{  D0*/
     GPIO_InitStruct.Pin = GPIO_PIN_3;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
@@ -52,7 +52,7 @@ void HAL_PCD_MspInit (PCD_HandleTypeDef *hpcd) {
     GPIO_InitStruct.Alternate = GPIO_AF10_OTG_HS;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
     /*}}}*/
-    /*{{{  D1 D2 D3 D4 D5 D6 D7 */
+    /*{{{  D1 D2 D3 D4 D5 D6 D7*/
     GPIO_InitStruct.Pin = GPIO_PIN_0  | GPIO_PIN_1  | GPIO_PIN_5 |\
       GPIO_PIN_10 | GPIO_PIN_11 | GPIO_PIN_12 | GPIO_PIN_13;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
@@ -60,21 +60,21 @@ void HAL_PCD_MspInit (PCD_HandleTypeDef *hpcd) {
     GPIO_InitStruct.Alternate = GPIO_AF10_OTG_HS;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
     /*}}}*/
-    /*{{{  STP */
+    /*{{{  STP*/
     GPIO_InitStruct.Pin = GPIO_PIN_0;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Alternate = GPIO_AF10_OTG_HS;
     HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
     /*}}}*/
-    /*{{{  NXT */
+    /*{{{  NXT*/
     GPIO_InitStruct.Pin = GPIO_PIN_4;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Alternate = GPIO_AF10_OTG_HS;
     HAL_GPIO_Init(GPIOH, &GPIO_InitStruct);
     /*}}}*/
-    /*{{{  DIR */
+    /*{{{  DIR*/
     GPIO_InitStruct.Pin = GPIO_PIN_2;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
@@ -192,22 +192,23 @@ USBD_StatusTypeDef USBD_LL_Init (USBD_HandleTypeDef *pdev) {
 // Be aware that enabling DMA mode will result in data being sent only by multiple of 4 packet sizes.
 // This is due to the fact that USB DMA does not allow sending data from non word-aligned addresses.
 
-#ifdef USE_USB_FS
-  hpcd.Instance = USB_OTG_FS;
-  hpcd.Init.dev_endpoints = 4;
+  hpcd.pData = pdev;
+  pdev->pData = &hpcd;
   hpcd.Init.use_dedicated_ep1 = 0;
   hpcd.Init.ep0_mps = 0x40;
   hpcd.Init.dma_enable = 0;
   hpcd.Init.low_power_enable = 0;
-  hpcd.Init.phy_itface = PCD_PHY_EMBEDDED;
   hpcd.Init.Sof_enable = 0;
-  hpcd.Init.speed = PCD_SPEED_FULL;
-  hpcd.Init.vbus_sensing_enable = 0;
   hpcd.Init.lpm_enable = 0;
 
-  hpcd.pData = pdev;
-  pdev->pData = &hpcd;
+#ifdef USE_USB_FS
+  hpcd.Instance = USB_OTG_FS;
+  hpcd.Init.dev_endpoints = 4;
+  hpcd.Init.phy_itface = PCD_PHY_EMBEDDED;
+  hpcd.Init.speed = PCD_SPEED_FULL;
+  hpcd.Init.vbus_sensing_enable = 0;
   HAL_PCD_Init (&hpcd);
+
   HAL_PCDEx_SetRxFiFo (&hpcd, 0x80);
   HAL_PCDEx_SetTxFiFo (&hpcd, 0, 0x40);
   HAL_PCDEx_SetTxFiFo (&hpcd, 1, 0x80);
@@ -216,19 +217,11 @@ USBD_StatusTypeDef USBD_LL_Init (USBD_HandleTypeDef *pdev) {
 #ifdef USE_USB_HS
   hpcd.Instance = USB_OTG_HS;
   hpcd.Init.dev_endpoints = 6;
-  hpcd.Init.use_dedicated_ep1 = 0;
-  hpcd.Init.ep0_mps = 0x40;
-  hpcd.Init.dma_enable = 0;
-  hpcd.Init.low_power_enable = 0;
-  hpcd.Init.lpm_enable = 0;
   hpcd.Init.phy_itface = PCD_PHY_ULPI;
-  hpcd.Init.Sof_enable = 0;
   hpcd.Init.speed = PCD_SPEED_HIGH;
   hpcd.Init.vbus_sensing_enable = 1;
-
-  hpcd.pData = pdev;
-  pdev->pData = &hpcd;
   HAL_PCD_Init (&hpcd);
+
   HAL_PCDEx_SetRxFiFo (&hpcd, 0x200);
   HAL_PCDEx_SetTxFiFo (&hpcd, 0, 0x80);
   HAL_PCDEx_SetTxFiFo (&hpcd, 1, 0x174);

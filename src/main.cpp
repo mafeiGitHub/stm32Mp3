@@ -64,7 +64,7 @@ static uint32_t sdCapacity = 0;
 
 #define SD_BLK_SIZ 512
 //{{{
-static const uint8_t SD_Inquirydata[] = { 
+static const uint8_t SD_Inquirydata[] = {
   0x00, // LUN 0
   0x80, 0x02, 0x02,
   (STANDARD_INQUIRY_DATA_LEN - 5),
@@ -1098,14 +1098,14 @@ static void mainThread (void const* argument) {
   cLcd::debug ("mainThread");
 
   BSP_SD_Init();
-  USBD_Init (&USBD_Device, &MSC_Desc, 0);
-  USBD_RegisterClass (&USBD_Device, USBD_MSC_CLASS);
-  USBD_MSC_RegisterStorage (&USBD_Device, &USBD_DISK_fops);
-  USBD_Start (&USBD_Device);
-  cLcd::debug ("USB ok");
-
-  if (false) {
-    if (BSP_SD_IsDetected() == SD_PRESENT) {
+  bool sdPresent = BSP_SD_IsDetected() == SD_PRESENT;
+  if (sdPresent) {
+    USBD_Init (&USBD_Device, &MSC_Desc, 0);
+    USBD_RegisterClass (&USBD_Device, USBD_MSC_CLASS);
+    USBD_MSC_RegisterStorage (&USBD_Device, &USBD_DISK_fops);
+    USBD_Start (&USBD_Device);
+    cLcd::debug ("USB ok");
+    if (false) {
       //{{{  mp3 player
       mFrameOffsets = (int*)pvPortMalloc (60*60*40*sizeof(int));
       mWave = (uint8_t*)pvPortMalloc (60*60*40*2*sizeof(uint8_t));  // 1 hour of 40 mp3 frames per sec
@@ -1124,20 +1124,20 @@ static void mainThread (void const* argument) {
       osThreadCreate (&osThreadWave, NULL);
       }
       //}}}
-    else {
-      //{{{  hls aac player
-      mHlsLoader = new cHlsLoader();
-      osSemaphoreDef (hlsLoader);
-      mHlsLoaderSem = osSemaphoreCreate (osSemaphore (hlsLoader), -1);
-
-      mRoot->addBottomLeft (new cPowerWidget (mHlsLoader, mRoot->getWidth(), mRoot->getHeight()));
-
-      const osThreadDef_t osThreadNet =  { (char*)"Net", netThread, osPriorityNormal, 0, 1024 };
-      osThreadCreate (&osThreadNet, NULL);
-      }
-      //}}}
-    mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, cWidget::getBoxHeight()*2, mRoot->getHeight()));
     }
+  else {
+    //{{{  hls aac player
+    mHlsLoader = new cHlsLoader();
+    osSemaphoreDef (hlsLoader);
+    mHlsLoaderSem = osSemaphoreCreate (osSemaphore (hlsLoader), -1);
+
+    mRoot->addBottomLeft (new cPowerWidget (mHlsLoader, mRoot->getWidth(), mRoot->getHeight()));
+
+    const osThreadDef_t osThreadNet =  { (char*)"Net", netThread, osPriorityNormal, 0, 1024 };
+    osThreadCreate (&osThreadNet, NULL);
+    }
+    //}}}
+  mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, cWidget::getBoxHeight()*2, mRoot->getHeight()));
 
   //{{{  init vars
   bool button = false;
