@@ -1013,38 +1013,46 @@ static void mainThread (void const* argument) {
   cLcd::debug ("mainThread");
 
   BSP_SD_Init();
-  if (BSP_SD_IsDetected() == SD_PRESENT) {
-    //{{{  mp3 player
-    mFrameOffsets = (int*)pvPortMalloc (60*60*40*sizeof(int));
-    mWave = (uint8_t*)pvPortMalloc (60*60*40*2*sizeof(uint8_t));  // 1 hour of 40 mp3 frames per sec
-    mWave[0] = 0;
-    mWaveLoadFrame = 0;
+  USBD_Init (&USBD_Device, &MSC_Desc, 0);
+  USBD_RegisterClass (&USBD_Device, USBD_MSC_CLASS);
+  USBD_MSC_RegisterStorage (&USBD_Device, &USBD_DISK_fops);
+  USBD_Start (&USBD_Device);
+  cLcd::debug ("USB ok");
 
-    mRoot->addTopLeft (new cListWidget (mMp3Files, fileIndex, fileIndexChanged,
-                                        mRoot->getWidth(), mRoot->getHeight()-2*mRoot->getHeight()/5));
-    mRoot->addBottomLeft (new cWaveLensWidget (mWave, mPlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
-                                               mRoot->getWidth(), mRoot->getHeight()/5));
-    mRoot->addNextAbove (new cWaveCentreWidget (mWave, mPlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
-                                                mRoot->getWidth(), mRoot->getHeight()/5));
-    const osThreadDef_t osThreadPlay =  { (char*)"Play", mp3PlayThread, osPriorityNormal, 0, 8192 };
-    osThreadCreate (&osThreadPlay, NULL);
-    const osThreadDef_t osThreadWave =  { (char*)"Wave", waveThread, osPriorityNormal, 0, 8192 };
-    osThreadCreate (&osThreadWave, NULL);
+  if (false) {
+    if (BSP_SD_IsDetected() == SD_PRESENT) {
+      //{{{  mp3 player
+      mFrameOffsets = (int*)pvPortMalloc (60*60*40*sizeof(int));
+      mWave = (uint8_t*)pvPortMalloc (60*60*40*2*sizeof(uint8_t));  // 1 hour of 40 mp3 frames per sec
+      mWave[0] = 0;
+      mWaveLoadFrame = 0;
+
+      mRoot->addTopLeft (new cListWidget (mMp3Files, fileIndex, fileIndexChanged,
+                                          mRoot->getWidth(), mRoot->getHeight()-2*mRoot->getHeight()/5));
+      mRoot->addBottomLeft (new cWaveLensWidget (mWave, mPlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
+                                                 mRoot->getWidth(), mRoot->getHeight()/5));
+      mRoot->addNextAbove (new cWaveCentreWidget (mWave, mPlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
+                                                  mRoot->getWidth(), mRoot->getHeight()/5));
+      const osThreadDef_t osThreadPlay =  { (char*)"Play", mp3PlayThread, osPriorityNormal, 0, 8192 };
+      osThreadCreate (&osThreadPlay, NULL);
+      const osThreadDef_t osThreadWave =  { (char*)"Wave", waveThread, osPriorityNormal, 0, 8192 };
+      osThreadCreate (&osThreadWave, NULL);
+      }
+      //}}}
+    else {
+      //{{{  hls aac player
+      mHlsLoader = new cHlsLoader();
+      osSemaphoreDef (hlsLoader);
+      mHlsLoaderSem = osSemaphoreCreate (osSemaphore (hlsLoader), -1);
+
+      mRoot->addBottomLeft (new cPowerWidget (mHlsLoader, mRoot->getWidth(), mRoot->getHeight()));
+
+      const osThreadDef_t osThreadNet =  { (char*)"Net", netThread, osPriorityNormal, 0, 1024 };
+      osThreadCreate (&osThreadNet, NULL);
+      }
+      //}}}
+    mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, cWidget::getBoxHeight()*2, mRoot->getHeight()));
     }
-    //}}}
-  else {
-    //{{{  hls aac player
-    mHlsLoader = new cHlsLoader();
-    osSemaphoreDef (hlsLoader);
-    mHlsLoaderSem = osSemaphoreCreate (osSemaphore (hlsLoader), -1);
-
-    mRoot->addBottomLeft (new cPowerWidget (mHlsLoader, mRoot->getWidth(), mRoot->getHeight()));
-
-    const osThreadDef_t osThreadNet =  { (char*)"Net", netThread, osPriorityNormal, 0, 1024 };
-    osThreadCreate (&osThreadNet, NULL);
-    }
-    //}}}
-  mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, cWidget::getBoxHeight()*2, mRoot->getHeight()));
 
   //{{{  init vars
   bool button = false;
@@ -1202,18 +1210,15 @@ static void initClock() {
 //{{{
 int main() {
 
-  // init system
   SCB_EnableICache();
   SCB_EnableDCache();
   HAL_Init();
   initMpuRegions();
   initClock();
 
-  // init freeRTOS heap_5c
   HeapRegion_t xHeapRegions[] = { {(uint8_t*)SDRAM_HEAP, SDRAM_HEAP_SIZE }, { nullptr, 0 } };
   vPortDefineHeapRegions (xHeapRegions);
 
-  // init buttons, leds
   BSP_LED_Init (LED1);
   #ifdef STM32F769I_DISCO
     BSP_LED_Init (LED2);
@@ -1221,11 +1226,9 @@ int main() {
   #endif
   BSP_PB_Init (BUTTON_WAKEUP, BUTTON_MODE_GPIO);
 
-  // init lcd, root widget
-  mLcd = cLcd::create ("Player built at " + std::string(__TIME__) + " on " + std::string(__DATE__));
+  mLcd = cLcd::create ("Player built at " + std::string(__TIME__) + " on " + std::string(__DATE__), true);
   mRoot = new cRootContainer (cLcd::getWidth(), cLcd::getHeight());
 
-  // init audio play semaphore
   osSemaphoreDef (aud);
   mAudSem = osSemaphoreCreate (osSemaphore (aud), -1);
 
@@ -1234,12 +1237,6 @@ int main() {
   osThreadCreate (&osMainThread, NULL);
 
   osKernelStart();
-
-  //USBD_Init (&USBD_Device, &MSC_Desc, 0);
-  //USBD_RegisterClass (&USBD_Device, USBD_MSC_CLASS);
-  //USBD_MSC_RegisterStorage (&USBD_Device, &USBD_DISK_fops);
-  //USBD_Start (&USBD_Device);
-  //while (true) {}
 
   return 0;
   }

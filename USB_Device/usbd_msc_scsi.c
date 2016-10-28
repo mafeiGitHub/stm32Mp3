@@ -39,8 +39,8 @@ static int8_t SCSI_ProcessRead (USBD_HandleTypeDef* pdev, uint8_t lun) {
 
   len = MIN(hmsc->scsi_blk_len , MSC_MEDIA_PACKET);
 
-  if (((USBD_StorageTypeDef *)pdev->pUserData)->Read (lun , hmsc->bot_data, 
-                                                      hmsc->scsi_blk_addr / hmsc->scsi_blk_size, len / hmsc->scsi_blk_size) < 0) {
+  if (((USBD_StorageTypeDef*)pdev->pUserData)->Read (lun, hmsc->bot_data, hmsc->scsi_blk_addr / hmsc->scsi_blk_size, 
+                                                     len / hmsc->scsi_blk_size) < 0) {
     SCSI_SenseCode (pdev, lun, HARDWARE_ERROR, UNRECOVERED_READ_ERROR);
     return -1;
     }

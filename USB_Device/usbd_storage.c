@@ -3,13 +3,14 @@
 #include "usbd_storage.h"
 #include "stm32746g_discovery_sd.h"
 /*}}}*/
+
 #define STORAGE_LUN_NBR 1
 #define STORAGE_BLK_NBR 0x10000
 #define STORAGE_BLK_SIZ 0x200
 
 /*{{{*/
 int8_t STORAGE_Init (uint8_t lun) {
-  BSP_SD_Init();
+  //BSP_SD_Init();
   return 0;
   }
 /*}}}*/
@@ -55,8 +56,10 @@ int8_t STORAGE_Read (uint8_t lun, uint8_t *buf, uint32_t blk_addr, uint16_t blk_
 
   if (BSP_SD_IsDetected() != SD_NOT_PRESENT) {
     BSP_SD_ReadBlocks_DMA ((uint32_t*)buf, blk_addr * STORAGE_BLK_SIZ, STORAGE_BLK_SIZ, blk_len);
+    SCB_InvalidateDCache_by_Addr ((uint32_t*)((uint32_t)buf & 0xFFFFFFE0), (blk_len * STORAGE_BLK_SIZ) + 32);
     return 0;
     }
+
   return -1;
   }
 /*}}}*/

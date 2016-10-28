@@ -20,6 +20,7 @@
 #define HAL_DSI_MODULE_ENABLED
 #define HAL_JPEG_MODULE_ENABLED
 #define HAL_PCD_MODULE_ENABLED
+#define HAL_QSPI_MODULE_ENABLED
 
 //#define HAL_TIMEOUT_ENABLED          1
 #define HAL_ACCURATE_TIMEOUT_ENABLED   0
@@ -131,6 +132,7 @@
 #include "stm32f7xx_hal_dsi.h"
 #include "stm32f7xx_hal_jpeg.h"
 #include "stm32f7xx_hal_pcd.h"
+#include "stm32f7xx_hal_qspi.h"
 
 //{{{
 #ifdef  USE_FULL_ASSERT
