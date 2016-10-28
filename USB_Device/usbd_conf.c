@@ -196,6 +196,7 @@ USBD_StatusTypeDef USBD_LL_Init (USBD_HandleTypeDef* pdev) {
 
   hpcd.pData = pdev;
   pdev->pData = &hpcd;
+
   hpcd.Init.use_dedicated_ep1 = 0;
   hpcd.Init.ep0_mps = 0x40;
   hpcd.Init.dma_enable = 0;

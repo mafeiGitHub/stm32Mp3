@@ -150,43 +150,28 @@ uint8_t USBD_MSC_Init (USBD_HandleTypeDef* pdev, uint8_t cfgidx) {
   int16_t ret = 0;
 
   if (pdev->dev_speed == USBD_SPEED_HIGH) {
-    /* Open EP OUT */
     USBD_LL_OpenEP (pdev, MSC_EPOUT_ADDR, USBD_EP_TYPE_BULK, MSC_MAX_HS_PACKET);
-
-    /* Open EP IN */
     USBD_LL_OpenEP (pdev, MSC_EPIN_ADDR, USBD_EP_TYPE_BULK, MSC_MAX_HS_PACKET);
     }
   else {
-    /* Open EP OUT */
     USBD_LL_OpenEP (pdev, MSC_EPOUT_ADDR, USBD_EP_TYPE_BULK, MSC_MAX_FS_PACKET);
-
-    /* Open EP IN */
     USBD_LL_OpenEP (pdev, MSC_EPIN_ADDR, USBD_EP_TYPE_BULK, MSC_MAX_FS_PACKET);
     }
+
   //pdev->pClassData = USBD_malloc (sizeof (USBD_MSC_BOT_HandleTypeDef));
   pdev->pClassData = USB_BUFFER;
 
-  if(pdev->pClassData == NULL)
-    ret = 1;
-  else {
-    /* Init the BOT  layer */
-    MSC_BOT_Init(pdev);
-    ret = 0;
-    }
+  /* Init the BOT  layer */
+  MSC_BOT_Init (pdev);
 
-  return ret;
+  ret = 0;
   }
 /*}}}*/
 /*{{{*/
 uint8_t USBD_MSC_DeInit (USBD_HandleTypeDef* pdev, uint8_t cfgidx) {
 
-  /* Close MSC EPs */
   USBD_LL_CloseEP (pdev, MSC_EPOUT_ADDR);
-
-  /* Open EP IN */
   USBD_LL_CloseEP (pdev, MSC_EPIN_ADDR);
-
-  /* De-Init the BOT layer */
   MSC_BOT_DeInit (pdev);
 
   return 0;
