@@ -37,7 +37,7 @@ USBD_StatusTypeDef USBD_DeInit (USBD_HandleTypeDef* pdev) {
   /* Free Class Resources */
   pdev->pClass->DeInit (pdev, pdev->dev_config);
 
-    /* Stop the low level driver  */
+  /* Stop the low level driver  */
   USBD_LL_Stop (pdev);
 
   /* Initialize low level driver */
@@ -50,14 +50,14 @@ USBD_StatusTypeDef USBD_DeInit (USBD_HandleTypeDef* pdev) {
 /*{{{*/
 USBD_StatusTypeDef USBD_RegisterClass (USBD_HandleTypeDef* pdev, USBD_ClassTypeDef* pclass) {
 
-  USBD_StatusTypeDef   status = USBD_OK;
+  USBD_StatusTypeDef status = USBD_OK;
   if (pclass != 0) {
     /* link the class to the USB Device handle */
     pdev->pClass = pclass;
     status = USBD_OK;
     }
   else {
-    USBD_ErrLog("Invalid Class handle");
+    USBD_ErrLog ("Invalid Class handle");
     status = USBD_FAIL;
     }
 
@@ -83,7 +83,6 @@ USBD_StatusTypeDef USBD_Stop (USBD_HandleTypeDef* pdev) {
   return USBD_OK;
   }
 /*}}}*/
-
 USBD_StatusTypeDef USBD_RunTestMode (USBD_HandleTypeDef* pdev) { return USBD_OK; }
 
 /*{{{*/

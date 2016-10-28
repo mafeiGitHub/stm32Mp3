@@ -113,6 +113,7 @@ void HAL_PCD_MspDeInit (PCD_HandleTypeDef* hpcd) {
   }
 /*}}}*/
 
+// HAL callbacks
 /*{{{*/
 void HAL_PCD_SetupStageCallback (PCD_HandleTypeDef* hpcd) {
   USBD_LL_SetupStage (hpcd->pData, (uint8_t*)hpcd->Setup);
@@ -189,6 +190,7 @@ void HAL_PCD_DisconnectCallback (PCD_HandleTypeDef* hpcd) {
   }
 /*}}}*/
 
+// HAL calls
 /*{{{*/
 USBD_StatusTypeDef USBD_LL_Init (USBD_HandleTypeDef* pdev) {
 // Be aware that enabling DMA mode will result in data being sent only by multiple of 4 packet sizes.
