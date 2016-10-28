@@ -1,5 +1,6 @@
 // usbd_msc.c
 #include "usbd_msc.h"
+#include "memory.h"
 
 /*{{{*/
 __ALIGN_BEGIN uint8_t USBD_MSC_CfgHSDesc[USB_MSC_CONFIG_DESC_SIZ] __ALIGN_END = {
@@ -162,7 +163,8 @@ uint8_t USBD_MSC_Init (USBD_HandleTypeDef* pdev, uint8_t cfgidx) {
     /* Open EP IN */
     USBD_LL_OpenEP (pdev, MSC_EPIN_ADDR, USBD_EP_TYPE_BULK, MSC_MAX_FS_PACKET);
     }
-  pdev->pClassData = USBD_malloc (sizeof (USBD_MSC_BOT_HandleTypeDef));
+  //pdev->pClassData = USBD_malloc (sizeof (USBD_MSC_BOT_HandleTypeDef));
+  pdev->pClassData = USB_BUFFER;
 
   if(pdev->pClassData == NULL)
     ret = 1;
@@ -186,12 +188,6 @@ uint8_t USBD_MSC_DeInit (USBD_HandleTypeDef* pdev, uint8_t cfgidx) {
 
   /* De-Init the BOT layer */
   MSC_BOT_DeInit (pdev);
-
-  /* Free MSC Class Resources */
-  if(pdev->pClassData != NULL) {
-    USBD_free (pdev->pClassData);
-    pdev->pClassData  = NULL;
-    }
 
   return 0;
   }

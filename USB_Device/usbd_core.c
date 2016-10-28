@@ -138,7 +138,7 @@ USBD_StatusTypeDef USBD_LL_SetupStage (USBD_HandleTypeDef* pdev, uint8_t* psetup
   }
 /*}}}*/
 /*{{{*/
-USBD_StatusTypeDef USBD_LL_DataOutStage (USBD_HandleTypeDef* pdev , uint8_t epnum, uint8_t* pdata) {
+USBD_StatusTypeDef USBD_LL_DataOutStage (USBD_HandleTypeDef* pdev, uint8_t epnum, uint8_t* pdata) {
 
   USBD_EndpointTypeDef* pep;
 
@@ -164,7 +164,7 @@ USBD_StatusTypeDef USBD_LL_DataOutStage (USBD_HandleTypeDef* pdev , uint8_t epnu
   }
 /*}}}*/
 /*{{{*/
-USBD_StatusTypeDef USBD_LL_DataInStage (USBD_HandleTypeDef* pdev ,uint8_t epnum, uint8_t* pdata) {
+USBD_StatusTypeDef USBD_LL_DataInStage (USBD_HandleTypeDef* pdev,uint8_t epnum, uint8_t* pdata) {
 
   USBD_EndpointTypeDef* pep;
 
@@ -180,7 +180,7 @@ USBD_StatusTypeDef USBD_LL_DataInStage (USBD_HandleTypeDef* pdev ,uint8_t epnum,
         }
       else {
         /* last packet is MPS multiple, so send ZLP packet */
-        if ((pep->total_length % pep->maxpacket == 0) && 
+        if ((pep->total_length % pep->maxpacket == 0) &&
             (pep->total_length >= pep->maxpacket) &&
             (pep->total_length < pdev->ep0_data_len )) {
           USBD_CtlContinueSendData (pdev , NULL, 0);

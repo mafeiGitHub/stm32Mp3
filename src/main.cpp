@@ -55,6 +55,8 @@
 #include "widgets/cWaveLensWidget.h"
 //}}}
 USBD_HandleTypeDef USBD_Device;
+extern uint32_t rdAlign;
+extern uint32_t wrAlign;
 
 //{{{  usb sd
 static uint32_t sdReads = 0;
@@ -1192,6 +1194,8 @@ static void mainThread (void const* argument) {
     //  mLcd->renderCursor (COL_MAGENTA, x[0], y[0], z[0] ? z[0] : cLcd::getHeight()/10);
     std::string str = "sd " + cLcd::dec (sdReads) + "r " + cLcd::dec (sdReadBlock) + "rb "
                             + cLcd::dec (sdWrites) + "w "
+                            //+ cLcd::dec (rdAlign) + "ra "
+                            //+ cLcd::dec (wrAlign) + "wa "
                             + cLcd::dec (sdCapacity) + "cap";
     mLcd->text (COL_YELLOW, cLcd::getFontHeight(), str, 0, 200, cLcd::getWidth(), cLcd::getLineHeight());
     mLcd->endRender (button);

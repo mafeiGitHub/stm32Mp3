@@ -15,11 +15,6 @@
 
 #define MSC_MEDIA_PACKET                      512
 
-#define USBD_malloc               malloc
-#define USBD_free                 free
-#define USBD_memset               memset
-#define USBD_memcpy               memcpy
-
 #if (USBD_DEBUG_LEVEL > 0)
   #define  USBD_UsrLog(...)   printf(__VA_ARGS__);\
                               printf("\n");

@@ -15,10 +15,10 @@ void MSC_BOT_SendCSW (USBD_HandleTypeDef* pdev, uint8_t CSW_Status) {
   hmsc->csw.bStatus = CSW_Status;
   hmsc->bot_state = USBD_BOT_IDLE;
 
-  USBD_LL_Transmit (pdev, MSC_EPIN_ADDR, (uint8_t *)&hmsc->csw, USBD_BOT_CSW_LENGTH);
+  USBD_LL_Transmit (pdev, MSC_EPIN_ADDR, (uint8_t*)&hmsc->csw, USBD_BOT_CSW_LENGTH);
 
   /* Prepare EP to Receive next Cmd */
-  USBD_LL_PrepareReceive (pdev, MSC_EPOUT_ADDR, (uint8_t *)&hmsc->cbw, USBD_BOT_CBW_LENGTH);
+  USBD_LL_PrepareReceive (pdev, MSC_EPOUT_ADDR, (uint8_t*)&hmsc->cbw, USBD_BOT_CBW_LENGTH);
   }
 /*}}}*/
 
@@ -32,7 +32,7 @@ static void MSC_BOT_Abort (USBD_HandleTypeDef* pdev) {
   USBD_LL_StallEP(pdev, MSC_EPIN_ADDR);
 
   if(hmsc->bot_status == USBD_BOT_STATUS_ERROR)
-    USBD_LL_PrepareReceive (pdev, MSC_EPOUT_ADDR, (uint8_t *)&hmsc->cbw, USBD_BOT_CBW_LENGTH);
+    USBD_LL_PrepareReceive (pdev, MSC_EPOUT_ADDR, (uint8_t*)&hmsc->cbw, USBD_BOT_CBW_LENGTH);
   }
 /*}}}*/
 /*{{{*/
