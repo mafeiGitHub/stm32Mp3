@@ -24,7 +24,7 @@
 #include "usbd_core.h"
 #include "usbd_desc.h"
 #include "usbd_msc.h"
-#include "usbd_storage.h"
+//#include "usbd_storage.h"
 
 #ifdef STM32F746G_DISCO
   #include "stm32746g_discovery.h"
@@ -55,6 +55,84 @@
 #include "widgets/cWaveLensWidget.h"
 //}}}
 USBD_HandleTypeDef USBD_Device;
+
+//{{{  usb sd
+#define SD_BLK_SIZ 512
+//{{{
+static const uint8_t SD_Inquirydata [] = { // 36 bytes*/
+  0x00, // LUN 0
+  0x80, 0x02, 0x02,
+  (STANDARD_INQUIRY_DATA_LEN - 5),
+  0x00, 0x00, 0x00,
+  'C', 'o', 'l', 'i', 'n', ' ', ' ', ' ',                                         // Manufacturer: 8 bytes
+  'S', 'D', ' ', 'd', 'i', 's', 'k', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', // Product     : 16 Bytes
+  '0', '.', '9','9',                                                              // Version     : 4 Bytes
+  };
+//}}}
+
+static int8_t SD_Init (uint8_t lun) { return 0; }
+static int8_t SD_GetMaxLun() { return 0; }
+static int8_t SD_IsWriteProtected (uint8_t lun) { return 0; }
+
+//{{{
+static int8_t SD_IsReady (uint8_t lun) {
+  return ((BSP_SD_IsDetected() != SD_NOT_PRESENT) && (BSP_SD_GetStatus() == SD_TRANSFER_OK)) ? 0 : -1;
+  }
+//}}}
+//{{{
+static int8_t SD_GetCapacity (uint8_t lun, uint32_t* block_num, uint16_t* block_size) {
+
+  if (BSP_SD_IsDetected() != SD_NOT_PRESENT) {
+    HAL_SD_CardInfoTypedef info;
+    BSP_SD_GetCardInfo (&info);
+    *block_num = (info.CardCapacity) / SD_BLK_SIZ - 1;
+    *block_size = SD_BLK_SIZ;
+    return 0;
+    }
+
+  return -1;
+  }
+//}}}
+
+//{{{
+static int8_t SD_Read (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t blk_len) {
+
+  if (BSP_SD_IsDetected() != SD_NOT_PRESENT) {
+    //cLcd::debug ("usb SD_Read " + cLcd::dec (blk_addr) + " " + cLcd::dec (blk_len));
+
+    BSP_SD_ReadBlocks_DMA ((uint32_t*)buf, blk_addr * SD_BLK_SIZ, SD_BLK_SIZ, blk_len);
+    SCB_InvalidateDCache_by_Addr ((uint32_t*)((uint32_t)buf & 0xFFFFFFE0), (blk_len * SD_BLK_SIZ) + 32);
+    return 0;
+    }
+
+  return -1;
+  }
+//}}}
+//{{{
+static int8_t SD_Write (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t blk_len) {
+
+  if (BSP_SD_IsDetected() != SD_NOT_PRESENT) {
+    BSP_SD_WriteBlocks_DMA ((uint32_t*)buf, blk_addr * SD_BLK_SIZ, SD_BLK_SIZ, blk_len);
+    return 0;
+    }
+
+  return -1;
+  }
+//}}}
+
+//{{{
+static USBD_StorageTypeDef USBD_DISK_fops = {
+  SD_Init,
+  SD_GetCapacity,
+  SD_IsReady,
+  SD_IsWriteProtected,
+  SD_Read,
+  SD_Write,
+  SD_GetMaxLun,
+  (int8_t*)SD_Inquirydata,
+  };
+//}}}
+//}}}
 
 //{{{
 class cHlsChan {

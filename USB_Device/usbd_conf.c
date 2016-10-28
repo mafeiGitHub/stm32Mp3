@@ -3,7 +3,6 @@
 #include "usbd_core.h"
 #include "usbd_desc.h"
 #include "usbd_msc.h"
-#include "usbd_storage.h"
 /*}}}*/
 
 PCD_HandleTypeDef hpcd;

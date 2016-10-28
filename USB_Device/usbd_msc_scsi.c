@@ -3,7 +3,15 @@
 #include "usbd_msc_bot.h"
 #include "usbd_msc_scsi.h"
 #include "usbd_msc.h"
-#include "usbd_msc_data.h"
+/*}}}*/
+/*{{{  const*/
+#define MODE_SENSE6_LEN  8
+#define MODE_SENSE10_LEN 8
+#define LENGTH_INQUIRY_PAGE00  7
+#define LENGTH_FORMAT_CAPACITIES  20
+static const uint8_t MSC_Mode_Sense6_data[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+static const uint8_t MSC_Mode_Sense10_data[] = { 0x00, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+static const uint8_t MSC_Page00_Inquiry_Data[] = { 0x00, 0x00, 0x00, (LENGTH_INQUIRY_PAGE00 - 4), 0x00, 0x80, 0x83 };
 /*}}}*/
 
 /*{{{*/
@@ -39,7 +47,7 @@ static int8_t SCSI_ProcessRead (USBD_HandleTypeDef* pdev, uint8_t lun) {
 
   len = MIN(hmsc->scsi_blk_len , MSC_MEDIA_PACKET);
 
-  if (((USBD_StorageTypeDef*)pdev->pUserData)->Read (lun, hmsc->bot_data, hmsc->scsi_blk_addr / hmsc->scsi_blk_size, 
+  if (((USBD_StorageTypeDef*)pdev->pUserData)->Read (lun, hmsc->bot_data, hmsc->scsi_blk_addr / hmsc->scsi_blk_size,
                                                      len / hmsc->scsi_blk_size) < 0) {
     SCSI_SenseCode (pdev, lun, HARDWARE_ERROR, UNRECOVERED_READ_ERROR);
     return -1;
