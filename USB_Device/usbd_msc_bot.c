@@ -7,9 +7,9 @@
 /*}}}*/
 
 /*{{{*/
-void  MSC_BOT_SendCSW (USBD_HandleTypeDef* pdev, uint8_t CSW_Status) {
+void MSC_BOT_SendCSW (USBD_HandleTypeDef* pdev, uint8_t CSW_Status) {
 
-  USBD_MSC_BOT_HandleTypeDef  *hmsc = (USBD_MSC_BOT_HandleTypeDef*)pdev->pClassData;
+  USBD_MSC_BOT_HandleTypeDef* hmsc = (USBD_MSC_BOT_HandleTypeDef*)pdev->pClassData;
 
   hmsc->csw.dSignature = USBD_BOT_CSW_SIGNATURE;
   hmsc->csw.bStatus = CSW_Status;
@@ -25,7 +25,7 @@ void  MSC_BOT_SendCSW (USBD_HandleTypeDef* pdev, uint8_t CSW_Status) {
 /*{{{*/
 static void MSC_BOT_Abort (USBD_HandleTypeDef* pdev) {
 
-  USBD_MSC_BOT_HandleTypeDef  *hmsc = (USBD_MSC_BOT_HandleTypeDef*)pdev->pClassData;
+  USBD_MSC_BOT_HandleTypeDef* hmsc = (USBD_MSC_BOT_HandleTypeDef*)pdev->pClassData;
 
   if ((hmsc->cbw.bmFlags == 0) && (hmsc->cbw.dDataLength != 0) && (hmsc->bot_status == USBD_BOT_STATUS_NORMAL) )
     USBD_LL_StallEP(pdev, MSC_EPOUT_ADDR );
@@ -38,7 +38,7 @@ static void MSC_BOT_Abort (USBD_HandleTypeDef* pdev) {
 /*{{{*/
 static void MSC_BOT_SendData (USBD_HandleTypeDef* pdev, uint8_t* buf, uint16_t len) {
 
-  USBD_MSC_BOT_HandleTypeDef  *hmsc = (USBD_MSC_BOT_HandleTypeDef*)pdev->pClassData;
+  USBD_MSC_BOT_HandleTypeDef* hmsc = (USBD_MSC_BOT_HandleTypeDef*)pdev->pClassData;
 
   len = MIN (hmsc->cbw.dDataLength, len);
   hmsc->csw.dDataResidue -= len;
@@ -63,6 +63,7 @@ static void MSC_BOT_CBW_Decode (USBD_HandleTypeDef* pdev) {
     hmsc->bot_status = USBD_BOT_STATUS_ERROR;
     MSC_BOT_Abort(pdev);
     }
+
   else {
     if (SCSI_ProcessCmd (pdev, hmsc->cbw.bLUN, &hmsc->cbw.CB[0]) < 0) {
       if (hmsc->bot_state == USBD_BOT_NO_DATA)

@@ -2,7 +2,7 @@
 #include "usbd_msc.h"
 
 /*{{{*/
-__ALIGN_BEGIN uint8_t USBD_MSC_CfgHSDesc[USB_MSC_CONFIG_DESC_SIZ]  __ALIGN_END = {
+__ALIGN_BEGIN uint8_t USBD_MSC_CfgHSDesc[USB_MSC_CONFIG_DESC_SIZ] __ALIGN_END = {
   0x09,   /* bLength: Configuation Descriptor size */
   USB_DESC_TYPE_CONFIGURATION,   /* bDescriptorType: Configuration */
   USB_MSC_CONFIG_DESC_SIZ,
@@ -24,6 +24,7 @@ __ALIGN_BEGIN uint8_t USBD_MSC_CfgHSDesc[USB_MSC_CONFIG_DESC_SIZ]  __ALIGN_END =
   0x06,   /* bInterfaceSubClass : SCSI transparent*/
   0x50,   /* nInterfaceProtocol */
   0x05,          /* iInterface: */
+
   /********************  Mass Storage Endpoints ********************/
   0x07,   /*Endpoint descriptor length = 7*/
   0x05,   /*Endpoint descriptor type */
@@ -43,7 +44,7 @@ __ALIGN_BEGIN uint8_t USBD_MSC_CfgHSDesc[USB_MSC_CONFIG_DESC_SIZ]  __ALIGN_END =
   };
 /*}}}*/
 /*{{{*/
-uint8_t USBD_MSC_CfgFSDesc[USB_MSC_CONFIG_DESC_SIZ]  __ALIGN_END = {
+__ALIGN_BEGIN uint8_t USBD_MSC_CfgFSDesc[USB_MSC_CONFIG_DESC_SIZ] __ALIGN_END = {
   0x09,   /* bLength: Configuation Descriptor size */
   USB_DESC_TYPE_CONFIGURATION,   /* bDescriptorType: Configuration */
   USB_MSC_CONFIG_DESC_SIZ,
@@ -85,7 +86,7 @@ uint8_t USBD_MSC_CfgFSDesc[USB_MSC_CONFIG_DESC_SIZ]  __ALIGN_END = {
   };
 /*}}}*/
 /*{{{*/
-__ALIGN_BEGIN uint8_t USBD_MSC_OtherSpeedCfgDesc[USB_MSC_CONFIG_DESC_SIZ]   __ALIGN_END  = {
+__ALIGN_BEGIN uint8_t USBD_MSC_OtherSpeedCfgDesc[USB_MSC_CONFIG_DESC_SIZ] __ALIGN_END  = {
   0x09,   /* bLength: Configuation Descriptor size */
   USB_DESC_TYPE_OTHER_SPEED_CONFIGURATION,
   USB_MSC_CONFIG_DESC_SIZ,
@@ -128,7 +129,7 @@ __ALIGN_BEGIN uint8_t USBD_MSC_OtherSpeedCfgDesc[USB_MSC_CONFIG_DESC_SIZ]   __AL
 /*}}}*/
 /*{{{*/
 /* USB Standard Device Descriptor */
-__ALIGN_BEGIN  uint8_t USBD_MSC_DeviceQualifierDesc[USB_LEN_DEV_QUALIFIER_DESC]  __ALIGN_END = {
+__ALIGN_BEGIN uint8_t USBD_MSC_DeviceQualifierDesc[USB_LEN_DEV_QUALIFIER_DESC]  __ALIGN_END = {
   USB_LEN_DEV_QUALIFIER_DESC,
   USB_DESC_TYPE_DEVICE_QUALIFIER,
   0x00,
@@ -178,17 +179,17 @@ uint8_t USBD_MSC_Init (USBD_HandleTypeDef* pdev, uint8_t cfgidx) {
 uint8_t USBD_MSC_DeInit (USBD_HandleTypeDef* pdev, uint8_t cfgidx) {
 
   /* Close MSC EPs */
-  USBD_LL_CloseEP(pdev, MSC_EPOUT_ADDR);
+  USBD_LL_CloseEP (pdev, MSC_EPOUT_ADDR);
 
   /* Open EP IN */
-  USBD_LL_CloseEP(pdev, MSC_EPIN_ADDR);
+  USBD_LL_CloseEP (pdev, MSC_EPIN_ADDR);
 
   /* De-Init the BOT layer */
-  MSC_BOT_DeInit(pdev);
+  MSC_BOT_DeInit (pdev);
 
   /* Free MSC Class Resources */
   if(pdev->pClassData != NULL) {
-    USBD_free(pdev->pClassData);
+    USBD_free (pdev->pClassData);
     pdev->pClassData  = NULL;
     }
 
@@ -218,15 +219,15 @@ uint8_t USBD_MSC_Setup (USBD_HandleTypeDef* pdev, USBD_SetupReqTypedef *req) {
         /*{{{*/
         case BOT_RESET :
           if ((req->wValue  == 0) && (req->wLength == 0) && ((req->bmRequest & 0x80) != 0x80))
-             MSC_BOT_Reset(pdev);
+             MSC_BOT_Reset (pdev);
           else {
-            USBD_CtlError(pdev , req);
+            USBD_CtlError (pdev , req);
             return USBD_FAIL;
             }
           break;
         /*}}}*/
         default:
-          USBD_CtlError(pdev , req);
+          USBD_CtlError (pdev , req);
           return USBD_FAIL;
         }
       break;
@@ -279,14 +280,14 @@ uint8_t USBD_MSC_Setup (USBD_HandleTypeDef* pdev, USBD_SetupReqTypedef *req) {
 /*}}}*/
 
 /*{{{*/
-uint8_t USBD_MSC_DataIn (USBD_HandleTypeDef *pdev, uint8_t epnum) {
+uint8_t USBD_MSC_DataIn (USBD_HandleTypeDef* pdev, uint8_t epnum) {
   MSC_BOT_DataIn (pdev , epnum);
   return 0;
   }
 /*}}}*/
 /*{{{*/
-uint8_t USBD_MSC_DataOut (USBD_HandleTypeDef *pdev, uint8_t epnum) {
-  MSC_BOT_DataOut(pdev , epnum);
+uint8_t USBD_MSC_DataOut (USBD_HandleTypeDef* pdev, uint8_t epnum) {
+  MSC_BOT_DataOut (pdev , epnum);
   return 0;
   }
 /*}}}*/
@@ -320,7 +321,7 @@ uint8_t* USBD_MSC_GetDeviceQualifierDescriptor (uint16_t* length) {
 uint8_t USBD_MSC_RegisterStorage  (USBD_HandleTypeDef* pdev, USBD_StorageTypeDef* fops) {
 
   if (fops != NULL)
-    pdev->pUserData= fops;
+    pdev->pUserData = fops;
   return 0;
   }
 /*}}}*/

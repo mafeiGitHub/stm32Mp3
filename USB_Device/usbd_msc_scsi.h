@@ -63,8 +63,8 @@
 #define MEDIUM_NOT_PRESENT                          0x3A
 #define MEDIUM_HAVE_CHANGED                         0x28
 #define WRITE_PROTECTED                             0x27
-#define UNRECOVERED_READ_ERROR          0x11
-#define WRITE_FAULT           0x03
+#define UNRECOVERED_READ_ERROR                      0x11
+#define WRITE_FAULT                                 0x03
 
 #define READ_FORMAT_CAPACITY_DATA_LEN               0x0C
 #define READ_CAPACITY10_DATA_LEN                    0x08
@@ -82,7 +82,7 @@ extern uint8_t Mode_Sense6_data[];
 extern uint8_t Mode_Sense10_data[];
 extern uint8_t Scsi_Sense_Data[];
 extern uint8_t ReadCapacity10_Data[];
-extern uint8_t ReadFormatCapacity_Data [];
+extern uint8_t ReadFormatCapacity_Data[];
 
 typedef struct _SENSE_ITEM {
   char Skey;
@@ -96,8 +96,8 @@ typedef struct _SENSE_ITEM {
     } w;
   } USBD_SCSI_SenseTypeDef;
 
-int8_t SCSI_ProcessCmd (USBD_HandleTypeDef  *pdev, uint8_t lun, uint8_t *cmd);
-void SCSI_SenseCode (USBD_HandleTypeDef  *pdev, uint8_t lun, uint8_t sKey, uint8_t ASC);
+void SCSI_SenseCode (USBD_HandleTypeDef* pdev, uint8_t lun, uint8_t sKey, uint8_t ASC);
+int8_t SCSI_ProcessCmd (USBD_HandleTypeDef* pdev, uint8_t lun, uint8_t* cmd);
 
 //{{{
 #ifdef __cplusplus

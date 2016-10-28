@@ -64,7 +64,7 @@ static uint32_t sdCapacity = 0;
 
 #define SD_BLK_SIZ 512
 //{{{
-static const uint8_t SD_Inquirydata [] = { // 36 bytes*/
+static const uint8_t SD_Inquirydata[] = { 
   0x00, // LUN 0
   0x80, 0x02, 0x02,
   (STANDARD_INQUIRY_DATA_LEN - 5),
