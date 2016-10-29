@@ -54,18 +54,14 @@
 #include "widgets/cWaveLensWidget.h"
 //}}}
 USBD_HandleTypeDef USBD_Device;
-extern uint32_t rdAlign;
-extern uint32_t wrAlign;
-
-static uint8_t* mSdCache;
-static uint32_t mSdCacheBlk = 0xFFFFFFF0;
 
 static const uint32_t sdReadCacheSize = 64;
+static uint8_t* mSdReadCache;
+static uint32_t mSdReadCacheBlock = 0xFFFFFFF0;
 static uint32_t sdReads = 0;
 static uint32_t sdReadHits = 0;
 static uint32_t sdWrites = 0;
 static uint32_t sdReadBlock = 0;
-static uint32_t sdCapacity = 0;
 #define SD_BLK_SIZ 512
 //{{{
 static int8_t SD_IsReady (uint8_t lun) {
@@ -80,7 +76,6 @@ static int8_t SD_GetCapacity (uint8_t lun, uint32_t* block_num, uint16_t* block_
     BSP_SD_GetCardInfo (&info);
     *block_num = (info.CardCapacity) / SD_BLK_SIZ - 1;
     *block_size = SD_BLK_SIZ;
-    sdCapacity = (info.CardCapacity / 1024) / 1024;
     return 0;
     }
 
@@ -95,16 +90,16 @@ static int8_t SD_Read (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t bl
     //BSP_SD_ReadBlocks_DMA ((uint32_t*)buf, blk_addr * SD_BLK_SIZ, SD_BLK_SIZ, blk_len);
     //SCB_InvalidateDCache_by_Addr ((uint32_t*)((uint32_t)buf & 0xFFFFFFE0), (blk_len * SD_BLK_SIZ) + 32);
 
-    if ((blk_addr >= mSdCacheBlk) && (blk_addr + blk_len <= mSdCacheBlk + sdReadCacheSize)) {
+    if ((blk_addr >= mSdReadCacheBlock) && (blk_addr + blk_len <= mSdReadCacheBlock + sdReadCacheSize)) {
       sdReadHits++;
-      memcpy (buf, mSdCache + ((blk_addr-mSdCacheBlk) * SD_BLK_SIZ), blk_len * SD_BLK_SIZ);
+      memcpy (buf, mSdReadCache + ((blk_addr - mSdReadCacheBlock) * SD_BLK_SIZ), blk_len * SD_BLK_SIZ);
       }
     else {
       sdReads++;
-      BSP_SD_ReadBlocks_DMA ((uint32_t*)mSdCache, blk_addr * SD_BLK_SIZ, SD_BLK_SIZ, sdReadCacheSize);
-      SCB_InvalidateDCache_by_Addr ((uint32_t*)((uint32_t)mSdCache & 0xFFFFFFE0), (sdReadCacheSize * SD_BLK_SIZ) + 32);
-      memcpy (buf, mSdCache, blk_len * SD_BLK_SIZ);
-      mSdCacheBlk = blk_addr;
+      BSP_SD_ReadBlocks_DMA ((uint32_t*)mSdReadCache, blk_addr * SD_BLK_SIZ, SD_BLK_SIZ, sdReadCacheSize);
+      SCB_InvalidateDCache_by_Addr ((uint32_t*)((uint32_t)mSdReadCache & 0xFFFFFFE0), (sdReadCacheSize * SD_BLK_SIZ) + 32);
+      memcpy (buf, mSdReadCache, blk_len * SD_BLK_SIZ);
+      mSdReadCacheBlock = blk_addr;
       }
     return 0;
     }
@@ -118,7 +113,7 @@ static int8_t SD_Write (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t b
   if (BSP_SD_IsDetected() != SD_NOT_PRESENT) {
     sdWrites++;
     BSP_SD_WriteBlocks_DMA ((uint32_t*)buf, blk_addr * SD_BLK_SIZ, SD_BLK_SIZ, blk_len);
-    mSdCacheBlk = 0xFFFFFFF0;
+    mSdReadCacheBlock = 0xFFFFFFF0;
     return 0;
     }
 
@@ -1105,7 +1100,7 @@ static void mainThread (void const* argument) {
 
   bool sdPresent = BSP_SD_IsDetected() == SD_PRESENT;
   if (sdPresent) {
-    mSdCache = (uint8_t*)pvPortMalloc (512 * sdReadCacheSize);
+    mSdReadCache = (uint8_t*)pvPortMalloc (512 * sdReadCacheSize);
     USBD_Init (&USBD_Device, &MSC_Desc, 0);
     USBD_RegisterClass (&USBD_Device, &USBD_MSC);
     USBD_MSC_RegisterStorage (&USBD_Device, (USBD_StorageTypeDef*)(&USBD_DISK_fops));
@@ -1199,10 +1194,7 @@ static void mainThread (void const* argument) {
     std::string str = "sd " + cLcd::dec (sdReads) + "r "
                             + cLcd::dec (sdReadHits) + "rh "
                             + cLcd::dec (sdReadBlock) + "rb "
-                            + cLcd::dec (sdWrites) + "w "
-                            //+ cLcd::dec (rdAlign) + "ra "
-                            //+ cLcd::dec (wrAlign) + "wa "
-                            + cLcd::dec (sdCapacity) + "cap";
+                            + cLcd::dec (sdWrites) + "w ";
     mLcd->text (COL_YELLOW, cLcd::getFontHeight(), str, 0, 200, cLcd::getWidth(), cLcd::getLineHeight());
     mLcd->endRender (button);
 
