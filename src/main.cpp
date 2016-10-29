@@ -64,17 +64,6 @@ static uint32_t sdReadBlock = 0;
 static uint32_t sdCapacity = 0;
 
 #define SD_BLK_SIZ 512
-//{{{
-static const uint8_t SD_Inquirydata[] = {
-  0x00, // LUN 0
-  0x80, 0x02, 0x02,
-  (24 - 5),
-  0x00, 0x00, 0x00,
-  'C', 'o', 'l', 'i', 'n', ' ', ' ', ' ',                                         // Manufacturer: 8 bytes
-  'S', 'D', ' ', 'd', 'i', 's', 'k', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', // Product     : 16 Bytes
-  '0', '.', '9','9',                                                              // Version     : 4 Bytes
-  };
-//}}}
 
 //{{{
 static int8_t SD_IsReady (uint8_t lun) {
@@ -96,7 +85,6 @@ static int8_t SD_GetCapacity (uint8_t lun, uint32_t* block_num, uint16_t* block_
   return -1;
   }
 //}}}
-
 //{{{
 static int8_t SD_Read (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t blk_len) {
 
@@ -123,9 +111,20 @@ static int8_t SD_Write (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t b
   return -1;
   }
 //}}}
+//{{{
+static const uint8_t SD_Inquirydata[] = {
+  0x00, // LUN 0
+  0x80, 0x02, 0x02,
+  (24 - 5),
+  0x00, 0x00, 0x00,
+  'C', 'o', 'l', 'i', 'n', ' ', ' ', ' ',                                         // Manufacturer: 8 bytes
+  'S', 'D', ' ', 'd', 'i', 's', 'k', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', // Product     : 16 Bytes
+  '0', '.', '9','9',                                                              // Version     : 4 Bytes
+  };
+//}}}
 
 //{{{
-static USBD_StorageTypeDef USBD_DISK_fops = {
+static const USBD_StorageTypeDef USBD_DISK_fops = {
   SD_GetCapacity,
   SD_IsReady,
   SD_Read,
@@ -1091,12 +1090,11 @@ static void mainThread (void const* argument) {
   mLcd->displayOn();
   cLcd::debug ("mainThread");
 
-  BSP_SD_Init();
   bool sdPresent = BSP_SD_IsDetected() == SD_PRESENT;
   if (sdPresent) {
     USBD_Init (&USBD_Device, &MSC_Desc, 0);
     USBD_RegisterClass (&USBD_Device, &USBD_MSC);
-    USBD_MSC_RegisterStorage (&USBD_Device, &USBD_DISK_fops);
+    USBD_MSC_RegisterStorage (&USBD_Device, (USBD_StorageTypeDef*)(&USBD_DISK_fops));
     USBD_Start (&USBD_Device);
     cLcd::debug ("USB ok");
     if (false) {
@@ -1301,15 +1299,16 @@ int main() {
   initMpuRegions();
   initClock();
 
-  HeapRegion_t xHeapRegions[] = { {(uint8_t*)SDRAM_HEAP, SDRAM_HEAP_SIZE }, { nullptr, 0 } };
-  vPortDefineHeapRegions (xHeapRegions);
-
+  BSP_SD_Init();
+  BSP_PB_Init (BUTTON_WAKEUP, BUTTON_MODE_GPIO);
   BSP_LED_Init (LED1);
   #ifdef STM32F769I_DISCO
     BSP_LED_Init (LED2);
     BSP_LED_Init (LED3);
   #endif
-  BSP_PB_Init (BUTTON_WAKEUP, BUTTON_MODE_GPIO);
+
+  HeapRegion_t xHeapRegions[] = { {(uint8_t*)SDRAM_HEAP, SDRAM_HEAP_SIZE }, { nullptr, 0 } };
+  vPortDefineHeapRegions (xHeapRegions);
 
   mLcd = cLcd::create ("Player built at " + std::string(__TIME__) + " on " + std::string(__DATE__), true);
   mRoot = new cRootContainer (cLcd::getWidth(), cLcd::getHeight());
