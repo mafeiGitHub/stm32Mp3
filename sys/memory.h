@@ -9,7 +9,7 @@
 #define FATFS_BUFFER         0x20002400
 #define FATFS_BUFFER_SIZE         0x200  // SIZE =  0x200 = 512 bytes - sector size
 
-#define USB_BUFFER           0x20002800  // 620
+#define USB_BUFFER           0x20002600  // 620
 
 #define EthRxDescripSection  0x20003000  // SIZE =   0xA0 bytes
 #define EthRxBUF             0x20003100  // SIZE = 0x1DC4 bytes
@@ -22,8 +22,8 @@
 #ifdef STM32F746G_DISCO
   // SDRAM        0xC0000000 - 0xC007FFFF
   #define SDRAM_FRAME0         0xC0000000
- #define SDRAM_FRAME_SIZE       0x07F800  // SIZE = 0x7F800 = 272*480*4 = 512k-2048b leave bit of guard for clipping errors
-  # define SDRAM_FRAME1         0xC0080000
+  #define SDRAM_FRAME_SIZE       0x07F800  // SIZE = 0x7F800 = 272*480*4 = 512k-2048b leave bit of guard for clipping errors
+  #define SDRAM_FRAME1         0xC0080000
   #define SDRAM_HEAP           0xC0100000
   #define SDRAM_HEAP_SIZE        0x700000  // SIZE = 7m
 #else

@@ -5,6 +5,13 @@
 
 #include "memory.h"
 /*}}}*/
+/*{{{  msc defines*/
+#define MSC_MEDIA_PACKET   0x400
+#define MSC_MAX_FS_PACKET  0x40
+#define MSC_MAX_HS_PACKET  0x400
+#define MSC_EPIN_ADDR      0x81
+#define MSC_EPOUT_ADDR     0x01
+/*}}}*/
 /*{{{  scsi const*/
 /*{{{  scsi Commands defines*/
 #define SCSI_FORMAT_UNIT                            0x04
@@ -173,12 +180,6 @@ typedef struct {
   uint32_t                 scsi_blk_len;
   } USBD_MSC_BOT_HandleTypeDef;
 /*}}}*/
-/*}}}*/
-/*{{{  msc defines*/
-#define MSC_MAX_FS_PACKET  0x40
-#define MSC_MAX_HS_PACKET  0x200
-#define MSC_EPIN_ADDR      0x81
-#define MSC_EPOUT_ADDR     0x01
 /*}}}*/
 /*{{{  msc desc static const*/
 /*{{{*/

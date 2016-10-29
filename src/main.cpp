@@ -60,7 +60,7 @@ extern uint32_t wrAlign;
 static uint8_t* mSdCache;
 static uint32_t mSdCacheBlk = 0xFFFFFFF0;
 
-static const uint32_t sdReadCacheSize = 32;
+static const uint32_t sdReadCacheSize = 128;
 static uint32_t sdReads = 0;
 static uint32_t sdReadHits = 0;
 static uint32_t sdWrites = 0;
@@ -94,15 +94,16 @@ static int8_t SD_Read (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t bl
     sdReadBlock = blk_addr;
     //BSP_SD_ReadBlocks_DMA ((uint32_t*)buf, blk_addr * SD_BLK_SIZ, SD_BLK_SIZ, blk_len);
     //SCB_InvalidateDCache_by_Addr ((uint32_t*)((uint32_t)buf & 0xFFFFFFE0), (blk_len * SD_BLK_SIZ) + 32);
-    if ((blk_addr >= mSdCacheBlk) && (blk_addr < mSdCacheBlk + sdReadCacheSize)) {
+
+    if ((blk_addr >= mSdCacheBlk) && (blk_addr + blk_len <= mSdCacheBlk + sdReadCacheSize)) {
       sdReadHits++;
-      memcpy (buf, mSdCache + ((blk_addr-mSdCacheBlk) * SD_BLK_SIZ), SD_BLK_SIZ);
+      memcpy (buf, mSdCache + ((blk_addr-mSdCacheBlk) * SD_BLK_SIZ), blk_len * SD_BLK_SIZ);
       }
     else {
       sdReads++;
       BSP_SD_ReadBlocks_DMA ((uint32_t*)mSdCache, blk_addr * SD_BLK_SIZ, SD_BLK_SIZ, sdReadCacheSize);
       SCB_InvalidateDCache_by_Addr ((uint32_t*)((uint32_t)mSdCache & 0xFFFFFFE0), (sdReadCacheSize * SD_BLK_SIZ) + 32);
-      memcpy (buf, mSdCache, SD_BLK_SIZ);
+      memcpy (buf, mSdCache, blk_len * SD_BLK_SIZ);
       mSdCacheBlk = blk_addr;
       }
     return 0;
