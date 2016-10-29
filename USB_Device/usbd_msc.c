@@ -6,9 +6,10 @@
 #include "memory.h"
 /*}}}*/
 /*{{{  msc defines*/
-#define MSC_MEDIA_PACKET   0x400
-#define MSC_MAX_FS_PACKET  0x40
-#define MSC_MAX_HS_PACKET  0x400
+#define MSC_MAX_FS_PACKET  64
+#define MSC_MAX_HS_PACKET  1024
+#define MSC_MEDIA_PACKET   1024
+
 #define MSC_EPIN_ADDR      0x81
 #define MSC_EPOUT_ADDR     0x01
 /*}}}*/
@@ -85,6 +86,8 @@
 #define LENGTH_INQUIRY_PAGE00  7
 #define LENGTH_FORMAT_CAPACITIES  20
 
+#define SENSE_LIST_DEPTH  4
+
 static const uint8_t MSC_Mode_Sense6_data[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 static const uint8_t MSC_Mode_Sense10_data[] = { 0x00, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 static const uint8_t MSC_Page00_Inquiry_Data[] = { 0x00, 0x00, 0x00, (LENGTH_INQUIRY_PAGE00 - 4), 0x00, 0x80, 0x83 };
@@ -134,52 +137,6 @@ typedef struct _SENSE_ITEM {
 #define BOT_RESET                0xFF
 
 #define USB_MSC_CONFIG_DESC_SIZ  32
-#define SENSE_LIST_DEEPTH  4
-
-/*{{{  struct USBD_MSC_BOT_CBWTypeDef*/
-typedef struct {
-  uint32_t dSignature;
-  uint32_t dTag;
-  uint32_t dDataLength;
-  uint8_t  bmFlags;
-  uint8_t  bLUN;
-  uint8_t  bCBLength;
-  uint8_t  CB[16];
-  uint8_t  ReservedForAlign;
-  } USBD_MSC_BOT_CBWTypeDef;
-/*}}}*/
-/*{{{  struct USBD_MSC_BOT_CSWTypeDef*/
-typedef struct {
-  uint32_t dSignature;
-  uint32_t dTag;
-  uint32_t dDataResidue;
-  uint8_t  bStatus;
-  uint8_t  ReservedForAlign[3];
-  } USBD_MSC_BOT_CSWTypeDef;
-/*}}}*/
-/*{{{  struct USBD_MSC_BOT_HandleTypeDef*/
-typedef struct {
-  uint32_t                 max_lun;
-  uint32_t                 interface;
-  uint8_t                  bot_state;
-  uint8_t                  bot_status;
-  uint16_t                 bot_data_length;
-
-  uint8_t                  bot_data [MSC_MEDIA_PACKET];
-  USBD_MSC_BOT_CBWTypeDef  cbw;
-  USBD_MSC_BOT_CSWTypeDef  csw;
-
-  USBD_SCSI_SenseTypeDef   scsi_sense [SENSE_LIST_DEEPTH];
-  uint8_t                  scsi_sense_head;
-  uint8_t                  scsi_sense_tail;
-
-  uint16_t                 scsi_blk_size;
-  uint32_t                 scsi_blk_nbr;
-
-  uint32_t                 scsi_blk_addr;
-  uint32_t                 scsi_blk_len;
-  } USBD_MSC_BOT_HandleTypeDef;
-/*}}}*/
 /*}}}*/
 /*{{{  msc desc static const*/
 /*{{{*/
@@ -325,6 +282,51 @@ __ALIGN_BEGIN static const uint8_t USBD_MSC_DeviceQualifierDesc[USB_LEN_DEV_QUAL
 /*}}}*/
 /*}}}*/
 
+/*{{{  struct USBD_MSC_BOT_CBWTypeDef*/
+typedef struct {
+  uint32_t dSignature;
+  uint32_t dTag;
+  uint32_t dDataLength;
+  uint8_t  bmFlags;
+  uint8_t  bLUN;
+  uint8_t  bCBLength;
+  uint8_t  CB[16];
+  uint8_t  ReservedForAlign;
+  } USBD_MSC_BOT_CBWTypeDef;
+/*}}}*/
+/*{{{  struct USBD_MSC_BOT_CSWTypeDef*/
+typedef struct {
+  uint32_t dSignature;
+  uint32_t dTag;
+  uint32_t dDataResidue;
+  uint8_t  bStatus;
+  uint8_t  ReservedForAlign[3];
+  } USBD_MSC_BOT_CSWTypeDef;
+/*}}}*/
+/*{{{  struct USBD_MSC_BOT_HandleTypeDef*/
+typedef struct {
+  uint32_t                 max_lun;
+  uint32_t                 interface;
+  uint8_t                  bot_state;
+  uint8_t                  bot_status;
+  uint16_t                 bot_data_length;
+
+  uint8_t                  bot_data [MSC_MEDIA_PACKET];
+  USBD_MSC_BOT_CBWTypeDef  cbw;
+  USBD_MSC_BOT_CSWTypeDef  csw;
+
+  USBD_SCSI_SenseTypeDef   scsi_sense [SENSE_LIST_DEPTH];
+  uint8_t                  scsi_sense_head;
+  uint8_t                  scsi_sense_tail;
+
+  uint16_t                 scsi_blk_size;
+  uint32_t                 scsi_blk_nbr;
+
+  uint32_t                 scsi_blk_addr;
+  uint32_t                 scsi_blk_len;
+  } USBD_MSC_BOT_HandleTypeDef;
+/*}}}*/
+
 /*{{{*/
 static void BOT_SendCSW (USBD_HandleTypeDef* pdev, uint8_t CSW_Status) {
 
@@ -349,7 +351,7 @@ static void SCSI_SenseCode (USBD_HandleTypeDef* pdev, uint8_t lun, uint8_t sKey,
   hmsc->scsi_sense[hmsc->scsi_sense_tail].Skey = sKey;
   hmsc->scsi_sense[hmsc->scsi_sense_tail].w.ASC = ASC << 8;
   hmsc->scsi_sense_tail++;
-  if (hmsc->scsi_sense_tail == SENSE_LIST_DEEPTH)
+  if (hmsc->scsi_sense_tail == SENSE_LIST_DEPTH)
     hmsc->scsi_sense_tail = 0;
   }
 /*}}}*/
@@ -571,13 +573,11 @@ static int8_t SCSI_RequestSense (USBD_HandleTypeDef* pdev, uint8_t lun, uint8_t*
     hmsc->bot_data[12] = hmsc->scsi_sense[hmsc->scsi_sense_head].w.b.ASCQ;
     hmsc->bot_data[13] = hmsc->scsi_sense[hmsc->scsi_sense_head].w.b.ASC;
     hmsc->scsi_sense_head++;
-
-    if (hmsc->scsi_sense_head == SENSE_LIST_DEEPTH)
+    if (hmsc->scsi_sense_head == SENSE_LIST_DEPTH)
       hmsc->scsi_sense_head = 0;
     }
 
   hmsc->bot_data_length = REQUEST_SENSE_DATA_LEN;
-
   if (params[4] <= REQUEST_SENSE_DATA_LEN)
     hmsc->bot_data_length = params[4];
 
@@ -626,7 +626,7 @@ static int8_t SCSI_Read10 (USBD_HandleTypeDef* pdev, uint8_t lun , uint8_t* para
     }
 
   hmsc->bot_data_length = MSC_MEDIA_PACKET;
-  return SCSI_ProcessRead(pdev, lun);
+  return SCSI_ProcessRead (pdev, lun);
   }
 /*}}}*/
 /*{{{*/
@@ -872,8 +872,8 @@ static uint8_t USBD_MSC_Init (USBD_HandleTypeDef* pdev, uint8_t cfgidx) {
     USBD_LL_OpenEP (pdev, MSC_EPIN_ADDR, USBD_EP_TYPE_BULK, MSC_MAX_FS_PACKET);
     }
 
-  //pdev->pClassData = USBD_malloc (sizeof (USBD_MSC_BOT_HandleTypeDef));
-  pdev->pClassData = (void*)USB_BUFFER;
+  pdev->pClassData = malloc (sizeof (USBD_MSC_BOT_HandleTypeDef));
+  //pdev->pClassData = (void*)USB_BUFFER;
 
   USBD_MSC_BOT_HandleTypeDef* hmsc = (USBD_MSC_BOT_HandleTypeDef*)pdev->pClassData;
 

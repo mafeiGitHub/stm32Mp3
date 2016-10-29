@@ -9,7 +9,7 @@
 #define FATFS_BUFFER         0x20002400
 #define FATFS_BUFFER_SIZE         0x200  // SIZE =  0x200 = 512 bytes - sector size
 
-#define USB_BUFFER           0x20002600  // 620
+//#define USB_BUFFER           0x20002600  // 620
 
 #define EthRxDescripSection  0x20003000  // SIZE =   0xA0 bytes
 #define EthRxBUF             0x20003100  // SIZE = 0x1DC4 bytes

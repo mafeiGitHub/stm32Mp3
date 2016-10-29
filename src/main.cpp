@@ -60,7 +60,7 @@ extern uint32_t wrAlign;
 static uint8_t* mSdCache;
 static uint32_t mSdCacheBlk = 0xFFFFFFF0;
 
-static const uint32_t sdReadCacheSize = 128;
+static const uint32_t sdReadCacheSize = 64;
 static uint32_t sdReads = 0;
 static uint32_t sdReadHits = 0;
 static uint32_t sdWrites = 0;
