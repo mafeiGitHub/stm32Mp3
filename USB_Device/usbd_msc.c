@@ -646,12 +646,6 @@ static int8_t SCSI_Write10 (USBD_HandleTypeDef* pdev, uint8_t lun , uint8_t* par
       return -1;
       }
 
-    /* Check If media is write-protected */
-    if (((USBD_StorageTypeDef*)pdev->pUserData)->IsWriteProtected (lun) !=0 ) {
-      SCSI_SenseCode (pdev, lun, NOT_READY, WRITE_PROTECTED);
-      return -1;
-      }
-
     hmsc->scsi_blk_addr = (params[2] << 24) | (params[3] << 16) | (params[4] <<  8) | params[5];
     hmsc->scsi_blk_len = (params[7] <<  8) | params[8];
 
@@ -888,8 +882,6 @@ static uint8_t USBD_MSC_Init (USBD_HandleTypeDef* pdev, uint8_t cfgidx) {
   hmsc->scsi_sense_tail = 0;
   hmsc->scsi_sense_head = 0;
 
-  ((USBD_StorageTypeDef*)pdev->pUserData)->Init(0);
-
   USBD_LL_FlushEP (pdev, MSC_EPOUT_ADDR);
   USBD_LL_FlushEP (pdev, MSC_EPIN_ADDR);
 
@@ -922,7 +914,7 @@ static uint8_t USBD_MSC_Setup (USBD_HandleTypeDef* pdev, USBD_SetupReqTypedef *r
         /*{{{*/
         case BOT_GET_MAX_LUN :
           if ((req->wValue  == 0) && (req->wLength == 1) && ((req->bmRequest & 0x80) == 0x80)) {
-            hmsc->max_lun = ((USBD_StorageTypeDef *)pdev->pUserData)->GetMaxLun();
+            hmsc->max_lun = 0;
             USBD_CtlSendData (pdev, (uint8_t *)&hmsc->max_lun, 1);
             }
           else {

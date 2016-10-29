@@ -76,10 +76,6 @@ static const uint8_t SD_Inquirydata[] = {
   };
 //}}}
 
-static int8_t SD_Init (uint8_t lun) { return 0; }
-static int8_t SD_GetMaxLun() { return 0; }
-static int8_t SD_IsWriteProtected (uint8_t lun) { return 0; }
-
 //{{{
 static int8_t SD_IsReady (uint8_t lun) {
   return ((BSP_SD_IsDetected() != SD_NOT_PRESENT) && (BSP_SD_GetStatus() == SD_TRANSFER_OK)) ? 0 : -1;
@@ -130,13 +126,10 @@ static int8_t SD_Write (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t b
 
 //{{{
 static USBD_StorageTypeDef USBD_DISK_fops = {
-  SD_Init,
   SD_GetCapacity,
   SD_IsReady,
-  SD_IsWriteProtected,
   SD_Read,
   SD_Write,
-  SD_GetMaxLun,
   (int8_t*)SD_Inquirydata,
   };
 //}}}
