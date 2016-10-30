@@ -61,13 +61,12 @@ static uint8_t* mSdReadCache;
 static uint32_t mSdReadCacheBlock = 0xFFFFFFF0;
 static uint32_t sdReads = 0;
 static uint32_t sdReadHits = 0;
-static uint32_t sdWrites = 0;
-static uint32_t sdReadBlock = 0;
-
 static uint32_t sdReadMultipleLen = 0;
-static uint32_t sdReadMultipleBlock = 0;
+static uint32_t sdReadBlock = 0xFFFFFFFF;
+
+static uint32_t sdWrites = 0;
 static uint32_t sdWriteMultipleLen = 0;
-static uint32_t sdWriteMultipleBlock = 0;
+static uint32_t sdWriteBlock = 0xFFFFFFFF;
 //{{{
 static int8_t SD_IsReady (uint8_t lun) {
   return ((BSP_SD_IsDetected() != SD_NOT_PRESENT) && (BSP_SD_GetStatus() == SD_TRANSFER_OK)) ? 0 : -1;
@@ -91,7 +90,6 @@ static int8_t SD_GetCapacity (uint8_t lun, uint32_t* block_num, uint16_t* block_
 static int8_t SD_Read (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t blk_len) {
 
   if (BSP_SD_IsDetected() != SD_NOT_PRESENT) {
-    sdReadBlock = blk_addr;
     //BSP_SD_ReadBlocks_DMA ((uint32_t*)buf, blk_addr * SD_BLK_SIZ, SD_BLK_SIZ, blk_len);
     //SCB_InvalidateDCache_by_Addr ((uint32_t*)((uint32_t)buf & 0xFFFFFFE0), (blk_len * SD_BLK_SIZ) + 32);
 
@@ -107,18 +105,16 @@ static int8_t SD_Read (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t bl
       mSdReadCacheBlock = blk_addr;
       }
 
-    //cLcd::debug ("r " + cLcd::dec (blk_addr) + " " + cLcd::dec (blk_len));
-    if (sdReadMultipleLen == 0) {
-      sdReadMultipleBlock = blk_addr;
-      sdReadMultipleLen = blk_len;
+    //cLcd::debug ("r:" + cLcd::dec (blk_addr) + "::" + cLcd::dec (blk_len));
+    if (blk_addr != sdReadBlock + sdReadMultipleLen) {
+      if (sdReadMultipleLen) {
+        // flush pending multiple
+        cLcd::debug ("rm:" + cLcd::dec (sdReadBlock) + "::" + cLcd::dec (sdReadMultipleLen));
+        sdReadMultipleLen = 0;
+        }
+      sdReadBlock = blk_addr;
       }
-    else if (blk_addr == sdReadMultipleBlock + sdReadMultipleLen)
-      sdReadMultipleLen += blk_len;
-    else {
-      cLcd::debug ("rm " + cLcd::dec (sdReadMultipleBlock) + " " + cLcd::dec (sdReadMultipleLen));
-      sdReadMultipleBlock = blk_addr;
-      sdReadMultipleLen = blk_len;
-      }
+    sdReadMultipleLen += blk_len;
 
     return 0;
     }
@@ -135,17 +131,15 @@ static int8_t SD_Write (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t b
     mSdReadCacheBlock = 0xFFFFFFF0;
 
     //cLcd::debug ("w " + cLcd::dec (blk_addr) + " " + cLcd::dec (blk_len));
-    if (sdWriteMultipleLen == 0) {
-      sdWriteMultipleBlock = blk_addr;
-      sdWriteMultipleLen = blk_len;
+    if (blk_addr != sdWriteBlock + sdWriteMultipleLen) {
+      if (sdWriteMultipleLen) {
+        // flush pending multiple
+        cLcd::debug ("wm:" + cLcd::dec (sdWriteBlock) + "::" + cLcd::dec (sdWriteMultipleLen));
+        sdWriteMultipleLen = 0;
+        }
+      sdWriteBlock = blk_addr;
       }
-    else if (blk_addr == sdWriteMultipleBlock + sdWriteMultipleLen)
-      sdWriteMultipleLen += blk_len;
-    else {
-      cLcd::debug ("wm " + cLcd::dec (sdWriteMultipleBlock) + " " + cLcd::dec (sdWriteMultipleLen));
-      sdWriteMultipleBlock = blk_addr;
-      sdWriteMultipleLen = blk_len;
-      }
+    sdWriteMultipleLen += blk_len;
 
     return 0;
     }
@@ -1223,7 +1217,7 @@ static void mainThread (void const* argument) {
     button ? mLcd->clear (COL_BLACK) : mRoot->render (mLcd);
     //if (tsState.touchDetected)
     //  mLcd->renderCursor (COL_MAGENTA, x[0], y[0], z[0] ? z[0] : cLcd::getHeight()/10);
-    std::string str = cLcd::dec (sdReads) + ":" + cLcd::dec (sdReadHits) + "  " + cLcd::dec (sdReadBlock) +
+    std::string str = cLcd::dec (sdReads) + ":" + cLcd::dec (sdReadHits) + "  " + cLcd::dec (sdReadBlock+ sdReadMultipleLen) +
                       " w:" + cLcd::dec (sdWrites);
     mLcd->text (COL_YELLOW, cLcd::getFontHeight(), str,
                 cLcd::getWidth()/2, cLcd::getHeight()- cLcd::getLineHeight(), cLcd::getWidth(), cLcd::getLineHeight());
