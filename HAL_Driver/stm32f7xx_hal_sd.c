@@ -678,7 +678,7 @@ static HAL_SD_ErrorTypedef SD_Initialize_Cards(SD_HandleTypeDef *hsd) {
   HAL_SD_ErrorTypedef errorstate = SD_OK;
   uint16_t sd_rca = 1;
 
-  if (SDMMC_GetPowerState(hsd->Instance) == 0) { 
+  if (SDMMC_GetPowerState(hsd->Instance) == 0) {
     /* Power off */
     errorstate = SD_REQUEST_NOT_APPLICABLE;
     return errorstate;
@@ -705,9 +705,9 @@ static HAL_SD_ErrorTypedef SD_Initialize_Cards(SD_HandleTypeDef *hsd) {
     hsd->CID[3] = SDMMC_GetResponse (hsd->Instance, SDMMC_RESP4);
     }
 
-  if ((hsd->CardType == STD_CAPACITY_SD_CARD_V1_1)    || 
+  if ((hsd->CardType == STD_CAPACITY_SD_CARD_V1_1)    ||
       (hsd->CardType == STD_CAPACITY_SD_CARD_V2_0) ||
-      (hsd->CardType == SECURE_DIGITAL_IO_COMBO_CARD) || 
+      (hsd->CardType == SECURE_DIGITAL_IO_COMBO_CARD) ||
       (hsd->CardType == HIGH_CAPACITY_SD_CARD)) {
     /* Send CMD3 SET_REL_ADDR with argument 0 SD Card publishes its RCA. */
     sdmmc_cmdinitstructure.CmdIndex         = SD_CMD_SET_REL_ADDR;
@@ -2310,14 +2310,14 @@ HAL_SD_ErrorTypedef HAL_SD_StopTransfer (SD_HandleTypeDef *hsd)
 }
 /*}}}*/
 /*{{{*/
-HAL_SD_ErrorTypedef HAL_SD_HighSpeed (SD_HandleTypeDef *hsd)
-{
+HAL_SD_ErrorTypedef HAL_SD_HighSpeed (SD_HandleTypeDef *hsd) {
+
   HAL_SD_ErrorTypedef errorstate = SD_OK;
 
-  uint8_t SD_hs[64]  = {0};
   uint32_t SD_scr[2] = {0, 0};
   uint32_t SD_SPEC   = 0;
-  uint32_t count = 0, *tempbuff = (uint32_t *)SD_hs;
+  uint8_t SD_hs[64]  = {0};
+  uint32_t* tempbuff = (uint32_t*)SD_hs;
 
   /* Initialize the Data control register */
   hsd->Instance->DCTRL = 0;
@@ -2367,7 +2367,7 @@ HAL_SD_ErrorTypedef HAL_SD_HighSpeed (SD_HandleTypeDef *hsd)
 
     while(!__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_RXOVERR | SDMMC_FLAG_DCRCFAIL | SDMMC_FLAG_DTIMEOUT | SDMMC_FLAG_DBCKEND)) {
       if (__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_RXFIFOHF)) {
-        for (count = 0; count < 8; count++)
+        for (uint32_t count = 0; count < 8; count++)
           *(tempbuff + count) = SDMMC_ReadFIFO(hsd->Instance);
         tempbuff += 8;
       }
@@ -2388,7 +2388,7 @@ HAL_SD_ErrorTypedef HAL_SD_HighSpeed (SD_HandleTypeDef *hsd)
       return errorstate;
       }
 
-    count = SD_DATATIMEOUT;
+    uint32_t count = SD_DATATIMEOUT;
     while ((__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_RXDAVL)) && (count > 0)) {
       *tempbuff = SDMMC_ReadFIFO(hsd->Instance);
       tempbuff++;
