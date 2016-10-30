@@ -1135,7 +1135,8 @@ static void mainThread (void const* argument) {
       USBD_Start (&USBD_Device);
       cLcd::debug ("USB ok");
       }
-    else {
+    else
+      {
       //{{{  mp3 player
       mFrameOffsets = (int*)pvPortMalloc (60*60*40*sizeof(int));
       mWave = (uint8_t*)pvPortMalloc (60*60*40*2*sizeof(uint8_t));  // 1 hour of 40 mp3 frames per sec
