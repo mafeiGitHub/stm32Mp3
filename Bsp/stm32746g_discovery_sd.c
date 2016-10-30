@@ -149,40 +149,40 @@ HAL_SD_TransferStateTypedef BSP_SD_GetStatus() {
   }
 /*}}}*/
 /*{{{*/
-void BSP_SD_GetCardInfo (HAL_SD_CardInfoTypedef *CardInfo) {
+void BSP_SD_GetCardInfo (HAL_SD_CardInfoTypedef* CardInfo) {
   HAL_SD_Get_CardInfo (&uSdHandle, CardInfo);
   }
 /*}}}*/
 
 /*{{{*/
-uint8_t BSP_SD_ReadBlocks (uint32_t *pData, uint64_t ReadAddr, uint32_t BlockSize, uint32_t NumOfBlocks) {
+uint8_t BSP_SD_ReadBlocks (uint32_t* pData, uint64_t ReadAddr, uint32_t BlockSize, uint32_t NumOfBlocks) {
   return HAL_SD_ReadBlocks (&uSdHandle, pData, ReadAddr, BlockSize, NumOfBlocks) == SD_OK ? MSD_OK : MSD_ERROR;
   }
 /*}}}*/
 /*{{{*/
-uint8_t BSP_SD_WriteBlocks (uint32_t *pData, uint64_t WriteAddr, uint32_t BlockSize, uint32_t NumOfBlocks) {
+uint8_t BSP_SD_WriteBlocks (uint32_t* pData, uint64_t WriteAddr, uint32_t BlockSize, uint32_t NumOfBlocks) {
   return HAL_SD_WriteBlocks (&uSdHandle, pData, WriteAddr, BlockSize, NumOfBlocks) == SD_OK ? MSD_OK : MSD_ERROR;
   }
 /*}}}*/
 /*{{{*/
-uint8_t BSP_SD_ReadBlocks_DMA (uint32_t *pData, uint64_t ReadAddr, uint32_t BlockSize, uint32_t NumOfBlocks) {
+uint8_t BSP_SD_ReadBlocks_DMA (uint32_t* pData, uint64_t ReadAddr, uint32_t BlockSize, uint32_t NumOfBlocks) {
 
-  if (HAL_SD_ReadBlocks_DMA(&uSdHandle, pData, ReadAddr, BlockSize, NumOfBlocks) != SD_OK)
+  if (HAL_SD_ReadBlocks_DMA (&uSdHandle, pData, ReadAddr, BlockSize, NumOfBlocks) != SD_OK)
     return MSD_ERROR;
 
-  if (HAL_SD_CheckReadOperation(&uSdHandle, (uint32_t)SD_DATATIMEOUT) != SD_OK)
+  if (HAL_SD_CheckReadOperation (&uSdHandle, (uint32_t)SD_DATATIMEOUT) != SD_OK)
     return MSD_ERROR;
 
   return MSD_OK;
   }
 /*}}}*/
 /*{{{*/
-uint8_t BSP_SD_WriteBlocks_DMA (uint32_t *pData, uint64_t WriteAddr, uint32_t BlockSize, uint32_t NumOfBlocks) {
+uint8_t BSP_SD_WriteBlocks_DMA (uint32_t* pData, uint64_t WriteAddr, uint32_t BlockSize, uint32_t NumOfBlocks) {
 
-  if (HAL_SD_WriteBlocks_DMA(&uSdHandle, pData, WriteAddr, BlockSize, NumOfBlocks) != SD_OK)
+  if (HAL_SD_WriteBlocks_DMA (&uSdHandle, pData, WriteAddr, BlockSize, NumOfBlocks) != SD_OK)
     return MSD_ERROR;
 
-  if (HAL_SD_CheckWriteOperation(&uSdHandle, (uint32_t)SD_DATATIMEOUT) != SD_OK)
+  if (HAL_SD_CheckWriteOperation (&uSdHandle, (uint32_t)SD_DATATIMEOUT) != SD_OK)
     return MSD_ERROR;
 
   return MSD_OK;
