@@ -56,9 +56,9 @@
 USBD_HandleTypeDef USBD_Device;
 
 #define SD_BLK_SIZ 512
-static const uint32_t sdReadCacheSize = 64;
+static const uint32_t sdReadCacheSize = 0x40;
 static uint8_t* mSdReadCache;
-static uint32_t mSdReadCacheBlock = 0xFFFFFFF0;
+static uint32_t mSdReadCacheBlock = 0xFFFFFFB0;
 static uint32_t sdReads = 0;
 static uint32_t sdReadHits = 0;
 static uint32_t sdReadMultipleLen = 0;

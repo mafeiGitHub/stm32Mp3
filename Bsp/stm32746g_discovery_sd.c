@@ -33,35 +33,23 @@ uint8_t BSP_SD_Init() {
     return MSD_ERROR_SD_NOT_PRESENT;
 
   /*{{{  sd init*/
-  /* Enable SDIO clock */
   __HAL_RCC_SDMMC1_CLK_ENABLE();
-
-  /* Enable DMA2 clocks */
   __DMAx_TxRx_CLK_ENABLE();
-
-  /* Enable GPIOs clock */
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
-  /* Common GPIO configuration */
   gpio_init_structure.Mode      = GPIO_MODE_AF_PP;
   gpio_init_structure.Pull      = GPIO_PULLUP;
   gpio_init_structure.Speed     = GPIO_SPEED_HIGH;
   gpio_init_structure.Alternate = GPIO_AF12_SDMMC1;
 
-  /* GPIOC configuration */
   gpio_init_structure.Pin = GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10 | GPIO_PIN_11 | GPIO_PIN_12;
   HAL_GPIO_Init(GPIOC, &gpio_init_structure);
 
-  /* GPIOD configuration */
   gpio_init_structure.Pin = GPIO_PIN_2;
   HAL_GPIO_Init(GPIOD, &gpio_init_structure);
 
-  /* NVIC configuration for SDIO interrupts */
-  HAL_NVIC_SetPriority(SDMMC1_IRQn, 5, 0);
-  HAL_NVIC_EnableIRQ(SDMMC1_IRQn);
-
-  /* Configure DMA Rx parameters */
+  /*{{{  DMA Rx parameters*/
   dma_rx_handle.Init.Channel             = SD_DMAx_Rx_CHANNEL;
   dma_rx_handle.Init.Direction           = DMA_PERIPH_TO_MEMORY;
   dma_rx_handle.Init.PeriphInc           = DMA_PINC_DISABLE;
@@ -78,8 +66,8 @@ uint8_t BSP_SD_Init() {
   __HAL_LINKDMA (&uSdHandle, hdmarx, dma_rx_handle);
   HAL_DMA_DeInit (&dma_rx_handle);
   HAL_DMA_Init (&dma_rx_handle);
-
-  /* Configure DMA Tx parameters */
+  /*}}}*/
+  /*{{{  DMA Tx parameters*/
   dma_tx_handle.Init.Channel             = SD_DMAx_Tx_CHANNEL;
   dma_tx_handle.Init.Direction           = DMA_MEMORY_TO_PERIPH;
   dma_tx_handle.Init.PeriphInc           = DMA_PINC_DISABLE;
@@ -96,23 +84,25 @@ uint8_t BSP_SD_Init() {
   __HAL_LINKDMA (&uSdHandle, hdmatx, dma_tx_handle);
   HAL_DMA_DeInit (&dma_tx_handle);
   HAL_DMA_Init (&dma_tx_handle);
+  /*}}}*/
 
-  // NVIC DMA transfer complete interrupt
-  HAL_NVIC_SetPriority(SD_DMAx_Rx_IRQn, 6, 0);
-  HAL_NVIC_EnableIRQ(SD_DMAx_Rx_IRQn);
+  HAL_NVIC_SetPriority (SDMMC1_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ (SDMMC1_IRQn);
 
-  // NVIC DMA transfer complete interrupt
-  HAL_NVIC_SetPriority(SD_DMAx_Tx_IRQn, 6, 0);
-  HAL_NVIC_EnableIRQ(SD_DMAx_Tx_IRQn);
+  // NVIC rx DMA transfer complete interrupt
+  HAL_NVIC_SetPriority (SD_DMAx_Rx_IRQn, 6, 0);
+  HAL_NVIC_EnableIRQ (SD_DMAx_Rx_IRQn);
+
+  // NVIC tx DMA transfer complete interrupt
+  HAL_NVIC_SetPriority (SD_DMAx_Tx_IRQn, 6, 0);
+  HAL_NVIC_EnableIRQ (SD_DMAx_Tx_IRQn);
   /*}}}*/
 
   // HAL SD initialization
   if (HAL_SD_Init (&uSdHandle, &uSdCardInfo) != SD_OK)
     return MSD_ERROR;
-
   if (HAL_SD_WideBusOperation_Config (&uSdHandle, SDMMC_BUS_WIDE_4B) != SD_OK)
     return MSD_ERROR;
-
   if (HAL_SD_HighSpeed (&uSdHandle) != SD_OK)
     return MSD_ERROR;
 
