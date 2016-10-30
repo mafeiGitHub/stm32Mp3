@@ -55,6 +55,7 @@
 //}}}
 USBD_HandleTypeDef USBD_Device;
 
+#define SD_BLK_SIZ 512
 static const uint32_t sdReadCacheSize = 64;
 static uint8_t* mSdReadCache;
 static uint32_t mSdReadCacheBlock = 0xFFFFFFF0;
@@ -62,7 +63,11 @@ static uint32_t sdReads = 0;
 static uint32_t sdReadHits = 0;
 static uint32_t sdWrites = 0;
 static uint32_t sdReadBlock = 0;
-#define SD_BLK_SIZ 512
+
+static uint32_t sdReadMultipleLen = 0;
+static uint32_t sdReadMultipleBlock = 0;
+static uint32_t sdWriteMultipleLen = 0;
+static uint32_t sdWriteMultipleBlock = 0;
 //{{{
 static int8_t SD_IsReady (uint8_t lun) {
   return ((BSP_SD_IsDetected() != SD_NOT_PRESENT) && (BSP_SD_GetStatus() == SD_TRANSFER_OK)) ? 0 : -1;
@@ -101,6 +106,20 @@ static int8_t SD_Read (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t bl
       memcpy (buf, mSdReadCache, blk_len * SD_BLK_SIZ);
       mSdReadCacheBlock = blk_addr;
       }
+
+    //cLcd::debug ("r " + cLcd::dec (blk_addr) + " " + cLcd::dec (blk_len));
+    if (sdReadMultipleLen == 0) {
+      sdReadMultipleBlock = blk_addr;
+      sdReadMultipleLen = blk_len;
+      }
+    else if (blk_addr == sdReadMultipleBlock + sdReadMultipleLen)
+      sdReadMultipleLen += blk_len;
+    else {
+      cLcd::debug ("rm " + cLcd::dec (sdReadMultipleBlock) + " " + cLcd::dec (sdReadMultipleLen));
+      sdReadMultipleBlock = blk_addr;
+      sdReadMultipleLen = blk_len;
+      }
+
     return 0;
     }
 
@@ -114,6 +133,20 @@ static int8_t SD_Write (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t b
     sdWrites++;
     BSP_SD_WriteBlocks_DMA ((uint32_t*)buf, blk_addr * SD_BLK_SIZ, SD_BLK_SIZ, blk_len);
     mSdReadCacheBlock = 0xFFFFFFF0;
+
+    //cLcd::debug ("w " + cLcd::dec (blk_addr) + " " + cLcd::dec (blk_len));
+    if (sdWriteMultipleLen == 0) {
+      sdWriteMultipleBlock = blk_addr;
+      sdWriteMultipleLen = blk_len;
+      }
+    else if (blk_addr == sdWriteMultipleBlock + sdWriteMultipleLen)
+      sdWriteMultipleLen += blk_len;
+    else {
+      cLcd::debug ("wm " + cLcd::dec (sdWriteMultipleBlock) + " " + cLcd::dec (sdWriteMultipleLen));
+      sdWriteMultipleBlock = blk_addr;
+      sdWriteMultipleLen = blk_len;
+      }
+
     return 0;
     }
 
@@ -1141,7 +1174,6 @@ static void mainThread (void const* argument) {
   mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, cWidget::getBoxHeight()*2, mRoot->getHeight()));
 
   //{{{  init vars
-  bool button = false;
   int16_t x[kMaxTouch];
   int16_t y[kMaxTouch];
   uint8_t z[kMaxTouch];
@@ -1151,6 +1183,8 @@ static void mainThread (void const* argument) {
   //}}}
   BSP_TS_Init (mRoot->getWidth(), mRoot->getHeight());
   while (true) {
+    bool button = true;
+    //bool button = BSP_PB_GetState(BUTTON_WAKEUP) == GPIO_PIN_SET;
     TS_StateTypeDef tsState;
     BSP_TS_GetState (&tsState);
     for (auto touch = 0; touch < kMaxTouch; touch++) {
@@ -1178,14 +1212,12 @@ static void mainThread (void const* argument) {
         //}}}
       }
 
-    //{{{  button, leds
-    button = BSP_PB_GetState(BUTTON_WAKEUP) == GPIO_PIN_SET;
-
     #ifdef STM32F769I_DISCO
+      //{{{  update led2,3
       button ? BSP_LED_On (LED2) : BSP_LED_Off (LED2);
       tsState.touchDetected ? BSP_LED_On (LED3) : BSP_LED_Off (LED3);
+      //}}}
     #endif
-    //}}}
 
     mLcd->startRender();
     button ? mLcd->clear (COL_BLACK) : mRoot->render (mLcd);
@@ -1307,7 +1339,7 @@ int main() {
   initMpuRegions();
   initClock();
 
-  BSP_SD_Init();
+  auto sdState = BSP_SD_Init();
   BSP_PB_Init (BUTTON_WAKEUP, BUTTON_MODE_GPIO);
   BSP_LED_Init (LED1);
   #ifdef STM32F769I_DISCO
@@ -1320,6 +1352,8 @@ int main() {
 
   mLcd = cLcd::create ("Player built at " + std::string(__TIME__) + " on " + std::string(__DATE__), true);
   mRoot = new cRootContainer (cLcd::getWidth(), cLcd::getHeight());
+
+  cLcd::debug ("SD init " + cLcd::dec (sdState));
 
   osSemaphoreDef (aud);
   mAudSem = osSemaphoreCreate (osSemaphore (aud), -1);
