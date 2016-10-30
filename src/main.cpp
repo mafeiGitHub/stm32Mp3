@@ -1128,12 +1128,14 @@ static void mainThread (void const* argument) {
   bool sdPresent = BSP_SD_IsDetected() == SD_PRESENT;
   if (sdPresent) {
     mSdReadCache = (uint8_t*)pvPortMalloc (512 * sdReadCacheSize);
-    USBD_Init (&USBD_Device, &MSC_Desc, 0);
-    USBD_RegisterClass (&USBD_Device, &USBD_MSC);
-    USBD_MSC_RegisterStorage (&USBD_Device, (USBD_StorageTypeDef*)(&USBD_DISK_fops));
-    USBD_Start (&USBD_Device);
-    cLcd::debug ("USB ok");
-    if (false) {
+    if (true) {
+      USBD_Init (&USBD_Device, &MSC_Desc, 0);
+      USBD_RegisterClass (&USBD_Device, &USBD_MSC);
+      USBD_MSC_RegisterStorage (&USBD_Device, (USBD_StorageTypeDef*)(&USBD_DISK_fops));
+      USBD_Start (&USBD_Device);
+      cLcd::debug ("USB ok");
+      }
+    else {
       //{{{  mp3 player
       mFrameOffsets = (int*)pvPortMalloc (60*60*40*sizeof(int));
       mWave = (uint8_t*)pvPortMalloc (60*60*40*2*sizeof(uint8_t));  // 1 hour of 40 mp3 frames per sec
@@ -1177,8 +1179,8 @@ static void mainThread (void const* argument) {
   //}}}
   BSP_TS_Init (mRoot->getWidth(), mRoot->getHeight());
   while (true) {
-    bool button = true;
-    //bool button = BSP_PB_GetState(BUTTON_WAKEUP) == GPIO_PIN_SET;
+    //bool button = true;
+    bool button = BSP_PB_GetState(BUTTON_WAKEUP) == GPIO_PIN_SET;
     TS_StateTypeDef tsState;
     BSP_TS_GetState (&tsState);
     for (auto touch = 0; touch < kMaxTouch; touch++) {

@@ -1,3 +1,4 @@
+#ifdef STM32F746G_DISCO
 #include "stm32746g_discovery_qspi.h"
 
 QSPI_HandleTypeDef QSPIHandle;
@@ -663,3 +664,4 @@ __weak void BSP_QSPI_MspDeInit(QSPI_HandleTypeDef *hqspi, void *Params)
 }
 
 /*}}}*/
+#endif
