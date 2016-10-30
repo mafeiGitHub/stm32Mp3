@@ -1223,11 +1223,10 @@ static void mainThread (void const* argument) {
     button ? mLcd->clear (COL_BLACK) : mRoot->render (mLcd);
     //if (tsState.touchDetected)
     //  mLcd->renderCursor (COL_MAGENTA, x[0], y[0], z[0] ? z[0] : cLcd::getHeight()/10);
-    std::string str = "sd " + cLcd::dec (sdReads) + "r "
-                            + cLcd::dec (sdReadHits) + "rh "
-                            + cLcd::dec (sdReadBlock) + "rb "
-                            + cLcd::dec (sdWrites) + "w ";
-    mLcd->text (COL_YELLOW, cLcd::getFontHeight(), str, 0, 200, cLcd::getWidth(), cLcd::getLineHeight());
+    std::string str = cLcd::dec (sdReads) + ":" + cLcd::dec (sdReadHits) + "  " + cLcd::dec (sdReadBlock) +
+                      " w:" + cLcd::dec (sdWrites);
+    mLcd->text (COL_YELLOW, cLcd::getFontHeight(), str,
+                cLcd::getWidth()/2, cLcd::getHeight()- cLcd::getLineHeight(), cLcd::getWidth(), cLcd::getLineHeight());
     mLcd->endRender (button);
 
     if (mVolumeChanged && (int(mVolume * 100) != mIntVolume)) {
