@@ -238,7 +238,7 @@
 									<listOptionValue builtIn="false" value="USE_USB_HS"/>
 									<listOptionValue builtIn="false" value="STM32"/>
 									<listOptionValue builtIn="false" value="STM32F7"/>
-									<listOptionValue builtIn="false" value="STM32F7^(xx"/>
+									<listOptionValue builtIn="false" value="STM32F769xx"/>
 									<listOptionValue builtIn="false" value="STM32F769I_DISCO"/>
 								</option>
 								<option id="gnu.cpp.compiler.option.dialect.std.1575986730" name="Language standard" superClass="gnu.cpp.compiler.option.dialect.std" useByScannerDiscovery="true" value="gnu.cpp.compiler.dialect.c++11" valueType="enumerated"/>
