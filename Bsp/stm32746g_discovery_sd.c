@@ -1,5 +1,15 @@
 #ifdef STM32F746G_DISCO
+
 #include "stm32746g_discovery_sd.h"
+
+// DMA definitions for SD DMA transfer
+#define __DMAx_TxRx_CLK_ENABLE  __HAL_RCC_DMA2_CLK_ENABLE
+#define SD_DMAx_Tx_CHANNEL      DMA_CHANNEL_4
+#define SD_DMAx_Rx_CHANNEL      DMA_CHANNEL_4
+#define SD_DMAx_Tx_STREAM       DMA2_Stream6
+#define SD_DMAx_Rx_STREAM       DMA2_Stream3
+#define SD_DMAx_Tx_IRQn         DMA2_Stream6_IRQn
+#define SD_DMAx_Rx_IRQn         DMA2_Stream3_IRQn
 
 SD_HandleTypeDef uSdHandle;
 DMA_HandleTypeDef dma_rx_handle;
@@ -145,35 +155,25 @@ void BSP_SD_GetCardInfo (HAL_SD_CardInfoTypedef* CardInfo) {
 /*}}}*/
 
 /*{{{*/
-uint8_t BSP_SD_ReadBlocks (uint32_t* pData, uint64_t ReadAddr, uint32_t BlockSize, uint32_t NumOfBlocks) {
-  return HAL_SD_ReadBlocks (&uSdHandle, pData, ReadAddr, BlockSize, NumOfBlocks) == SD_OK ? MSD_OK : MSD_ERROR;
-  }
-/*}}}*/
-/*{{{*/
-uint8_t BSP_SD_WriteBlocks (uint32_t* pData, uint64_t WriteAddr, uint32_t BlockSize, uint32_t NumOfBlocks) {
-  return HAL_SD_WriteBlocks (&uSdHandle, pData, WriteAddr, BlockSize, NumOfBlocks) == SD_OK ? MSD_OK : MSD_ERROR;
-  }
-/*}}}*/
-/*{{{*/
-uint8_t BSP_SD_ReadBlocks_DMA (uint32_t* pData, uint64_t ReadAddr, uint32_t BlockSize, uint32_t NumOfBlocks) {
+uint8_t BSP_SD_ReadBlocks_DMA (uint32_t* pData, uint64_t ReadAddr, uint32_t NumOfBlocks) {
 
-  if (HAL_SD_ReadBlocks_DMA (&uSdHandle, pData, ReadAddr, BlockSize, NumOfBlocks) != SD_OK)
+  if (HAL_SD_ReadBlocks_DMA (&uSdHandle, pData, ReadAddr, NumOfBlocks) != SD_OK)
     return MSD_ERROR;
-
-  if (HAL_SD_CheckReadOperation (&uSdHandle, (uint32_t)SD_DATATIMEOUT) != SD_OK)
-    return MSD_ERROR;
+  SCB_InvalidateDCache_by_Addr ((uint32_t*)((uint32_t)pData & 0xFFFFFFE0), (NumOfBlocks * 512) + 32);
 
   return MSD_OK;
   }
 /*}}}*/
 /*{{{*/
-uint8_t BSP_SD_WriteBlocks_DMA (uint32_t* pData, uint64_t WriteAddr, uint32_t BlockSize, uint32_t NumOfBlocks) {
+uint8_t BSP_SD_WriteBlocks_DMA (uint32_t* pData, uint64_t WriteAddr, uint32_t NumOfBlocks) {
 
-  if (HAL_SD_WriteBlocks_DMA (&uSdHandle, pData, WriteAddr, BlockSize, NumOfBlocks) != SD_OK)
+  if (HAL_SD_WriteBlocks_DMA (&uSdHandle, pData, WriteAddr, NumOfBlocks) != SD_OK)
     return MSD_ERROR;
 
-  if (HAL_SD_CheckWriteOperation (&uSdHandle, (uint32_t)SD_DATATIMEOUT) != SD_OK)
-    return MSD_ERROR;
+  //if (HAL_SD_CheckWriteOperation (&uSdHandle, (uint32_t)SD_DATATIMEOUT) != SD_OK)
+  //  return MSD_ERROR;
+  //can't remove ?
+  HAL_SD_CheckWriteOperation (&uSdHandle, (uint32_t)SD_DATATIMEOUT);
 
   return MSD_OK;
   }

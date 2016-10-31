@@ -90,7 +90,7 @@ static int8_t SD_GetCapacity (uint8_t lun, uint32_t* block_num, uint16_t* block_
 static int8_t SD_Read (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t blk_len) {
 
   if (BSP_SD_IsDetected() != SD_NOT_PRESENT) {
-    //BSP_SD_ReadBlocks_DMA ((uint32_t*)buf, blk_addr * SD_BLK_SIZ, SD_BLK_SIZ, blk_len);
+    //BSP_SD_ReadBlocks_DMA ((uint32_t*)buf, blk_addr * SD_BLK_SIZ, blk_len);
     //SCB_InvalidateDCache_by_Addr ((uint32_t*)((uint32_t)buf & 0xFFFFFFE0), (blk_len * SD_BLK_SIZ) + 32);
 
     if ((blk_addr >= mSdReadCacheBlock) && (blk_addr + blk_len <= mSdReadCacheBlock + sdReadCacheSize)) {
@@ -99,8 +99,7 @@ static int8_t SD_Read (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t bl
       }
     else {
       sdReads++;
-      BSP_SD_ReadBlocks_DMA ((uint32_t*)mSdReadCache, blk_addr * SD_BLK_SIZ, SD_BLK_SIZ, sdReadCacheSize);
-      SCB_InvalidateDCache_by_Addr ((uint32_t*)((uint32_t)mSdReadCache & 0xFFFFFFE0), (sdReadCacheSize * SD_BLK_SIZ) + 32);
+      BSP_SD_ReadBlocks_DMA ((uint32_t*)mSdReadCache, blk_addr * SD_BLK_SIZ, sdReadCacheSize);
       memcpy (buf, mSdReadCache, blk_len * SD_BLK_SIZ);
       mSdReadCacheBlock = blk_addr;
       }
@@ -127,7 +126,7 @@ static int8_t SD_Write (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t b
 
   if (BSP_SD_IsDetected() != SD_NOT_PRESENT) {
     sdWrites++;
-    BSP_SD_WriteBlocks_DMA ((uint32_t*)buf, blk_addr * SD_BLK_SIZ, SD_BLK_SIZ, blk_len);
+    BSP_SD_WriteBlocks_DMA ((uint32_t*)buf, blk_addr * SD_BLK_SIZ, blk_len);
     mSdReadCacheBlock = 0xFFFFFFF0;
 
     //cLcd::debug ("w " + cLcd::dec (blk_addr) + " " + cLcd::dec (blk_len));
