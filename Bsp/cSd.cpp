@@ -179,19 +179,19 @@ std::string SD_info() {
 //}}}
 
 //{{{
-uint8_t SD_ReadBlocks (uint32_t* pData, uint64_t ReadAddr, uint16_t blocks) {
+uint8_t SD_ReadBlocks (uint8_t* buf, uint64_t ReadAddr, uint16_t blocks) {
 
-  if (HAL_SD_ReadBlocks_DMA (&uSdHandle, pData, ReadAddr, blocks) != SD_OK)
+  if (HAL_SD_ReadBlocks_DMA (&uSdHandle, (uint32_t*)buf, ReadAddr, blocks) != SD_OK)
     return MSD_ERROR;
-  SCB_InvalidateDCache_by_Addr ((uint32_t*)((uint32_t)pData & 0xFFFFFFE0), (blocks * 512) + 32);
+  SCB_InvalidateDCache_by_Addr ((uint32_t*)((uint32_t)buf & 0xFFFFFFE0), (blocks * 512) + 32);
 
   return MSD_OK;
   }
 //}}}
 //{{{
-uint8_t SD_WriteBlocks (uint32_t* pData, uint64_t WriteAddr, uint16_t blocks) {
+uint8_t SD_WriteBlocks (uint8_t* buf, uint64_t WriteAddr, uint16_t blocks) {
 
-  if (HAL_SD_WriteBlocks_DMA (&uSdHandle, pData, WriteAddr, blocks) != SD_OK)
+  if (HAL_SD_WriteBlocks_DMA (&uSdHandle, (uint32_t*)buf, WriteAddr, blocks) != SD_OK)
     return MSD_ERROR;
 
   //if (HAL_SD_CheckWriteOperation (&uSdHandle, (uint32_t)SD_DATATIMEOUT) != SD_OK)
@@ -243,7 +243,7 @@ int8_t SD_Read (uint8_t* buf, uint32_t blk_addr, uint16_t blocks) {
       }
     else {
       sdReads++;
-      SD_ReadBlocks ((uint32_t*)mSdReadCache, blk_addr * 512, sdReadCacheSize);
+      SD_ReadBlocks (mSdReadCache, blk_addr * 512, sdReadCacheSize);
       memcpy (buf, mSdReadCache, blocks * 512);
       mSdReadCacheBlock = blk_addr;
       }
@@ -270,7 +270,7 @@ int8_t SD_Write (uint8_t* buf, uint32_t blk_addr, uint16_t blocks) {
 
   if (SD_present()) {
     sdWrites++;
-    SD_WriteBlocks ((uint32_t*)buf, blk_addr * 512, blocks);
+    SD_WriteBlocks (buf, blk_addr * 512, blocks);
 
     mSdReadCacheBlock = 0xFFFFFFF0;
 

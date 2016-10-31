@@ -72,7 +72,7 @@ DRESULT diskRead (BYTE* buffer, DWORD sector, UINT count) {
     cLcd::debug ("diskRead align b:" + cLcd::hex ((int)buffer) + " sec:" + cLcd::dec (sector) + " num:" + cLcd::dec (count));
 
     // not 32bit aligned, dma fails,
-    auto tempBuffer = (uint32_t*)pvPortMalloc (count * SECTOR_SIZE);
+    auto tempBuffer = (uint8_t*)pvPortMalloc (count * SECTOR_SIZE);
 
     // read into 32bit aligned tempBuffer
     auto result = SD_ReadBlocks (tempBuffer, (uint64_t)(sector * SECTOR_SIZE), count) == MSD_OK ? RES_OK : RES_ERROR;
@@ -84,11 +84,11 @@ DRESULT diskRead (BYTE* buffer, DWORD sector, UINT count) {
 
   else
     //cLcd::debug ("diskRead - sec:" + cLcd::dec (sector) + " num:" + cLcd::dec (count));
-    return  SD_ReadBlocks ((uint32_t*)buffer, (uint64_t)(sector * SECTOR_SIZE), count) == MSD_OK ? RES_OK : RES_ERROR;
+    return  SD_ReadBlocks ((uint8_t*)buffer, (uint64_t)(sector * SECTOR_SIZE), count) == MSD_OK ? RES_OK : RES_ERROR;
   }
 //}}}
 //{{{
 DRESULT diskWrite (const BYTE* buffer, DWORD sector, UINT count) {
-  return SD_WriteBlocks ((uint32_t*)buffer, (uint64_t)(sector * SECTOR_SIZE), count) == MSD_OK ? RES_OK : RES_ERROR;
+  return SD_WriteBlocks ((uint8_t*)buffer, (uint64_t)(sector * SECTOR_SIZE), count) == MSD_OK ? RES_OK : RES_ERROR;
   }
 //}}}

@@ -21,8 +21,8 @@ HAL_SD_TransferStateTypedef SD_GetStatus();
 void SD_GetCardInfo (HAL_SD_CardInfoTypedef *CardInfo);
 std::string SD_info();
 
-uint8_t SD_ReadBlocks (uint32_t *pData, uint64_t ReadAddr, uint16_t blocks);
-uint8_t SD_WriteBlocks (uint32_t *pData, uint64_t WriteAddr, uint16_t blocks);
+uint8_t SD_ReadBlocks (uint8_t* buf, uint64_t ReadAddr, uint16_t blocks);
+uint8_t SD_WriteBlocks (uint8_t* buf, uint64_t WriteAddr, uint16_t blocks);
 
 uint8_t SD_Erase (uint64_t StartAddr, uint64_t EndAddr);
 
