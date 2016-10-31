@@ -1088,7 +1088,7 @@ void ftpServerThread (void const* argument) {
   cLcd::debug ("ftpServerThread");
 
   BSP_SD_Init();
-  if (BSP_SD_IsDetected() == SD_PRESENT)
+  if (BSP_SD_present())
     cLcd::debug ("ftpServer SD CARD");
 
   cFtpServer ftpServer;

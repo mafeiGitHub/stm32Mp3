@@ -4,19 +4,16 @@
  extern "C" {
 #endif
 //}}}
-
+//{{{  includes
 #include <stdbool.h>
 #include "stm32746g_discovery.h"
+//}}}
 
 #define SD_CardInfo HAL_SD_CardInfoTypedef
 
 #define MSD_OK                        ((uint8_t)0x00)
 #define MSD_ERROR                     ((uint8_t)0x01)
 #define MSD_ERROR_SD_NOT_PRESENT      ((uint8_t)0x02)
-
-#define SD_PRESENT               ((uint8_t)0x01)
-#define SD_NOT_PRESENT           ((uint8_t)0x00)
-#define SD_DATATIMEOUT           ((uint32_t)100000000)
 
 #define BSP_SDMMC_IRQHandler              SDMMC1_IRQHandler
 #define BSP_SDMMC_DMA_Tx_IRQHandler       DMA2_Stream6_IRQHandler

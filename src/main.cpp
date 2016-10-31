@@ -1036,7 +1036,7 @@ static void mainThread (void const* argument) {
   mLcd->displayOn();
   cLcd::debug ("mainThread");
 
-  bool sdPresent = BSP_SD_IsDetected() != SD_NOT_PRESENT;
+  bool sdPresent = BSP_SD_present();
   if (sdPresent) {
     if (true) {
       USBD_Init (&USBD_Device, &MSC_Desc, 0);
