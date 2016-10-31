@@ -231,8 +231,7 @@ static int8_t SCSI_ProcessRead (USBD_HandleTypeDef* pdev, uint8_t lun) {
   USBD_MSC_BOT_HandleTypeDef* hmsc = (USBD_MSC_BOT_HandleTypeDef*)pdev->pClassData;
 
   uint32_t len = MIN(hmsc->scsi_blk_len, MSC_MEDIA_PACKET);
-  if (((USBD_StorageTypeDef*)pdev->pUserData)->Read (lun,
-                                                     hmsc->bot_data,
+  if (((USBD_StorageTypeDef*)pdev->pUserData)->Read (hmsc->bot_data,
                                                      hmsc->scsi_blk_addr / hmsc->scsi_blk_size,
                                                      len / hmsc->scsi_blk_size) < 0) {
     SCSI_SenseCode (pdev, lun, HARDWARE_ERROR, UNRECOVERED_READ_ERROR);
@@ -258,8 +257,7 @@ static int8_t SCSI_ProcessWrite (USBD_HandleTypeDef* pdev, uint8_t lun) {
   USBD_MSC_BOT_HandleTypeDef* hmsc = (USBD_MSC_BOT_HandleTypeDef*) pdev->pClassData;
 
   uint32_t len = MIN(hmsc->scsi_blk_len, MSC_MEDIA_PACKET);
-  if (((USBD_StorageTypeDef*)pdev->pUserData)->Write (lun,
-                                                      hmsc->bot_data,
+  if (((USBD_StorageTypeDef*)pdev->pUserData)->Write (hmsc->bot_data,
                                                       hmsc->scsi_blk_addr / hmsc->scsi_blk_size,
                                                       len / hmsc->scsi_blk_size) < 0) {
     SCSI_SenseCode (pdev, lun, HARDWARE_ERROR, WRITE_FAULT);
@@ -334,7 +332,7 @@ static int8_t SCSI_ReadCapacity10 (USBD_HandleTypeDef* pdev, uint8_t lun, uint8_
 
   USBD_MSC_BOT_HandleTypeDef* hmsc = (USBD_MSC_BOT_HandleTypeDef*)pdev->pClassData;
 
-  if (((USBD_StorageTypeDef *)pdev->pUserData)->GetCapacity (lun, &hmsc->scsi_blk_nbr, &hmsc->scsi_blk_size) != 0) {
+  if (((USBD_StorageTypeDef *)pdev->pUserData)->GetCapacity (&hmsc->scsi_blk_nbr, &hmsc->scsi_blk_size) != 0) {
     SCSI_SenseCode(pdev, lun, NOT_READY, MEDIUM_NOT_PRESENT);
     return -1;
     }
@@ -364,7 +362,7 @@ static int8_t SCSI_ReadFormatCapacity(USBD_HandleTypeDef* pdev, uint8_t lun, uin
 
   uint16_t blk_size;
   uint32_t blk_nbr;
-  if (((USBD_StorageTypeDef*)pdev->pUserData)->GetCapacity (lun, &blk_nbr, &blk_size) != 0) {
+  if (((USBD_StorageTypeDef*)pdev->pUserData)->GetCapacity (&blk_nbr, &blk_size) != 0) {
     SCSI_SenseCode (pdev, lun, NOT_READY, MEDIUM_NOT_PRESENT);
     return -1;
     }
