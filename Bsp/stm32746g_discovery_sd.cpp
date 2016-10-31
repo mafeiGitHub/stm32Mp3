@@ -1,13 +1,15 @@
 #ifdef STM32F746G_DISCO
-/*{{{  includes*/
+//{{{  includes
 #include "stm32746g_discovery_sd.h"
 #include <string.h>
 #include "cmsis_os.h"
-/*}}}*/
+
+#include "cLcd.h"
+//}}}
 #define SD_PRESENT               ((uint8_t)0x01)
 #define SD_NOT_PRESENT           ((uint8_t)0x00)
 
-/*{{{  SD DMA config*/
+//{{{  SD DMA config
 #define __DMAx_TxRx_CLK_ENABLE  __HAL_RCC_DMA2_CLK_ENABLE
 #define SD_DMAx_Tx_CHANNEL      DMA_CHANNEL_4
 #define SD_DMAx_Rx_CHANNEL      DMA_CHANNEL_4
@@ -15,11 +17,11 @@
 #define SD_DMAx_Rx_STREAM       DMA2_Stream3
 #define SD_DMAx_Tx_IRQn         DMA2_Stream6_IRQn
 #define SD_DMAx_Rx_IRQn         DMA2_Stream3_IRQn
-/*}}}*/
+//}}}
 SD_HandleTypeDef uSdHandle;
 DMA_HandleTypeDef dma_rx_handle;
 DMA_HandleTypeDef dma_tx_handle;
-/*{{{  static vars*/
+//{{{  static vars
 static SD_CardInfo uSdCardInfo;
 
 static const uint32_t sdReadCacheSize = 0x40;
@@ -33,9 +35,9 @@ static uint32_t sdReadBlock = 0xFFFFFFFF;
 static uint32_t sdWrites = 0;
 static uint32_t sdWriteMultipleLen = 0;
 static uint32_t sdWriteBlock = 0xFFFFFFFF;
-/*}}}*/
+//}}}
 
-/*{{{*/
+//{{{
 uint8_t BSP_SD_Init() {
 
   // uSD device interface configuration
@@ -47,7 +49,7 @@ uint8_t BSP_SD_Init() {
   uSdHandle.Init.HardwareFlowControl = SDMMC_HARDWARE_FLOW_CONTROL_DISABLE;
   uSdHandle.Init.ClockDiv            = SDMMC_TRANSFER_CLK_DIV;
 
-  /*{{{  sdDetect init*/
+  //{{{  sdDetect init
   SD_DETECT_GPIO_CLK_ENABLE();
 
   GPIO_InitTypeDef  gpio_init_structure;
@@ -56,7 +58,7 @@ uint8_t BSP_SD_Init() {
   gpio_init_structure.Pull      = GPIO_PULLUP;
   gpio_init_structure.Speed     = GPIO_SPEED_HIGH;
   HAL_GPIO_Init (SD_DETECT_GPIO_PORT, &gpio_init_structure);
-  /*}}}*/
+  //}}}
   if (!BSP_SD_present())
     return MSD_ERROR_SD_NOT_PRESENT;
 
@@ -64,7 +66,7 @@ uint8_t BSP_SD_Init() {
   __DMAx_TxRx_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
-  /*{{{  gpio init*/
+  //{{{  gpio init
   gpio_init_structure.Mode      = GPIO_MODE_AF_PP;
   gpio_init_structure.Pull      = GPIO_PULLUP;
   gpio_init_structure.Speed     = GPIO_SPEED_HIGH;
@@ -75,8 +77,8 @@ uint8_t BSP_SD_Init() {
 
   gpio_init_structure.Pin = GPIO_PIN_2;
   HAL_GPIO_Init(GPIOD, &gpio_init_structure);
-  /*}}}*/
-  /*{{{  DMA Rx parameters*/
+  //}}}
+  //{{{  DMA Rx parameters
   dma_rx_handle.Init.Channel             = SD_DMAx_Rx_CHANNEL;
   dma_rx_handle.Init.Direction           = DMA_PERIPH_TO_MEMORY;
   dma_rx_handle.Init.PeriphInc           = DMA_PINC_DISABLE;
@@ -93,8 +95,8 @@ uint8_t BSP_SD_Init() {
   __HAL_LINKDMA (&uSdHandle, hdmarx, dma_rx_handle);
   HAL_DMA_DeInit (&dma_rx_handle);
   HAL_DMA_Init (&dma_rx_handle);
-  /*}}}*/
-  /*{{{  DMA Tx parameters*/
+  //}}}
+  //{{{  DMA Tx parameters
   dma_tx_handle.Init.Channel             = SD_DMAx_Tx_CHANNEL;
   dma_tx_handle.Init.Direction           = DMA_MEMORY_TO_PERIPH;
   dma_tx_handle.Init.PeriphInc           = DMA_PINC_DISABLE;
@@ -111,7 +113,7 @@ uint8_t BSP_SD_Init() {
   __HAL_LINKDMA (&uSdHandle, hdmatx, dma_tx_handle);
   HAL_DMA_DeInit (&dma_tx_handle);
   HAL_DMA_Init (&dma_tx_handle);
-  /*}}}*/
+  //}}}
 
   // sd interrupt
   HAL_NVIC_SetPriority (SDMMC1_IRQn, 5, 0);
@@ -137,9 +139,9 @@ uint8_t BSP_SD_Init() {
 
   return MSD_OK;
   }
-/*}}}*/
+//}}}
 
-/*{{{*/
+//{{{
 uint8_t BSP_SD_ITConfig() {
 
   GPIO_InitTypeDef gpio_init_structure;
@@ -155,12 +157,12 @@ uint8_t BSP_SD_ITConfig() {
 
   return MSD_OK;
   }
-/*}}}*/
-/*{{{*/
+//}}}
+//{{{
 uint8_t BSP_SD_IsDetected() {
   return HAL_GPIO_ReadPin (SD_DETECT_GPIO_PORT, SD_DETECT_PIN) == GPIO_PIN_SET ? SD_NOT_PRESENT : SD_PRESENT;
   }
-/*}}}*/
+//}}}
 bool BSP_SD_present() { return BSP_SD_IsDetected() == SD_PRESENT; }
 
 HAL_SD_TransferStateTypedef BSP_SD_GetStatus() { return HAL_SD_GetStatus (&uSdHandle); }
@@ -171,7 +173,7 @@ uint32_t BSP_SD_getReadHits() { return sdReadHits; }
 uint32_t BSP_SD_getReadBlock() { return sdReadBlock + sdReadMultipleLen; }
 uint32_t BSP_SD_getWrites() { return sdWrites; }
 
-/*{{{*/
+//{{{
 uint8_t BSP_SD_ReadBlocks (uint32_t* pData, uint64_t ReadAddr, uint32_t blocks) {
 
   if (HAL_SD_ReadBlocks_DMA (&uSdHandle, pData, ReadAddr, blocks) != SD_OK)
@@ -180,8 +182,8 @@ uint8_t BSP_SD_ReadBlocks (uint32_t* pData, uint64_t ReadAddr, uint32_t blocks) 
 
   return MSD_OK;
   }
-/*}}}*/
-/*{{{*/
+//}}}
+//{{{
 uint8_t BSP_SD_WriteBlocks (uint32_t* pData, uint64_t WriteAddr, uint32_t blocks) {
 
   if (HAL_SD_WriteBlocks_DMA (&uSdHandle, pData, WriteAddr, blocks) != SD_OK)
@@ -194,23 +196,23 @@ uint8_t BSP_SD_WriteBlocks (uint32_t* pData, uint64_t WriteAddr, uint32_t blocks
 
   return MSD_OK;
   }
-/*}}}*/
+//}}}
 
-/*{{{*/
+//{{{
 uint8_t BSP_SD_Erase (uint64_t StartAddr, uint64_t EndAddr) {
   if (HAL_SD_Erase(&uSdHandle, StartAddr, EndAddr) != SD_OK)
     return MSD_ERROR;
   else
     return MSD_OK;
   }
-/*}}}*/
+//}}}
 
-/*{{{*/
+//{{{
 int8_t BSP_SD_IsReady (uint8_t lun) {
   return (BSP_SD_present() && (HAL_SD_GetStatus (&uSdHandle) == SD_TRANSFER_OK)) ? 0 : -1;
   }
-/*}}}*/
-/*{{{*/
+//}}}
+//{{{
 int8_t BSP_SD_GetCapacity (uint8_t lun, uint32_t* block_num, uint16_t* block_size) {
 
   if (BSP_SD_present()) {
@@ -223,8 +225,8 @@ int8_t BSP_SD_GetCapacity (uint8_t lun, uint32_t* block_num, uint16_t* block_siz
 
   return -1;
   }
-/*}}}*/
-/*{{{*/
+//}}}
+//{{{
 int8_t BSP_SD_Read (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t blocks) {
 
   if (BSP_SD_present()) {
@@ -245,7 +247,7 @@ int8_t BSP_SD_Read (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t block
     if (blk_addr != sdReadBlock + sdReadMultipleLen) {
       if (sdReadMultipleLen) {
         // flush pending multiple
-        //cLcd::debug ("rm:" + cLcd::dec (sdReadBlock) + "::" + cLcd::dec (sdReadMultipleLen));
+        cLcd::debug ("rm:" + cLcd::dec (sdReadBlock) + "::" + cLcd::dec (sdReadMultipleLen));
         sdReadMultipleLen = 0;
         }
       sdReadBlock = blk_addr;
@@ -257,8 +259,8 @@ int8_t BSP_SD_Read (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t block
 
   return -1;
   }
-/*}}}*/
-/*{{{*/
+//}}}
+//{{{
 int8_t BSP_SD_Write (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t blocks) {
 
   if (BSP_SD_present()) {
@@ -271,7 +273,7 @@ int8_t BSP_SD_Write (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t bloc
     if (blk_addr != sdWriteBlock + sdWriteMultipleLen) {
       if (sdWriteMultipleLen) {
         // flush pending multiple
-        //cLcd::debug ("wm:" + cLcd::dec (sdWriteBlock) + "::" + cLcd::dec (sdWriteMultipleLen));
+        cLcd::debug ("wm:" + cLcd::dec (sdWriteBlock) + "::" + cLcd::dec (sdWriteMultipleLen));
         sdWriteMultipleLen = 0;
         }
       sdWriteBlock = blk_addr;
@@ -283,6 +285,6 @@ int8_t BSP_SD_Write (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t bloc
 
   return -1;
   }
-/*}}}*/
+//}}}
 
 #endif
