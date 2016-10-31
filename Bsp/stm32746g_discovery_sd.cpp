@@ -168,10 +168,12 @@ bool BSP_SD_present() { return BSP_SD_IsDetected() == SD_PRESENT; }
 HAL_SD_TransferStateTypedef BSP_SD_GetStatus() { return HAL_SD_GetStatus (&uSdHandle); }
 void BSP_SD_GetCardInfo (HAL_SD_CardInfoTypedef* CardInfo) { HAL_SD_Get_CardInfo (&uSdHandle, CardInfo); }
 
-uint32_t BSP_SD_getReads() { return sdReads; }
-uint32_t BSP_SD_getReadHits() { return sdReadHits; }
-uint32_t BSP_SD_getReadBlock() { return sdReadBlock + sdReadMultipleLen; }
-uint32_t BSP_SD_getWrites() { return sdWrites; }
+//{{{
+std::string BSP_SD_info() {
+  return cLcd::dec (sdReads) + ":" + cLcd::dec (sdReadHits) + "  "  +
+         cLcd::dec (sdReadBlock + sdReadMultipleLen) + " w:" + cLcd::dec (sdWrites);
+  }
+//}}}
 
 //{{{
 uint8_t BSP_SD_ReadBlocks (uint32_t* pData, uint64_t ReadAddr, uint32_t blocks) {

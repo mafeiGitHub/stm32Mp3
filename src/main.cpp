@@ -1129,13 +1129,7 @@ static void mainThread (void const* argument) {
     button ? mLcd->clear (COL_BLACK) : mRoot->render (mLcd);
     //if (tsState.touchDetected)
     //  mLcd->renderCursor (COL_MAGENTA, x[0], y[0], z[0] ? z[0] : cLcd::getHeight()/10);
-    uint32_t n1 = BSP_SD_getReads();
-    uint32_t n2 = BSP_SD_getReadHits();
-    uint32_t n3 = BSP_SD_getReadBlock();
-    uint32_t n4 = BSP_SD_getWrites();
-
-    std::string str = cLcd::dec (n1) + ":" + cLcd::dec (n2) + "  "  + cLcd::dec (n3) + " w:" + cLcd::dec (n4);
-    mLcd->text (COL_YELLOW, cLcd::getFontHeight(), str,
+    mLcd->text (COL_YELLOW, cLcd::getFontHeight(), BSP_SD_info(),
                 cLcd::getWidth()/2, cLcd::getHeight()- cLcd::getLineHeight(), cLcd::getWidth(), cLcd::getLineHeight());
     mLcd->endRender (button);
 

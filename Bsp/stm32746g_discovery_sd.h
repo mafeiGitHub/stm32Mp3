@@ -1,11 +1,7 @@
 #pragma once
-//{{{
-#ifdef __cplusplus
- extern "C" {
-#endif
-//}}}
 //{{{  includes
 #include <stdbool.h>
+#include <string>
 #include "stm32746g_discovery.h"
 //}}}
 
@@ -24,10 +20,7 @@ uint8_t BSP_SD_IsDetected();
 HAL_SD_TransferStateTypedef BSP_SD_GetStatus();
 void BSP_SD_GetCardInfo (HAL_SD_CardInfoTypedef *CardInfo);
 
-uint32_t BSP_SD_getReads();
-uint32_t BSP_SD_getReadHits();
-uint32_t BSP_SD_getReadBlock();
-uint32_t BSP_SD_getWrites();
+std::string BSP_SD_info();
 
 uint8_t BSP_SD_ReadBlocks (uint32_t *pData, uint64_t ReadAddr, uint32_t blocks);
 uint8_t BSP_SD_WriteBlocks (uint32_t *pData, uint64_t WriteAddr, uint32_t blocks);
@@ -38,9 +31,3 @@ int8_t BSP_SD_IsReady (uint8_t lun);
 int8_t BSP_SD_GetCapacity (uint8_t lun, uint32_t* block_num, uint16_t* block_size);
 int8_t BSP_SD_Read (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t blocks);
 int8_t BSP_SD_Write (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t blocks);
-
-//{{{
-#ifdef __cplusplus
-}
-#endif
-//}}}
