@@ -1,8 +1,11 @@
 #ifdef STM32F746G_DISCO
-
+/*{{{  includes*/
 #include "stm32746g_discovery_sd.h"
+#include <string.h>
+#include "cmsis_os.h"
+/*}}}*/
 
-// DMA definitions for SD DMA transfer
+/*{{{  DMA definitions for SD DMA transfer*/
 #define __DMAx_TxRx_CLK_ENABLE  __HAL_RCC_DMA2_CLK_ENABLE
 #define SD_DMAx_Tx_CHANNEL      DMA_CHANNEL_4
 #define SD_DMAx_Rx_CHANNEL      DMA_CHANNEL_4
@@ -10,12 +13,25 @@
 #define SD_DMAx_Rx_STREAM       DMA2_Stream3
 #define SD_DMAx_Tx_IRQn         DMA2_Stream6_IRQn
 #define SD_DMAx_Rx_IRQn         DMA2_Stream3_IRQn
-
+/*}}}*/
 SD_HandleTypeDef uSdHandle;
 DMA_HandleTypeDef dma_rx_handle;
 DMA_HandleTypeDef dma_tx_handle;
-
+/*{{{  static vars*/
 static SD_CardInfo uSdCardInfo;
+
+static const uint32_t sdReadCacheSize = 0x40;
+static uint8_t* mSdReadCache = 0;
+static uint32_t mSdReadCacheBlock = 0xFFFFFFB0;
+static uint32_t sdReads = 0;
+static uint32_t sdReadHits = 0;
+static uint32_t sdReadMultipleLen = 0;
+static uint32_t sdReadBlock = 0xFFFFFFFF;
+
+static uint32_t sdWrites = 0;
+static uint32_t sdWriteMultipleLen = 0;
+static uint32_t sdWriteBlock = 0xFFFFFFFF;
+/*}}}*/
 
 /*{{{*/
 uint8_t BSP_SD_Init() {
@@ -115,6 +131,8 @@ uint8_t BSP_SD_Init() {
   if (HAL_SD_HighSpeed (&uSdHandle) != SD_OK)
     return MSD_ERROR;
 
+  mSdReadCache = (uint8_t*)pvPortMalloc (512 * sdReadCacheSize);
+
   return MSD_OK;
   }
 /*}}}*/
@@ -138,20 +156,22 @@ uint8_t BSP_SD_ITConfig() {
 /*}}}*/
 /*{{{*/
 uint8_t BSP_SD_IsDetected() {
-  return HAL_GPIO_ReadPin (SD_DETECT_GPIO_PORT, SD_DETECT_PIN) == GPIO_PIN_SET ? SD_NOT_PRESENT : SD_PRESENT;
+  return HAL_GPIO_ReadPin(SD_DETECT_GPIO_PORT, SD_DETECT_PIN) == GPIO_PIN_SET ? SD_NOT_PRESENT : SD_PRESENT;
+  }
+/*}}}*/
+/*{{{*/
+bool BSP_SD_present() {
+  return HAL_GPIO_ReadPin(SD_DETECT_GPIO_PORT, SD_DETECT_PIN) != GPIO_PIN_SET;
   }
 /*}}}*/
 
-/*{{{*/
-HAL_SD_TransferStateTypedef BSP_SD_GetStatus() {
-  return HAL_SD_GetStatus (&uSdHandle);
-  }
-/*}}}*/
-/*{{{*/
-void BSP_SD_GetCardInfo (HAL_SD_CardInfoTypedef* CardInfo) {
-  HAL_SD_Get_CardInfo (&uSdHandle, CardInfo);
-  }
-/*}}}*/
+HAL_SD_TransferStateTypedef BSP_SD_GetStatus() { return HAL_SD_GetStatus (&uSdHandle); }
+void BSP_SD_GetCardInfo (HAL_SD_CardInfoTypedef* CardInfo) { HAL_SD_Get_CardInfo (&uSdHandle, CardInfo); }
+
+uint32_t BSP_SD_getReads() { return sdReads; }
+uint32_t BSP_SD_getReadHits() { return sdReadHits; }
+uint32_t BSP_SD_getReadBlock() { return sdReadBlock + sdReadMultipleLen; }
+uint32_t BSP_SD_getWrites() { return sdWrites; }
 
 /*{{{*/
 uint8_t BSP_SD_ReadBlocks_DMA (uint32_t* pData, uint64_t ReadAddr, uint32_t NumOfBlocks) {
@@ -184,6 +204,88 @@ uint8_t BSP_SD_Erase (uint64_t StartAddr, uint64_t EndAddr) {
     return MSD_ERROR;
   else
     return MSD_OK;
+  }
+/*}}}*/
+
+/*{{{*/
+int8_t BSP_SD_IsReady (uint8_t lun) {
+  return ((BSP_SD_IsDetected() != SD_NOT_PRESENT) && (HAL_SD_GetStatus (&uSdHandle) == SD_TRANSFER_OK)) ? 0 : -1;
+  }
+/*}}}*/
+/*{{{*/
+int8_t BSP_SD_GetCapacity (uint8_t lun, uint32_t* block_num, uint16_t* block_size) {
+
+  if (BSP_SD_IsDetected() != SD_NOT_PRESENT) {
+    HAL_SD_CardInfoTypedef info;
+    BSP_SD_GetCardInfo (&info);
+    *block_num = (info.CardCapacity) / 512 - 1;
+    *block_size = 512;
+    return 0;
+    }
+
+  return -1;
+  }
+/*}}}*/
+/*{{{*/
+int8_t BSP_SD_Read (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t blk_len) {
+
+  if (BSP_SD_IsDetected() != SD_NOT_PRESENT) {
+    //BSP_SD_ReadBlocks_DMA ((uint32_t*)buf, blk_addr * 512, blk_len);
+    //return 0;
+
+    if ((blk_addr >= mSdReadCacheBlock) && (blk_addr + blk_len <= mSdReadCacheBlock + sdReadCacheSize)) {
+      sdReadHits++;
+      memcpy (buf, mSdReadCache + ((blk_addr - mSdReadCacheBlock) * 512), blk_len * 512);
+      }
+    else {
+      sdReads++;
+      BSP_SD_ReadBlocks_DMA ((uint32_t*)mSdReadCache, blk_addr * 512, sdReadCacheSize);
+      memcpy (buf, mSdReadCache, blk_len * 512);
+      mSdReadCacheBlock = blk_addr;
+      }
+
+    //cLcd::debug ("r:" + cLcd::dec (blk_addr) + "::" + cLcd::dec (blk_len));
+    if (blk_addr != sdReadBlock + sdReadMultipleLen) {
+      if (sdReadMultipleLen) {
+        // flush pending multiple
+        //cLcd::debug ("rm:" + cLcd::dec (sdReadBlock) + "::" + cLcd::dec (sdReadMultipleLen));
+        sdReadMultipleLen = 0;
+        }
+      sdReadBlock = blk_addr;
+      }
+    sdReadMultipleLen += blk_len;
+
+    return 0;
+    }
+
+  return -1;
+  }
+/*}}}*/
+/*{{{*/
+int8_t BSP_SD_Write (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t blk_len) {
+
+  if (BSP_SD_IsDetected() != SD_NOT_PRESENT) {
+    sdWrites++;
+    BSP_SD_WriteBlocks_DMA ((uint32_t*)buf, blk_addr * 512, blk_len);
+    //return 0;
+
+    mSdReadCacheBlock = 0xFFFFFFF0;
+
+    //cLcd::debug ("w " + cLcd::dec (blk_addr) + " " + cLcd::dec (blk_len));
+    if (blk_addr != sdWriteBlock + sdWriteMultipleLen) {
+      if (sdWriteMultipleLen) {
+        // flush pending multiple
+        //cLcd::debug ("wm:" + cLcd::dec (sdWriteBlock) + "::" + cLcd::dec (sdWriteMultipleLen));
+        sdWriteMultipleLen = 0;
+        }
+      sdWriteBlock = blk_addr;
+      }
+    sdWriteMultipleLen += blk_len;
+
+    return 0;
+    }
+
+  return -1;
   }
 /*}}}*/
 

@@ -10,7 +10,7 @@ QSPI_HandleTypeDef QSPIHandle;
   * @param  Timeout
   * @retval None
   */
-static uint8_t QSPI_AutoPollingMemReady(QSPI_HandleTypeDef *hqspi, uint32_t Timeout)
+static uint8_t QSPI_AutoPollingMemReady (QSPI_HandleTypeDef *hqspi, uint32_t Timeout)
 {
   QSPI_CommandTypeDef     s_command;
   QSPI_AutoPollingTypeDef s_config;
@@ -34,12 +34,10 @@ static uint8_t QSPI_AutoPollingMemReady(QSPI_HandleTypeDef *hqspi, uint32_t Time
   s_config.AutomaticStop   = QSPI_AUTOMATIC_STOP_ENABLE;
 
   if (HAL_QSPI_AutoPolling(hqspi, &s_command, &s_config, Timeout) != HAL_OK)
-  {
     return QSPI_ERROR;
-  }
 
   return QSPI_OK;
-}
+  }
 /*}}}*/
 /*{{{*/
 /**
@@ -47,7 +45,7 @@ static uint8_t QSPI_AutoPollingMemReady(QSPI_HandleTypeDef *hqspi, uint32_t Time
   * @param  hqspi: QSPI handle
   * @retval None
   */
-static uint8_t QSPI_ResetMemory(QSPI_HandleTypeDef *hqspi)
+static uint8_t QSPI_ResetMemory (QSPI_HandleTypeDef *hqspi)
 {
   QSPI_CommandTypeDef s_command;
 
@@ -64,33 +62,22 @@ static uint8_t QSPI_ResetMemory(QSPI_HandleTypeDef *hqspi)
 
   /* Send the command */
   if (HAL_QSPI_Command(hqspi, &s_command, HAL_QPSI_TIMEOUT_DEFAULT_VALUE) != HAL_OK)
-  {
     return QSPI_ERROR;
-  }
 
   /* Send the reset memory command */
   s_command.Instruction = RESET_MEMORY_CMD;
   if (HAL_QSPI_Command(hqspi, &s_command, HAL_QPSI_TIMEOUT_DEFAULT_VALUE) != HAL_OK)
-  {
     return QSPI_ERROR;
-  }
 
   /* Configure automatic polling mode to wait the memory is ready */
   if (QSPI_AutoPollingMemReady(hqspi, HAL_QPSI_TIMEOUT_DEFAULT_VALUE) != QSPI_OK)
-  {
     return QSPI_ERROR;
-  }
 
   return QSPI_OK;
-}
+  }
 /*}}}*/
 /*{{{*/
-/**
-  * @brief  This function send a Write Enable and wait it is effective.
-  * @param  hqspi: QSPI handle
-  * @retval None
-  */
-static uint8_t QSPI_WriteEnable(QSPI_HandleTypeDef *hqspi)
+static uint8_t QSPI_WriteEnable (QSPI_HandleTypeDef *hqspi)
 {
   QSPI_CommandTypeDef     s_command;
   QSPI_AutoPollingTypeDef s_config;
@@ -107,9 +94,7 @@ static uint8_t QSPI_WriteEnable(QSPI_HandleTypeDef *hqspi)
   s_command.SIOOMode          = QSPI_SIOO_INST_EVERY_CMD;
 
   if (HAL_QSPI_Command(hqspi, &s_command, HAL_QPSI_TIMEOUT_DEFAULT_VALUE) != HAL_OK)
-  {
     return QSPI_ERROR;
-  }
 
   /* Configure automatic polling mode to wait for write enabling */
   s_config.Match           = N25Q128A_SR_WREN;
@@ -123,20 +108,13 @@ static uint8_t QSPI_WriteEnable(QSPI_HandleTypeDef *hqspi)
   s_command.DataMode       = QSPI_DATA_1_LINE;
 
   if (HAL_QSPI_AutoPolling(hqspi, &s_command, &s_config, HAL_QPSI_TIMEOUT_DEFAULT_VALUE) != HAL_OK)
-  {
     return QSPI_ERROR;
-  }
 
   return QSPI_OK;
-}
+  }
 /*}}}*/
 /*{{{*/
-/**
-  * @brief  This function configure the dummy cycles on memory side.
-  * @param  hqspi: QSPI handle
-  * @retval None
-  */
-static uint8_t QSPI_DummyCyclesCfg(QSPI_HandleTypeDef *hqspi)
+static uint8_t QSPI_DummyCyclesCfg (QSPI_HandleTypeDef *hqspi)
 {
   QSPI_CommandTypeDef s_command;
   uint8_t reg;
@@ -155,21 +133,15 @@ static uint8_t QSPI_DummyCyclesCfg(QSPI_HandleTypeDef *hqspi)
 
   /* Configure the command */
   if (HAL_QSPI_Command(hqspi, &s_command, HAL_QPSI_TIMEOUT_DEFAULT_VALUE) != HAL_OK)
-  {
     return QSPI_ERROR;
-  }
 
   /* Reception of the data */
   if (HAL_QSPI_Receive(hqspi, &reg, HAL_QPSI_TIMEOUT_DEFAULT_VALUE) != HAL_OK)
-  {
     return QSPI_ERROR;
-  }
 
   /* Enable write operations */
   if (QSPI_WriteEnable(hqspi) != QSPI_OK)
-  {
     return QSPI_ERROR;
-  }
 
   /* Update volatile configuration register (with new dummy cycles) */
   s_command.Instruction = WRITE_VOL_CFG_REG_CMD;
@@ -177,22 +149,18 @@ static uint8_t QSPI_DummyCyclesCfg(QSPI_HandleTypeDef *hqspi)
 
   /* Configure the write volatile configuration register command */
   if (HAL_QSPI_Command(hqspi, &s_command, HAL_QPSI_TIMEOUT_DEFAULT_VALUE) != HAL_OK)
-  {
     return QSPI_ERROR;
-  }
 
   /* Transmission of the data */
   if (HAL_QSPI_Transmit(hqspi, &reg, HAL_QPSI_TIMEOUT_DEFAULT_VALUE) != HAL_OK)
-  {
     return QSPI_ERROR;
-  }
 
   return QSPI_OK;
-}
+  }
 /*}}}*/
 
 /*{{{*/
-uint8_t BSP_QSPI_Init(void)
+uint8_t BSP_QSPI_Init()
 {
   QSPIHandle.Instance = QUADSPI;
 
@@ -240,7 +208,7 @@ uint8_t BSP_QSPI_Init(void)
   * @brief  De-Initializes the QSPI interface.
   * @retval QSPI memory status
   */
-uint8_t BSP_QSPI_DeInit(void)
+uint8_t BSP_QSPI_DeInit()
 {
   QSPIHandle.Instance = QUADSPI;
 
@@ -256,6 +224,7 @@ uint8_t BSP_QSPI_DeInit(void)
   return QSPI_OK;
 }
 /*}}}*/
+
 /*{{{*/
 /**
   * @brief  Reads an amount of data from the QSPI memory.
@@ -264,7 +233,7 @@ uint8_t BSP_QSPI_DeInit(void)
   * @param  Size: Size of data to read
   * @retval QSPI memory status
   */
-uint8_t BSP_QSPI_Read(uint8_t* pData, uint32_t ReadAddr, uint32_t Size)
+uint8_t BSP_QSPI_Read (uint8_t* pData, uint32_t ReadAddr, uint32_t Size)
 {
   QSPI_CommandTypeDef s_command;
 
@@ -305,7 +274,7 @@ uint8_t BSP_QSPI_Read(uint8_t* pData, uint32_t ReadAddr, uint32_t Size)
   * @param  Size: Size of data to write
   * @retval QSPI memory status
   */
-uint8_t BSP_QSPI_Write(uint8_t* pData, uint32_t WriteAddr, uint32_t Size)
+uint8_t BSP_QSPI_Write (uint8_t* pData, uint32_t WriteAddr, uint32_t Size)
 {
   QSPI_CommandTypeDef s_command;
   uint32_t end_addr, current_size, current_addr;
@@ -380,13 +349,14 @@ uint8_t BSP_QSPI_Write(uint8_t* pData, uint32_t WriteAddr, uint32_t Size)
   return QSPI_OK;
 }
 /*}}}*/
+
 /*{{{*/
 /**
   * @brief  Erases the specified block of the QSPI memory.
   * @param  BlockAddress: Block address to erase
   * @retval QSPI memory status
   */
-uint8_t BSP_QSPI_Erase_Block(uint32_t BlockAddress)
+uint8_t BSP_QSPI_Erase_Block (uint32_t BlockAddress)
 {
   QSPI_CommandTypeDef s_command;
 
@@ -429,7 +399,7 @@ uint8_t BSP_QSPI_Erase_Block(uint32_t BlockAddress)
   * @brief  Erases the entire QSPI memory.
   * @retval QSPI memory status
   */
-uint8_t BSP_QSPI_Erase_Chip(void)
+uint8_t BSP_QSPI_Erase_Chip()
 {
   QSPI_CommandTypeDef s_command;
 
@@ -465,12 +435,13 @@ uint8_t BSP_QSPI_Erase_Chip(void)
   return QSPI_OK;
 }
 /*}}}*/
+
 /*{{{*/
 /**
   * @brief  Reads current status of the QSPI memory.
   * @retval QSPI memory status
   */
-uint8_t BSP_QSPI_GetStatus(void)
+uint8_t BSP_QSPI_GetStatus()
 {
   QSPI_CommandTypeDef s_command;
   uint8_t reg;
@@ -525,7 +496,7 @@ uint8_t BSP_QSPI_GetStatus(void)
   * @param  pInfo: pointer on the configuration structure
   * @retval QSPI memory status
   */
-uint8_t BSP_QSPI_GetInfo(QSPI_Info* pInfo)
+uint8_t BSP_QSPI_GetInfo (QSPI_Info* pInfo)
 {
   /* Configure the structure with the memory configuration */
   pInfo->FlashSize          = N25Q128A_FLASH_SIZE;
@@ -538,12 +509,8 @@ uint8_t BSP_QSPI_GetInfo(QSPI_Info* pInfo)
 }
 /*}}}*/
 /*{{{*/
-/**
-  * @brief  Configure the QSPI in memory-mapped mode
-  * @retval QSPI memory status
-  */
-uint8_t BSP_QSPI_EnableMemoryMappedMode(void)
-{
+uint8_t BSP_QSPI_EnableMemoryMappedMode() {
+
   QSPI_CommandTypeDef      s_command;
   QSPI_MemoryMappedTypeDef s_mem_mapped_cfg;
 
@@ -564,16 +531,14 @@ uint8_t BSP_QSPI_EnableMemoryMappedMode(void)
   s_mem_mapped_cfg.TimeOutPeriod     = 0;
 
   if (HAL_QSPI_MemoryMapped(&QSPIHandle, &s_command, &s_mem_mapped_cfg) != HAL_OK)
-  {
     return QSPI_ERROR;
-  }
 
   return QSPI_OK;
 }
 /*}}}*/
 
 /*{{{*/
-__weak void BSP_QSPI_MspInit(QSPI_HandleTypeDef *hqspi, void *Params)
+__weak void BSP_QSPI_MspInit (QSPI_HandleTypeDef *hqspi, void *Params)
 {
   GPIO_InitTypeDef gpio_init_structure;
 
@@ -630,17 +595,10 @@ __weak void BSP_QSPI_MspInit(QSPI_HandleTypeDef *hqspi, void *Params)
   /* NVIC configuration for QSPI interrupt */
   HAL_NVIC_SetPriority(QUADSPI_IRQn, 0x0F, 0);
   HAL_NVIC_EnableIRQ(QUADSPI_IRQn);
-}
+  }
 /*}}}*/
 /*{{{*/
-/**
-  * @brief QSPI MSP De-Initialization
-  *        This function frees the hardware resources used in this example:
-  *          - Disable the Peripheral's clock
-  *          - Revert GPIO and NVIC configuration to their default state
-  * @retval None
-  */
-__weak void BSP_QSPI_MspDeInit(QSPI_HandleTypeDef *hqspi, void *Params)
+__weak void BSP_QSPI_MspDeInit (QSPI_HandleTypeDef *hqspi, void *Params)
 {
   /*##-1- Disable the NVIC for QSPI ###########################################*/
   HAL_NVIC_DisableIRQ(QUADSPI_IRQn);
@@ -661,7 +619,6 @@ __weak void BSP_QSPI_MspDeInit(QSPI_HandleTypeDef *hqspi, void *Params)
 
   /* Disable the QuadSPI memory interface clock */
   QSPI_CLK_DISABLE();
-}
-
+  }
 /*}}}*/
 #endif

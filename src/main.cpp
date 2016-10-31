@@ -59,97 +59,6 @@
 
 USBD_HandleTypeDef USBD_Device;
 
-#define SD_BLK_SIZ 512
-static const uint32_t sdReadCacheSize = 0x40;
-static uint8_t* mSdReadCache;
-static uint32_t mSdReadCacheBlock = 0xFFFFFFB0;
-static uint32_t sdReads = 0;
-static uint32_t sdReadHits = 0;
-static uint32_t sdReadMultipleLen = 0;
-static uint32_t sdReadBlock = 0xFFFFFFFF;
-
-static uint32_t sdWrites = 0;
-static uint32_t sdWriteMultipleLen = 0;
-static uint32_t sdWriteBlock = 0xFFFFFFFF;
-//{{{
-static int8_t SD_IsReady (uint8_t lun) {
-  return ((BSP_SD_IsDetected() != SD_NOT_PRESENT) && (BSP_SD_GetStatus() == SD_TRANSFER_OK)) ? 0 : -1;
-  }
-//}}}
-//{{{
-static int8_t SD_GetCapacity (uint8_t lun, uint32_t* block_num, uint16_t* block_size) {
-
-  if (BSP_SD_IsDetected() != SD_NOT_PRESENT) {
-    HAL_SD_CardInfoTypedef info;
-    BSP_SD_GetCardInfo (&info);
-    *block_num = (info.CardCapacity) / SD_BLK_SIZ - 1;
-    *block_size = SD_BLK_SIZ;
-    return 0;
-    }
-
-  return -1;
-  }
-//}}}
-//{{{
-static int8_t SD_Read (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t blk_len) {
-
-  if (BSP_SD_IsDetected() != SD_NOT_PRESENT) {
-    //BSP_SD_ReadBlocks_DMA ((uint32_t*)buf, blk_addr * SD_BLK_SIZ, blk_len);
-    //SCB_InvalidateDCache_by_Addr ((uint32_t*)((uint32_t)buf & 0xFFFFFFE0), (blk_len * SD_BLK_SIZ) + 32);
-
-    if ((blk_addr >= mSdReadCacheBlock) && (blk_addr + blk_len <= mSdReadCacheBlock + sdReadCacheSize)) {
-      sdReadHits++;
-      memcpy (buf, mSdReadCache + ((blk_addr - mSdReadCacheBlock) * SD_BLK_SIZ), blk_len * SD_BLK_SIZ);
-      }
-    else {
-      sdReads++;
-      BSP_SD_ReadBlocks_DMA ((uint32_t*)mSdReadCache, blk_addr * SD_BLK_SIZ, sdReadCacheSize);
-      memcpy (buf, mSdReadCache, blk_len * SD_BLK_SIZ);
-      mSdReadCacheBlock = blk_addr;
-      }
-
-    //cLcd::debug ("r:" + cLcd::dec (blk_addr) + "::" + cLcd::dec (blk_len));
-    if (blk_addr != sdReadBlock + sdReadMultipleLen) {
-      if (sdReadMultipleLen) {
-        // flush pending multiple
-        cLcd::debug ("rm:" + cLcd::dec (sdReadBlock) + "::" + cLcd::dec (sdReadMultipleLen));
-        sdReadMultipleLen = 0;
-        }
-      sdReadBlock = blk_addr;
-      }
-    sdReadMultipleLen += blk_len;
-
-    return 0;
-    }
-
-  return -1;
-  }
-//}}}
-//{{{
-static int8_t SD_Write (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t blk_len) {
-
-  if (BSP_SD_IsDetected() != SD_NOT_PRESENT) {
-    sdWrites++;
-    BSP_SD_WriteBlocks_DMA ((uint32_t*)buf, blk_addr * SD_BLK_SIZ, blk_len);
-    mSdReadCacheBlock = 0xFFFFFFF0;
-
-    //cLcd::debug ("w " + cLcd::dec (blk_addr) + " " + cLcd::dec (blk_len));
-    if (blk_addr != sdWriteBlock + sdWriteMultipleLen) {
-      if (sdWriteMultipleLen) {
-        // flush pending multiple
-        cLcd::debug ("wm:" + cLcd::dec (sdWriteBlock) + "::" + cLcd::dec (sdWriteMultipleLen));
-        sdWriteMultipleLen = 0;
-        }
-      sdWriteBlock = blk_addr;
-      }
-    sdWriteMultipleLen += blk_len;
-
-    return 0;
-    }
-
-  return -1;
-  }
-//}}}
 //{{{
 static const uint8_t SD_Inquirydata[] = {
   0x00, // LUN 0
@@ -161,13 +70,12 @@ static const uint8_t SD_Inquirydata[] = {
   '0', '.', '9','9',                                                              // Version     : 4 Bytes
   };
 //}}}
-
 //{{{
 static const USBD_StorageTypeDef USBD_DISK_fops = {
-  SD_GetCapacity,
-  SD_IsReady,
-  SD_Read,
-  SD_Write,
+  BSP_SD_GetCapacity,
+  BSP_SD_IsReady,
+  BSP_SD_Read,
+  BSP_SD_Write,
   (int8_t*)SD_Inquirydata,
   };
 //}}}
@@ -1128,9 +1036,8 @@ static void mainThread (void const* argument) {
   mLcd->displayOn();
   cLcd::debug ("mainThread");
 
-  bool sdPresent = BSP_SD_IsDetected() == SD_PRESENT;
+  bool sdPresent = BSP_SD_IsDetected() != SD_NOT_PRESENT;
   if (sdPresent) {
-    mSdReadCache = (uint8_t*)pvPortMalloc (512 * sdReadCacheSize);
     if (true) {
       USBD_Init (&USBD_Device, &MSC_Desc, 0);
       USBD_RegisterClass (&USBD_Device, &USBD_MSC);
@@ -1223,8 +1130,12 @@ static void mainThread (void const* argument) {
     button ? mLcd->clear (COL_BLACK) : mRoot->render (mLcd);
     //if (tsState.touchDetected)
     //  mLcd->renderCursor (COL_MAGENTA, x[0], y[0], z[0] ? z[0] : cLcd::getHeight()/10);
-    std::string str = cLcd::dec (sdReads) + ":" + cLcd::dec (sdReadHits) + "  " + cLcd::dec (sdReadBlock+ sdReadMultipleLen) +
-                      " w:" + cLcd::dec (sdWrites);
+    uint32_t n1 = BSP_SD_getReads();
+    uint32_t n2 = BSP_SD_getReadHits();
+    uint32_t n3 = BSP_SD_getReadBlock();
+    uint32_t n4 = BSP_SD_getWrites();
+
+    std::string str = cLcd::dec (n1) + ":" + cLcd::dec (n2) + "  "  + cLcd::dec (n3) + " w:" + cLcd::dec (n4);
     mLcd->text (COL_YELLOW, cLcd::getFontHeight(), str,
                 cLcd::getWidth()/2, cLcd::getHeight()- cLcd::getLineHeight(), cLcd::getWidth(), cLcd::getLineHeight());
     mLcd->endRender (button);
@@ -1338,6 +1249,9 @@ int main() {
   initMpuRegions();
   initClock();
 
+  HeapRegion_t xHeapRegions[] = { {(uint8_t*)SDRAM_HEAP, SDRAM_HEAP_SIZE }, { nullptr, 0 } };
+  vPortDefineHeapRegions (xHeapRegions);
+
   BSP_QSPI_Init();
   BSP_QSPI_MemoryMappedMode();
   QUADSPI->LPTR = 0xFFF; // Configure QSPI: LPTR register with the low-power time out value
@@ -1349,9 +1263,6 @@ int main() {
     BSP_LED_Init (LED2);
     BSP_LED_Init (LED3);
   #endif
-
-  HeapRegion_t xHeapRegions[] = { {(uint8_t*)SDRAM_HEAP, SDRAM_HEAP_SIZE }, { nullptr, 0 } };
-  vPortDefineHeapRegions (xHeapRegions);
 
   mLcd = cLcd::create ("Player built at " + std::string(__TIME__) + " on " + std::string(__DATE__), true);
   mRoot = new cRootContainer (cLcd::getWidth(), cLcd::getHeight());
