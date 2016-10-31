@@ -6,8 +6,6 @@
 
 #include "cLcd.h"
 //}}}
-#define SD_PRESENT               ((uint8_t)0x01)
-#define SD_NOT_PRESENT           ((uint8_t)0x00)
 
 //{{{  SD DMA config
 #define __DMAx_TxRx_CLK_ENABLE  __HAL_RCC_DMA2_CLK_ENABLE
@@ -27,17 +25,17 @@ static SD_CardInfo uSdCardInfo;
 static DMA_HandleTypeDef dma_rx_handle;
 static DMA_HandleTypeDef dma_tx_handle;
 
-static const uint32_t sdReadCacheSize = 0x40;
-static uint8_t* mSdReadCache = 0;
-static uint32_t mSdReadCacheBlock = 0xFFFFFFB0;
-static uint32_t sdReads = 0;
-static uint32_t sdReadHits = 0;
-static uint32_t sdReadMultipleLen = 0;
-static uint32_t sdReadBlock = 0xFFFFFFFF;
+static const uint32_t mReadCacheSize = 0x40;
+static uint8_t* mReadCache = 0;
+static uint32_t mReadCacheBlock = 0xFFFFFFB0;
+static uint32_t mReads = 0;
+static uint32_t mReadHits = 0;
+static uint32_t mReadMultipleLen = 0;
+static uint32_t mReadBlock = 0xFFFFFFFF;
 
-static uint32_t sdWrites = 0;
-static uint32_t sdWriteMultipleLen = 0;
-static uint32_t sdWriteBlock = 0xFFFFFFFF;
+static uint32_t mWrites = 0;
+static uint32_t mWriteMultipleLen = 0;
+static uint32_t mWriteBlock = 0xFFFFFFFF;
 //}}}
 
 //{{{
@@ -138,7 +136,7 @@ uint8_t SD_Init() {
   if (HAL_SD_HighSpeed (&uSdHandle) != SD_OK)
     return MSD_ERROR;
 
-  mSdReadCache = (uint8_t*)pvPortMalloc (512 * sdReadCacheSize);
+  mReadCache = (uint8_t*)pvPortMalloc (512 * mReadCacheSize);
 
   return MSD_OK;
   }
@@ -161,20 +159,14 @@ uint8_t SD_ITConfig() {
   return MSD_OK;
   }
 //}}}
-//{{{
-uint8_t SD_IsDetected() {
-  return HAL_GPIO_ReadPin (SD_DETECT_GPIO_PORT, SD_DETECT_PIN) == GPIO_PIN_SET ? SD_NOT_PRESENT : SD_PRESENT;
-  }
-//}}}
-bool SD_present() { return SD_IsDetected() == SD_PRESENT; }
 
+bool SD_present() { return !(SD_DETECT_GPIO_PORT->IDR & SD_DETECT_PIN); }
 HAL_SD_TransferStateTypedef SD_GetStatus() { return HAL_SD_GetStatus (&uSdHandle); }
 void SD_GetCardInfo (HAL_SD_CardInfoTypedef* CardInfo) { HAL_SD_Get_CardInfo (&uSdHandle, CardInfo); }
-
 //{{{
 std::string SD_info() {
-  return cLcd::dec (sdReads) + ":" + cLcd::dec (sdReadHits) + "  "  +
-         cLcd::dec (sdReadBlock + sdReadMultipleLen) + " w:" + cLcd::dec (sdWrites);
+  return cLcd::dec (mReads) + ":" + cLcd::dec (mReadHits) + "  "  +
+         cLcd::dec (mReadBlock + mReadMultipleLen) + " w:" + cLcd::dec (mWrites);
   }
 //}}}
 
@@ -193,9 +185,6 @@ uint8_t SD_Write (uint8_t* buf, uint32_t blk_addr, uint16_t blocks) {
 
   if (HAL_SD_WriteBlocks_DMA (&uSdHandle, (uint32_t*)buf, blk_addr * 512, blocks) != SD_OK)
     return MSD_ERROR;
-
-  //if (HAL_SD_CheckWriteOperation (&uSdHandle, (uint32_t)SD_DATATIMEOUT) != SD_OK)
-  //  return MSD_ERROR;
   //can't remove ?
   HAL_SD_CheckWriteOperation (&uSdHandle, 0xFFFFFFFF);
 
@@ -237,27 +226,27 @@ int8_t SD_ReadCached (uint8_t* buf, uint32_t blk_addr, uint16_t blocks) {
   if (SD_present()) {
     //SD_ReadBlocks ((uint32_t*)buf, blk_addr * 512, blocks);
 
-    if ((blk_addr >= mSdReadCacheBlock) && (blk_addr + blocks <= mSdReadCacheBlock + sdReadCacheSize)) {
-      sdReadHits++;
-      memcpy (buf, mSdReadCache + ((blk_addr - mSdReadCacheBlock) * 512), blocks * 512);
+    if ((blk_addr >= mReadCacheBlock) && (blk_addr + blocks <= mReadCacheBlock + mReadCacheSize)) {
+      mReadHits++;
+      memcpy (buf, mReadCache + ((blk_addr - mReadCacheBlock) * 512), blocks * 512);
       }
     else {
-      sdReads++;
-      SD_Read (mSdReadCache, blk_addr, sdReadCacheSize);
-      memcpy (buf, mSdReadCache, blocks * 512);
-      mSdReadCacheBlock = blk_addr;
+      mReads++;
+      SD_Read (mReadCache, blk_addr, mReadCacheSize);
+      memcpy (buf, mReadCache, blocks * 512);
+      mReadCacheBlock = blk_addr;
       }
 
     //cLcd::debug ("r:" + cLcd::dec (blk_addr) + "::" + cLcd::dec (blk_len));
-    if (blk_addr != sdReadBlock + sdReadMultipleLen) {
-      if (sdReadMultipleLen) {
+    if (blk_addr != mReadBlock + mReadMultipleLen) {
+      if (mReadMultipleLen) {
         // flush pending multiple
-        cLcd::debug ("rm:" + cLcd::dec (sdReadBlock) + "::" + cLcd::dec (sdReadMultipleLen));
-        sdReadMultipleLen = 0;
+        cLcd::debug ("rm:" + cLcd::dec (mReadBlock) + "::" + cLcd::dec (mReadMultipleLen));
+        mReadMultipleLen = 0;
         }
-      sdReadBlock = blk_addr;
+      mReadBlock = blk_addr;
       }
-    sdReadMultipleLen += blocks;
+    mReadMultipleLen += blocks;
 
     return 0;
     }
@@ -269,21 +258,21 @@ int8_t SD_ReadCached (uint8_t* buf, uint32_t blk_addr, uint16_t blocks) {
 int8_t SD_WriteCached (uint8_t* buf, uint32_t blk_addr, uint16_t blocks) {
 
   if (SD_present()) {
-    sdWrites++;
+    mWrites++;
     SD_Write (buf, blk_addr, blocks);
 
-    mSdReadCacheBlock = 0xFFFFFFF0;
+    mReadCacheBlock = 0xFFFFFFF0;
 
     //cLcd::debug ("w " + cLcd::dec (blk_addr) + " " + cLcd::dec (blocks));
-    if (blk_addr != sdWriteBlock + sdWriteMultipleLen) {
-      if (sdWriteMultipleLen) {
+    if (blk_addr != mWriteBlock + mWriteMultipleLen) {
+      if (mWriteMultipleLen) {
         // flush pending multiple
-        cLcd::debug ("wm:" + cLcd::dec (sdWriteBlock) + "::" + cLcd::dec (sdWriteMultipleLen));
-        sdWriteMultipleLen = 0;
+        cLcd::debug ("wm:" + cLcd::dec (mWriteBlock) + "::" + cLcd::dec (mWriteMultipleLen));
+        mWriteMultipleLen = 0;
         }
-      sdWriteBlock = blk_addr;
+      mWriteBlock = blk_addr;
       }
-    sdWriteMultipleLen += blocks;
+    mWriteMultipleLen += blocks;
 
     return 0;
     }

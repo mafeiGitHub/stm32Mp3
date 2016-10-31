@@ -16,7 +16,6 @@ uint8_t SD_Init();
 uint8_t SD_ITConfig();
 
 bool SD_present();
-
 HAL_SD_TransferStateTypedef SD_GetStatus();
 void SD_GetCardInfo (HAL_SD_CardInfoTypedef *CardInfo);
 std::string SD_info();
