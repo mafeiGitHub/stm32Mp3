@@ -75,7 +75,7 @@ DRESULT diskRead (BYTE* buffer, DWORD sector, UINT count) {
     auto tempBuffer = (uint8_t*)pvPortMalloc (count * SECTOR_SIZE);
 
     // read into 32bit aligned tempBuffer
-    auto result = SD_ReadBlocks (tempBuffer, (uint64_t)(sector * SECTOR_SIZE), count) == MSD_OK ? RES_OK : RES_ERROR;
+    auto result = SD_Read (tempBuffer, sector, count) == MSD_OK ? RES_OK : RES_ERROR;
     memcpy (buffer, tempBuffer, count * SECTOR_SIZE);
 
     vPortFree (tempBuffer);
@@ -84,11 +84,11 @@ DRESULT diskRead (BYTE* buffer, DWORD sector, UINT count) {
 
   else
     //cLcd::debug ("diskRead - sec:" + cLcd::dec (sector) + " num:" + cLcd::dec (count));
-    return  SD_ReadBlocks ((uint8_t*)buffer, (uint64_t)(sector * SECTOR_SIZE), count) == MSD_OK ? RES_OK : RES_ERROR;
+    return  SD_Read ((uint8_t*)buffer, sector, count) == MSD_OK ? RES_OK : RES_ERROR;
   }
 //}}}
 //{{{
 DRESULT diskWrite (const BYTE* buffer, DWORD sector, UINT count) {
-  return SD_WriteBlocks ((uint8_t*)buffer, (uint64_t)(sector * SECTOR_SIZE), count) == MSD_OK ? RES_OK : RES_ERROR;
+  return SD_Write ((uint8_t*)buffer, (uint64_t)(sector * SECTOR_SIZE), count) == MSD_OK ? RES_OK : RES_ERROR;
   }
 //}}}

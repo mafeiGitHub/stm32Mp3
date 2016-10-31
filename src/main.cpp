@@ -73,8 +73,8 @@ static const uint8_t SD_InquiryData[] = {
 static const USBD_StorageTypeDef USBD_DISK_fops = {
   SD_GetCapacity,
   SD_IsReady,
-  SD_Read,
-  SD_Write,
+  SD_ReadCached,
+  SD_WriteCached,
   (int8_t*)SD_InquiryData,
   };
 //}}}
