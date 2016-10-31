@@ -57,3 +57,7 @@ void AUDIO_OUT_SAIx_DMAx_IRQHandler() { HAL_DMA_IRQHandler (haudio_out_sai.hdmat
   //void AUDIO_DFSDMx_DMAx_TOP_LEFT_IRQHandler() { HAL_DMA_IRQHandler (hAudioInTopLeftFilter.hdmaReg); }
   //void AUDIO_DFSDMx_DMAx_TOP_RIGHT_IRQHandler() { HAL_DMA_IRQHandler (hAudioInTopRightFilter.hdmaReg); }
 #endif
+
+// QSPI
+extern QSPI_HandleTypeDef QSPIHandle;
+void QUADSPI_IRQHandler() { HAL_QSPI_IRQHandler (&QSPIHandle); }

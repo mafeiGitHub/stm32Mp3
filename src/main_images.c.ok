@@ -1,0 +1,6 @@
+
+#include "FreeSansBoldQspi.h"
+
+void dummy_init (void);
+
+void dummy_init (void) { }

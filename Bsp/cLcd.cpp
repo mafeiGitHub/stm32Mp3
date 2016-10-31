@@ -994,8 +994,9 @@ void cLcd::init (std::string title) {
     HAL_NVIC_EnableIRQ (DMA2D_IRQn);
     }
 
-  // font init
-  setFont (freeSansBold, freeSansBold_len);
+  // font init         
+  //setFont (freeSansBold, freeSansBold_len);
+  setFont ((uint8_t*)0x90000000, 64228);
   for (auto i = 0; i < maxChars; i++)
     chars[i] = nullptr;
 

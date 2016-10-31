@@ -30,6 +30,7 @@
   #include "stm32746g_discovery_ts.h"
   #include "stm32746g_discovery_audio.h"
   #include "stm32746g_discovery_sd.h"
+  #include "stm32746g_discovery_qspi.h"
 #else
   #include "stm32f769i_discovery.h"
   #include "stm32f769i_discovery_ts.h"
@@ -53,6 +54,9 @@
 #include "widgets/cWaveCentreWidget.h"
 #include "widgets/cWaveLensWidget.h"
 //}}}
+//#define IMG_NO_DATA
+//#include "FreeSansBoldQspi.h"
+
 USBD_HandleTypeDef USBD_Device;
 
 #define SD_BLK_SIZ 512
@@ -1333,6 +1337,10 @@ int main() {
   HAL_Init();
   initMpuRegions();
   initClock();
+
+  BSP_QSPI_Init();
+  BSP_QSPI_MemoryMappedMode();
+  QUADSPI->LPTR = 0xFFF; // Configure QSPI: LPTR register with the low-power time out value
 
   auto sdState = BSP_SD_Init();
   BSP_PB_Init (BUTTON_WAKEUP, BUTTON_MODE_GPIO);

@@ -1514,8 +1514,8 @@ void HAL_SD_IRQHandler (SD_HandleTypeDef* hsd)
     }
 
   /* Disable all SDMMC peripheral interrupt sources */
-  __HAL_SD_SDMMC_DISABLE_IT(hsd, SDMMC_IT_DCRCFAIL | SDMMC_IT_DTIMEOUT | SDMMC_IT_DATAEND  |\
-                                 SDMMC_IT_TXFIFOHE | SDMMC_IT_RXFIFOHF | SDMMC_IT_TXUNDERR |\
+  __HAL_SD_SDMMC_DISABLE_IT(hsd, SDMMC_IT_DCRCFAIL | SDMMC_IT_DTIMEOUT | SDMMC_IT_DATAEND  |
+                                 SDMMC_IT_TXFIFOHE | SDMMC_IT_RXFIFOHF | SDMMC_IT_TXUNDERR |
                                  SDMMC_IT_RXOVERR);
   }
 /*}}}*/
@@ -1758,9 +1758,7 @@ HAL_SD_ErrorTypedef HAL_SD_WideBusOperation_Config (SD_HandleTypeDef* hsd, uint3
   }
 /*}}}*/
 /*{{{*/
-HAL_SD_ErrorTypedef HAL_SD_StopTransfer (SD_HandleTypeDef* hsd)
-{
-  HAL_SD_ErrorTypedef errorstate = SD_OK;
+HAL_SD_ErrorTypedef HAL_SD_StopTransfer (SD_HandleTypeDef* hsd) {
 
   /* Send CMD12 STOP_TRANSMISSION  */
   SDMMC_CmdInitTypeDef sdmmc_cmdinitstructure;
@@ -1769,12 +1767,11 @@ HAL_SD_ErrorTypedef HAL_SD_StopTransfer (SD_HandleTypeDef* hsd)
   sdmmc_cmdinitstructure.Response         = SDMMC_RESPONSE_SHORT;
   sdmmc_cmdinitstructure.WaitForInterrupt = SDMMC_WAIT_NO;
   sdmmc_cmdinitstructure.CPSM             = SDMMC_CPSM_ENABLE;
-  SDMMC_SendCommand(hsd->Instance, &sdmmc_cmdinitstructure);
+  SDMMC_SendCommand (hsd->Instance, &sdmmc_cmdinitstructure);
 
   /* Check for error conditions */
-  errorstate = SD_CmdResp1Error(hsd, SD_CMD_STOP_TRANSMISSION);
-  return errorstate;
-}
+  return  SD_CmdResp1Error (hsd, SD_CMD_STOP_TRANSMISSION);
+  }
 /*}}}*/
 /*{{{*/
 HAL_SD_ErrorTypedef HAL_SD_HighSpeed (SD_HandleTypeDef* hsd) {
