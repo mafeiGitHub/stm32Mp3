@@ -19,10 +19,10 @@
 #define SD_DMAx_Rx_IRQn         DMA2_Stream3_IRQn
 //}}}
 SD_HandleTypeDef uSdHandle;
-DMA_HandleTypeDef dma_rx_handle;
-DMA_HandleTypeDef dma_tx_handle;
 //{{{  static vars
 static SD_CardInfo uSdCardInfo;
+static DMA_HandleTypeDef dma_rx_handle;
+static DMA_HandleTypeDef dma_tx_handle;
 
 static const uint32_t sdReadCacheSize = 0x40;
 static uint8_t* mSdReadCache = 0;

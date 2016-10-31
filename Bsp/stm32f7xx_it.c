@@ -6,6 +6,7 @@
 #include "cmsis_os.h"
 #include "os/ethernetif.h"
 #include "cLcdPrivate.h"
+#include "cSdPrivate.h"
 
 #ifdef STM32F746G_DISCO
   #include "stm32746g_discovery_sd.h"
@@ -37,7 +38,6 @@ void LTDC_IRQHandler() { LCD_LTDC_IRQHandler(); }
 void DMA2D_IRQHandler() { LCD_DMA2D_IRQHandler(); }
 
 // sd
-extern SD_HandleTypeDef uSdHandle;
 void BSP_SDMMC_IRQHandler() { HAL_SD_IRQHandler (&uSdHandle); }
 void BSP_SDMMC_DMA_Tx_IRQHandler() { HAL_DMA_IRQHandler (uSdHandle.hdmatx); }
 void BSP_SDMMC_DMA_Rx_IRQHandler() { HAL_DMA_IRQHandler (uSdHandle.hdmarx); }
