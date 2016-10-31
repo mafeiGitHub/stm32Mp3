@@ -289,7 +289,7 @@ static int8_t SCSI_TestUnitReady (USBD_HandleTypeDef* pdev, uint8_t lun, uint8_t
     return -1;
     }
 
-  if (((USBD_StorageTypeDef *)pdev->pUserData)->IsReady(lun) !=0 ) {
+  if (((USBD_StorageTypeDef *)pdev->pUserData)->IsReady() !=0 ) {
     SCSI_SenseCode (pdev, lun, NOT_READY, MEDIUM_NOT_PRESENT);
 
     hmsc->bot_state = USBD_BOT_NO_DATA;
@@ -459,7 +459,7 @@ static int8_t SCSI_Read10 (USBD_HandleTypeDef* pdev, uint8_t lun , uint8_t* para
       return -1;
       }
 
-    if (((USBD_StorageTypeDef *)pdev->pUserData)->IsReady(lun) != 0) {
+    if (((USBD_StorageTypeDef *)pdev->pUserData)->IsReady() != 0) {
       SCSI_SenseCode (pdev, lun, NOT_READY, MEDIUM_NOT_PRESENT);
       return -1;
       }
@@ -497,7 +497,7 @@ static int8_t SCSI_Write10 (USBD_HandleTypeDef* pdev, uint8_t lun , uint8_t* par
       }
 
     /* Check whether Media is ready */
-    if (((USBD_StorageTypeDef*)pdev->pUserData)->IsReady(lun) != 0) {
+    if (((USBD_StorageTypeDef*)pdev->pUserData)->IsReady() != 0) {
       SCSI_SenseCode (pdev, lun, NOT_READY, MEDIUM_NOT_PRESENT);
       return -1;
       }

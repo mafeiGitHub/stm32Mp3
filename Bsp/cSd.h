@@ -26,7 +26,7 @@ uint8_t SD_WriteBlocks (uint32_t *pData, uint64_t WriteAddr, uint16_t blocks);
 
 uint8_t SD_Erase (uint64_t StartAddr, uint64_t EndAddr);
 
-int8_t SD_IsReady (uint8_t lun);
+int8_t SD_IsReady();
 int8_t SD_GetCapacity (uint32_t* block_num, uint16_t* block_size);
 int8_t SD_Read (uint8_t* buf, uint32_t blk_addr, uint16_t blocks);
 int8_t SD_Write (uint8_t* buf, uint32_t blk_addr, uint16_t blocks);

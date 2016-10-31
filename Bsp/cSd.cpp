@@ -213,7 +213,7 @@ uint8_t SD_Erase (uint64_t StartAddr, uint64_t EndAddr) {
 //}}}
 
 //{{{
-int8_t SD_IsReady (uint8_t lun) {
+int8_t SD_IsReady() {
   return (SD_present() && (HAL_SD_GetStatus (&uSdHandle) == SD_TRANSFER_OK)) ? 0 : -1;
   }
 //}}}
