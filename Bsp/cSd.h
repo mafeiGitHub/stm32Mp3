@@ -16,7 +16,6 @@ uint8_t BSP_SD_Init();
 uint8_t BSP_SD_ITConfig();
 
 bool BSP_SD_present();
-uint8_t BSP_SD_IsDetected();
 
 HAL_SD_TransferStateTypedef BSP_SD_GetStatus();
 void BSP_SD_GetCardInfo (HAL_SD_CardInfoTypedef *CardInfo);
