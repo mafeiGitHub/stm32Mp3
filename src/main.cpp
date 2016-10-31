@@ -60,10 +60,7 @@ USBD_HandleTypeDef USBD_Device;
 
 //{{{
 static const uint8_t SD_InquiryData[] = {
-  0x00, // LUN 0
-  0x80, 0x02, 0x02,
-  (24 - 5),
-  0x00, 0x00, 0x00,
+  0x00, 0x80, 0x02, 0x02, (24 - 5), 0x00, 0x00, 0x00,
   'C', 'o', 'l', 'i', 'n', ' ', ' ', ' ',                                         // Manufacturer: 8 bytes
   'S', 'D', ' ', 'd', 'i', 's', 'k', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', // Product     : 16 Bytes
   '0', '.', '9','9',                                                              // Version     : 4 Bytes
@@ -71,8 +68,8 @@ static const uint8_t SD_InquiryData[] = {
 //}}}
 //{{{
 static const USBD_StorageTypeDef USBD_DISK_fops = {
-  SD_GetCapacity,
   SD_IsReady,
+  SD_GetCapacity,
   SD_ReadCached,
   SD_WriteCached,
   (int8_t*)SD_InquiryData,
