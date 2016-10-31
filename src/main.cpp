@@ -71,10 +71,10 @@ static const uint8_t SD_InquiryData[] = {
 //}}}
 //{{{
 static const USBD_StorageTypeDef USBD_DISK_fops = {
-  BSP_SD_GetCapacity,
-  BSP_SD_IsReady,
-  BSP_SD_Read,
-  BSP_SD_Write,
+  SD_GetCapacity,
+  SD_IsReady,
+  SD_Read,
+  SD_Write,
   (int8_t*)SD_InquiryData,
   };
 //}}}
@@ -1035,8 +1035,8 @@ static void mainThread (void const* argument) {
   mLcd->displayOn();
   cLcd::debug ("mainThread");
 
-  if (BSP_SD_present()) {
-    if (BSP_PB_GetState(BUTTON_WAKEUP) != GPIO_PIN_SET) {
+  if (SD_present()) {
+    if (BSP_PB_GetState (BUTTON_WAKEUP) != GPIO_PIN_SET) {
       USBD_Init (&USBD_Device, &MSC_Desc, 0);
       USBD_RegisterClass (&USBD_Device, &USBD_MSC);
       USBD_MSC_RegisterStorage (&USBD_Device, (USBD_StorageTypeDef*)(&USBD_DISK_fops));
@@ -1128,7 +1128,7 @@ static void mainThread (void const* argument) {
     button ? mLcd->clear (COL_BLACK) : mRoot->render (mLcd);
     //if (tsState.touchDetected)
     //  mLcd->renderCursor (COL_MAGENTA, x[0], y[0], z[0] ? z[0] : cLcd::getHeight()/10);
-    mLcd->text (COL_YELLOW, cLcd::getFontHeight(), BSP_SD_info(),
+    mLcd->text (COL_YELLOW, cLcd::getFontHeight(), SD_info(),
                 cLcd::getWidth()/2, cLcd::getHeight()- cLcd::getLineHeight(), cLcd::getWidth(), cLcd::getLineHeight());
     mLcd->endRender (button);
 
@@ -1248,7 +1248,7 @@ int main() {
   BSP_QSPI_MemoryMappedMode();
   QUADSPI->LPTR = 0xFFF; // Configure QSPI: LPTR register with the low-power time out value
 
-  auto sdState = BSP_SD_Init();
+  auto sdState = SD_Init();
   BSP_PB_Init (BUTTON_WAKEUP, BUTTON_MODE_GPIO);
   BSP_LED_Init (LED1);
   #ifdef STM32F769I_DISCO

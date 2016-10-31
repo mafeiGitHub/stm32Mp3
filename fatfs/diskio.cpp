@@ -16,13 +16,13 @@ static volatile DSTATUS Stat = STA_NOINIT;
 //{{{
 DSTATUS diskStatus() {
 
-  return BSP_SD_GetStatus() == MSD_OK ? 0 : STA_NOINIT;
+  return SD_GetStatus() == MSD_OK ? 0 : STA_NOINIT;
   }
 //}}}
 //{{{
 DSTATUS diskInitialize() {
 
-  return BSP_SD_GetStatus() == MSD_OK ? 0 : STA_NOINIT;
+  return SD_GetStatus() == MSD_OK ? 0 : STA_NOINIT;
   }
 //}}}
 
@@ -40,7 +40,7 @@ DRESULT diskIoctl (BYTE cmd, void* buff) {
     // Get number of sectors on the disk (DWORD)
     case GET_SECTOR_COUNT : {
       SD_CardInfo CardInfo;
-      BSP_SD_GetCardInfo (&CardInfo);
+      SD_GetCardInfo (&CardInfo);
       *(DWORD*)buff = CardInfo.CardCapacity / SECTOR_SIZE;
       res = RES_OK;
       break;
@@ -75,7 +75,7 @@ DRESULT diskRead (BYTE* buffer, DWORD sector, UINT count) {
     auto tempBuffer = (uint32_t*)pvPortMalloc (count * SECTOR_SIZE);
 
     // read into 32bit aligned tempBuffer
-    auto result = BSP_SD_ReadBlocks (tempBuffer, (uint64_t)(sector * SECTOR_SIZE), count) == MSD_OK ? RES_OK : RES_ERROR;
+    auto result = SD_ReadBlocks (tempBuffer, (uint64_t)(sector * SECTOR_SIZE), count) == MSD_OK ? RES_OK : RES_ERROR;
     memcpy (buffer, tempBuffer, count * SECTOR_SIZE);
 
     vPortFree (tempBuffer);
@@ -84,11 +84,11 @@ DRESULT diskRead (BYTE* buffer, DWORD sector, UINT count) {
 
   else
     //cLcd::debug ("diskRead - sec:" + cLcd::dec (sector) + " num:" + cLcd::dec (count));
-    return  BSP_SD_ReadBlocks ((uint32_t*)buffer, (uint64_t)(sector * SECTOR_SIZE), count) == MSD_OK ? RES_OK : RES_ERROR;
+    return  SD_ReadBlocks ((uint32_t*)buffer, (uint64_t)(sector * SECTOR_SIZE), count) == MSD_OK ? RES_OK : RES_ERROR;
   }
 //}}}
 //{{{
 DRESULT diskWrite (const BYTE* buffer, DWORD sector, UINT count) {
-  return BSP_SD_WriteBlocks ((uint32_t*)buffer, (uint64_t)(sector * SECTOR_SIZE), count) == MSD_OK ? RES_OK : RES_ERROR;
+  return SD_WriteBlocks ((uint32_t*)buffer, (uint64_t)(sector * SECTOR_SIZE), count) == MSD_OK ? RES_OK : RES_ERROR;
   }
 //}}}
