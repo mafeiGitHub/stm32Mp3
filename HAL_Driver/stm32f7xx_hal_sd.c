@@ -64,252 +64,202 @@
 /*}}}*/
 
 /*{{{*/
+static HAL_SD_ErrorTypedef SD_CmdError (SD_HandleTypeDef* hsd) {
+
+  uint32_t timeout = SDMMC_CMD0TIMEOUT;
+  uint32_t tmp = __HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_CMDSENT);
+  while ((timeout > 0) && (!tmp)) {
+    tmp = __HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_CMDSENT);
+    timeout--;
+    }
+
+  if (timeout == 0)
+    return SD_CMD_RSP_TIMEOUT;
+
+  /* Clear all the static flags */
+  __HAL_SD_SDMMC_CLEAR_FLAG(hsd, SDMMC_STATIC_FLAGS);
+
+  return SD_OK;
+  }
+/*}}}*/
+/*{{{*/
 static HAL_SD_ErrorTypedef SD_CmdResp1Error (SD_HandleTypeDef* hsd, uint8_t SD_CMD) {
 
-  HAL_SD_ErrorTypedef errorstate = SD_OK;
-  uint32_t response_r1;
-
-  while(!__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_CCRCFAIL | SDMMC_FLAG_CMDREND | SDMMC_FLAG_CTIMEOUT)) { }
-  if(__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_CTIMEOUT)) {
-    errorstate = SD_CMD_RSP_TIMEOUT;
+  while (!__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_CCRCFAIL | SDMMC_FLAG_CMDREND | SDMMC_FLAG_CTIMEOUT)) { }
+  if (__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_CTIMEOUT)) {
     __HAL_SD_SDMMC_CLEAR_FLAG(hsd, SDMMC_FLAG_CTIMEOUT);
-    return errorstate;
+    return SD_CMD_RSP_TIMEOUT;
     }
-  else if(__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_CCRCFAIL)) {
-    errorstate = SD_CMD_CRC_FAIL;
+  if (__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_CCRCFAIL)) {
     __HAL_SD_SDMMC_CLEAR_FLAG(hsd, SDMMC_FLAG_CCRCFAIL);
-    return errorstate;
+    return SD_CMD_CRC_FAIL;
     }
 
   /* Check response received is of desired command */
-  if(SDMMC_GetCommandResponse(hsd->Instance) != SD_CMD) {
-    errorstate = SD_ILLEGAL_CMD;
-    return errorstate;
-    }
+  if (SDMMC_GetCommandResponse(hsd->Instance) != SD_CMD)
+    return SD_ILLEGAL_CMD;
 
   /* Clear all the static flags */
   __HAL_SD_SDMMC_CLEAR_FLAG(hsd, SDMMC_STATIC_FLAGS);
 
   /* We have received response, retrieve it for analysis  */
-  response_r1 = SDMMC_GetResponse(hsd->Instance, SDMMC_RESP1);
-  if((response_r1 & SD_OCR_ERRORBITS) == SD_ALLZERO)
-    return errorstate;
-  if((response_r1 & SD_OCR_ADDR_OUT_OF_RANGE) == SD_OCR_ADDR_OUT_OF_RANGE)
+  uint32_t response_r1 = SDMMC_GetResponse(hsd->Instance, SDMMC_RESP1);
+  if ((response_r1 & SD_OCR_ERRORBITS) == SD_ALLZERO)
+    return SD_OK;
+  if ((response_r1 & SD_OCR_ADDR_OUT_OF_RANGE) == SD_OCR_ADDR_OUT_OF_RANGE)
     return(SD_ADDR_OUT_OF_RANGE);
-  if((response_r1 & SD_OCR_ADDR_MISALIGNED) == SD_OCR_ADDR_MISALIGNED)
+  if ((response_r1 & SD_OCR_ADDR_MISALIGNED) == SD_OCR_ADDR_MISALIGNED)
     return(SD_ADDR_MISALIGNED);
-  if((response_r1 & SD_OCR_BLOCK_LEN_ERR) == SD_OCR_BLOCK_LEN_ERR)
+  if ((response_r1 & SD_OCR_BLOCK_LEN_ERR) == SD_OCR_BLOCK_LEN_ERR)
     return(SD_BLOCK_LEN_ERR);
-  if((response_r1 & SD_OCR_ERASE_SEQ_ERR) == SD_OCR_ERASE_SEQ_ERR)
+  if ((response_r1 & SD_OCR_ERASE_SEQ_ERR) == SD_OCR_ERASE_SEQ_ERR)
     return(SD_ERASE_SEQ_ERR);
-  if((response_r1 & SD_OCR_BAD_ERASE_PARAM) == SD_OCR_BAD_ERASE_PARAM)
+  if ((response_r1 & SD_OCR_BAD_ERASE_PARAM) == SD_OCR_BAD_ERASE_PARAM)
     return(SD_BAD_ERASE_PARAM);
-  if((response_r1 & SD_OCR_WRITE_PROT_VIOLATION) == SD_OCR_WRITE_PROT_VIOLATION)
+  if ((response_r1 & SD_OCR_WRITE_PROT_VIOLATION) == SD_OCR_WRITE_PROT_VIOLATION)
     return(SD_WRITE_PROT_VIOLATION);
-  if((response_r1 & SD_OCR_LOCK_UNLOCK_FAILED) == SD_OCR_LOCK_UNLOCK_FAILED)
+  if ((response_r1 & SD_OCR_LOCK_UNLOCK_FAILED) == SD_OCR_LOCK_UNLOCK_FAILED)
     return(SD_LOCK_UNLOCK_FAILED);
-  if((response_r1 & SD_OCR_COM_CRC_FAILED) == SD_OCR_COM_CRC_FAILED)
+  if ((response_r1 & SD_OCR_COM_CRC_FAILED) == SD_OCR_COM_CRC_FAILED)
     return(SD_COM_CRC_FAILED);
-  if((response_r1 & SD_OCR_ILLEGAL_CMD) == SD_OCR_ILLEGAL_CMD)
+  if ((response_r1 & SD_OCR_ILLEGAL_CMD) == SD_OCR_ILLEGAL_CMD)
     return(SD_ILLEGAL_CMD);
-  if((response_r1 & SD_OCR_CARD_ECC_FAILED) == SD_OCR_CARD_ECC_FAILED)
+  if ((response_r1 & SD_OCR_CARD_ECC_FAILED) == SD_OCR_CARD_ECC_FAILED)
     return(SD_CARD_ECC_FAILED);
-  if((response_r1 & SD_OCR_CC_ERROR) == SD_OCR_CC_ERROR)
+  if ((response_r1 & SD_OCR_CC_ERROR) == SD_OCR_CC_ERROR)
     return(SD_CC_ERROR);
-  if((response_r1 & SD_OCR_GENERAL_UNKNOWN_ERROR) == SD_OCR_GENERAL_UNKNOWN_ERROR)
+  if ((response_r1 & SD_OCR_GENERAL_UNKNOWN_ERROR) == SD_OCR_GENERAL_UNKNOWN_ERROR)
     return(SD_GENERAL_UNKNOWN_ERROR);
-  if((response_r1 & SD_OCR_STREAM_READ_UNDERRUN) == SD_OCR_STREAM_READ_UNDERRUN)
+  if ((response_r1 & SD_OCR_STREAM_READ_UNDERRUN) == SD_OCR_STREAM_READ_UNDERRUN)
     return(SD_STREAM_READ_UNDERRUN);
-  if((response_r1 & SD_OCR_STREAM_WRITE_OVERRUN) == SD_OCR_STREAM_WRITE_OVERRUN)
+  if ((response_r1 & SD_OCR_STREAM_WRITE_OVERRUN) == SD_OCR_STREAM_WRITE_OVERRUN)
     return(SD_STREAM_WRITE_OVERRUN);
-  if((response_r1 & SD_OCR_CID_CSD_OVERWRITE) == SD_OCR_CID_CSD_OVERWRITE)
+  if ((response_r1 & SD_OCR_CID_CSD_OVERWRITE) == SD_OCR_CID_CSD_OVERWRITE)
     return(SD_CID_CSD_OVERWRITE);
-  if((response_r1 & SD_OCR_WP_ERASE_SKIP) == SD_OCR_WP_ERASE_SKIP)
+  if ((response_r1 & SD_OCR_WP_ERASE_SKIP) == SD_OCR_WP_ERASE_SKIP)
     return(SD_WP_ERASE_SKIP);
-  if((response_r1 & SD_OCR_CARD_ECC_DISABLED) == SD_OCR_CARD_ECC_DISABLED)
+  if ((response_r1 & SD_OCR_CARD_ECC_DISABLED) == SD_OCR_CARD_ECC_DISABLED)
     return(SD_CARD_ECC_DISABLED);
-  if((response_r1 & SD_OCR_ERASE_RESET) == SD_OCR_ERASE_RESET)
+  if ((response_r1 & SD_OCR_ERASE_RESET) == SD_OCR_ERASE_RESET)
     return(SD_ERASE_RESET);
-  if((response_r1 & SD_OCR_AKE_SEQ_ERROR) == SD_OCR_AKE_SEQ_ERROR)
+  if ((response_r1 & SD_OCR_AKE_SEQ_ERROR) == SD_OCR_AKE_SEQ_ERROR)
     return(SD_AKE_SEQ_ERROR);
 
-  return errorstate;
+  return SD_OK;
 }
 /*}}}*/
 /*{{{*/
-static HAL_SD_ErrorTypedef SD_CmdError (SD_HandleTypeDef* hsd)
-{
-  HAL_SD_ErrorTypedef errorstate = SD_OK;
-  uint32_t timeout, tmp;
+static HAL_SD_ErrorTypedef SD_CmdResp7Error (SD_HandleTypeDef* hsd) {
 
-  timeout = SDMMC_CMD0TIMEOUT;
-
-  tmp = __HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_CMDSENT);
-
-  while((timeout > 0) && (!tmp))
-  {
-    tmp = __HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_CMDSENT);
-    timeout--;
-  }
-
-  if(timeout == 0)
-  {
-    errorstate = SD_CMD_RSP_TIMEOUT;
-    return errorstate;
-  }
-
-  /* Clear all the static flags */
-  __HAL_SD_SDMMC_CLEAR_FLAG(hsd, SDMMC_STATIC_FLAGS);
-
-  return errorstate;
-}
-/*}}}*/
-/*{{{*/
-static HAL_SD_ErrorTypedef SD_CmdResp7Error (SD_HandleTypeDef* hsd)
-{
-  HAL_SD_ErrorTypedef errorstate = SD_ERROR;
-  uint32_t timeout = SDMMC_CMD0TIMEOUT, tmp;
-
-  tmp = __HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_CCRCFAIL | SDMMC_FLAG_CMDREND | SDMMC_FLAG_CTIMEOUT);
-
-  while((!tmp) && (timeout > 0))
-  {
+  uint32_t timeout = SDMMC_CMD0TIMEOUT;
+  uint32_t tmp = __HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_CCRCFAIL | SDMMC_FLAG_CMDREND | SDMMC_FLAG_CTIMEOUT);
+  while ((!tmp) && (timeout > 0)) {
     tmp = __HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_CCRCFAIL | SDMMC_FLAG_CMDREND | SDMMC_FLAG_CTIMEOUT);
     timeout--;
-  }
-
+    }
   tmp = __HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_CTIMEOUT);
 
-  if((timeout == 0) || tmp)
-  {
+  if ((timeout == 0) || tmp) {
     /* Card is not V2.0 compliant or card does not support the set voltage range */
-    errorstate = SD_CMD_RSP_TIMEOUT;
     __HAL_SD_SDMMC_CLEAR_FLAG(hsd, SDMMC_FLAG_CTIMEOUT);
-    return errorstate;
-  }
+    return SD_CMD_RSP_TIMEOUT;
+    }
 
-  if(__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_CMDREND))
-  {
+  if (__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_CMDREND)) {
     /* Card is SD V2.0 compliant */
-    errorstate = SD_OK;
     __HAL_SD_SDMMC_CLEAR_FLAG(hsd, SDMMC_FLAG_CMDREND);
-    return errorstate;
-  }
+    return SD_OK;
+    }
 
-  return errorstate;
-}
+  return SD_ERROR;
+  }
 /*}}}*/
 /*{{{*/
-static HAL_SD_ErrorTypedef SD_CmdResp3Error (SD_HandleTypeDef* hsd)
-{
-  HAL_SD_ErrorTypedef errorstate = SD_OK;
+static HAL_SD_ErrorTypedef SD_CmdResp3Error (SD_HandleTypeDef* hsd) {
 
-  while (!__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_CCRCFAIL | SDMMC_FLAG_CMDREND | SDMMC_FLAG_CTIMEOUT))
-  {
-  }
+  while (!__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_CCRCFAIL | SDMMC_FLAG_CMDREND | SDMMC_FLAG_CTIMEOUT)) { }
 
-  if (__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_CTIMEOUT))
-  {
-    errorstate = SD_CMD_RSP_TIMEOUT;
+  if (__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_CTIMEOUT)) {
     __HAL_SD_SDMMC_CLEAR_FLAG(hsd, SDMMC_FLAG_CTIMEOUT);
-    return errorstate;
-  }
+    return SD_CMD_RSP_TIMEOUT;
+    }
 
   /* Clear all the static flags */
   __HAL_SD_SDMMC_CLEAR_FLAG(hsd, SDMMC_STATIC_FLAGS);
 
-  return errorstate;
-}
+  return SD_OK;
+  }
 /*}}}*/
 /*{{{*/
-static HAL_SD_ErrorTypedef SD_CmdResp2Error (SD_HandleTypeDef* hsd)
-{
-  HAL_SD_ErrorTypedef errorstate = SD_OK;
+static HAL_SD_ErrorTypedef SD_CmdResp2Error (SD_HandleTypeDef* hsd) {
 
-  while (!__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_CCRCFAIL | SDMMC_FLAG_CMDREND | SDMMC_FLAG_CTIMEOUT))
-  {
-  }
 
-  if (__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_CTIMEOUT))
-  {
-    errorstate = SD_CMD_RSP_TIMEOUT;
+  while (!__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_CCRCFAIL | SDMMC_FLAG_CMDREND | SDMMC_FLAG_CTIMEOUT)) { }
+
+  if (__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_CTIMEOUT)) {
     __HAL_SD_SDMMC_CLEAR_FLAG(hsd, SDMMC_FLAG_CTIMEOUT);
-    return errorstate;
-  }
-  else if (__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_CCRCFAIL))
-  {
-    errorstate = SD_CMD_CRC_FAIL;
+    return SD_CMD_RSP_TIMEOUT;
+    }
+
+  if (__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_CCRCFAIL)) {
     __HAL_SD_SDMMC_CLEAR_FLAG(hsd, SDMMC_FLAG_CCRCFAIL);
-    return errorstate;
-  }
+    return SD_CMD_CRC_FAIL;
+    }
 
   /* Clear all the static flags */
   __HAL_SD_SDMMC_CLEAR_FLAG(hsd, SDMMC_STATIC_FLAGS);
-  return errorstate;
+  return SD_OK;
   }
 /*}}}*/
 /*{{{*/
-static HAL_SD_ErrorTypedef SD_CmdResp6Error (SD_HandleTypeDef* hsd, uint8_t SD_CMD, uint16_t *pRCA)
-{
-  HAL_SD_ErrorTypedef errorstate = SD_OK;
-  uint32_t response_r1;
+static HAL_SD_ErrorTypedef SD_CmdResp6Error (SD_HandleTypeDef* hsd, uint8_t SD_CMD, uint16_t *pRCA) {
 
-  while(!__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_CCRCFAIL | SDMMC_FLAG_CMDREND | SDMMC_FLAG_CTIMEOUT))
-  {
-  }
+  while (!__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_CCRCFAIL | SDMMC_FLAG_CMDREND | SDMMC_FLAG_CTIMEOUT)) { }
 
-  if(__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_CTIMEOUT))
-  {
-    errorstate = SD_CMD_RSP_TIMEOUT;
+  if (__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_CTIMEOUT)) {
     __HAL_SD_SDMMC_CLEAR_FLAG(hsd, SDMMC_FLAG_CTIMEOUT);
-    return errorstate;
-  }
-  else if(__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_CCRCFAIL))
-  {
-    errorstate = SD_CMD_CRC_FAIL;
+    return SD_CMD_RSP_TIMEOUT;
+    }
+
+  if (__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_CCRCFAIL)) {
     __HAL_SD_SDMMC_CLEAR_FLAG(hsd, SDMMC_FLAG_CCRCFAIL);
-    return errorstate;
-  }
+    return SD_CMD_CRC_FAIL;
+    }
 
   /* Check response received is of desired command */
-  if(SDMMC_GetCommandResponse(hsd->Instance) != SD_CMD)
-  {
-    errorstate = SD_ILLEGAL_CMD;
-    return errorstate;
-  }
+  if (SDMMC_GetCommandResponse(hsd->Instance) != SD_CMD)
+    return SD_ILLEGAL_CMD;
 
   /* Clear all the static flags */
   __HAL_SD_SDMMC_CLEAR_FLAG(hsd, SDMMC_STATIC_FLAGS);
 
   /* We have received response, retrieve it.  */
-  response_r1 = SDMMC_GetResponse(hsd->Instance, SDMMC_RESP1);
-  if((response_r1 & (SD_R6_GENERAL_UNKNOWN_ERROR | SD_R6_ILLEGAL_CMD | SD_R6_COM_CRC_FAILED)) == SD_ALLZERO)
-  {
+  uint32_t response_r1 = SDMMC_GetResponse (hsd->Instance, SDMMC_RESP1);
+  if ((response_r1 & (SD_R6_GENERAL_UNKNOWN_ERROR | SD_R6_ILLEGAL_CMD | SD_R6_COM_CRC_FAILED)) == SD_ALLZERO) {
     *pRCA = (uint16_t) (response_r1 >> 16);
-    return errorstate;
-  }
+    return SD_OK;
+    }
 
-  if((response_r1 & SD_R6_GENERAL_UNKNOWN_ERROR) == SD_R6_GENERAL_UNKNOWN_ERROR)
-    return(SD_GENERAL_UNKNOWN_ERROR);
-  if((response_r1 & SD_R6_ILLEGAL_CMD) == SD_R6_ILLEGAL_CMD)
-    return(SD_ILLEGAL_CMD);
-  if((response_r1 & SD_R6_COM_CRC_FAILED) == SD_R6_COM_CRC_FAILED)
-    return(SD_COM_CRC_FAILED);
-  return errorstate;
+  if ((response_r1 & SD_R6_GENERAL_UNKNOWN_ERROR) == SD_R6_GENERAL_UNKNOWN_ERROR)
+    return (SD_GENERAL_UNKNOWN_ERROR);
+
+  if ((response_r1 & SD_R6_ILLEGAL_CMD) == SD_R6_ILLEGAL_CMD)
+    return (SD_ILLEGAL_CMD);
+
+  if ((response_r1 & SD_R6_COM_CRC_FAILED) == SD_R6_COM_CRC_FAILED)
+    return (SD_COM_CRC_FAILED);
+
+  return SD_OK;
   }
 /*}}}*/
 /*{{{*/
-static HAL_SD_ErrorTypedef SD_SendStatus (SD_HandleTypeDef* hsd, uint32_t *pCardStatus)
-{
-  SDMMC_CmdInitTypeDef sdmmc_cmdinitstructure;
-  HAL_SD_ErrorTypedef errorstate = SD_OK;
+static HAL_SD_ErrorTypedef SD_SendStatus (SD_HandleTypeDef* hsd, uint32_t *pCardStatus) {
 
-  if(pCardStatus == NULL) {
-    errorstate = SD_INVALID_PARAMETER;
-    return errorstate;
-    }
+  if (pCardStatus == NULL)
+    return SD_INVALID_PARAMETER;
 
   /* Send Status command */
+  SDMMC_CmdInitTypeDef sdmmc_cmdinitstructure;
   sdmmc_cmdinitstructure.Argument         = (uint32_t)(hsd->RCA << 16);
   sdmmc_cmdinitstructure.CmdIndex         = SD_CMD_SEND_STATUS;
   sdmmc_cmdinitstructure.Response         = SDMMC_RESPONSE_SHORT;
@@ -318,27 +268,24 @@ static HAL_SD_ErrorTypedef SD_SendStatus (SD_HandleTypeDef* hsd, uint32_t *pCard
   SDMMC_SendCommand(hsd->Instance, &sdmmc_cmdinitstructure);
 
   /* Check for error conditions */
-  errorstate = SD_CmdResp1Error(hsd, SD_CMD_SEND_STATUS);
+  HAL_SD_ErrorTypedef errorstate = SD_CmdResp1Error (hsd, SD_CMD_SEND_STATUS);
   if (errorstate != SD_OK)
     return errorstate;
 
   /* Get SD card status */
-  *pCardStatus = SDMMC_GetResponse(hsd->Instance, SDMMC_RESP1);
+  *pCardStatus = SDMMC_GetResponse (hsd->Instance, SDMMC_RESP1);
 
-  return errorstate;
+  return SD_OK;
   }
 /*}}}*/
 /*{{{*/
-static HAL_SD_ErrorTypedef SD_FindSCR (SD_HandleTypeDef* hsd, uint32_t *pSCR)
-{
-  SDMMC_CmdInitTypeDef  sdmmc_cmdinitstructure;
-  SDMMC_DataInitTypeDef sdmmc_datainitstructure;
-  HAL_SD_ErrorTypedef errorstate = SD_OK;
+static HAL_SD_ErrorTypedef SD_FindSCR (SD_HandleTypeDef* hsd, uint32_t *pSCR) {
+
   uint32_t index = 0;
   uint32_t tempscr[2] = {0, 0};
 
-  /* Set Block Size To 8 Bytes */
-  /* Send CMD55 APP_CMD with argument as card's RCA */
+  /* Set Block Size To 8 Bytes Send CMD55 APP_CMD with argument as card's RCA */
+  SDMMC_CmdInitTypeDef  sdmmc_cmdinitstructure;
   sdmmc_cmdinitstructure.Argument         = (uint32_t)8;
   sdmmc_cmdinitstructure.CmdIndex         = SD_CMD_SET_BLOCKLEN;
   sdmmc_cmdinitstructure.Response         = SDMMC_RESPONSE_SHORT;
@@ -347,8 +294,8 @@ static HAL_SD_ErrorTypedef SD_FindSCR (SD_HandleTypeDef* hsd, uint32_t *pSCR)
   SDMMC_SendCommand(hsd->Instance, &sdmmc_cmdinitstructure);
 
   /* Check for error conditions */
-  errorstate = SD_CmdResp1Error(hsd, SD_CMD_SET_BLOCKLEN);
-  if(errorstate != SD_OK)
+  HAL_SD_ErrorTypedef errorstate = SD_CmdResp1Error (hsd, SD_CMD_SET_BLOCKLEN);
+  if (errorstate != SD_OK)
     return errorstate;
 
   /* Send CMD55 APP_CMD with argument as card's RCA */
@@ -357,9 +304,11 @@ static HAL_SD_ErrorTypedef SD_FindSCR (SD_HandleTypeDef* hsd, uint32_t *pSCR)
   SDMMC_SendCommand(hsd->Instance, &sdmmc_cmdinitstructure);
 
   /* Check for error conditions */
-  errorstate = SD_CmdResp1Error(hsd, SD_CMD_APP_CMD);
-  if(errorstate != SD_OK)
+  errorstate = SD_CmdResp1Error (hsd, SD_CMD_APP_CMD);
+  if (errorstate != SD_OK)
     return errorstate;
+
+  SDMMC_DataInitTypeDef sdmmc_datainitstructure;
   sdmmc_datainitstructure.DataTimeOut   = SD_DATATIMEOUT;
   sdmmc_datainitstructure.DataLength    = 8;
   sdmmc_datainitstructure.DataBlockSize = SDMMC_DATABLOCK_SIZE_8B;
@@ -375,36 +324,28 @@ static HAL_SD_ErrorTypedef SD_FindSCR (SD_HandleTypeDef* hsd, uint32_t *pSCR)
 
   /* Check for error conditions */
   errorstate = SD_CmdResp1Error(hsd, SD_CMD_SD_APP_SEND_SCR);
-  if(errorstate != SD_OK)
+  if (errorstate != SD_OK)
     return errorstate;
 
-  while(!__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_RXOVERR | SDMMC_FLAG_DCRCFAIL | SDMMC_FLAG_DTIMEOUT | SDMMC_FLAG_DBCKEND))
-  {
-    if(__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_RXDAVL))
-    {
+  while (!__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_RXOVERR | SDMMC_FLAG_DCRCFAIL | SDMMC_FLAG_DTIMEOUT | SDMMC_FLAG_DBCKEND)) {
+    if (__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_RXDAVL)) {
       *(tempscr + index) = SDMMC_ReadFIFO(hsd->Instance);
       index++;
+      }
     }
-  }
 
-  if(__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_DTIMEOUT))
-  {
+  if (__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_DTIMEOUT)) {
     __HAL_SD_SDMMC_CLEAR_FLAG(hsd, SDMMC_FLAG_DTIMEOUT);
-    errorstate = SD_DATA_TIMEOUT;
-    return errorstate;
-  }
-  else if(__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_DCRCFAIL))
-  {
+    return SD_DATA_TIMEOUT;
+    }
+  if (__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_DCRCFAIL)) {
     __HAL_SD_SDMMC_CLEAR_FLAG(hsd, SDMMC_FLAG_DCRCFAIL);
-    errorstate = SD_DATA_CRC_FAIL;
-    return errorstate;
-  }
-  else if(__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_RXOVERR))
-  {
+    return SD_DATA_CRC_FAIL;
+    }
+  if (__HAL_SD_SDMMC_GET_FLAG(hsd, SDMMC_FLAG_RXOVERR)) {
     __HAL_SD_SDMMC_CLEAR_FLAG(hsd, SDMMC_FLAG_RXOVERR);
-    errorstate = SD_RX_OVERRUN;
-    return errorstate;
-  }
+    return SD_RX_OVERRUN;
+    }
 
   /* Clear all the static flags */
   __HAL_SD_SDMMC_CLEAR_FLAG(hsd, SDMMC_STATIC_FLAGS);
@@ -415,7 +356,7 @@ static HAL_SD_ErrorTypedef SD_FindSCR (SD_HandleTypeDef* hsd, uint32_t *pSCR)
   *(pSCR) = ((tempscr[1] & SD_0TO7BITS) << 24)  | ((tempscr[1] & SD_8TO15BITS) << 8) |\
     ((tempscr[1] & SD_16TO23BITS) >> 8) | ((tempscr[1] & SD_24TO31BITS) >> 24);
 
-  return errorstate;
+  return SD_OK;
   }
 /*}}}*/
 
