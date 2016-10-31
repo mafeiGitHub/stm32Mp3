@@ -42,12 +42,11 @@ uint8_t BSP_SD_Init() {
   if (BSP_SD_IsDetected() != SD_PRESENT)
     return MSD_ERROR_SD_NOT_PRESENT;
 
-  /*{{{  sd init*/
   __HAL_RCC_SDMMC1_CLK_ENABLE();
   __DMAx_TxRx_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
-
+  /*{{{  gpio init*/
   gpio_init_structure.Mode      = GPIO_MODE_AF_PP;
   gpio_init_structure.Pull      = GPIO_PULLUP;
   gpio_init_structure.Speed     = GPIO_SPEED_HIGH;
@@ -58,7 +57,7 @@ uint8_t BSP_SD_Init() {
 
   gpio_init_structure.Pin = GPIO_PIN_2;
   HAL_GPIO_Init(GPIOD, &gpio_init_structure);
-
+  /*}}}*/
   /*{{{  DMA Rx parameters*/
   dma_rx_handle.Init.Channel             = SD_DMAx_Rx_CHANNEL;
   dma_rx_handle.Init.Direction           = DMA_PERIPH_TO_MEMORY;
@@ -96,17 +95,17 @@ uint8_t BSP_SD_Init() {
   HAL_DMA_Init (&dma_tx_handle);
   /*}}}*/
 
+  // sd interrupt
   HAL_NVIC_SetPriority (SDMMC1_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ (SDMMC1_IRQn);
 
-  // NVIC rx DMA transfer complete interrupt
+  // sd rx DMA transfer complete interrupt
   HAL_NVIC_SetPriority (SD_DMAx_Rx_IRQn, 6, 0);
   HAL_NVIC_EnableIRQ (SD_DMAx_Rx_IRQn);
 
-  // NVIC tx DMA transfer complete interrupt
+  // sd tx DMA transfer complete interrupt
   HAL_NVIC_SetPriority (SD_DMAx_Tx_IRQn, 6, 0);
   HAL_NVIC_EnableIRQ (SD_DMAx_Tx_IRQn);
-  /*}}}*/
 
   // HAL SD initialization
   if (HAL_SD_Init (&uSdHandle, &uSdCardInfo) != SD_OK)

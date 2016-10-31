@@ -1227,12 +1227,6 @@ void cLcd::ltdcInit (uint32_t frameBufferAddress) {
   showFrameBufferAddress[1] = frameBufferAddress;
   showAlpha[1] = 0;
 
-  if (mIsr) {
-    //  LTDC IRQ init
-    osSemaphoreDef (ltdcSem);
-    ltdc.sem = osSemaphoreCreate (osSemaphore (ltdcSem), -1);
-    }
-
   ltdc.timeouts = 0;
   ltdc.lineIrq = 0;
   ltdc.fifoUnderunIrq = 0;
@@ -1242,6 +1236,9 @@ void cLcd::ltdcInit (uint32_t frameBufferAddress) {
   ltdc.frameWait = 0;
 
   if (mIsr) {
+    osSemaphoreDef (ltdcSem);
+    ltdc.sem = osSemaphoreCreate (osSemaphore (ltdcSem), -1);
+
     HAL_NVIC_SetPriority (LTDC_IRQn, 0xE, 0);
     HAL_NVIC_EnableIRQ (LTDC_IRQn);
 
