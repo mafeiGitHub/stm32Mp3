@@ -7,7 +7,7 @@
 #define SD_PRESENT               ((uint8_t)0x01)
 #define SD_NOT_PRESENT           ((uint8_t)0x00)
 
-/*{{{  DMA definitions for SD DMA transfer*/
+/*{{{  SD DMA config*/
 #define __DMAx_TxRx_CLK_ENABLE  __HAL_RCC_DMA2_CLK_ENABLE
 #define SD_DMAx_Tx_CHANNEL      DMA_CHANNEL_4
 #define SD_DMAx_Rx_CHANNEL      DMA_CHANNEL_4
@@ -172,19 +172,19 @@ uint32_t BSP_SD_getReadBlock() { return sdReadBlock + sdReadMultipleLen; }
 uint32_t BSP_SD_getWrites() { return sdWrites; }
 
 /*{{{*/
-uint8_t BSP_SD_ReadBlocks_DMA (uint32_t* pData, uint64_t ReadAddr, uint32_t NumOfBlocks) {
+uint8_t BSP_SD_ReadBlocks (uint32_t* pData, uint64_t ReadAddr, uint32_t blocks) {
 
-  if (HAL_SD_ReadBlocks_DMA (&uSdHandle, pData, ReadAddr, NumOfBlocks) != SD_OK)
+  if (HAL_SD_ReadBlocks_DMA (&uSdHandle, pData, ReadAddr, blocks) != SD_OK)
     return MSD_ERROR;
-  SCB_InvalidateDCache_by_Addr ((uint32_t*)((uint32_t)pData & 0xFFFFFFE0), (NumOfBlocks * 512) + 32);
+  SCB_InvalidateDCache_by_Addr ((uint32_t*)((uint32_t)pData & 0xFFFFFFE0), (blocks * 512) + 32);
 
   return MSD_OK;
   }
 /*}}}*/
 /*{{{*/
-uint8_t BSP_SD_WriteBlocks_DMA (uint32_t* pData, uint64_t WriteAddr, uint32_t NumOfBlocks) {
+uint8_t BSP_SD_WriteBlocks (uint32_t* pData, uint64_t WriteAddr, uint32_t blocks) {
 
-  if (HAL_SD_WriteBlocks_DMA (&uSdHandle, pData, WriteAddr, NumOfBlocks) != SD_OK)
+  if (HAL_SD_WriteBlocks_DMA (&uSdHandle, pData, WriteAddr, blocks) != SD_OK)
     return MSD_ERROR;
 
   //if (HAL_SD_CheckWriteOperation (&uSdHandle, (uint32_t)SD_DATATIMEOUT) != SD_OK)
@@ -225,19 +225,19 @@ int8_t BSP_SD_GetCapacity (uint8_t lun, uint32_t* block_num, uint16_t* block_siz
   }
 /*}}}*/
 /*{{{*/
-int8_t BSP_SD_Read (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t blk_len) {
+int8_t BSP_SD_Read (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t blocks) {
 
   if (BSP_SD_present()) {
-    //BSP_SD_ReadBlocks_DMA ((uint32_t*)buf, blk_addr * 512, blk_len);
+    //BSP_SD_ReadBlocks ((uint32_t*)buf, blk_addr * 512, blocks);
 
-    if ((blk_addr >= mSdReadCacheBlock) && (blk_addr + blk_len <= mSdReadCacheBlock + sdReadCacheSize)) {
+    if ((blk_addr >= mSdReadCacheBlock) && (blk_addr + blocks <= mSdReadCacheBlock + sdReadCacheSize)) {
       sdReadHits++;
-      memcpy (buf, mSdReadCache + ((blk_addr - mSdReadCacheBlock) * 512), blk_len * 512);
+      memcpy (buf, mSdReadCache + ((blk_addr - mSdReadCacheBlock) * 512), blocks * 512);
       }
     else {
       sdReads++;
-      BSP_SD_ReadBlocks_DMA ((uint32_t*)mSdReadCache, blk_addr * 512, sdReadCacheSize);
-      memcpy (buf, mSdReadCache, blk_len * 512);
+      BSP_SD_ReadBlocks ((uint32_t*)mSdReadCache, blk_addr * 512, sdReadCacheSize);
+      memcpy (buf, mSdReadCache, blocks * 512);
       mSdReadCacheBlock = blk_addr;
       }
 
@@ -250,7 +250,7 @@ int8_t BSP_SD_Read (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t blk_l
         }
       sdReadBlock = blk_addr;
       }
-    sdReadMultipleLen += blk_len;
+    sdReadMultipleLen += blocks;
 
     return 0;
     }
@@ -259,15 +259,15 @@ int8_t BSP_SD_Read (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t blk_l
   }
 /*}}}*/
 /*{{{*/
-int8_t BSP_SD_Write (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t blk_len) {
+int8_t BSP_SD_Write (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t blocks) {
 
   if (BSP_SD_present()) {
     sdWrites++;
-    BSP_SD_WriteBlocks_DMA ((uint32_t*)buf, blk_addr * 512, blk_len);
+    BSP_SD_WriteBlocks ((uint32_t*)buf, blk_addr * 512, blocks);
 
     mSdReadCacheBlock = 0xFFFFFFF0;
 
-    //cLcd::debug ("w " + cLcd::dec (blk_addr) + " " + cLcd::dec (blk_len));
+    //cLcd::debug ("w " + cLcd::dec (blk_addr) + " " + cLcd::dec (blocks));
     if (blk_addr != sdWriteBlock + sdWriteMultipleLen) {
       if (sdWriteMultipleLen) {
         // flush pending multiple
@@ -276,7 +276,7 @@ int8_t BSP_SD_Write (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t blk_
         }
       sdWriteBlock = blk_addr;
       }
-    sdWriteMultipleLen += blk_len;
+    sdWriteMultipleLen += blocks;
 
     return 0;
     }

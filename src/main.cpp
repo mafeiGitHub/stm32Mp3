@@ -60,7 +60,7 @@
 USBD_HandleTypeDef USBD_Device;
 
 //{{{
-static const uint8_t SD_Inquirydata[] = {
+static const uint8_t SD_InquiryData[] = {
   0x00, // LUN 0
   0x80, 0x02, 0x02,
   (24 - 5),
@@ -76,7 +76,7 @@ static const USBD_StorageTypeDef USBD_DISK_fops = {
   BSP_SD_IsReady,
   BSP_SD_Read,
   BSP_SD_Write,
-  (int8_t*)SD_Inquirydata,
+  (int8_t*)SD_InquiryData,
   };
 //}}}
 
@@ -1036,9 +1036,8 @@ static void mainThread (void const* argument) {
   mLcd->displayOn();
   cLcd::debug ("mainThread");
 
-  bool sdPresent = BSP_SD_present();
-  if (sdPresent) {
-    if (true) {
+  if (BSP_SD_present()) {
+    if (BSP_PB_GetState(BUTTON_WAKEUP) != GPIO_PIN_SET) {
       USBD_Init (&USBD_Device, &MSC_Desc, 0);
       USBD_RegisterClass (&USBD_Device, &USBD_MSC);
       USBD_MSC_RegisterStorage (&USBD_Device, (USBD_StorageTypeDef*)(&USBD_DISK_fops));
@@ -1091,7 +1090,7 @@ static void mainThread (void const* argument) {
   BSP_TS_Init (mRoot->getWidth(), mRoot->getHeight());
   while (true) {
     //bool button = true;
-    bool button = BSP_PB_GetState(BUTTON_WAKEUP) == GPIO_PIN_SET;
+    bool button = BSP_PB_GetState (BUTTON_WAKEUP) == GPIO_PIN_SET;
     TS_StateTypeDef tsState;
     BSP_TS_GetState (&tsState);
     for (auto touch = 0; touch < kMaxTouch; touch++) {

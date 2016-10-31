@@ -34,15 +34,15 @@ uint32_t BSP_SD_getReadHits();
 uint32_t BSP_SD_getReadBlock();
 uint32_t BSP_SD_getWrites();
 
-uint8_t BSP_SD_ReadBlocks_DMA (uint32_t *pData, uint64_t ReadAddr, uint32_t NumOfBlocks);
-uint8_t BSP_SD_WriteBlocks_DMA (uint32_t *pData, uint64_t WriteAddr, uint32_t NumOfBlocks);
+uint8_t BSP_SD_ReadBlocks (uint32_t *pData, uint64_t ReadAddr, uint32_t blocks);
+uint8_t BSP_SD_WriteBlocks (uint32_t *pData, uint64_t WriteAddr, uint32_t blocks);
 
 uint8_t BSP_SD_Erase (uint64_t StartAddr, uint64_t EndAddr);
 
 int8_t BSP_SD_IsReady (uint8_t lun);
 int8_t BSP_SD_GetCapacity (uint8_t lun, uint32_t* block_num, uint16_t* block_size);
-int8_t BSP_SD_Read (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t blk_len);
-int8_t BSP_SD_Write (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t blk_len);
+int8_t BSP_SD_Read (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t blocks);
+int8_t BSP_SD_Write (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t blocks);
 
 //{{{
 #ifdef __cplusplus
