@@ -1,6 +1,6 @@
-#ifdef STM32F746G_DISCO
+// cSd.cpp
 //{{{  includes
-#include "stm32746g_discovery_sd.h"
+#include "cSd.h"
 #include <string.h>
 #include "cmsis_os.h"
 
@@ -11,12 +11,15 @@
 
 //{{{  SD DMA config
 #define __DMAx_TxRx_CLK_ENABLE  __HAL_RCC_DMA2_CLK_ENABLE
-#define SD_DMAx_Tx_CHANNEL      DMA_CHANNEL_4
+
 #define SD_DMAx_Rx_CHANNEL      DMA_CHANNEL_4
-#define SD_DMAx_Tx_STREAM       DMA2_Stream6
+#define SD_DMAx_Tx_CHANNEL      DMA_CHANNEL_4
+
 #define SD_DMAx_Rx_STREAM       DMA2_Stream3
-#define SD_DMAx_Tx_IRQn         DMA2_Stream6_IRQn
+#define SD_DMAx_Tx_STREAM       DMA2_Stream6
+
 #define SD_DMAx_Rx_IRQn         DMA2_Stream3_IRQn
+#define SD_DMAx_Tx_IRQn         DMA2_Stream6_IRQn
 //}}}
 SD_HandleTypeDef uSdHandle;
 //{{{  static vars
@@ -202,7 +205,7 @@ uint8_t BSP_SD_WriteBlocks (uint32_t* pData, uint64_t WriteAddr, uint32_t blocks
 
 //{{{
 uint8_t BSP_SD_Erase (uint64_t StartAddr, uint64_t EndAddr) {
-  if (HAL_SD_Erase(&uSdHandle, StartAddr, EndAddr) != SD_OK)
+  if (HAL_SD_Erase (&uSdHandle, StartAddr, EndAddr) != SD_OK)
     return MSD_ERROR;
   else
     return MSD_OK;
@@ -288,5 +291,3 @@ int8_t BSP_SD_Write (uint8_t lun, uint8_t* buf, uint32_t blk_addr, uint16_t bloc
   return -1;
   }
 //}}}
-
-#endif

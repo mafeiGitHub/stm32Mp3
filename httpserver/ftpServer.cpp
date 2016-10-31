@@ -17,13 +17,13 @@
   #include "stm32746g_discovery.h"
   #include "stm32746g_discovery_ts.h"
   #include "stm32746g_discovery_audio.h"
-  #include "stm32746g_discovery_sd.h"
 #else
   #include "stm32f769i_discovery.h"
   #include "stm32f769i_discovery_ts.h"
   #include "stm32f769i_discovery_audio.h"
-  #include "stm32f769i_discovery_sd.h"
 #endif
+
+#include "cSd.h"
 #include "../fatfs/fatFs.h"
 //}}}
 //{{{  defines

@@ -6,11 +6,7 @@
 #include "fatFs.h"
 #include "diskio.h"
 
-#ifdef STM32F746G_DISCO
-  #include "stm32746g_discovery_sd.h"
-#elif STM32F769I_DISCO
-  #include "stm32F769i_discovery_sd.h"
-#endif
+#include "cSd.h"
 
 #include "cLcd.h"
 //}}}
