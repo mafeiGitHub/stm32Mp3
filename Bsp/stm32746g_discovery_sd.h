@@ -15,11 +15,6 @@
 #define MSD_ERROR                     ((uint8_t)0x01)
 #define MSD_ERROR_SD_NOT_PRESENT      ((uint8_t)0x02)
 
-#define BSP_SDMMC_IRQHandler              SDMMC1_IRQHandler
-#define BSP_SDMMC_DMA_Tx_IRQHandler       DMA2_Stream6_IRQHandler
-#define BSP_SDMMC_DMA_Rx_IRQHandler       DMA2_Stream3_IRQHandler
-#define SD_DetectIRQHandler()             HAL_GPIO_EXTI_IRQHandler(SD_DETECT_PIN)
-
 uint8_t BSP_SD_Init();
 uint8_t BSP_SD_ITConfig();
 

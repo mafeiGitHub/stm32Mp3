@@ -9,10 +9,8 @@
 #include "cSdPrivate.h"
 
 #ifdef STM32F746G_DISCO
-  #include "stm32746g_discovery_sd.h"
   #include "stm32746g_discovery_audio.h"
 #else
-  #include "stm32f769i_discovery_sd.h"
   #include "stm32f769i_discovery_audio.h"
 #endif
 /*}}}*/
@@ -38,7 +36,7 @@ void LTDC_IRQHandler() { LCD_LTDC_IRQHandler(); }
 void DMA2D_IRQHandler() { LCD_DMA2D_IRQHandler(); }
 
 // sd
-void BSP_SDMMC_IRQHandler() { HAL_SD_IRQHandler (&uSdHandle); }
+void SDMMC1_IRQHandler() { HAL_SD_IRQHandler (&uSdHandle); }
 void BSP_SDMMC_DMA_Tx_IRQHandler() { HAL_DMA_IRQHandler (uSdHandle.hdmatx); }
 void BSP_SDMMC_DMA_Rx_IRQHandler() { HAL_DMA_IRQHandler (uSdHandle.hdmarx); }
 
