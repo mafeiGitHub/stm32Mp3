@@ -183,8 +183,8 @@ void SD_GetCardInfo (HAL_SD_CardInfoTypedef* CardInfo) {
 //}}}
 //{{{
 std::string SD_info() {
-  return cLcd::dec (mReads) + ":" + cLcd::dec (mReadHits) + "  "  +
-         cLcd::dec (mReadBlock + mReadMultipleLen) + " w:" + cLcd::dec (mWrites);
+  return "r:" + cLcd::dec (mReadHits) + ":" + cLcd::dec (mReads) + ":"  + cLcd::dec (mReadBlock + mReadMultipleLen) +
+         " w:" + cLcd::dec (mWrites);
   }
 //}}}
 
@@ -243,8 +243,6 @@ int8_t SD_GetCapacity (uint32_t* block_num, uint16_t* block_size) {
 int8_t SD_ReadCached (uint8_t* buf, uint32_t blk_addr, uint16_t blocks) {
 
   if (SD_present()) {
-    //SD_ReadBlocks ((uint32_t*)buf, blk_addr * 512, blocks);
-
     if ((blk_addr >= mReadCacheBlock) && (blk_addr + blocks <= mReadCacheBlock + mReadCacheSize)) {
       mReadHits++;
       memcpy (buf, mReadCache + ((blk_addr - mReadCacheBlock) * 512), blocks * 512);
@@ -256,7 +254,6 @@ int8_t SD_ReadCached (uint8_t* buf, uint32_t blk_addr, uint16_t blocks) {
       mReadCacheBlock = blk_addr;
       }
 
-    //cLcd::debug ("r:" + cLcd::dec (blk_addr) + "::" + cLcd::dec (blk_len));
     if (blk_addr != mReadBlock + mReadMultipleLen) {
       if (mReadMultipleLen) {
         // flush pending multiple
@@ -280,8 +277,6 @@ int8_t SD_WriteCached (uint8_t* buf, uint32_t blk_addr, uint16_t blocks) {
     SD_Write (buf, blk_addr, blocks);
 
     mReadCacheBlock = 0xFFFFFFF0;
-
-    //cLcd::debug ("w " + cLcd::dec (blk_addr) + " " + cLcd::dec (blocks));
     if (blk_addr != mWriteBlock + mWriteMultipleLen) {
       if (mWriteMultipleLen) {
         // flush pending multiple

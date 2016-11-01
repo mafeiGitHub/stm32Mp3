@@ -12,27 +12,15 @@
 #include "lwip/lwip_timers.h"
 #include "netif/etharp.h"
 /*}}}*/
-/*{{{  defines*/
-#define LAN8742A_PHY_ADDRESS  0x00
-
-// MAC ADDRESS - MAC_ADDR0:MAC_ADDR1:MAC_ADDR2:MAC_ADDR3:MAC_ADDR4:MAC_ADDR5
-#define MAC_ADDR0   2
-#define MAC_ADDR1   0
-#define MAC_ADDR2   0x11
-#define MAC_ADDR3   0x22
-#define MAC_ADDR4   0x33
-#define MAC_ADDR5   0x44
-
-#define TIME_WAITING_FOR_INPUT       ( 100 )
-#define INTERFACE_THREAD_STACK_SIZE  ( 350 )
-/*}}}*/
+static const uint8_t macaddress[6] = { 2, 0, 0x11, 0x22, 0x33, 0x44 };
 
 // vars
 ETH_HandleTypeDef EthHandle;
-osSemaphoreId s_xSemaphore = NULL;
+
+static osSemaphoreId rxSem = NULL;
 
 /*{{{*/
-static err_t low_level_output (struct netif* netif, struct pbuf* p) {
+static err_t ethernetOutput (struct netif* netif, struct pbuf* p) {
 // This function should do the actual transmission of the packet. The packet is
 //  contained in the pbuf that is passed to the function. This pbuf  might be chained.
 //  @param netif the lwip network interface structure for this ethernetif
@@ -46,19 +34,13 @@ static err_t low_level_output (struct netif* netif, struct pbuf* p) {
 
   err_t errval;
 
-  struct pbuf* q;
   uint8_t* buffer = (uint8_t *)(EthHandle.TxDesc->Buffer1Addr);
-
-  __IO ETH_DMADescTypeDef* DmaTxDesc;
-  uint32_t framelength = 0;
-  uint32_t bufferoffset = 0;
-  uint32_t byteslefttocopy = 0;
-  uint32_t payloadoffset = 0;
-
-  DmaTxDesc = EthHandle.TxDesc;
-  bufferoffset = 0;
+  __IO ETH_DMADescTypeDef* DmaTxDesc = EthHandle.TxDesc;
 
   /* copy frame from pbufs to driver buffers */
+  uint32_t framelength = 0;
+  uint32_t bufferoffset = 0;
+  struct pbuf* q;
   for (q = p; q != NULL; q = q->next) {
     /* Is this buffer available? If not, goto error */
     if ((DmaTxDesc->Status & ETH_DMATXDESC_OWN) != (uint32_t)RESET) {
@@ -67,23 +49,20 @@ static err_t low_level_output (struct netif* netif, struct pbuf* p) {
       }
 
     /* Get bytes in current lwIP buffer */
-    byteslefttocopy = q->len;
-    payloadoffset = 0;
+    uint32_t byteslefttocopy = q->len;
+    uint32_t payloadoffset = 0;
 
     /* Check if the length of data to copy is bigger than Tx buffer size*/
     while ((byteslefttocopy + bufferoffset) > ETH_TX_BUF_SIZE) {
       /* Copy data to Tx buffer*/
       memcpy ((uint8_t*)((uint8_t*)buffer + bufferoffset), (uint8_t*)((uint8_t*)q->payload + payloadoffset), (ETH_TX_BUF_SIZE - bufferoffset) );
 
-      /* Point to next descriptor */
+      /* Point to next descriptor, Check if the buffer is available */
       DmaTxDesc = (ETH_DMADescTypeDef *)(DmaTxDesc->Buffer2NextDescAddr);
-
-      /* Check if the buffer is available */
-      if((DmaTxDesc->Status & ETH_DMATXDESC_OWN) != (uint32_t)RESET) {
+      if ((DmaTxDesc->Status & ETH_DMATXDESC_OWN) != (uint32_t)RESET) {
         errval = ERR_USE;
         goto error;
         }
-
       buffer = (uint8_t*)(DmaTxDesc->Buffer1Addr);
 
       byteslefttocopy = byteslefttocopy - (ETH_TX_BUF_SIZE - bufferoffset);
@@ -116,40 +95,29 @@ error:
   }
 /*}}}*/
 /*{{{*/
-static struct pbuf* low_level_input (struct netif* netif) {
-// Should allocate a pbuf and transfer the bytes of the incoming
-// packet from the interface into the pbuf.
+static struct pbuf* ethernetInput (struct netif* netif) {
+// Should allocate a pbuf and transfer the bytes of the incoming packet from the interface into the pbuf.
 // netif the lwip network interface structure for this ethernetif
 // return a pbuf filled with the received packet (including MAC header)  NULL on memory error
 
-  struct pbuf *p = NULL, *q = NULL;
-  uint16_t len = 0;
-  uint8_t *buffer;
-  __IO ETH_DMADescTypeDef *dmarxdesc;
-  uint32_t bufferoffset = 0;
-  uint32_t payloadoffset = 0;
-  uint32_t byteslefttocopy = 0;
-  uint32_t i=0;
-
-  /* get received frame */
-  if (HAL_ETH_GetReceivedFrame_IT(&EthHandle) != HAL_OK)
+  if (HAL_ETH_GetReceivedFrame_IT (&EthHandle) != HAL_OK)
     return NULL;
 
-  /* Obtain the size of the packet and put it into the "len" variable. */
-  len = EthHandle.RxFrameInfos.length;
-  buffer = (uint8_t*)EthHandle.RxFrameInfos.buffer;
+  uint8_t* buffer = (uint8_t*)EthHandle.RxFrameInfos.buffer;
+  uint16_t len = EthHandle.RxFrameInfos.length;
 
-  if (len > 0)
-    /* We allocate a pbuf chain of pbufs from the Lwip buffer pool */
-    p = pbuf_alloc (PBUF_RAW, len, PBUF_POOL);
+  // allocate pbuf chain of pbufs from the Lwip buffer pool
+  struct pbuf* p = len > 0 ? pbuf_alloc (PBUF_RAW, len, PBUF_POOL) : NULL;
 
+  __IO ETH_DMADescTypeDef* dmarxdesc;
   if (p != NULL) {
     dmarxdesc = EthHandle.RxFrameInfos.FSRxDesc;
-    bufferoffset = 0;
+    uint32_t bufferoffset = 0;
 
+    struct pbuf* q = NULL;
     for (q = p; q != NULL; q = q->next) {
-      byteslefttocopy = q->len;
-      payloadoffset = 0;
+      uint32_t byteslefttocopy = q->len;
+      uint32_t payloadoffset = 0;
 
       /* Check if the length of bytes to copy in current pbuf is bigger than Rx buffer size */
       while ((byteslefttocopy + bufferoffset) > ETH_RX_BUF_SIZE) {
@@ -171,70 +139,62 @@ static struct pbuf* low_level_input (struct netif* netif) {
       }
     }
 
-  /* Release descriptors to DMA, Point to first descriptor */
+  // Release descriptors to DMA, Point to first descriptor, Set Own bit in Rx descriptors: gives the buffers back to DMA
   dmarxdesc = EthHandle.RxFrameInfos.FSRxDesc;
-  /* Set Own bit in Rx descriptors: gives the buffers back to DMA */
-  for (i = 0; i< EthHandle.RxFrameInfos.SegCount; i++) {
+  for (uint32_t i = 0; i< EthHandle.RxFrameInfos.SegCount; i++) {
     dmarxdesc->Status |= ETH_DMARXDESC_OWN;
     dmarxdesc = (ETH_DMADescTypeDef *)(dmarxdesc->Buffer2NextDescAddr);
     }
 
-  /* Clear Segment_Count */
+  // Clear Segment_Count, When Rx Buffer unavailable flag is set: clear it and resume reception
   EthHandle.RxFrameInfos.SegCount = 0;
-
-  /* When Rx Buffer unavailable flag is set: clear it and resume reception */
   if ((EthHandle.Instance->DMASR & ETH_DMASR_RBUS) != (uint32_t)RESET) {
-    /* Clear RBUS ETHERNET DMA flag */
+    // Clear RBUS ETHERNET DMA flag
     EthHandle.Instance->DMASR = ETH_DMASR_RBUS;
-    /* Resume DMA reception */
+    // Resume DMA reception
     EthHandle.Instance->DMARPDR = 0;
     }
 
   return p;
   }
 /*}}}*/
+
 /*{{{*/
-static void ethernetif_input (void const* argument ) {
-// This function is the ethernetif_input task, it is processed when a packet
-// is ready to be read from the interface. It uses the function low_level_input()
-// that should handle the actual reception of bytes from the network
-// interface. Then the type of the received packet is determined and
-// the appropriate input function is called.
-// netif the lwip network interface structure for this ethernetif
+static void ethernetInputThread (void const* argument) {
 
-  struct netif* netif = (struct netif*)argument;
+  struct netif *netif = (struct netif*)argument;
+  struct pbuf* buf;
 
-  for (;;) {
-    if (osSemaphoreWait (s_xSemaphore, TIME_WAITING_FOR_INPUT) == osOK) {
-      struct pbuf* p;
+  while (1) {
+    if (osSemaphoreWait (rxSem, 100) == osOK) {
       do {
-        p = low_level_input (netif);
-        if (p != NULL) {
-          if (netif->input (p, netif) != ERR_OK )
-            pbuf_free (p);
+        buf = ethernetInput (netif);
+        if (buf) {
+          if (netif->input (buf, netif) != ERR_OK)
+            pbuf_free (buf);
           }
-        } while (p != NULL);
+        } while (buf);
       }
     }
   }
 /*}}}*/
 /*{{{*/
-static void low_level_init (struct netif* netif) {
+err_t ethernetif_init (struct netif* netif) {
 
-  uint8_t macaddress[6]= { MAC_ADDR0, MAC_ADDR1, MAC_ADDR2, MAC_ADDR3, MAC_ADDR4, MAC_ADDR5 };
-
+  /*{{{  HAL ethernet init*/
   EthHandle.Instance = ETH;
-  EthHandle.Init.MACAddr = macaddress;
+  EthHandle.Init.MACAddr = (uint8_t*)macaddress;
   EthHandle.Init.AutoNegotiation = ETH_AUTONEGOTIATION_ENABLE;
   EthHandle.Init.Speed = ETH_SPEED_100M;
   EthHandle.Init.DuplexMode = ETH_MODE_FULLDUPLEX;
   EthHandle.Init.MediaInterface = ETH_MEDIA_INTERFACE_RMII;
   EthHandle.Init.RxMode = ETH_RXINTERRUPT_MODE;
   EthHandle.Init.ChecksumMode = ETH_CHECKSUM_BY_HARDWARE;
-  EthHandle.Init.PhyAddress = LAN8742A_PHY_ADDRESS;
-  if (HAL_ETH_Init (&EthHandle) == HAL_OK)
-    // Set netif link flag
+  EthHandle.Init.PhyAddress = 0; // LAN8742A_PHY_ADDRESS;
+
+  if (HAL_ETH_Init (&EthHandle) == HAL_OK) // Set netif link flag
     netif->flags |= NETIF_FLAG_LINK_UP;
+  /*}}}*/
 
   // Initialize Rx Descriptors list: Chain Mode
   HAL_ETH_DMARxDescListInit (&EthHandle, (ETH_DMADescTypeDef*)EthRxDescripSection, (uint8_t*)EthRxBUF, ETH_RXBUFNB);
@@ -242,48 +202,29 @@ static void low_level_init (struct netif* netif) {
   // Initialize Tx Descriptors list: Chain Mode
   HAL_ETH_DMATxDescListInit (&EthHandle, (ETH_DMADescTypeDef*)EthTxDescripSection, (uint8_t*)EthTxBUF, ETH_TXBUFNB);
 
-  // set netif MAC hardware address length
-  netif->hwaddr_len = ETHARP_HWADDR_LEN;
-
-  // set netif MAC hardware address
-  netif->hwaddr[0] = MAC_ADDR0;
-  netif->hwaddr[1] = MAC_ADDR1;
-  netif->hwaddr[2] = MAC_ADDR2;
-  netif->hwaddr[3] = MAC_ADDR3;
-  netif->hwaddr[4] = MAC_ADDR4;
-  netif->hwaddr[5] = MAC_ADDR5;
-
-  // set netif maximum transfer unit
-  netif->mtu = 1500;
-
-  // Accept broadcast address and ARP traffic
-  netif->flags |= NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP;
-
-  // create a binary semaphore used for informing ethernetif of frame reception
-  osSemaphoreDef (SEM);
-  s_xSemaphore = osSemaphoreCreate (osSemaphore(SEM), 1);
-
-  // create the task that handles the ETH_MAC
-  osThreadDef (EthIf, ethernetif_input, osPriorityRealtime, 0, INTERFACE_THREAD_STACK_SIZE);
-  osThreadCreate (osThread(EthIf), netif);
-
-  // Enable MAC and DMA transmission and reception
-  HAL_ETH_Start (&EthHandle);
-  }
-/*}}}*/
-
-/*{{{*/
-err_t ethernetif_init (struct netif* netif) {
-
-  LWIP_ASSERT ("netif != NULL", (netif != NULL));
-
-  netif->hostname = "lwip";
+  netif->hostname = "colinST";
   netif->name[0] = 's';
   netif->name[1] = 't';
   netif->output = etharp_output;
-  netif->linkoutput = low_level_output;
+  netif->linkoutput = ethernetOutput;
+  netif->hwaddr_len = ETHARP_HWADDR_LEN;
+  netif->hwaddr[0] = macaddress[0];
+  netif->hwaddr[1] = macaddress[1];
+  netif->hwaddr[2] = macaddress[2];
+  netif->hwaddr[3] = macaddress[3];
+  netif->hwaddr[4] = macaddress[4];
+  netif->hwaddr[5] = macaddress[5];
+  netif->mtu = 1500; // netif maximum transfer unit
+  netif->flags |= NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP; // Accept broadcast address and ARP traffic
 
-  low_level_init (netif);
+  osSemaphoreDef (ethernetRxSem);
+  rxSem = osSemaphoreCreate (osSemaphore (ethernetRxSem), 1);
+
+  osThreadDef (ethIf, ethernetInputThread, osPriorityRealtime, 0, 350);
+  osThreadCreate (osThread (ethIf), netif);
+
+  // Enable MAC and DMA transmission and reception
+  HAL_ETH_Start (&EthHandle);
 
   return ERR_OK;
   }
@@ -335,7 +276,6 @@ void HAL_ETH_MspInit (ETH_HandleTypeDef* heth) {
 /*}}}*/
 /*{{{*/
 void HAL_ETH_RxCpltCallback (ETH_HandleTypeDef* heth) {
-
-  osSemaphoreRelease (s_xSemaphore);
+  osSemaphoreRelease (rxSem);
   }
 /*}}}*/
