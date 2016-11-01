@@ -40,8 +40,10 @@ static uint32_t mWriteBlock = 0xFFFFFFFF;
 static osMutexId mMutex;
 //}}}
 
-//  if (osMutexWait (mMutex, 1000) != osOK)
-//    osMutexRelease (mMutex);
+osMutexId mSdMutex;
+
+//if (osMutexWait (mSdMutex, 1000) != osOK)
+//osMutexRelease (mSdMutex);
 
 //{{{
 uint8_t SD_Init() {
@@ -168,9 +170,21 @@ uint8_t SD_ITConfig() {
   }
 //}}}
 
-bool SD_present() { return !(SD_DETECT_GPIO_PORT->IDR & SD_DETECT_PIN); }
-HAL_SD_TransferStateTypedef SD_GetStatus() { return HAL_SD_GetStatus (&uSdHandle); }
-void SD_GetCardInfo (HAL_SD_CardInfoTypedef* CardInfo) { HAL_SD_Get_CardInfo (&uSdHandle, CardInfo); }
+//{{{
+bool SD_present() {
+  return !(SD_DETECT_GPIO_PORT->IDR & SD_DETECT_PIN);
+  }
+//}}}
+//{{{
+HAL_SD_TransferStateTypedef SD_GetStatus() {
+  return HAL_SD_GetStatus (&uSdHandle);
+  }
+//}}}
+//{{{
+void SD_GetCardInfo (HAL_SD_CardInfoTypedef* CardInfo) {
+  HAL_SD_Get_CardInfo (&uSdHandle, CardInfo);
+  }
+//}}}
 //{{{
 std::string SD_info() {
   return cLcd::dec (mReads) + ":" + cLcd::dec (mReadHits) + "  "  +
@@ -209,6 +223,7 @@ uint8_t SD_Erase (uint64_t StartAddr, uint64_t EndAddr) {
   }
 //}}}
 
+// usb MSC interface
 //{{{
 int8_t SD_IsReady() {
   return (SD_present() && (HAL_SD_GetStatus (&uSdHandle) == SD_TRANSFER_OK)) ? 0 : -1;
