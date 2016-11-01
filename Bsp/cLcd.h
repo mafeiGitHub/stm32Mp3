@@ -15,13 +15,13 @@ public:
   #ifdef STM32F746G_DISCO
     static uint16_t getWidth() { return 480; }
     static uint16_t getHeight() { return 272; }
-    static uint8_t getFontHeight() { return 16; }
-    static uint8_t getLineHeight() { return 19; }
+    static uint16_t getFontHeight() { return 16; }
+    static uint16_t getLineHeight() { return 19; }
   #else
     static uint16_t getWidth() { return 800; }
     static uint16_t getHeight() { return 480; }
-    static uint8_t getFontHeight() { return 26; }
-    static uint8_t getLineHeight() { return 30; }
+    static uint16_t getFontHeight() { return 26; }
+    static uint16_t getLineHeight() { return 30; }
   #endif
 
   // static string utils
@@ -54,7 +54,7 @@ public:
   virtual void pixel (uint32_t colour, int16_t x, int16_t y);
   virtual void rect (uint32_t col, int16_t x, int16_t y, uint16_t width, uint16_t height);
   virtual void stamp (uint32_t colour, uint8_t* src, int16_t x, int16_t y, uint16_t width, uint16_t height);
-  virtual int text (uint32_t col, int fontHeight, std::string str, int16_t x, int16_t y, uint16_t width, uint16_t height);
+  virtual int text (uint32_t col, uint16_t fontHeight, std::string str, int16_t x, int16_t y, uint16_t width, uint16_t height);
   virtual void copy (uint32_t* src, int16_t x, int16_t y, uint16_t width, uint16_t height);
   virtual void copy (ID2D1Bitmap* bitMap, int16_t x, int16_t y, uint16_t width, uint16_t height) {}
   virtual void pixelClipped (uint32_t colour, int16_t x, int16_t y);

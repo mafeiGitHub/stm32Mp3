@@ -613,7 +613,7 @@ public:
 static void aacLoadThread (void const* argument) {
 
   cLcd::debug ("aacLoadThread");
-  mPlayFrame = mHlsLoader->changeChan (mTuneChan) - mHlsLoader->getFramesFromSec (8);
+  mPlayFrame = mHlsLoader->changeChan (mTuneChan) - mHlsLoader->getFramesFromSec (19);
   mLcd->setShowDebug (false, false, false, true);  // debug - title, info, lcdStats, footer
 
   while (true) {

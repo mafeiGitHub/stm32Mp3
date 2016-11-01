@@ -720,10 +720,10 @@ void cLcd::stamp (uint32_t colour, uint8_t* src, int16_t x, int16_t y, uint16_t 
   }
 //}}}
 //{{{
-int cLcd::text (uint32_t colour, int fontHeight, std::string str, int16_t x, int16_t y, uint16_t width, uint16_t height) {
+int cLcd::text (uint32_t colour, uint16_t fontHeight, std::string str, int16_t x, int16_t y, uint16_t width, uint16_t height) {
 
   auto xend = x + width;
-  for (unsigned int i = 0; i < str.size(); i++) {
+  for (auto i = 0; i < str.size(); i++) {
     if ((str[i] >= 0x20) && (str[i] <= 0x7F)) {
       auto fontChar = chars[str[i] - 0x20];
       if (!fontChar) {
