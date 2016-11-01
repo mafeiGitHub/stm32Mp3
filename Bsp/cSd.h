@@ -6,11 +6,7 @@
 #include "stm32746g_discovery.h"
 //}}}
 
-#define SD_CardInfo HAL_SD_CardInfoTypedef
-
-#define MSD_OK                        ((uint8_t)0x00)
-#define MSD_ERROR                     ((uint8_t)0x01)
-#define MSD_ERROR_SD_NOT_PRESENT      ((uint8_t)0x02)
+typedef enum { MSD_OK, MSD_ERROR, MSD_ERROR_SD_NOT_PRESENT } MSD_RESULT;
 
 uint8_t SD_Init();
 uint8_t SD_ITConfig();

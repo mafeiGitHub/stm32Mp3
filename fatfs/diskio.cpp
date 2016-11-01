@@ -16,13 +16,13 @@ static volatile DSTATUS Stat = STA_NOINIT;
 //{{{
 DSTATUS diskStatus() {
 
-  return SD_GetStatus() == MSD_OK ? 0 : STA_NOINIT;
+  return SD_GetStatus() == SD_TRANSFER_OK ? 0 : STA_NOINIT;
   }
 //}}}
 //{{{
 DSTATUS diskInitialize() {
 
-  return SD_GetStatus() == MSD_OK ? 0 : STA_NOINIT;
+  return SD_GetStatus() == SD_TRANSFER_OK ? 0 : STA_NOINIT;
   }
 //}}}
 
@@ -39,7 +39,7 @@ DRESULT diskIoctl (BYTE cmd, void* buff) {
 
     // Get number of sectors on the disk (DWORD)
     case GET_SECTOR_COUNT : {
-      SD_CardInfo CardInfo;
+      HAL_SD_CardInfoTypedef CardInfo;
       SD_GetCardInfo (&CardInfo);
       *(DWORD*)buff = CardInfo.CardCapacity / SECTOR_SIZE;
       res = RES_OK;

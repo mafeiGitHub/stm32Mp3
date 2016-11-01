@@ -21,7 +21,7 @@
 //}}}
 SD_HandleTypeDef uSdHandle;
 //{{{  static vars
-static SD_CardInfo uSdCardInfo;
+static HAL_SD_CardInfoTypedef uSdCardInfo;
 static DMA_HandleTypeDef dma_rx_handle;
 static DMA_HandleTypeDef dma_tx_handle;
 
@@ -36,7 +36,12 @@ static uint32_t mReadBlock = 0xFFFFFFFF;
 static uint32_t mWrites = 0;
 static uint32_t mWriteMultipleLen = 0;
 static uint32_t mWriteBlock = 0xFFFFFFFF;
+
+static osMutexId mMutex;
 //}}}
+
+//  if (osMutexWait (mMutex, 1000) != osOK)
+//    osMutexRelease (mMutex);
 
 //{{{
 uint8_t SD_Init() {
@@ -137,6 +142,9 @@ uint8_t SD_Init() {
     return MSD_ERROR;
 
   mReadCache = (uint8_t*)pvPortMalloc (512 * mReadCacheSize);
+
+  //osMutexDef (sdMutex);
+  //mMutex = osMutexCreate (osMutex (sdMutex));
 
   return MSD_OK;
   }
