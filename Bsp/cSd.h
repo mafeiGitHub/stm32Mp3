@@ -1,7 +1,6 @@
 // cSd.h
 #pragma once
 //{{{  includes
-#include <stdbool.h>
 #include <string>
 #include "stm32746g_discovery.h"
 //}}}
