@@ -53,9 +53,7 @@
 #include "widgets/cWaveCentreWidget.h"
 #include "widgets/cWaveLensWidget.h"
 //}}}
-//#define IMG_NO_DATA
-//#include "FreeSansBoldQspi.h"
-
+const bool kStaticIp = false;
 USBD_HandleTypeDef USBD_Device;
 
 //{{{
@@ -550,7 +548,7 @@ static uint8_t* mWave = nullptr;
 static int* mFrameOffsets = nullptr;
 
 // hls
-static int mTuneChan = 4;
+static int mTuneChan = 3;
 static bool mTuneChanChanged = false;
 static cHlsLoader* mHlsLoader;
 static osSemaphoreId mHlsLoaderSem;
@@ -925,7 +923,6 @@ static void waveThread (void const* argument) {
 //{{{
 static void netThread (void const* argument) {
 
-  const bool kStaticIp = false;
   tcpip_init (NULL, NULL);
   cLcd::debug ("configuring ethernet");
 
@@ -1010,8 +1007,9 @@ static void netThread (void const* argument) {
     const osThreadDef_t osThreadAacPlay = { (char*)"aacPlay", aacPlayThread, osPriorityAboveNormal, 0, 2000 };
     osThreadCreate (&osThreadAacPlay, NULL);
 
-    //const osThreadDef_t osThreadHttp = { (char*)"http", httpServerThread, osPriorityNormal, 0, DEFAULT_THREAD_STACKSIZE };
-    //osThreadCreate (&osThreadHttp, NULL);
+    const osThreadDef_t osThreadHttp = { (char*)"http", httpServerThread, osPriorityNormal, 0, DEFAULT_THREAD_STACKSIZE };
+    osThreadCreate (&osThreadHttp, NULL);
+
     //const osThreadDef_t osThreadFtp = { (char*)"ftp", ftpServerThread, osPriorityNormal, 0, DEFAULT_THREAD_STACKSIZE };
     //osThreadCreate (&osThreadFtp, NULL);
     }
@@ -1030,19 +1028,20 @@ static void mainThread (void const* argument) {
 
   const bool kMaxTouch = 1;
   mLcd->displayOn();
-  cLcd::debug ("mainThread");
 
   if (SD_present()) {
     if (BSP_PB_GetState (BUTTON_WAKEUP) != GPIO_PIN_SET) {
+      cLcd::debug ("USB MSC mainThread");
       USBD_Init (&USBD_Device, &MSC_Desc, 0);
       USBD_RegisterClass (&USBD_Device, &USBD_MSC);
       USBD_MSC_RegisterStorage (&USBD_Device, (USBD_StorageTypeDef*)(&USBD_DISK_fops));
       USBD_Start (&USBD_Device);
       cLcd::debug ("USB ok");
       }
-    else
-      {
+    else {
       //{{{  mp3 player
+      cLcd::debug ("MP3 mainThread");
+
       mFrameOffsets = (int*)pvPortMalloc (60*60*40*sizeof(int));
       mWave = (uint8_t*)pvPortMalloc (60*60*40*2*sizeof(uint8_t));  // 1 hour of 40 mp3 frames per sec
       mWave[0] = 0;
@@ -1063,6 +1062,8 @@ static void mainThread (void const* argument) {
     }
   else {
     //{{{  hls aac player
+    cLcd::debug ("HLS mainThread");
+
     mHlsLoader = new cHlsLoader();
     osSemaphoreDef (hlsLoader);
     mHlsLoaderSem = osSemaphoreCreate (osSemaphore (hlsLoader), -1);

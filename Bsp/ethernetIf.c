@@ -45,8 +45,10 @@ static err_t low_level_output (struct netif* netif, struct pbuf* p) {
 //        dropped because of memory failure (except for the TCP timers).
 
   err_t errval;
+
   struct pbuf* q;
   uint8_t* buffer = (uint8_t *)(EthHandle.TxDesc->Buffer1Addr);
+
   __IO ETH_DMADescTypeDef* DmaTxDesc;
   uint32_t framelength = 0;
   uint32_t bufferoffset = 0;
