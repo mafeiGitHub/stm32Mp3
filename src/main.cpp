@@ -611,7 +611,7 @@ public:
 static void aacLoadThread (void const* argument) {
 
   cLcd::debug ("aacLoadThread");
-  mPlayFrame = mHlsLoader->changeChan (mTuneChan) - mHlsLoader->getFramesFromSec (19);
+  mPlayFrame = mHlsLoader->changeChan (mTuneChan) - mHlsLoader->getFramesFromSec (30);
   mLcd->setShowDebug (false, false, false, true);  // debug - title, info, lcdStats, footer
 
   while (true) {
@@ -1002,9 +1002,9 @@ static void netThread (void const* argument) {
     mRoot->addNextRight (new cSelectValueBox ("radio6", 6, mTuneChan, mTuneChanChanged,
                                               cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
 
-    const osThreadDef_t osThreadAacLoad = { (char*)"aacLoad", aacLoadThread, osPriorityNormal, 0, 15000 };
+    const osThreadDef_t osThreadAacLoad = { (char*)"aacLoad", aacLoadThread, osPriorityNormal, 0, 13000 };
     osThreadCreate (&osThreadAacLoad, NULL);
-    const osThreadDef_t osThreadAacPlay = { (char*)"aacPlay", aacPlayThread, osPriorityAboveNormal, 0, 2000 };
+    const osThreadDef_t osThreadAacPlay = { (char*)"aacPlay", aacPlayThread, osPriorityAboveNormal, 0, 1000 };
     osThreadCreate (&osThreadAacPlay, NULL);
 
     const osThreadDef_t osThreadHttp = { (char*)"http", httpServerThread, osPriorityNormal, 0, DEFAULT_THREAD_STACKSIZE };

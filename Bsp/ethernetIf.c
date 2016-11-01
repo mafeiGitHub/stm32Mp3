@@ -55,7 +55,7 @@ static err_t ethernetOutput (struct netif* netif, struct pbuf* p) {
     /* Check if the length of data to copy is bigger than Tx buffer size*/
     while ((byteslefttocopy + bufferoffset) > ETH_TX_BUF_SIZE) {
       /* Copy data to Tx buffer*/
-      memcpy ((uint8_t*)((uint8_t*)buffer + bufferoffset), (uint8_t*)((uint8_t*)q->payload + payloadoffset), (ETH_TX_BUF_SIZE - bufferoffset) );
+      memcpy (buffer + bufferoffset, q->payload + payloadoffset, (ETH_TX_BUF_SIZE - bufferoffset) );
 
       /* Point to next descriptor, Check if the buffer is available */
       DmaTxDesc = (ETH_DMADescTypeDef *)(DmaTxDesc->Buffer2NextDescAddr);
@@ -72,7 +72,7 @@ static err_t ethernetOutput (struct netif* netif, struct pbuf* p) {
       }
 
     /* Copy the remaining bytes */
-    memcpy ((uint8_t*)((uint8_t*)buffer + bufferoffset), (uint8_t*)((uint8_t*)q->payload + payloadoffset), byteslefttocopy );
+    memcpy (buffer + bufferoffset, q->payload + payloadoffset, byteslefttocopy );
     bufferoffset = bufferoffset + byteslefttocopy;
     framelength = framelength + byteslefttocopy;
     }
@@ -96,45 +96,39 @@ error:
 /*}}}*/
 /*{{{*/
 static struct pbuf* ethernetInput (struct netif* netif) {
-// Should allocate a pbuf and transfer the bytes of the incoming packet from the interface into the pbuf.
-// netif the lwip network interface structure for this ethernetif
-// return a pbuf filled with the received packet (including MAC header)  NULL on memory error
+// allocate and return a pbuf filled with the received packet (including MAC header)
+// - NULL on memory error
 
   if (HAL_ETH_GetReceivedFrame_IT (&EthHandle) != HAL_OK)
     return NULL;
 
+  // allocate chain of pbufs from the Lwip buffer pool
   uint8_t* buffer = (uint8_t*)EthHandle.RxFrameInfos.buffer;
   uint16_t len = EthHandle.RxFrameInfos.length;
-
-  // allocate pbuf chain of pbufs from the Lwip buffer pool
-  struct pbuf* p = len > 0 ? pbuf_alloc (PBUF_RAW, len, PBUF_POOL) : NULL;
+  struct pbuf* bufHead = len > 0 ? pbuf_alloc (PBUF_RAW, len, PBUF_POOL) : NULL;
 
   __IO ETH_DMADescTypeDef* dmarxdesc;
-  if (p != NULL) {
+  if (bufHead) {
     dmarxdesc = EthHandle.RxFrameInfos.FSRxDesc;
     uint32_t bufferoffset = 0;
-
-    struct pbuf* q = NULL;
-    for (q = p; q != NULL; q = q->next) {
-      uint32_t byteslefttocopy = q->len;
+    for (struct pbuf* curBuf = bufHead; curBuf != NULL; curBuf = curBuf->next) {
+      // Check if the length of bytes to copy in current pbuf is bigger than Rx buffer size
+      uint32_t byteslefttocopy = curBuf->len;
       uint32_t payloadoffset = 0;
-
-      /* Check if the length of bytes to copy in current pbuf is bigger than Rx buffer size */
       while ((byteslefttocopy + bufferoffset) > ETH_RX_BUF_SIZE) {
-        /* Copy data to pbuf */
-        memcpy ((uint8_t*)((uint8_t*)q->payload + payloadoffset), (uint8_t*)((uint8_t*)buffer + bufferoffset), (ETH_RX_BUF_SIZE - bufferoffset));
+        // Copy data to pbuf
+        memcpy (curBuf->payload + payloadoffset, buffer + bufferoffset, (ETH_RX_BUF_SIZE - bufferoffset));
 
-        /* Point to next descriptor */
+        // Point to next descriptor
         dmarxdesc = (ETH_DMADescTypeDef*)(dmarxdesc->Buffer2NextDescAddr);
         buffer = (uint8_t*)(dmarxdesc->Buffer1Addr);
-
         byteslefttocopy = byteslefttocopy - (ETH_RX_BUF_SIZE - bufferoffset);
         payloadoffset = payloadoffset + (ETH_RX_BUF_SIZE - bufferoffset);
         bufferoffset = 0;
         }
 
-      /* Copy remaining data in pbuf */
-      memcpy ((uint8_t*)((uint8_t*)q->payload + payloadoffset), (uint8_t*)((uint8_t*)buffer + bufferoffset), byteslefttocopy);
+      // Copy remaining data in pbuf
+      memcpy (curBuf->payload + payloadoffset, buffer + bufferoffset, byteslefttocopy);
       bufferoffset = bufferoffset + byteslefttocopy;
       }
     }
@@ -143,7 +137,7 @@ static struct pbuf* ethernetInput (struct netif* netif) {
   dmarxdesc = EthHandle.RxFrameInfos.FSRxDesc;
   for (uint32_t i = 0; i< EthHandle.RxFrameInfos.SegCount; i++) {
     dmarxdesc->Status |= ETH_DMARXDESC_OWN;
-    dmarxdesc = (ETH_DMADescTypeDef *)(dmarxdesc->Buffer2NextDescAddr);
+    dmarxdesc = (ETH_DMADescTypeDef*)(dmarxdesc->Buffer2NextDescAddr);
     }
 
   // Clear Segment_Count, When Rx Buffer unavailable flag is set: clear it and resume reception
@@ -155,7 +149,7 @@ static struct pbuf* ethernetInput (struct netif* netif) {
     EthHandle.Instance->DMARPDR = 0;
     }
 
-  return p;
+  return bufHead;
   }
 /*}}}*/
 
@@ -163,10 +157,10 @@ static struct pbuf* ethernetInput (struct netif* netif) {
 static void ethernetInputThread (void const* argument) {
 
   struct netif *netif = (struct netif*)argument;
-  struct pbuf* buf;
 
   while (1) {
     if (osSemaphoreWait (rxSem, 100) == osOK) {
+      struct pbuf* buf;
       do {
         buf = ethernetInput (netif);
         if (buf) {
@@ -208,12 +202,8 @@ err_t ethernetif_init (struct netif* netif) {
   netif->output = etharp_output;
   netif->linkoutput = ethernetOutput;
   netif->hwaddr_len = ETHARP_HWADDR_LEN;
-  netif->hwaddr[0] = macaddress[0];
-  netif->hwaddr[1] = macaddress[1];
-  netif->hwaddr[2] = macaddress[2];
-  netif->hwaddr[3] = macaddress[3];
-  netif->hwaddr[4] = macaddress[4];
-  netif->hwaddr[5] = macaddress[5];
+  for (int i = 0; i < 6; i++)
+    netif->hwaddr[i] = macaddress[i];
   netif->mtu = 1500; // netif maximum transfer unit
   netif->flags |= NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP; // Accept broadcast address and ARP traffic
 
