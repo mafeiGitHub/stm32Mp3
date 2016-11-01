@@ -36,12 +36,8 @@ static uint32_t mReadBlock = 0xFFFFFFFF;
 static uint32_t mWrites = 0;
 static uint32_t mWriteMultipleLen = 0;
 static uint32_t mWriteBlock = 0xFFFFFFFF;
-
-static osMutexId mMutex;
 //}}}
-
 osMutexId mSdMutex;
-
 //if (osMutexWait (mSdMutex, 1000) != osOK)
 //osMutexRelease (mSdMutex);
 
@@ -143,10 +139,10 @@ uint8_t SD_Init() {
   if (HAL_SD_HighSpeed (&uSdHandle) != SD_OK)
     return MSD_ERROR;
 
-  mReadCache = (uint8_t*)pvPortMalloc (512 * mReadCacheSize);
+  osMutexDef (sdMutex);
+  mSdMutex = osMutexCreate (osMutex (sdMutex));
 
-  //osMutexDef (sdMutex);
-  //mMutex = osMutexCreate (osMutex (sdMutex));
+  mReadCache = (uint8_t*)pvPortMalloc (512 * mReadCacheSize);
 
   return MSD_OK;
   }
@@ -246,7 +242,7 @@ int8_t SD_GetCapacity (uint32_t* block_num, uint16_t* block_size) {
 //{{{
 int8_t SD_ReadCached (uint8_t* buf, uint32_t blk_addr, uint16_t blocks) {
 
-  if (SD_present()) {
+  if (SD_present() && (osMutexWait (mSdMutex, 1000) == osOK)) {
     //SD_ReadBlocks ((uint32_t*)buf, blk_addr * 512, blocks);
 
     if ((blk_addr >= mReadCacheBlock) && (blk_addr + blocks <= mReadCacheBlock + mReadCacheSize)) {
@@ -270,7 +266,7 @@ int8_t SD_ReadCached (uint8_t* buf, uint32_t blk_addr, uint16_t blocks) {
       mReadBlock = blk_addr;
       }
     mReadMultipleLen += blocks;
-
+    osMutexRelease (mSdMutex);
     return 0;
     }
 
