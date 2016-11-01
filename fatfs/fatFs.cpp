@@ -462,7 +462,7 @@ static void storeCluster (BYTE* dir, DWORD cluster) {
 // cFatFs
 //{{{  static member vars
 cFatFs* cFatFs::mFatFs = nullptr;
-cFatFs::cFileSem cFatFs::mFiles[FS_LOCK];
+cFatFs::cFileLock cFatFs::mFileLock[FS_LOCK];
 //}}}
 //{{{
 cFatFs* cFatFs::create() {
@@ -1312,8 +1312,8 @@ FRESULT cFatFs::makeFileSystem (BYTE sfd, UINT au) {
 //{{{
 cFatFs::cFatFs() {
 
-  osSemaphoreDef (fatfs);
-  mSemaphore = osSemaphoreCreate (osSemaphore (fatfs), 1);
+  osMutexDef (fatfs);
+  mMutex = osMutexCreate (osMutex (fatfs));
 
   mWindowBuffer = (BYTE*)malloc (SECTOR_SIZE);
   }
@@ -1834,7 +1834,7 @@ FRESULT cFatFs::removeChain (DWORD cluster) {
 bool cFatFs::lock() {
 // lock fatfs, also sd access lock
 
-  if (osSemaphoreWait (mSemaphore, 1000) != osOK)
+  if (osMutexWait (mMutex, 1000) != osOK)
     mResult = FR_TIMEOUT;
   else if (diskStatus() & STA_NOINIT)
     mResult = FR_DISK_ERR;
@@ -1851,7 +1851,7 @@ void cFatFs::unlock (FRESULT result) {
       result != FR_INVALID_DRIVE &&
       result != FR_INVALID_OBJECT &&
       result != FR_TIMEOUT)
-    osSemaphoreRelease (mSemaphore);
+    osMutexRelease (mMutex);
   }
 //}}}
 
@@ -1859,7 +1859,7 @@ void cFatFs::unlock (FRESULT result) {
 int cFatFs::enquireFileLock() {
 
   UINT i;
-  for (i = 0; i < FS_LOCK && mFiles[i].mFatFs; i++) ;
+  for (i = 0; i < FS_LOCK && mFileLock[i].mFatFs; i++) ;
   return (i == FS_LOCK) ? 0 : 1;
   }
 //}}}
@@ -1869,11 +1869,11 @@ FRESULT cFatFs::checkFileLock (cDirectory* directory, int acc) {
   // Search file semaphore table
   UINT i, be;
   for (i = be = 0; i < FS_LOCK; i++) {
-    if (mFiles[i].mFatFs) {
+    if (mFileLock[i].mFatFs) {
       // Existing entry
-      if (mFiles[i].mFatFs == directory->mFatFs &&
-          mFiles[i].clu == directory->mStartCluster &&
-          mFiles[i].idx == directory->mIndex)
+      if (mFileLock[i].mFatFs == directory->mFatFs &&
+          mFileLock[i].clu == directory->mStartCluster &&
+          mFileLock[i].idx == directory->mIndex)
          break;
       }
     else // Blank entry
@@ -1885,7 +1885,7 @@ FRESULT cFatFs::checkFileLock (cDirectory* directory, int acc) {
     return (be || acc == 2) ? FR_OK : FR_TOO_MANY_OPEN_FILES; // Is there a blank entry for new object
 
   // The object has been opened. Reject any open against writing file and all write mode open
-  return (acc || mFiles[i].ctr == 0x100) ? FR_LOCKED : FR_OK;
+  return (acc || mFileLock[i].ctr == 0x100) ? FR_LOCKED : FR_OK;
   }
 //}}}
 //{{{
@@ -1894,28 +1894,28 @@ UINT cFatFs::incFileLock (cDirectory* directory, int acc) {
   UINT i;
   for (i = 0; i < FS_LOCK; i++)
     // Find the object
-    if (mFiles[i].mFatFs == directory->mFatFs &&
-        mFiles[i].clu == directory->mStartCluster &&
-        mFiles[i].idx == directory->mIndex)
+    if (mFileLock[i].mFatFs == directory->mFatFs &&
+        mFileLock[i].clu == directory->mStartCluster &&
+        mFileLock[i].idx == directory->mIndex)
       break;
 
   if (i == FS_LOCK) {
     // Not opened, register it as new
-    for (i = 0; i < FS_LOCK && mFiles[i].mFatFs; i++) ;
+    for (i = 0; i < FS_LOCK && mFileLock[i].mFatFs; i++) ;
     if (i == FS_LOCK)
       return 0;  // No free entry to register (int err)
 
-    mFiles[i].mFatFs = directory->mFatFs;
-    mFiles[i].clu = directory->mStartCluster;
-    mFiles[i].idx = directory->mIndex;
-    mFiles[i].ctr = 0;
+    mFileLock[i].mFatFs = directory->mFatFs;
+    mFileLock[i].clu = directory->mStartCluster;
+    mFileLock[i].idx = directory->mIndex;
+    mFileLock[i].ctr = 0;
     }
 
-  if (acc && mFiles[i].ctr) // Access violation (int err)
+  if (acc && mFileLock[i].ctr) // Access violation (int err)
     return 0;
 
   // Set semaphore value
-  mFiles[i].ctr = acc ? 0x100 : mFiles[i].ctr + 1;
+  mFileLock[i].ctr = acc ? 0x100 : mFileLock[i].ctr + 1;
 
   return i + 1;
   }
@@ -1925,15 +1925,15 @@ FRESULT cFatFs::decFileLock (UINT i) {
 
   if (--i < FS_LOCK) {
     // Shift index number origin from 0
-    WORD n = mFiles[i].ctr;
+    WORD n = mFileLock[i].ctr;
     if (n == 0x100)
       n = 0;    // If write mode open, delete the entry
     if (n)
       n--;         // Decrement read mode open count
 
-    mFiles[i].ctr = n;
+    mFileLock[i].ctr = n;
     if (!n)
-      mFiles[i].mFatFs = 0;  // Delete the entry if open count gets zero
+      mFileLock[i].mFatFs = 0;  // Delete the entry if open count gets zero
 
     return FR_OK;
     }
@@ -1945,8 +1945,8 @@ FRESULT cFatFs::decFileLock (UINT i) {
 void cFatFs::clearFileLock() {
 
   for (UINT i = 0; i < FS_LOCK; i++)
-    if (mFiles[i].mFatFs == this)
-      mFiles[i].mFatFs = 0;
+    if (mFileLock[i].mFatFs == this)
+      mFileLock[i].mFatFs = 0;
   }
 //}}}
 //}}}

@@ -167,11 +167,8 @@ private:
   bool lock();
   void unlock (FRESULT result);
 
-  // static vars
-  static cFatFs* mFatFs;
-
   //{{{
-  class cFileSem {
+  class cFileLock {
   public:
     cFatFs* mFatFs; // Object ID 1, volume (NULL:blank entry)
     DWORD clu;      // Object ID 2, directory (0:root)
@@ -179,11 +176,14 @@ private:
     WORD ctr;       // Object open counter, 0:none, 0x01..0xFF:read mode open count, 0x100:write mode
     };
   //}}}
-  static cFileSem mFiles[FS_LOCK];
+
+  // static vars
+    static cFatFs* mFatFs;
+    static cFileLock mFileLock[FS_LOCK];
 
   // private vars
   BYTE* mWindowBuffer = nullptr; // Disk access window for Directory, FAT
-  osSemaphoreId mSemaphore;      // Identifier of sync object
+  osMutexId mMutex;              // Identifier of sync object
   FRESULT mResult = FR_UNUSED;   // Pointer to the related file system
 
   char  mLabel[13];
