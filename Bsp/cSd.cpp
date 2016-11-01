@@ -38,7 +38,7 @@ static uint32_t mWriteMultipleLen = 0;
 static uint32_t mWriteBlock = 0xFFFFFFFF;
 //}}}
 osMutexId mSdMutex;
-//if (osMutexWait (mSdMutex, 1000) != osOK)
+//if ((mSdMutex, 1000) == osOK)) {
 //osMutexRelease (mSdMutex);
 
 //{{{
@@ -242,7 +242,7 @@ int8_t SD_GetCapacity (uint32_t* block_num, uint16_t* block_size) {
 //{{{
 int8_t SD_ReadCached (uint8_t* buf, uint32_t blk_addr, uint16_t blocks) {
 
-  if (SD_present() && (osMutexWait (mSdMutex, 1000) == osOK)) {
+  if (SD_present()) {
     //SD_ReadBlocks ((uint32_t*)buf, blk_addr * 512, blocks);
 
     if ((blk_addr >= mReadCacheBlock) && (blk_addr + blocks <= mReadCacheBlock + mReadCacheSize)) {
@@ -266,7 +266,6 @@ int8_t SD_ReadCached (uint8_t* buf, uint32_t blk_addr, uint16_t blocks) {
       mReadBlock = blk_addr;
       }
     mReadMultipleLen += blocks;
-    osMutexRelease (mSdMutex);
     return 0;
     }
 
