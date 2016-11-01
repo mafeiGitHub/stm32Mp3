@@ -191,7 +191,7 @@ std::string SD_info() {
 //{{{
 uint8_t SD_Read (uint8_t* buf, uint32_t blk_addr, uint16_t blocks) {
 
-  if (HAL_SD_ReadBlocks_DMA (&uSdHandle, (uint32_t*)buf, blk_addr * 512, blocks) != SD_OK)
+  if (HAL_SD_ReadBlocks (&uSdHandle, (uint32_t*)buf, blk_addr * 512, blocks) != SD_OK)
     return MSD_ERROR;
   SCB_InvalidateDCache_by_Addr ((uint32_t*)((uint32_t)buf & 0xFFFFFFE0), (blocks * 512) + 32);
 
@@ -201,7 +201,7 @@ uint8_t SD_Read (uint8_t* buf, uint32_t blk_addr, uint16_t blocks) {
 //{{{
 uint8_t SD_Write (uint8_t* buf, uint32_t blk_addr, uint16_t blocks) {
 
-  if (HAL_SD_WriteBlocks_DMA (&uSdHandle, (uint32_t*)buf, blk_addr * 512, blocks) != SD_OK)
+  if (HAL_SD_WriteBlocks (&uSdHandle, (uint32_t*)buf, blk_addr * 512, blocks) != SD_OK)
     return MSD_ERROR;
   //can't remove ?
   HAL_SD_CheckWriteOperation (&uSdHandle, 0xFFFFFFFF);
