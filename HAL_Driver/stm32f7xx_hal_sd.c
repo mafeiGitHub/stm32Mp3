@@ -871,6 +871,30 @@ HAL_StatusTypeDef HAL_SD_DeInit (SD_HandleTypeDef* hsd)
 /*}}}*/
 
 /*{{{*/
+void HAL_SD_IRQHandler (SD_HandleTypeDef* hsd) {
+
+  if (hsd->Instance->STA & SDMMC_IT_DATAEND) {
+    hsd->SdTransferCplt = 1;
+    hsd->SdTransferErr = SD_OK;
+    }
+  else if (hsd->Instance->STA & SDMMC_IT_DCRCFAIL)
+    hsd->SdTransferErr = SD_DATA_CRC_FAIL;
+  else if (hsd->Instance->STA & SDMMC_IT_DTIMEOUT)
+    hsd->SdTransferErr = SD_DATA_TIMEOUT;
+  else if (hsd->Instance->STA & SDMMC_IT_RXOVERR)
+    hsd->SdTransferErr = SD_RX_OVERRUN;
+  else if (hsd->Instance->STA & SDMMC_IT_TXUNDERR)
+    hsd->SdTransferErr = SD_TX_UNDERRUN;
+
+  hsd->Instance->ICR = SDMMC_STATIC_FLAGS;
+
+  // disable all SDMMC interrupt sources
+  hsd->Instance->MASK &= -(SDMMC_IT_DATAEND  |
+                           SDMMC_IT_DCRCFAIL | SDMMC_IT_DTIMEOUT | SDMMC_IT_RXOVERR | SDMMC_IT_TXUNDERR |
+                           SDMMC_IT_TXFIFOHE | SDMMC_IT_RXFIFOHF);
+  }
+/*}}}*/
+/*{{{*/
 HAL_SD_ErrorTypedef HAL_SD_ReadBlocks (SD_HandleTypeDef* hsd, uint32_t* pReadBuffer, uint64_t ReadAddr, uint32_t NumberOfBlocks) {
 
   uint32_t BlockSize = 512;
@@ -928,10 +952,10 @@ HAL_SD_ErrorTypedef HAL_SD_ReadBlocks (SD_HandleTypeDef* hsd, uint32_t* pReadBuf
   /*}}}*/
 
   // wait for complete
-  uint32_t timeout = SD_DATATIMEOUT;
+  uint32_t timeout = 0xFFFFFFFF;
   while (!hsd->DmaTransferCplt && !hsd->SdTransferCplt && ((HAL_SD_ErrorTypedef)hsd->SdTransferErr == SD_OK) && !timeout)
     timeout--;
-  timeout = SD_DATATIMEOUT;
+  timeout = 0xFFFFFFFF;
   while ((hsd->Instance->STA & SDMMC_FLAG_RXACT) && (timeout > 0))
     timeout--;
 
@@ -1005,10 +1029,10 @@ HAL_SD_ErrorTypedef HAL_SD_WriteBlocks (SD_HandleTypeDef* hsd, uint32_t *pWriteB
 
   hsd->SdTransferErr = errorstate;
 
-  uint32_t timeout = SD_DATATIMEOUT;
+  uint32_t timeout = 0xFFFFFFFF;
   while (!hsd->DmaTransferCplt && !hsd->SdTransferCplt && ((HAL_SD_ErrorTypedef)hsd->SdTransferErr == SD_OK) && !timeout)
     timeout--;
-  timeout = SD_DATATIMEOUT;
+  timeout = 0xFFFFFFFF;
   while ((hsd->Instance->STA & SDMMC_FLAG_TXACT) && (timeout > 0))
     timeout--;
 
@@ -1127,31 +1151,6 @@ HAL_SD_ErrorTypedef HAL_SD_Erase (SD_HandleTypeDef* hsd, uint64_t startaddr, uin
 
   return errorstate;
 }
-/*}}}*/
-
-/*{{{*/
-void HAL_SD_IRQHandler (SD_HandleTypeDef* hsd) {
-
-  if (hsd->Instance->STA & SDMMC_IT_DATAEND) {
-    hsd->SdTransferCplt = 1;
-    hsd->SdTransferErr = SD_OK;
-    }
-  else if (hsd->Instance->STA & SDMMC_IT_DCRCFAIL)
-    hsd->SdTransferErr = SD_DATA_CRC_FAIL;
-  else if (hsd->Instance->STA & SDMMC_IT_DTIMEOUT)
-    hsd->SdTransferErr = SD_DATA_TIMEOUT;
-  else if (hsd->Instance->STA & SDMMC_IT_RXOVERR)
-    hsd->SdTransferErr = SD_RX_OVERRUN;
-  else if (hsd->Instance->STA & SDMMC_IT_TXUNDERR)
-    hsd->SdTransferErr = SD_TX_UNDERRUN;
-
-  hsd->Instance->ICR = SDMMC_STATIC_FLAGS;
-
-  // disable all SDMMC interrupt sources
-  hsd->Instance->MASK &= -(SDMMC_IT_DATAEND  |
-                           SDMMC_IT_DCRCFAIL | SDMMC_IT_DTIMEOUT | SDMMC_IT_RXOVERR | SDMMC_IT_TXUNDERR |
-                           SDMMC_IT_TXFIFOHE | SDMMC_IT_RXFIFOHF);
-  }
 /*}}}*/
 
 /*{{{*/

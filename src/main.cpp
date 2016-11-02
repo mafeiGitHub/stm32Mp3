@@ -44,17 +44,18 @@
 
 #include "cLcd.h"
 #include "widgets/cRootContainer.h"
-#include "widgets/cWidget.h"
 #include "widgets/cListWidget.h"
 #include "widgets/cTextBox.h"
 #include "widgets/cValueBox.h"
-#include "widgets/cSelectValueBox.h"
-#include "widgets/cWaveWidget.h"
+#include "widgets/cSelectBox.h"
+#include "widgets/cSelectBmpWidget.h"
 #include "widgets/cWaveCentreWidget.h"
 #include "widgets/cWaveLensWidget.h"
 //}}}
 const bool kStaticIp = false;
 USBD_HandleTypeDef USBD_Device;
+
+#include "r4x80.h"
 
 //{{{
 static const uint8_t SD_InquiryData[] = {
@@ -989,18 +990,17 @@ static void netThread (void const* argument) {
       //}}}
 
     //mRoot->addTopRight (new cInfoTextBox (mRoot->getWidth()/4));
-    mRoot->addTopLeft (new cSelectValueBox ("radio1", 1, mTuneChan, mTuneChanChanged,
-                                            cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
-    mRoot->addNextRight (new cSelectValueBox ("radio2", 2, mTuneChan, mTuneChanChanged,
-                                              cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
-    mRoot->addNextRight (new cSelectValueBox ("radio3", 3, mTuneChan, mTuneChanChanged,
-                                              cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
-    mRoot->addNextRight (new cSelectValueBox ("radio4", 4, mTuneChan, mTuneChanChanged,
-                                              cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
-    mRoot->addNextRight (new cSelectValueBox ("radio5", 5, mTuneChan, mTuneChanChanged,
-                                              cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
-    mRoot->addNextRight (new cSelectValueBox ("radio6", 6, mTuneChan, mTuneChanChanged,
-                                              cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
+    mRoot->addTopLeft (new cSelectBox ("radio1", 1, mTuneChan, mTuneChanChanged,
+                                       cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
+    mRoot->addNextRight (new cSelectBox ("radio2", 2, mTuneChan, mTuneChanChanged,
+                                         cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
+    mRoot->addNextRight (new cSelectBox ("radio3", 3, mTuneChan, mTuneChanChanged,
+                                         cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
+    mRoot->addNextRight (new cSelectBmpWidget (r4x80, 4, mTuneChan, mTuneChanChanged, 80, 80));
+    mRoot->addNextRight (new cSelectBox ("radio5", 5, mTuneChan, mTuneChanChanged,
+                                         cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
+    mRoot->addNextRight (new cSelectBox ("radio6", 6, mTuneChan, mTuneChanChanged,
+                                         cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
 
     const osThreadDef_t osThreadAacLoad = { (char*)"aacLoad", aacLoadThread, osPriorityNormal, 0, 13000 };
     osThreadCreate (&osThreadAacLoad, NULL);

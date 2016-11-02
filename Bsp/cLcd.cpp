@@ -309,12 +309,14 @@ void LCD_DMA2D_IRQHandler() {
         return;
 
       case kStamp:
-        DMA2D->OMAR   = *mDma2dIsrBuf;   // bgnd dst start address
-        DMA2D->BGMAR  = *mDma2dIsrBuf++; // - repeated to bgnd src start addres
-        DMA2D->OOR    = *mDma2dIsrBuf;   // bgnd dst stride
-        DMA2D->BGOR   = *mDma2dIsrBuf++; // - repeated to bgnd src stride
-        DMA2D->NLR    = *mDma2dIsrBuf++; // width:height
-        DMA2D->FGMAR  = *mDma2dIsrBuf++; // src start address
+        DMA2D->OMAR    = *mDma2dIsrBuf;   // output start address
+        DMA2D->BGMAR   = *mDma2dIsrBuf++; // - repeated to bgnd start addres
+        DMA2D->OOR     = *mDma2dIsrBuf;   // output stride
+        DMA2D->BGOR    = *mDma2dIsrBuf++; // - repeated to bgnd stride
+        DMA2D->NLR     = *mDma2dIsrBuf++; // width:height
+        DMA2D->FGMAR   = *mDma2dIsrBuf++; // fgnd start address
+        DMA2D->FGPFCCR = DMA2D_INPUT_A8;  // fgnd PFC
+        DMA2D->FGOR    = 0;               // fgnd stride
         DMA2D->CR = DMA2D_M2M_BLEND | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
         return;
 
@@ -323,6 +325,103 @@ void LCD_DMA2D_IRQHandler() {
         if (opcode == AHB1PERIPH_BASE + 0xB000U) // CR
           return;
       }
+    }
+  }
+//}}}
+
+//{{{
+//uint32_t readBmp (uint8_t *Address, const char* BmpName) {
+
+  //uint8_t sector[512];
+  //uint32_t index = 0, size = 0, i1 = 0;
+  //uint32_t BmpAddress;
+  //FIL F1;
+
+  //if (f_open(&F1, (TCHAR const*)BmpName, FA_READ) != FR_OK)
+  //if (f_read (&F1, sector, 30, (UINT *)&BytesRead) != FR_OK)
+
+  //BmpAddress = (uint32_t)sector;
+
+  ///* Read bitmap size */
+  //size = *(uint16_t *) (BmpAddress + 2);
+  //size |= (*(uint16_t *) (BmpAddress + 4)) << 16;
+
+  ///* Get bitmap data address offset */
+  //index = *(uint16_t *) (BmpAddress + 10);
+  //index |= (*(uint16_t *) (BmpAddress + 12)) << 16;
+
+  //f_close (&F1);
+
+  //f_open (&F1, (TCHAR const*)BmpName, FA_READ);
+  //do {
+    //if (size < 256*2)
+      //i1 = size;
+    //else
+      //i1 = 256*2;
+    //size -= i1;
+    //f_read (&F1, sector, i1, (UINT *)&BytesRead);
+
+    //for (index = 0; index < i1; index++) {
+      //*(__IO uint8_t*) (Address) = *(__IO uint8_t *)BmpAddress;
+      //BmpAddress++;
+      //Address++;
+      //}
+    //BmpAddress = (uint32_t)sector;
+    //}
+
+  //while (size > 0);
+    //f_close (&F1);
+
+  //return 1;
+  //}
+//}}}
+//{{{
+static void resize (const uint32_t* input, uint32_t* output,
+                    uint32_t sourceWidth, uint32_t sourceHeight, uint32_t targetWidth, uint32_t targetHeight) {
+
+  uint32_t wStepFixed16b = ((sourceWidth - 1) << 16)  / (uint32_t (targetWidth - 1));
+  uint32_t hStepFixed16b = ((sourceHeight - 1) << 16) / (uint32_t (targetHeight - 1));
+
+  uint32_t heightCoefficient = 0;
+  for (uint32_t y = 0; y < targetHeight; y++) {
+    uint32_t offsetY = (heightCoefficient >> 16);
+    uint32_t hc2 = (heightCoefficient >> 9) & (unsigned char)127;
+    uint32_t hc1 = 128 - hc2;
+
+    uint32_t widthCoefficient = 0;
+    uint32_t offsetPixelY  = offsetY * sourceWidth;
+    uint32_t offsetPixelY1 = (offsetY + 1) * sourceWidth;
+
+    for (uint32_t x = 0; x < targetWidth; x++) {
+      uint32_t offsetX = (widthCoefficient >> 16);
+      uint32_t wc2 = (widthCoefficient >> 9) & (unsigned char)127;
+      uint32_t wc1 = 128 - wc2;
+
+     uint32_t  offsetX1 = offsetX + 1;
+
+      uint32_t pixel1 = *(input + (offsetPixelY  + offsetX));
+      uint32_t pixel2 = *(input + (offsetPixelY1 + offsetX));
+      uint32_t pixel3 = *(input + (offsetPixelY  + offsetX1));
+      uint32_t pixel4 = *(input + (offsetPixelY1 + offsetX1));
+
+      uint32_t a = ((((pixel1 >> 24) & 0xff) * hc1 + ((pixel2 >> 24) & 0xff) * hc2) * wc1 +
+                    (((pixel3  >> 24) & 0xff) * hc1 + ((pixel4 >> 24) & 0xff) * hc2) * wc2) >> 14;
+
+      uint32_t r = ((((pixel1 >> 16) & 0xff) * hc1 + ((pixel2 >> 16) & 0xff) * hc2) * wc1 +
+                    (((pixel3  >> 16) & 0xff) * hc1 + ((pixel4 >> 16) & 0xff) * hc2) * wc2) >> 14;
+
+      uint32_t g = ((((pixel1 >> 8) & 0xff) * hc1 + ((pixel2 >> 8) & 0xff) * hc2) * wc1 +
+                    (((pixel3  >> 8) & 0xff) * hc1 + ((pixel4 >> 8) & 0xff) * hc2) * wc2) >> 14;
+
+      uint32_t b = ((((pixel1) & 0xff) * hc1 + ((pixel2) & 0xff) * hc2) * wc1 +
+                    (((pixel3)  & 0xff) * hc1 + ((pixel4) & 0xff) * hc2) * wc2) >> 14;
+
+      *output++ = (a << 24) | (r << 16) | (g << 8) | b;
+
+      widthCoefficient += wStepFixed16b;
+      }
+
+    heightCoefficient += hStepFixed16b;
     }
   }
 //}}}
@@ -681,7 +780,7 @@ void cLcd::rect (uint32_t colour, int16_t x, int16_t y, uint16_t width, uint16_t
 
   // often same colour
   if (colour != mCurDstColour) {
-    *mDma2dCurBuf++ = AHB1PERIPH_BASE + 0xB000U + 0x38; // OCOLR
+    *mDma2dCurBuf++ = AHB1PERIPH_BASE + 0xB000U + 0x38; // OCOLR - output colour
     *mDma2dCurBuf++ = colour;
     mCurDstColour = colour;
     }
@@ -689,14 +788,16 @@ void cLcd::rect (uint32_t colour, int16_t x, int16_t y, uint16_t width, uint16_t
   // quite often same stride
   if (getWidth() - width != mCurStride) {
     mCurStride = getWidth() - width;
-    *mDma2dCurBuf++ = AHB1PERIPH_BASE + 0xB000U + 0x40; // OOR
+    *mDma2dCurBuf++ = AHB1PERIPH_BASE + 0xB000U + 0x40; // OOR - output stride
     *mDma2dCurBuf++ = mCurStride;
     }
 
-  *mDma2dCurBuf++ = AHB1PERIPH_BASE + 0xB000U + 0x3C; // OMAR
-  *mDma2dCurBuf++ = mCurFrameBufferAddress + ((y * getWidth()) + x) * 4; // fb start address
+  *mDma2dCurBuf++ = AHB1PERIPH_BASE + 0xB000U + 0x3C; // OMAR - output start address
+  *mDma2dCurBuf++ = mCurFrameBufferAddress + ((y * getWidth()) + x) * 4;
+
   *mDma2dCurBuf++ = AHB1PERIPH_BASE + 0xB000U + 0x44; // NLR
-  *mDma2dCurBuf++ = (width << 16) | height;                              // width:height
+  *mDma2dCurBuf++ = (width << 16) | height;
+  // width:height
   *mDma2dCurBuf++ = AHB1PERIPH_BASE + 0xB000U;        // CR
   *mDma2dCurBuf++ = DMA2D_R2M | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
   }
@@ -706,17 +807,17 @@ void cLcd::stamp (uint32_t colour, uint8_t* src, int16_t x, int16_t y, uint16_t 
 
   // often same colour
   if (colour != mCurSrcColour) {
-    *mDma2dCurBuf++ = AHB1PERIPH_BASE + 0xB000U + 0x20; // FGCOLR
+    *mDma2dCurBuf++ = AHB1PERIPH_BASE + 0xB000U + 0x20; // FGCOLR - fgnd colour
     *mDma2dCurBuf++ = colour;
     mCurSrcColour = colour;
     }
 
   *mDma2dCurBuf++ = kStamp;
-  *mDma2dCurBuf++ = mCurFrameBufferAddress + ((y * getWidth()) + x) * 4; // bgnd fb start address
+  *mDma2dCurBuf++ = mCurFrameBufferAddress + ((y * getWidth()) + x) * 4; // output start address
   mCurStride = getWidth() - width;
   *mDma2dCurBuf++ = mCurStride;                                          // stride
   *mDma2dCurBuf++ = (width << 16) | height;                              // width:height
-  *mDma2dCurBuf++ = (uint32_t)src;                                       // src start address
+  *mDma2dCurBuf++ = (uint32_t)src;                                       // fgnd start address
   }
 //}}}
 //{{{
@@ -760,7 +861,26 @@ int cLcd::text (uint32_t colour, uint16_t fontHeight, std::string str, int16_t x
   }
 //}}}
 //{{{
-void cLcd::copy (uint32_t* src, int16_t x, int16_t y, uint16_t width, uint16_t height) {
+void cLcd::copy (uint8_t* src, int16_t x, int16_t y, uint16_t width, uint16_t height) {
+// copy RGB888 to ARGB8888
+
+  *mDma2dCurBuf++ = AHB1PERIPH_BASE + 0xB000U + 0x3C; // OMAR - output start address
+  *mDma2dCurBuf++ = mCurFrameBufferAddress + ((y * getWidth()) + x) * 4;
+  mCurStride = getWidth() - width;
+  *mDma2dCurBuf++ = AHB1PERIPH_BASE + 0xB000U + 0x40; // OOR - output stride
+  *mDma2dCurBuf++ = mCurStride;
+  *mDma2dCurBuf++ = AHB1PERIPH_BASE + 0xB000U + 0x44; // NLR - width:height
+  *mDma2dCurBuf++ = (width << 16) | height;
+
+  *mDma2dCurBuf++ = AHB1PERIPH_BASE + 0xB000U + 0x1C; // FGPFCCR - fgnd PFC
+  *mDma2dCurBuf++ = DMA2D_INPUT_RGB888;
+  *mDma2dCurBuf++ = AHB1PERIPH_BASE + 0xB000U + 0x0C; // FGMAR - fgnd address
+  *mDma2dCurBuf++ = (uint32_t)src;
+  *mDma2dCurBuf++ = AHB1PERIPH_BASE + 0xB000U + 0x10; // FGOR - fgnd stride
+  *mDma2dCurBuf++ = 0;
+
+  *mDma2dCurBuf++ = AHB1PERIPH_BASE + 0xB000U;        // CR
+  *mDma2dCurBuf++ = DMA2D_M2M_PFC | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
   }
 //}}}
 
@@ -974,10 +1094,8 @@ void cLcd::init (std::string title) {
 
   //  dma2d init
   // unchanging dma2d regs
-  DMA2D->OPFCCR  = DMA2D_INPUT_ARGB8888; // bgnd fb ARGB
-  DMA2D->BGPFCCR = DMA2D_INPUT_ARGB8888;
-  DMA2D->FGPFCCR = DMA2D_INPUT_A8;       // src alpha
-  DMA2D->FGOR    = 0;              // src stride
+  DMA2D->OPFCCR  = DMA2D_INPUT_ARGB8888; // dst  PFC ARGB8888
+  DMA2D->BGPFCCR = DMA2D_INPUT_ARGB8888; // bgnd PFC ARGB8888
   //DMA2D->AMTCR = 0x1001;
 
   // zero out first opcode, point past it

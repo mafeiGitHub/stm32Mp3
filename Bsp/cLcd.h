@@ -55,7 +55,7 @@ public:
   virtual void rect (uint32_t col, int16_t x, int16_t y, uint16_t width, uint16_t height);
   virtual void stamp (uint32_t colour, uint8_t* src, int16_t x, int16_t y, uint16_t width, uint16_t height);
   virtual int text (uint32_t col, uint16_t fontHeight, std::string str, int16_t x, int16_t y, uint16_t width, uint16_t height);
-  virtual void copy (uint32_t* src, int16_t x, int16_t y, uint16_t width, uint16_t height);
+  virtual void copy (uint8_t* src, int16_t x, int16_t y, uint16_t width, uint16_t height);
   virtual void copy (ID2D1Bitmap* bitMap, int16_t x, int16_t y, uint16_t width, uint16_t height) {}
   virtual void pixelClipped (uint32_t colour, int16_t x, int16_t y);
   virtual void stampClipped (uint32_t colour, uint8_t* src, int16_t x, int16_t y, uint16_t width, uint16_t height);
