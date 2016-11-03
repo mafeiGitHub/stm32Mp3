@@ -10,7 +10,8 @@ public:
   // static members
   static cLcd* create (std::string title, bool isr);
   static cLcd* get() { return mLcd; }
-
+  static void resize (const uint8_t* src, uint8_t* dst, uint16_t comps,
+                      uint16_t srcWidth, uint16_t srcHeight, uint16_t dstWidth, uint16_t dstHeight);
   // static gets
   #ifdef STM32F746G_DISCO
     static uint16_t getWidth() { return 480; }

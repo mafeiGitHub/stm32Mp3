@@ -329,57 +329,6 @@ void LCD_DMA2D_IRQHandler() {
   }
 //}}}
 
-//{{{
-static void resize (const uint32_t* input, uint32_t* output,
-                    uint32_t sourceWidth, uint32_t sourceHeight, uint32_t targetWidth, uint32_t targetHeight) {
-
-  uint32_t wStepFixed16b = ((sourceWidth - 1) << 16)  / (uint32_t (targetWidth - 1));
-  uint32_t hStepFixed16b = ((sourceHeight - 1) << 16) / (uint32_t (targetHeight - 1));
-
-  uint32_t heightCoefficient = 0;
-  for (uint32_t y = 0; y < targetHeight; y++) {
-    uint32_t offsetY = (heightCoefficient >> 16);
-    uint32_t hc2 = (heightCoefficient >> 9) & (unsigned char)127;
-    uint32_t hc1 = 128 - hc2;
-
-    uint32_t widthCoefficient = 0;
-    uint32_t offsetPixelY  = offsetY * sourceWidth;
-    uint32_t offsetPixelY1 = (offsetY + 1) * sourceWidth;
-
-    for (uint32_t x = 0; x < targetWidth; x++) {
-      uint32_t offsetX = (widthCoefficient >> 16);
-      uint32_t wc2 = (widthCoefficient >> 9) & (unsigned char)127;
-      uint32_t wc1 = 128 - wc2;
-
-     uint32_t  offsetX1 = offsetX + 1;
-
-      uint32_t pixel1 = *(input + (offsetPixelY  + offsetX));
-      uint32_t pixel2 = *(input + (offsetPixelY1 + offsetX));
-      uint32_t pixel3 = *(input + (offsetPixelY  + offsetX1));
-      uint32_t pixel4 = *(input + (offsetPixelY1 + offsetX1));
-
-      uint32_t a = ((((pixel1 >> 24) & 0xff) * hc1 + ((pixel2 >> 24) & 0xff) * hc2) * wc1 +
-                    (((pixel3  >> 24) & 0xff) * hc1 + ((pixel4 >> 24) & 0xff) * hc2) * wc2) >> 14;
-
-      uint32_t r = ((((pixel1 >> 16) & 0xff) * hc1 + ((pixel2 >> 16) & 0xff) * hc2) * wc1 +
-                    (((pixel3  >> 16) & 0xff) * hc1 + ((pixel4 >> 16) & 0xff) * hc2) * wc2) >> 14;
-
-      uint32_t g = ((((pixel1 >> 8) & 0xff) * hc1 + ((pixel2 >> 8) & 0xff) * hc2) * wc1 +
-                    (((pixel3  >> 8) & 0xff) * hc1 + ((pixel4 >> 8) & 0xff) * hc2) * wc2) >> 14;
-
-      uint32_t b = ((((pixel1) & 0xff) * hc1 + ((pixel2) & 0xff) * hc2) * wc1 +
-                    (((pixel3)  & 0xff) * hc1 + ((pixel4) & 0xff) * hc2) * wc2) >> 14;
-
-      *output++ = (a << 24) | (r << 16) | (g << 8) | b;
-
-      widthCoefficient += wStepFixed16b;
-      }
-
-    heightCoefficient += hStepFixed16b;
-    }
-  }
-//}}}
-
 // cLcd
 //{{{
 cLcd::cLcd (uint32_t buffer0, uint32_t buffer1)  {
@@ -426,6 +375,34 @@ std::string cLcd::dec (int value, uint8_t width, char fill) {
   else
     os << value;
   return os.str();
+  }
+//}}}
+//{{{
+void cLcd::resize (const uint8_t* src, uint8_t* dst, uint16_t components,
+                   uint16_t srcWidth, uint16_t srcHeight, uint16_t dstWidth, uint16_t dstHeight) {
+
+  uint32_t ySrcOffset = srcWidth * components;
+  uint32_t xStep16 = ((srcWidth - 1) << 16) / (dstWidth - 1);
+  uint32_t yStep16 = ((srcHeight - 1) << 16) / (dstHeight - 1);
+
+  for (uint32_t y16 = 0; y16 < dstHeight * yStep16; y16 += yStep16) {
+    uint8_t y2 = (y16 >> 9) & 0x7F;
+    uint8_t y1 = 0x80 - y2;
+
+    const uint8_t* srcy = src + (y16 >> 16) * ySrcOffset;
+
+    for (uint32_t x16 = 0; x16 < dstWidth * xStep16; x16 += xStep16) {
+      uint8_t x2 = (x16 >> 9) & 0x7F;
+      uint8_t x1 = 0x80 - x2;
+
+      const uint8_t* src11 = srcy + (x16 >> 16) * components;
+      const uint8_t* src21 = src11 + components;
+      const uint8_t* src12 = src11 + ySrcOffset;
+      const uint8_t* src22 = src12 + components;
+      for (auto component = 0; component < components; component++)
+        *dst++ = (((*src11++ * y1 + *src12++ * y2) * x1) + (*src21++ * y1 + *src22++ * y2) * x2) >> 14;
+      }
+    }
   }
 //}}}
 
