@@ -190,6 +190,8 @@ public:
   int getSeqNum() { return mSeqNum; }
   int getBitrate() { return mBitrate; }
   int getFramesLoaded() { return mFramesLoaded; }
+  bool getLoaded() { return mLoaded; }
+  bool getLoading() { return mLoading; }
   std::string getInfoStr() { return mInfoStr; }
 
   int16_t* getSamples (int frameInChunk) { return (mAudio + (frameInChunk * mSamplesPerFrame * 2)); }
@@ -204,6 +206,7 @@ public:
   bool load (cHttp& http, cHlsChan* hlsChan, int seqNum, int bitrate) {
 
     auto ok = true;
+    mLoading = true;
     BSP_LED_On (LED1);
 
     mFramesLoaded = 0;
@@ -274,6 +277,8 @@ public:
 
       }
 
+    mLoaded = true;
+    mLoading = false;
     BSP_LED_Off (LED1);
     return ok;
     }
@@ -282,6 +287,7 @@ public:
   void invalidate() {
     mSeqNum = 0;
     mFramesLoaded = 0;
+    mLoaded = false;
     }
   //}}}
 
@@ -322,6 +328,9 @@ private:
   int mBitrate = 0;
   int mFramesLoaded = 0;
   int mSamplesPerFrame = 0;
+
+  bool mLoaded = false;
+  bool mLoading = false;
   std::string mInfoStr;
   };
 //}}}
@@ -334,12 +343,7 @@ public:
   int getBitrate() { return mBitrate; }
   int getLoading() { return mLoading; }
   //{{{
-  std::string getInfoStr (int frame) {
-    return getChanName (getChan()) + ':' + toString (getBitrate()/1000) + "k " + getFrameInfo (frame);
-    }
-  //}}}
-  //{{{
-  std::string getFrameInfo (int frame) {
+  std::string getFrameStr (int frame) {
 
     int secsSinceMidnight = int (frame / getFramesPerSecond());
     int secs = secsSinceMidnight % 60;
@@ -347,6 +351,17 @@ public:
     int hours = secsSinceMidnight / (60*60);
 
     return toString (hours) + ':' + toString (mins) + ':' + toString (secs);
+    }
+  //}}}
+  //{{{
+  std::string getInfoStr (int frame) {
+    return getChanName (getChan()) + ':' + toString (getBitrate()/1000) + "k " + getFrameStr (frame);
+    }
+  //}}}
+  //{{{
+  void getChunkLoad (int chunk, bool& loaded, bool& loading) {
+    loaded = mChunks[chunk].getLoaded();
+    loading = mChunks[chunk].getLoading();
     }
   //}}}
   //{{{
@@ -588,7 +603,7 @@ public:
         auto top = *power++;
         auto ylen = *power++;
         if (x < (mWidth/2) - 1)
-          draw->rect (COL_BLUE, x, top, 1, ylen);
+          draw->rect (COL_DARKBLUE, x, top, 1, ylen);
         else if (x == mWidth/2)
           draw->rect (COL_DARKGREEN, x-1, top, 3, ylen);
         else if (x > (mWidth/2) + 1)
@@ -608,8 +623,26 @@ public:
   virtual ~cInfoTextBox() {}
 
   virtual void render (iDraw* draw) {
-    draw->text (COL_WHITE, getFontHeight(), mHlsLoader->getInfoStr (mPlayFrame).c_str(), mX+2, mY+1, mWidth-1, mHeight-1);
+    draw->text (COL_WHITE, getFontHeight(), mHlsLoader->getFrameStr (mPlayFrame).c_str(), mX+2, mY+1, mWidth-1, mHeight-1);
     }
+  };
+//}}}
+//{{{
+class cDotBox : public cWidget {
+public:
+  cDotBox (uint16_t chunk) : cWidget(getBoxHeight()), mChunk(chunk) {}
+  virtual ~cDotBox() {}
+
+  virtual void render (iDraw* draw) {
+    bool loaded;
+    bool loading;
+    mHlsLoader->getChunkLoad (mChunk, loaded, loading);
+    draw->ellipse (loading ? COL_DARKGREEN : loaded ? COL_DARKBLUE : COL_DARKRED,
+                   mX + mWidth/2, mY + mHeight/2, (mWidth/2)-3, (mHeight/2)-3);
+    }
+
+  private:
+    uint16_t mChunk;
   };
 //}}}
 
@@ -1007,6 +1040,9 @@ static void netThread (void const* argument) {
                                                cWidget::getBoxHeight()*3, cWidget::getBoxHeight()*3));
     mRoot->addNextRight (new cSelectBmpWidget (r6x80, 6, mTuneChan, mTuneChanChanged,
                                                cWidget::getBoxHeight()*3, cWidget::getBoxHeight()*3));
+    mRoot->addBottomRight (new cDotBox (2));
+    mRoot->addNextLeft (new cDotBox (1));
+    mRoot->addNextLeft (new cDotBox (0));
 
     const osThreadDef_t osThreadAacLoad = { (char*)"aacLoad", aacLoadThread, osPriorityNormal, 0, 13000 };
     osThreadCreate (&osThreadAacLoad, NULL);

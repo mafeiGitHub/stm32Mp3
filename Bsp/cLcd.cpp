@@ -261,6 +261,7 @@ typedef struct {
   } tFontChar;
 //}}}
 static tFontChar* chars[maxChars];
+static tFontChar* chars2[maxChars];
 
 static FT_Library FTlibrary;
 static FT_Face FTface;
@@ -762,6 +763,7 @@ void cLcd::stamp (uint32_t colour, uint8_t* src, int16_t x, int16_t y, uint16_t 
 //{{{
 int cLcd::text (uint32_t colour, uint16_t fontHeight, std::string str, int16_t x, int16_t y, uint16_t width, uint16_t height) {
 
+
   auto xend = x + width;
   for (auto i = 0; i < str.size(); i++) {
     if ((str[i] >= 0x20) && (str[i] <= 0x7F)) {
@@ -1099,9 +1101,10 @@ void cLcd::init (std::string title) {
   // font init
   //setFont (freeSansBold, freeSansBold_len);
   setFont ((uint8_t*)0x90000000, 64228);
-  for (auto i = 0; i < maxChars; i++)
+  for (auto i = 0; i < maxChars; i++) {
     chars[i] = nullptr;
-
+    chars2[i] = nullptr;
+    }
   setTitle (title);
   }
 //}}}
