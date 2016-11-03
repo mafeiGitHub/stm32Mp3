@@ -378,7 +378,7 @@ std::string cLcd::dec (int value, uint8_t width, char fill) {
   }
 //}}}
 //{{{
-void cLcd::resize (const uint8_t* src, uint8_t* dst, uint16_t components,
+void cLcd::size (const uint8_t* src, uint8_t* dst, uint16_t components,
                    uint16_t srcWidth, uint16_t srcHeight, uint16_t dstWidth, uint16_t dstHeight) {
 
   uint32_t xStep16 = ((srcWidth - 1) << 16) / (dstWidth - 1);
