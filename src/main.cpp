@@ -51,11 +51,12 @@
 #include "widgets/cSelectBmpWidget.h"
 #include "widgets/cWaveCentreWidget.h"
 #include "widgets/cWaveLensWidget.h"
+
+#include "../icons/radioIcon.h"
 //}}}
 const bool kStaticIp = false;
 USBD_HandleTypeDef USBD_Device;
 
-#include "radioIcon.h"
 
 //{{{
 static const uint8_t SD_InquiryData[] = {
