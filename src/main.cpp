@@ -55,9 +55,6 @@
 #include "../icons/radioIcon.h"
 //}}}
 const bool kStaticIp = false;
-USBD_HandleTypeDef USBD_Device;
-
-
 //{{{
 static const uint8_t SD_InquiryData[] = {
   0x00, 0x80, 0x02, 0x02, (24 - 5), 0x00, 0x00, 0x00,
@@ -525,6 +522,8 @@ private:
 //}}}
 
 //{{{  static vars
+static USBD_HandleTypeDef USBD_Device;
+
 static osSemaphoreId mAudSem;
 static bool mAudHalf = false;
 
@@ -556,7 +555,8 @@ static cHlsLoader* mHlsLoader;
 static osSemaphoreId mHlsLoaderSem;
 static std::string mInfoStr;
 //}}}
-//{{{  audio callback
+
+//{{{  audio callbacks
 //{{{
 void BSP_AUDIO_OUT_HalfTransfer_CallBack() {
   mAudHalf = true;
@@ -570,7 +570,6 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
   }
 //}}}
 //}}}
-
 //{{{
 class cPowerWidget : public cWidget {
 public:
@@ -579,16 +578,21 @@ public:
   virtual ~cPowerWidget() {}
 
   virtual void render (iDraw* draw) {
-    int frame = mPlayFrame - mWidth/2;
-    int frames = 0;
-    uint8_t* power = nullptr;
+    auto frame = mPlayFrame - mWidth/2;
+    auto frames = 0;
+    uint8_t* power;
     for (auto x = 0; x < mWidth; x++, frame++) {
       if (frames <= 0)
         power = mHlsLoader->getPower (frame, frames);
       if (power) {
-        uint8_t top = *power++;
-        uint8_t ylen = *power++;
-        draw->rectClipped (COL_BLUE, x, top, 1, ylen);
+        auto top = *power++;
+        auto ylen = *power++;
+        if (x < (mWidth/2) - 1)
+          draw->rect (COL_BLUE, x, top, 1, ylen);
+        else if (x == mWidth/2)
+          draw->rect (COL_DARKGREEN, x-1, top, 3, ylen);
+        else if (x > (mWidth/2) + 1)
+          draw->rect (COL_DARKERGREY, x, top, 1, ylen);
         frames--;
         }
       }
@@ -604,7 +608,7 @@ public:
   virtual ~cInfoTextBox() {}
 
   virtual void render (iDraw* draw) {
-    draw->text (COL_WHITE, getFontHeight(), mHlsLoader->getChunkInfoStr (0).c_str(), mX+2, mY+1, mWidth-1, mHeight-1);
+    draw->text (COL_WHITE, getFontHeight(), mHlsLoader->getInfoStr (mPlayFrame).c_str(), mX+2, mY+1, mWidth-1, mHeight-1);
     }
   };
 //}}}
@@ -990,7 +994,7 @@ static void netThread (void const* argument) {
       }
       //}}}
 
-    //mRoot->addTopRight (new cInfoTextBox (mRoot->getWidth()/4));
+    mRoot->add (new cInfoTextBox (mRoot->getWidth()), 0, mRoot->getHeight() - cWidget::getBoxHeight()*2);
     mRoot->addTopLeft (new cSelectBmpWidget (r1x80, 1, mTuneChan, mTuneChanChanged,
                                                cWidget::getBoxHeight()*3, cWidget::getBoxHeight()*3));
     mRoot->addNextRight (new cSelectBmpWidget (r2x80, 2, mTuneChan, mTuneChanChanged,
