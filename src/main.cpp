@@ -996,7 +996,7 @@ static void netThread (void const* argument) {
                                          cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
     mRoot->addNextRight (new cSelectBox ("radio3", 3, mTuneChan, mTuneChanChanged,
                                          cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
-    mRoot->addNextRight (new cSelectBmpWidget (r4x80, 4, mTuneChan, mTuneChanChanged, 50, 50));
+    mRoot->addNextRight (new cSelectBmpWidget (r4x80, 4, mTuneChan, mTuneChanChanged, 100, 100));
     mRoot->addNextRight (new cSelectBox ("radio5", 5, mTuneChan, mTuneChanChanged,
                                          cWidget::getBoxHeight()*3,cWidget::getBoxHeight()*2));
     mRoot->addNextRight (new cSelectBox ("radio6", 6, mTuneChan, mTuneChanChanged,

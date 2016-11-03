@@ -381,26 +381,27 @@ std::string cLcd::dec (int value, uint8_t width, char fill) {
 void cLcd::resize (const uint8_t* src, uint8_t* dst, uint16_t components,
                    uint16_t srcWidth, uint16_t srcHeight, uint16_t dstWidth, uint16_t dstHeight) {
 
-  uint32_t ySrcOffset = srcWidth * components;
   uint32_t xStep16 = ((srcWidth - 1) << 16) / (dstWidth - 1);
   uint32_t yStep16 = ((srcHeight - 1) << 16) / (dstHeight - 1);
 
-  for (uint32_t y16 = 0; y16 < dstHeight * yStep16; y16 += yStep16) {
-    uint8_t y2 = (y16 >> 9) & 0x7F;
-    uint8_t y1 = 0x80 - y2;
+  uint32_t ySrcOffset = srcWidth * components;
 
+  for (uint32_t y16 = 0; y16 < dstHeight * yStep16; y16 += yStep16) {
+    uint8_t yweight2 = (y16 >> 9) & 0x7F;
+    uint8_t yweight1 = 0x80 - yweight2;
     const uint8_t* srcy = src + (y16 >> 16) * ySrcOffset;
 
     for (uint32_t x16 = 0; x16 < dstWidth * xStep16; x16 += xStep16) {
-      uint8_t x2 = (x16 >> 9) & 0x7F;
-      uint8_t x1 = 0x80 - x2;
+      uint8_t xweight2 = (x16 >> 9) & 0x7F;
+      uint8_t xweight1 = 0x80 - xweight2;
 
-      const uint8_t* src11 = srcy + (x16 >> 16) * components;
-      const uint8_t* src21 = src11 + components;
-      const uint8_t* src12 = src11 + ySrcOffset;
-      const uint8_t* src22 = src12 + components;
+      const uint8_t* srcy1x1 = srcy + (x16 >> 16) * components;
+      const uint8_t* srcy1x2 = srcy1x1 + components;
+      const uint8_t* srcy2x1 = srcy1x1 + ySrcOffset;
+      const uint8_t* srcy2x2 = srcy2x1 + components;
       for (auto component = 0; component < components; component++)
-        *dst++ = (((*src11++ * y1 + *src12++ * y2) * x1) + (*src21++ * y1 + *src22++ * y2) * x2) >> 14;
+        *dst++ = (((*srcy1x1++ * xweight1 + *srcy1x2++ * xweight2) * yweight1) +
+                   (*srcy2x1++ * xweight1 + *srcy2x2++ * xweight2) * yweight2) >> 14;
       }
     }
   }
@@ -448,7 +449,7 @@ void cLcd::info (std::string str, bool newLine) {
 //}}}
 
 //{{{
-void cLcd::press (int pressCount, int x, int y, int z, int xinc, int yinc) {
+void cLcd::press (int pressCount, int16_t x, int16_t y, uint16_t z, int16_t xinc, int16_t yinc) {
 
   if ((pressCount > 30) && (x <= mStringPos) && (y <= getLineHeight()))
     reset();
