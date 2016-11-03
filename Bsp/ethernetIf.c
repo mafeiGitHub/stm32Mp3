@@ -175,7 +175,6 @@ static void ethernetInputThread (void const* argument) {
 /*{{{*/
 err_t ethernetif_init (struct netif* netif) {
 
-  /*{{{  HAL ethernet init*/
   EthHandle.Instance = ETH;
   EthHandle.Init.MACAddr = (uint8_t*)macaddress;
   EthHandle.Init.AutoNegotiation = ETH_AUTONEGOTIATION_ENABLE;
@@ -185,10 +184,8 @@ err_t ethernetif_init (struct netif* netif) {
   EthHandle.Init.RxMode = ETH_RXINTERRUPT_MODE;
   EthHandle.Init.ChecksumMode = ETH_CHECKSUM_BY_HARDWARE;
   EthHandle.Init.PhyAddress = 0; // LAN8742A_PHY_ADDRESS;
-
-  if (HAL_ETH_Init (&EthHandle) == HAL_OK) // Set netif link flag
+  if (HAL_ETH_Init (&EthHandle) == HAL_OK) 
     netif->flags |= NETIF_FLAG_LINK_UP;
-  /*}}}*/
 
   // Initialize Rx Descriptors list: Chain Mode
   HAL_ETH_DMARxDescListInit (&EthHandle, (ETH_DMADescTypeDef*)EthRxDescripSection, (uint8_t*)EthRxBUF, ETH_RXBUFNB);
