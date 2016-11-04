@@ -1033,15 +1033,15 @@ static void netThread (void const* argument) {
       }
       //}}}
 
-    mRoot->add (new cSelectBmpWidget (r1x80, 1, mTuneChan, mTuneChanChanged, 3.0f, 3.0f));
-    mRoot->add (new cSelectBmpWidget (r2x80, 2, mTuneChan, mTuneChanChanged, 3.0f, 3.0f));
-    mRoot->add (new cSelectBmpWidget (r3x80, 3, mTuneChan, mTuneChanChanged, 3.0f, 3.0f));
-    mRoot->add (new cSelectBmpWidget (r4x80, 4, mTuneChan, mTuneChanChanged, 3.0f, 3.0f));
-    mRoot->add (new cSelectBmpWidget (r5x80, 5, mTuneChan, mTuneChanChanged, 3.0f, 3.0f));
-    mRoot->add (new cSelectBmpWidget (r6x80, 6, mTuneChan, mTuneChanChanged, 3.0f, 3.0f));
+    mRoot->add (new cSelectBmpWidget (r1x80, 1, mTuneChan, mTuneChanChanged, 3, 3));
+    mRoot->add (new cSelectBmpWidget (r2x80, 2, mTuneChan, mTuneChanChanged, 3, 3));
+    mRoot->add (new cSelectBmpWidget (r3x80, 3, mTuneChan, mTuneChanChanged, 3, 3));
+    mRoot->add (new cSelectBmpWidget (r4x80, 4, mTuneChan, mTuneChanChanged, 3, 3));
+    mRoot->add (new cSelectBmpWidget (r5x80, 5, mTuneChan, mTuneChanChanged, 3, 3));
+    mRoot->add (new cSelectBmpWidget (r6x80, 6, mTuneChan, mTuneChanChanged, 3, 3));
 
-    mRoot->addAt (new cInfoTextBox (mRoot->getWidth(), 1.2f),
-                  -2.0f + mRoot->getWidth()/2.0f, -3.0f + mRoot->getHeight());
+    mRoot->addAt (new cInfoTextBox (mRoot->getWidth(), 1.2),
+                  -2 + mRoot->getWidth()/2.0f, -3 + mRoot->getHeight());
 
     mRoot->addBottomRight (new cDotsBox());
 
@@ -1092,8 +1092,8 @@ static void mainThread (void const* argument) {
 
       mRoot->add (new cListWidget (mMp3Files, fileIndex, fileIndexChanged,
                                    mRoot->getWidth(), 0.6f * mRoot->getHeight()));
-      //mRoot->addBottomLeft (new cWaveLensWidget (mWave, mPlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
-      //                                           mRoot->getWidth(), 0.2f * mRoot->getHeight()));
+      //mRoot->addBelow (new cWaveLensWidget (mWave, mPlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
+      //                                      mRoot->getWidth(), 0.2f * mRoot->getHeight()));
       mRoot->addBelow (new cWaveCentreWidget (mWave, mPlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
                                               mRoot->getWidth(), 0.2f * mRoot->getHeight()));
 
