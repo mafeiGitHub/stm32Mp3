@@ -1092,10 +1092,10 @@ static void mainThread (void const* argument) {
 
       mRoot->add (new cListWidget (mMp3Files, fileIndex, fileIndexChanged,
                                    mRoot->getWidth(), 0.6f * mRoot->getHeight()));
-      //mRoot->addBelow (new cWaveLensWidget (mWave, mPlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
-      //                                      mRoot->getWidth(), 0.2f * mRoot->getHeight()));
-      mRoot->addBelow (new cWaveCentreWidget (mWave, mPlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
-                                              mRoot->getWidth(), 0.2f * mRoot->getHeight()));
+      mRoot->add (new cWaveCentreWidget (mWave, mPlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
+                                         mRoot->getWidth(), 0.2f * mRoot->getHeight()));
+      mRoot->add (new cWaveLensWidget (mWave, mPlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
+                                       mRoot->getWidth(), 0.2f * mRoot->getHeight()));
 
       const osThreadDef_t osThreadPlay =  { (char*)"Play", mp3PlayThread, osPriorityNormal, 0, 8192 };
       osThreadCreate (&osThreadPlay, NULL);
