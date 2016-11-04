@@ -466,7 +466,7 @@ void cLcd::press (int pressCount, int16_t x, int16_t y, uint16_t z, int16_t xinc
       // set displayFirstLine
       if (y < 2 * getLineHeight())
         displayTop();
-      else if (y > getHeight() - 2 * getLineHeight())
+      else if (y > getHeightPix() - 2 * getLineHeight())
         displayTail();
       }
     }
@@ -511,7 +511,7 @@ void cLcd::endRender (bool forceInfo) {
   auto y = 0;
   if ((mShowTitle || forceInfo) && !mTitle.empty()) {
     //{{{  draw title
-    text (COL_YELLOW, getFontHeight(), mTitle, 0, y, getWidth(), getLineHeight());
+    text (COL_YELLOW, getFontHeight(), mTitle, 0, y, getWidthPix(), getLineHeight());
     y += getLineHeight();
     }
     //}}}
@@ -531,9 +531,9 @@ void cLcd::endRender (bool forceInfo) {
       auto x = 0;
       auto xinc = text (COL_GREEN, getFontHeight(),
                         dec ((mLines[lineIndex].mTime-mStartTime) / 1000) + "." +
-                        dec ((mLines[lineIndex].mTime-mStartTime) % 1000, 3, '0'), x, y, getWidth(), getLineHeight());
+                        dec ((mLines[lineIndex].mTime-mStartTime) % 1000, 3, '0'), x, y, getWidthPix(), getLineHeight());
       x += xinc + 3;
-      text (mLines[lineIndex].mColour, getFontHeight(), mLines[lineIndex].mString, x, y, getWidth(), getLineHeight());
+      text (mLines[lineIndex].mColour, getFontHeight(), mLines[lineIndex].mString, x, y, getWidthPix(), getLineHeight());
       y += getLineHeight();
       }
     }
@@ -545,7 +545,7 @@ void cLcd::endRender (bool forceInfo) {
                       dec (mDma2dTimeouts) + " " +
                       dec (ltdc.transferErrorIrq) + " " +
                       dec (ltdc.fifoUnderunIrq);
-    text (COL_WHITE, getFontHeight(), str, 0, getHeight() - 2 * getLineHeight(), getWidth(), 24);
+    text (COL_WHITE, getFontHeight(), str, 0, getHeightPix() - 2 * getLineHeight(), getWidthPix(), 24);
     }
     //}}}
   if (mShowFooter || forceInfo)
@@ -555,7 +555,7 @@ void cLcd::endRender (bool forceInfo) {
           dec (osGetCPUUsage()) + "% " +
           dec (mDrawTime) + "ms " +
           dec (mDma2dCurBuf - mDma2dBuf),
-          0, getHeight()-getLineHeight(), getWidth(), getLineHeight());
+          0, getHeightPix()-getLineHeight(), getWidthPix(), getLineHeight());
     //}}}
 
   // terminate opCode buffer
@@ -584,7 +584,7 @@ void cLcd::flush() {
   auto y = 0;
   if (!mTitle.empty()) {
     //{{{  draw title
-    text (COL_YELLOW, getFontHeight(), mTitle, 0, y, getWidth(), getLineHeight());
+    text (COL_YELLOW, getFontHeight(), mTitle, 0, y, getWidthPix(), getLineHeight());
     y += getLineHeight();
     }
     //}}}
@@ -603,9 +603,9 @@ void cLcd::flush() {
     auto x = 0;
     auto xinc = text (COL_GREEN, getFontHeight(),
                       dec ((mLines[lineIndex].mTime-mStartTime) / 1000) + "." +
-                      dec ((mLines[lineIndex].mTime-mStartTime) % 1000, 3, '0'), x, y, getWidth(), getLineHeight());
+                      dec ((mLines[lineIndex].mTime-mStartTime) % 1000, 3, '0'), x, y, getWidthPix(), getLineHeight());
     x += xinc + 3;
-    text (mLines[lineIndex].mColour, getFontHeight(), mLines[lineIndex].mString, x, y, getWidth(), getLineHeight());
+    text (mLines[lineIndex].mColour, getFontHeight(), mLines[lineIndex].mString, x, y, getWidthPix(), getLineHeight());
     y += getLineHeight();
     }
   //}}}
@@ -615,7 +615,7 @@ void cLcd::flush() {
         dec (osGetCPUUsage()) + "% " +
         dec (mDrawTime) + "ms " +
         dec (mDma2dCurBuf - mDma2dBuf),
-        0, getHeight()-getLineHeight(), getWidth(), getLineHeight());
+        0, getHeightPix()-getLineHeight(), getWidthPix(), getLineHeight());
   //}}}
   *mDma2dCurBuf = kEnd;
 
@@ -726,14 +726,14 @@ void cLcd::rect (uint32_t colour, int16_t x, int16_t y, uint16_t width, uint16_t
     }
 
   // quite often same stride
-  if (getWidth() - width != mDstStride) {
+  if (getWidthPix() - width != mDstStride) {
     *mDma2dCurBuf++ = AHB1PERIPH_BASE + 0xB000U + 0x40; // OOR - output stride
-    mDstStride = getWidth() - width;
+    mDstStride = getWidthPix() - width;
     *mDma2dCurBuf++ = mDstStride;
     }
 
   *mDma2dCurBuf++ = AHB1PERIPH_BASE + 0xB000U + 0x3C; // OMAR - output start address
-  *mDma2dCurBuf++ = mCurFrameBufferAddress + ((y * getWidth()) + x) * dstComponents;
+  *mDma2dCurBuf++ = mCurFrameBufferAddress + ((y * getWidthPix()) + x) * dstComponents;
 
   *mDma2dCurBuf++ = AHB1PERIPH_BASE + 0xB000U + 0x44; // NLR
   *mDma2dCurBuf++ = (width << 16) | height;
@@ -753,8 +753,8 @@ void cLcd::stamp (uint32_t colour, uint8_t* src, int16_t x, int16_t y, uint16_t 
     }
 
   *mDma2dCurBuf++ = kStamp;
-  *mDma2dCurBuf++ = mCurFrameBufferAddress + ((y * getWidth()) + x) * dstComponents; // output start address
-  mDstStride = getWidth() - width;
+  *mDma2dCurBuf++ = mCurFrameBufferAddress + ((y * getWidthPix()) + x) * dstComponents; // output start address
+  mDstStride = getWidthPix() - width;
   *mDma2dCurBuf++ = mDstStride;                                          // stride
   *mDma2dCurBuf++ = (width << 16) | height;                              // width:height
   *mDma2dCurBuf++ = (uint32_t)src;                                       // fgnd start address
@@ -807,9 +807,9 @@ void cLcd::copy (uint8_t* src, int16_t x, int16_t y, uint16_t width, uint16_t he
 
   // output
   *mDma2dCurBuf++ = AHB1PERIPH_BASE + 0xB000U + 0x3C; // OMAR - output start address
-  *mDma2dCurBuf++ = mCurFrameBufferAddress + ((y * getWidth()) + x) * dstComponents;
+  *mDma2dCurBuf++ = mCurFrameBufferAddress + ((y * getWidthPix()) + x) * dstComponents;
 
-  mDstStride = getWidth() - width;
+  mDstStride = getWidthPix() - width;
   *mDma2dCurBuf++ = AHB1PERIPH_BASE + 0xB000U + 0x40; // OOR - output stride
   *mDma2dCurBuf++ = mDstStride;
 
@@ -839,10 +839,10 @@ void cLcd::copy (uint8_t* src, int16_t srcx, int16_t srcy, uint16_t srcWidth, in
 
   // output
   *mDma2dCurBuf++ = AHB1PERIPH_BASE + 0xB000U + 0x3C; // OMAR - output start address
-  *mDma2dCurBuf++ = mCurFrameBufferAddress + ((dsty * getWidth()) + dstx) * dstComponents;
+  *mDma2dCurBuf++ = mCurFrameBufferAddress + ((dsty * getWidthPix()) + dstx) * dstComponents;
 
   *mDma2dCurBuf++ = AHB1PERIPH_BASE + 0xB000U + 0x40; // OOR - output stride
-  mDstStride = getWidth() - dstWidth;
+  mDstStride = getWidthPix() - dstWidth;
   *mDma2dCurBuf++ = mDstStride;
 
   *mDma2dCurBuf++ = AHB1PERIPH_BASE + 0xB000U + 0x44; // NLR - width:height
@@ -885,11 +885,11 @@ void cLcd::stampClipped (uint32_t colour, uint8_t* src, int16_t x, int16_t y, ui
     y = 0;
     }
 
-  if (y + height > getHeight()) {
+  if (y + height > getHeightPix()) {
     // bottom yclip
-    if (y >= getHeight())
+    if (y >= getHeightPix())
       return;
-    height = getHeight() - y;
+    height = getHeightPix() - y;
     }
 
   stamp (colour, src, x, y, width, height);
@@ -898,9 +898,9 @@ void cLcd::stampClipped (uint32_t colour, uint8_t* src, int16_t x, int16_t y, ui
 //{{{
 void cLcd::rectClipped (uint32_t colour, int16_t x, int16_t y, uint16_t width, uint16_t height) {
 
-  if (x >= getWidth())
+  if (x >= getWidthPix())
     return;
-  if (y >= getHeight())
+  if (y >= getHeightPix())
     return;
 
   int xend = x + width;
@@ -913,13 +913,13 @@ void cLcd::rectClipped (uint32_t colour, int16_t x, int16_t y, uint16_t width, u
 
   if (x < 0)
     x = 0;
-  if (xend > getWidth())
-    xend = getWidth();
+  if (xend > getWidthPix())
+    xend = getWidthPix();
 
   if (y < 0)
     y = 0;
-  if (yend > getHeight())
-    yend = getHeight();
+  if (yend > getHeightPix())
+    yend = getHeightPix();
 
   if (!width)
     return;
@@ -941,7 +941,7 @@ void cLcd::rectOutline (uint32_t colour, int16_t x, int16_t y, uint16_t width, u
 //{{{
 void cLcd::clear (uint32_t colour) {
 
-  rect (colour, 0, 0, getWidth(), getHeight());
+  rect (colour, 0, 0, getWidthPix(), getHeightPix());
   }
 //}}}
 
@@ -1265,8 +1265,8 @@ void cLcd::ltdcInit (uint32_t frameBufferAddress) {
     HAL_DSI_Init (&hdsi_discovery, &dsiPllInit);
 
     // config DSI
-    uint32_t HACT = getWidth(); /*!< Horizontal Active time in units of lcdClk = imageSize X in pixels to display */
-    uint32_t VACT = getHeight(); /*!< Vertical Active time in units of lines = imageSize Y in pixels to display */
+    uint32_t HACT = getWidthPix(); /*!< Horizontal Active time in units of lcdClk = imageSize X in pixels to display */
+    uint32_t VACT = getHeightPix(); /*!< Vertical Active time in units of lines = imageSize Y in pixels to display */
 
     // The following values are same for portrait and landscape orientations
     uint32_t VSA = OTM8009A_480X800_VSYNC; // 12  - Vertical start active time in units of lines
@@ -1307,11 +1307,11 @@ void cLcd::ltdcInit (uint32_t frameBufferAddress) {
     //{{{  LTDC info
     hLtdc.Init.HorizontalSync = HSA - 1;
     hLtdc.Init.AccumulatedHBP = HSA + HBP - 1;
-    hLtdc.Init.AccumulatedActiveW = getWidth() + HSA + HBP - 1;
-    hLtdc.Init.TotalWidth = getWidth() + HSA + HBP + HFP - 1;
+    hLtdc.Init.AccumulatedActiveW = getWidthPix() + HSA + HBP - 1;
+    hLtdc.Init.TotalWidth = getWidthPix() + HSA + HBP + HFP - 1;
 
-    hLtdc.LayerCfg->ImageWidth  = getWidth();
-    hLtdc.LayerCfg->ImageHeight = getHeight();
+    hLtdc.LayerCfg->ImageWidth  = getWidthPix();
+    hLtdc.LayerCfg->ImageHeight = getHeightPix();
 
     // LTDC background value
     hLtdc.Init.Backcolor.Blue = 0;
@@ -1359,9 +1359,9 @@ void cLcd::layerInit (uint8_t layer, uint32_t frameBufferAddress) {
   LTDC_LayerCfgTypeDef* curLayerCfg = &hLtdc.LayerCfg[layer];
 
   curLayerCfg->WindowX0 = 0;
-  curLayerCfg->WindowX1 = getWidth();
+  curLayerCfg->WindowX1 = getWidthPix();
   curLayerCfg->WindowY0 = 0;
-  curLayerCfg->WindowY1 = getHeight();
+  curLayerCfg->WindowY1 = getHeightPix();
 
   #ifdef USE_RGB888
     curLayerCfg->PixelFormat = LTDC_PIXEL_FORMAT_RGB888;
@@ -1381,8 +1381,8 @@ void cLcd::layerInit (uint8_t layer, uint32_t frameBufferAddress) {
   curLayerCfg->BlendingFactor1 = LTDC_BLENDING_FACTOR1_PAxCA;
   curLayerCfg->BlendingFactor2 = LTDC_BLENDING_FACTOR2_PAxCA;
 
-  curLayerCfg->ImageWidth = getWidth();
-  curLayerCfg->ImageHeight = getHeight();
+  curLayerCfg->ImageWidth = getWidthPix();
+  curLayerCfg->ImageHeight = getHeightPix();
 
   HAL_LTDC_ConfigLayer (&hLtdc, curLayerCfg, layer);
 
@@ -1672,7 +1672,7 @@ void cLcd::updateNumDrawLines() {
 
   mStringPos = getLineHeight()*3;
 
-  auto numDrawLines = getHeight() / getLineHeight();
+  auto numDrawLines = getHeightPix() / getLineHeight();
   if (mShowTitle && !mTitle.empty())
     numDrawLines--;
   if (mShowLcdStats)

@@ -589,8 +589,7 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 //{{{
 class cPowerWidget : public cWidget {
 public:
-  cPowerWidget (cHlsLoader* hlsLoader, uint16_t width, uint16_t height) :
-    cWidget (COL_BLUE, width, height), mHlsLoader(hlsLoader) {}
+  cPowerWidget (cHlsLoader* hlsLoader, float width, float height) : cWidget (COL_BLUE, width, height), mHlsLoader(hlsLoader) {}
   virtual ~cPowerWidget() {}
 
   virtual void render (iDraw* draw) {
@@ -620,30 +619,36 @@ private:
 //{{{
 class cInfoTextBox : public cWidget {
 public:
-  cInfoTextBox (uint16_t width, uint16_t height) : cWidget(width, height) {}
+  cInfoTextBox (float width, float height) : cWidget(width, height) {}
   virtual ~cInfoTextBox() {}
 
   virtual void render (iDraw* draw) {
-    draw->text (COL_WHITE, mHeight-4, mHlsLoader->getFrameStr (mPlayFrame).c_str(), mX+2, mY+1, mWidth-1, mHeight-1);
+    draw->text (COL_WHITE, mHeight, mHlsLoader->getFrameStr (mPlayFrame).c_str(), mX, mY, mWidth, mHeight);
     }
   };
 //}}}
 //{{{
-class cDotBox : public cWidget {
+class cDotsBox : public cWidget {
 public:
-  cDotBox (uint16_t chunk) : cWidget(getBoxHeight()), mChunk(chunk) {}
-  virtual ~cDotBox() {}
+  cDotsBox() : cWidget(1.5f, 1.5f) {}
+  virtual ~cDotsBox() {}
 
   virtual void render (iDraw* draw) {
     bool loaded;
     bool loading;
-    mHlsLoader->getChunkLoad (mChunk, loaded, loading);
-    draw->ellipse (loading ? COL_DARKGREEN : loaded ? COL_DARKBLUE : COL_DARKRED,
-                   mX + mWidth/2, mY + mHeight/2, (mWidth/2)-3, (mHeight/2)-3);
-    }
 
-  private:
-    uint16_t mChunk;
+    mHlsLoader->getChunkLoad (0, loaded, loading);
+    draw->ellipse (loading ? COL_DARKGREEN : loaded ? COL_DARKBLUE : COL_DARKRED,
+                   mX + mWidth/2, mY + mHeight/4, (mWidth/4)-1, (mHeight/4)-1);
+
+    mHlsLoader->getChunkLoad (1, loaded, loading);
+    draw->ellipse (loading ? COL_DARKGREEN : loaded ? COL_DARKBLUE : COL_DARKRED,
+                   mX + mWidth*3/4, mY + mHeight*3/4, (mWidth/4)-1, (mHeight/4)-1);
+
+    mHlsLoader->getChunkLoad (2, loaded, loading);
+    draw->ellipse (loading ? COL_DARKGREEN : loaded ? COL_DARKBLUE : COL_DARKRED,
+                   mX + mWidth/4, mY + mHeight*3/4, (mWidth/4)-1, (mHeight/4)-1);
+    }
   };
 //}}}
 
@@ -1028,24 +1033,17 @@ static void netThread (void const* argument) {
       }
       //}}}
 
-    mRoot->addTopLeft (new cSelectBmpWidget (r1x80, 1, mTuneChan, mTuneChanChanged,
-                                             cWidget::getBoxHeight()*3, cWidget::getBoxHeight()*3));
-    mRoot->addNextRight (new cSelectBmpWidget (r2x80, 2, mTuneChan, mTuneChanChanged,
-                                               cWidget::getBoxHeight()*3, cWidget::getBoxHeight()*3));
-    mRoot->addNextRight (new cSelectBmpWidget (r3x80, 3, mTuneChan, mTuneChanChanged,
-                                               cWidget::getBoxHeight()*3, cWidget::getBoxHeight()*3));
-    mRoot->addNextRight (new cSelectBmpWidget (r4x80, 4, mTuneChan, mTuneChanChanged,
-                                               cWidget::getBoxHeight()*3, cWidget::getBoxHeight()*3));
-    mRoot->addNextRight (new cSelectBmpWidget (r5x80, 5, mTuneChan, mTuneChanChanged,
-                                               cWidget::getBoxHeight()*3, cWidget::getBoxHeight()*3));
-    mRoot->addNextRight (new cSelectBmpWidget (r6x80, 6, mTuneChan, mTuneChanChanged,
-                                               cWidget::getBoxHeight()*3, cWidget::getBoxHeight()*3));
-    mRoot->addBottomRight (new cDotBox (2));
-    mRoot->addNextLeft (new cDotBox (1));
-    mRoot->addNextLeft (new cDotBox (0));
+    mRoot->add (new cSelectBmpWidget (r1x80, 1, mTuneChan, mTuneChanChanged, 3.0f, 3.0f));
+    mRoot->add (new cSelectBmpWidget (r2x80, 2, mTuneChan, mTuneChanChanged, 3.0f, 3.0f));
+    mRoot->add (new cSelectBmpWidget (r3x80, 3, mTuneChan, mTuneChanChanged, 3.0f, 3.0f));
+    mRoot->add (new cSelectBmpWidget (r4x80, 4, mTuneChan, mTuneChanChanged, 3.0f, 3.0f));
+    mRoot->add (new cSelectBmpWidget (r5x80, 5, mTuneChan, mTuneChanChanged, 3.0f, 3.0f));
+    mRoot->add (new cSelectBmpWidget (r6x80, 6, mTuneChan, mTuneChanChanged, 3.0f, 3.0f));
 
-    mRoot->add (new cInfoTextBox (mRoot->getWidth(), cWidget::getBoxHeight()*4/3),
-                mRoot->getWidth()/2, mRoot->getHeight() - cWidget::getBoxHeight()*3);
+    mRoot->addAt (new cInfoTextBox (mRoot->getWidth(), 1.2f),
+                  -2.0f + mRoot->getWidth()/2.0f, -3.0f + mRoot->getHeight());
+
+    mRoot->addBottomRight (new cDotsBox());
 
     const osThreadDef_t osThreadAacLoad = { (char*)"aacLoad", aacLoadThread, osPriorityNormal, 0, 14000 };
     osThreadCreate (&osThreadAacLoad, NULL);
@@ -1092,14 +1090,16 @@ static void mainThread (void const* argument) {
       mWave[0] = 0;
       mWaveLoadFrame = 0;
 
-      mRoot->addTopLeft (new cListWidget (mMp3Files, fileIndex, fileIndexChanged,
-                                          mRoot->getWidth(), mRoot->getHeight()-2*mRoot->getHeight()/5));
-      mRoot->addBottomLeft (new cWaveLensWidget (mWave, mPlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
-                                                 mRoot->getWidth(), mRoot->getHeight()/5));
-      mRoot->addNextAbove (new cWaveCentreWidget (mWave, mPlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
-                                                  mRoot->getWidth(), mRoot->getHeight()/5));
+      mRoot->add (new cListWidget (mMp3Files, fileIndex, fileIndexChanged,
+                                   mRoot->getWidth(), 0.6f * mRoot->getHeight()));
+      //mRoot->addBottomLeft (new cWaveLensWidget (mWave, mPlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
+      //                                           mRoot->getWidth(), 0.2f * mRoot->getHeight()));
+      mRoot->addBelow (new cWaveCentreWidget (mWave, mPlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
+                                              mRoot->getWidth(), 0.2f * mRoot->getHeight()));
+
       const osThreadDef_t osThreadPlay =  { (char*)"Play", mp3PlayThread, osPriorityNormal, 0, 8192 };
       osThreadCreate (&osThreadPlay, NULL);
+
       const osThreadDef_t osThreadWave =  { (char*)"Wave", waveThread, osPriorityNormal, 0, 8192 };
       osThreadCreate (&osThreadWave, NULL);
       }
@@ -1119,7 +1119,7 @@ static void mainThread (void const* argument) {
     osThreadCreate (&osThreadNet, NULL);
     }
     //}}}
-  mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, cWidget::getBoxHeight()*2, mRoot->getHeight()));
+  mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, 2.0f, mRoot->getHeight()));
 
   //{{{  init vars
   int16_t x[kMaxTouch];
@@ -1129,7 +1129,7 @@ static void mainThread (void const* argument) {
   for (auto touch = 0; touch < kMaxTouch; touch++)
     pressed[touch] = 0;
   //}}}
-  BSP_TS_Init (mRoot->getWidth(), mRoot->getHeight());
+  BSP_TS_Init (mRoot->getWidthPix(), mRoot->getHeightPix());
   while (true) {
     //bool button = true;
     bool button = BSP_PB_GetState (BUTTON_WAKEUP) == GPIO_PIN_SET;
@@ -1172,7 +1172,7 @@ static void mainThread (void const* argument) {
     //if (tsState.touchDetected)
     //  mLcd->renderCursor (COL_MAGENTA, x[0], y[0], z[0] ? z[0] : cLcd::getHeight()/10);
     mLcd->text (COL_YELLOW, cLcd::getFontHeight(), SD_info(),
-                cLcd::getWidth()/2, cLcd::getHeight()- cLcd::getLineHeight(), cLcd::getWidth(), cLcd::getLineHeight());
+                cLcd::getWidthPix()/2, cLcd::getHeightPix()- cLcd::getLineHeight(), cLcd::getWidthPix(), cLcd::getLineHeight());
     mLcd->endRender (button);
 
     if (mVolumeChanged && (int(mVolume * 100) != mIntVolume)) {
@@ -1300,7 +1300,7 @@ int main() {
   #endif
 
   mLcd = cLcd::create ("Player built at " + std::string(__TIME__) + " on " + std::string(__DATE__), true);
-  mRoot = new cRootContainer (cLcd::getWidth(), cLcd::getHeight());
+  mRoot = new cRootContainer (cLcd::getWidthPix(), cLcd::getHeightPix());
 
   cLcd::debug ("SD init " + cLcd::dec (sdState));
 

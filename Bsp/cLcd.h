@@ -14,13 +14,13 @@ public:
                     uint16_t srcWidth, uint16_t srcHeight, uint16_t dstWidth, uint16_t dstHeight);
   // static gets
   #ifdef STM32F746G_DISCO
-    static uint16_t getWidth() { return 480; }
-    static uint16_t getHeight() { return 272; }
+    static uint16_t getWidthPix() { return 480; }
+    static uint16_t getHeightPix() { return 272; }
     static uint16_t getFontHeight() { return 16; }
     static uint16_t getLineHeight() { return 19; }
   #else
-    static uint16_t getWidth() { return 800; }
-    static uint16_t getHeight() { return 480; }
+    static uint16_t getWidthPix() { return 800; }
+    static uint16_t getHeightPix() { return 480; }
     static uint16_t getFontHeight() { return 26; }
     static uint16_t getLineHeight() { return 30; }
   #endif
