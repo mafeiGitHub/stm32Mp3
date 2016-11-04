@@ -385,35 +385,6 @@ std::string cLcd::dec (int value, uint8_t width, char fill) {
   return os.str();
   }
 //}}}
-//{{{
-void cLcd::size (const uint8_t* src, uint8_t* dst, uint16_t components,
-                 uint16_t srcWidth, uint16_t srcHeight, uint16_t dstWidth, uint16_t dstHeight) {
-
-  uint32_t xStep16 = ((srcWidth - 1) << 16) / (dstWidth - 1);
-  uint32_t yStep16 = ((srcHeight - 1) << 16) / (dstHeight - 1);
-
-  uint32_t ySrcOffset = srcWidth * components;
-
-  for (uint32_t y16 = 0; y16 < dstHeight * yStep16; y16 += yStep16) {
-    uint8_t yweight2 = (y16 >> 9) & 0x7F;
-    uint8_t yweight1 = 0x80 - yweight2;
-    const uint8_t* srcy = src + (y16 >> 16) * ySrcOffset;
-
-    for (uint32_t x16 = 0; x16 < dstWidth * xStep16; x16 += xStep16) {
-      uint8_t xweight2 = (x16 >> 9) & 0x7F;
-      uint8_t xweight1 = 0x80 - xweight2;
-
-      const uint8_t* srcy1x1 = srcy + (x16 >> 16) * components;
-      const uint8_t* srcy1x2 = srcy1x1 + components;
-      const uint8_t* srcy2x1 = srcy1x1 + ySrcOffset;
-      const uint8_t* srcy2x2 = srcy2x1 + components;
-      for (auto component = 0; component < components; component++)
-        *dst++ = (((*srcy1x1++ * xweight1 + *srcy1x2++ * xweight2) * yweight1) +
-                   (*srcy2x1++ * xweight1 + *srcy2x2++ * xweight2) * yweight2) >> 14;
-      }
-    }
-  }
-//}}}
 
 // public members
 //{{{
@@ -861,6 +832,35 @@ void cLcd::copy (uint8_t* src, int16_t srcx, int16_t srcy, uint16_t srcWidth, in
   // CR
   *mDma2dCurBuf++ = AHB1PERIPH_BASE + 0xB000U;        // CR
   *mDma2dCurBuf++ = DMA2D_M2M_PFC | DMA2D_CR_TCIE | DMA2D_CR_TEIE | DMA2D_CR_CEIE | DMA2D_CR_START;
+  }
+//}}}
+//{{{
+void cLcd::size (const uint8_t* src, uint8_t* dst, uint16_t components,
+                 uint16_t srcWidth, uint16_t srcHeight, uint16_t dstWidth, uint16_t dstHeight) {
+
+  uint32_t xStep16 = ((srcWidth - 1) << 16) / (dstWidth - 1);
+  uint32_t yStep16 = ((srcHeight - 1) << 16) / (dstHeight - 1);
+
+  uint32_t ySrcOffset = srcWidth * components;
+
+  for (uint32_t y16 = 0; y16 < dstHeight * yStep16; y16 += yStep16) {
+    uint8_t yweight2 = (y16 >> 9) & 0x7F;
+    uint8_t yweight1 = 0x80 - yweight2;
+    const uint8_t* srcy = src + (y16 >> 16) * ySrcOffset;
+
+    for (uint32_t x16 = 0; x16 < dstWidth * xStep16; x16 += xStep16) {
+      uint8_t xweight2 = (x16 >> 9) & 0x7F;
+      uint8_t xweight1 = 0x80 - xweight2;
+
+      const uint8_t* srcy1x1 = srcy + (x16 >> 16) * components;
+      const uint8_t* srcy1x2 = srcy1x1 + components;
+      const uint8_t* srcy2x1 = srcy1x1 + ySrcOffset;
+      const uint8_t* srcy2x2 = srcy2x1 + components;
+      for (auto component = 0; component < components; component++)
+        *dst++ = (((*srcy1x1++ * xweight1 + *srcy1x2++ * xweight2) * yweight1) +
+                   (*srcy2x1++ * xweight1 + *srcy2x2++ * xweight2) * yweight2) >> 14;
+      }
+    }
   }
 //}}}
 

@@ -1041,8 +1041,9 @@ static void netThread (void const* argument) {
     mRoot->add (new cSelectBmpWidget (r5x80, 5, mTuneChan, mTuneChanChanged, 3, 3));
     mRoot->add (new cSelectBmpWidget (r6x80, 6, mTuneChan, mTuneChanChanged, 3, 3));
 
-    mRoot->addAt (new cInfoTextBox (mRoot->getWidth(), 1.2),
-                  -2 + mRoot->getWidth()/2.0f, -3 + mRoot->getHeight());
+    mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, 2.0f, mRoot->getHeight()));
+
+    mRoot->addAt (new cInfoTextBox (mRoot->getWidth(), 1.2), -2 + mRoot->getWidth()/2.0f, -3 + mRoot->getHeight());
 
     mRoot->addBottomRight (new cDotsBox());
 
@@ -1050,7 +1051,6 @@ static void netThread (void const* argument) {
     osThreadCreate (&osThreadAacLoad, NULL);
     const osThreadDef_t osThreadAacPlay = { (char*)"aacPlay", aacPlayThread, osPriorityAboveNormal, 0, 2000 };
     osThreadCreate (&osThreadAacPlay, NULL);
-
     const osThreadDef_t osThreadHttp = { (char*)"http", httpServerThread, osPriorityNormal, 0, DEFAULT_THREAD_STACKSIZE };
     osThreadCreate (&osThreadHttp, NULL);
 
@@ -1098,6 +1098,8 @@ static void mainThread (void const* argument) {
       mRoot->add (new cWaveLensWidget (mWave, mPlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
                                        mRoot->getWidth(), 0.2f * mRoot->getHeight()));
 
+      mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, 2.0f, mRoot->getHeight()));
+
       const osThreadDef_t osThreadPlay =  { (char*)"Play", mp3PlayThread, osPriorityNormal, 0, 8192 };
       osThreadCreate (&osThreadPlay, NULL);
 
@@ -1120,7 +1122,6 @@ static void mainThread (void const* argument) {
     osThreadCreate (&osThreadNet, NULL);
     }
     //}}}
-  mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, 2.0f, mRoot->getHeight()));
 
   //{{{  init vars
   int16_t x[kMaxTouch];
