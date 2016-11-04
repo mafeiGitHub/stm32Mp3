@@ -173,14 +173,14 @@ public:
   //{{{
   cHlsChunk() {
     mAudio = (int16_t*)pvPortMalloc (300 * 1024 * 2 * 2);
-    mPower = (uint8_t*)malloc (300 * 2);
+    mPower = (uint8_t*)pvPortMalloc (300 * 2);
     }
   //}}}
   //{{{
   ~cHlsChunk() {
     NeAACDecClose (mDecoder);
     if (mPower)
-      free (mPower);
+      vPortFree (mPower);
     if (mAudio)
       vPortFree (mAudio);
     }
@@ -359,16 +359,17 @@ public:
     }
   //}}}
   //{{{
+  std::string getChunkInfoStr (int chunk) {
+    return getChunkNumStr (chunk) + ':' + mChunks[chunk].getInfoStr();
+    }
+  //}}}
+  //{{{
   void getChunkLoad (int chunk, bool& loaded, bool& loading) {
     loaded = mChunks[chunk].getLoaded();
     loading = mChunks[chunk].getLoading();
     }
   //}}}
-  //{{{
-  std::string getChunkInfoStr (int chunk) {
-    return getChunkNumStr (chunk) + ':' + mChunks[chunk].getInfoStr();
-    }
-  //}}}
+
   //{{{
   uint8_t* getPower (int frame, int& frames) {
   // return pointer to frame power org,len uint8_t pairs
@@ -603,11 +604,11 @@ public:
         auto top = *power++;
         auto ylen = *power++;
         if (x < (mWidth/2) - 1)
-          draw->rect (COL_DARKBLUE, x, top, 1, ylen);
+          draw->rectClipped (COL_DARKBLUE, x, top, 1, ylen);
         else if (x == mWidth/2)
-          draw->rect (COL_DARKGREEN, x-1, top, 3, ylen);
+          draw->rectClipped (COL_DARKGREEN, x-1, top, 3, ylen);
         else if (x > (mWidth/2) + 1)
-          draw->rect (COL_DARKERGREY, x, top, 1, ylen);
+          draw->rectClipped (COL_DARKERGREY, x, top, 1, ylen);
         frames--;
         }
       }
@@ -619,11 +620,11 @@ private:
 //{{{
 class cInfoTextBox : public cWidget {
 public:
-  cInfoTextBox (uint16_t width) : cWidget (width) {}
+  cInfoTextBox (uint16_t width, uint16_t height) : cWidget(width, height) {}
   virtual ~cInfoTextBox() {}
 
   virtual void render (iDraw* draw) {
-    draw->text (COL_WHITE, getFontHeight(), mHlsLoader->getFrameStr (mPlayFrame).c_str(), mX+2, mY+1, mWidth-1, mHeight-1);
+    draw->text (COL_WHITE, mHeight-4, mHlsLoader->getFrameStr (mPlayFrame).c_str(), mX+2, mY+1, mWidth-1, mHeight-1);
     }
   };
 //}}}
@@ -1027,9 +1028,8 @@ static void netThread (void const* argument) {
       }
       //}}}
 
-    mRoot->add (new cInfoTextBox (mRoot->getWidth()), 0, mRoot->getHeight() - cWidget::getBoxHeight()*2);
     mRoot->addTopLeft (new cSelectBmpWidget (r1x80, 1, mTuneChan, mTuneChanChanged,
-                                               cWidget::getBoxHeight()*3, cWidget::getBoxHeight()*3));
+                                             cWidget::getBoxHeight()*3, cWidget::getBoxHeight()*3));
     mRoot->addNextRight (new cSelectBmpWidget (r2x80, 2, mTuneChan, mTuneChanChanged,
                                                cWidget::getBoxHeight()*3, cWidget::getBoxHeight()*3));
     mRoot->addNextRight (new cSelectBmpWidget (r3x80, 3, mTuneChan, mTuneChanChanged,
@@ -1044,9 +1044,12 @@ static void netThread (void const* argument) {
     mRoot->addNextLeft (new cDotBox (1));
     mRoot->addNextLeft (new cDotBox (0));
 
-    const osThreadDef_t osThreadAacLoad = { (char*)"aacLoad", aacLoadThread, osPriorityNormal, 0, 13000 };
+    mRoot->add (new cInfoTextBox (mRoot->getWidth(), cWidget::getBoxHeight()*4/3),
+                mRoot->getWidth()/2, mRoot->getHeight() - cWidget::getBoxHeight()*3);
+
+    const osThreadDef_t osThreadAacLoad = { (char*)"aacLoad", aacLoadThread, osPriorityNormal, 0, 14000 };
     osThreadCreate (&osThreadAacLoad, NULL);
-    const osThreadDef_t osThreadAacPlay = { (char*)"aacPlay", aacPlayThread, osPriorityAboveNormal, 0, 1000 };
+    const osThreadDef_t osThreadAacPlay = { (char*)"aacPlay", aacPlayThread, osPriorityAboveNormal, 0, 2000 };
     osThreadCreate (&osThreadAacPlay, NULL);
 
     const osThreadDef_t osThreadHttp = { (char*)"http", httpServerThread, osPriorityNormal, 0, DEFAULT_THREAD_STACKSIZE };

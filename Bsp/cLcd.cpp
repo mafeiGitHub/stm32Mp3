@@ -5,6 +5,7 @@
 #include <sstream>
 #include <iostream>
 #include <iomanip>
+#include <map>
 
 #include "memory.h"
 
@@ -249,7 +250,6 @@ static osSemaphoreId mDma2dSem;
 static uint8_t showAlpha[2];
 uint32_t showFrameBufferAddress[2];
 
-#define maxChars 0x60
 //{{{  struct tFontChar
 typedef struct {
   uint8_t* bitmap;
@@ -260,8 +260,8 @@ typedef struct {
   int16_t advance;
   } tFontChar;
 //}}}
-static tFontChar* chars[maxChars];
-static tFontChar* chars2[maxChars];
+typedef std::map<uint16_t, tFontChar*> tFontCharMap;
+tFontCharMap mFontCharMap;
 
 static FT_Library FTlibrary;
 static FT_Face FTface;
@@ -763,18 +763,15 @@ void cLcd::stamp (uint32_t colour, uint8_t* src, int16_t x, int16_t y, uint16_t 
 //{{{
 int cLcd::text (uint32_t colour, uint16_t fontHeight, std::string str, int16_t x, int16_t y, uint16_t width, uint16_t height) {
 
-
   auto xend = x + width;
   for (auto i = 0; i < str.size(); i++) {
     if ((str[i] >= 0x20) && (str[i] <= 0x7F)) {
-      auto fontChar = chars[str[i] - 0x20];
-      if (!fontChar) {
+      auto fontCharIt = mFontCharMap.find (fontHeight<<8 | str[i]);
+      if (fontCharIt == mFontCharMap.end()) {
         FT_Set_Pixel_Sizes (FTface, 0, fontHeight);
         FT_Load_Char (FTface, str[i], FT_LOAD_RENDER);
 
-        // cache char info
-        fontChar = (tFontChar*)pvPortMalloc (sizeof(tFontChar));
-        chars[str[i] - 0x20] = fontChar;
+        auto fontChar = (tFontChar*)pvPortMalloc (sizeof(tFontChar));
         fontChar->left = FTglyphSlot->bitmap_left;
         fontChar->top = FTglyphSlot->bitmap_top;
         fontChar->pitch = FTglyphSlot->bitmap.pitch;
@@ -783,12 +780,15 @@ int cLcd::text (uint32_t colour, uint16_t fontHeight, std::string str, int16_t x
         fontChar->bitmap = nullptr;
 
         if (FTglyphSlot->bitmap.buffer) {
-          // cache char bitmap
           fontChar->bitmap = (uint8_t*)pvPortMalloc (FTglyphSlot->bitmap.pitch * FTglyphSlot->bitmap.rows);
           memcpy (fontChar->bitmap, FTglyphSlot->bitmap.buffer, FTglyphSlot->bitmap.pitch * FTglyphSlot->bitmap.rows);
           }
+
+        auto insertPair = mFontCharMap.insert (tFontCharMap::value_type (fontHeight<<8 | str[i], fontChar));
+        fontCharIt = insertPair.first;
         }
 
+      auto fontChar = fontCharIt->second;
       if (x + fontChar->left + fontChar->pitch >= xend)
         break;
       else if (fontChar->bitmap)
@@ -1101,10 +1101,7 @@ void cLcd::init (std::string title) {
   // font init
   //setFont (freeSansBold, freeSansBold_len);
   setFont ((uint8_t*)0x90000000, 64228);
-  for (auto i = 0; i < maxChars; i++) {
-    chars[i] = nullptr;
-    chars2[i] = nullptr;
-    }
+
   setTitle (title);
   }
 //}}}
