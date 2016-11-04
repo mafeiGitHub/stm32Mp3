@@ -1034,12 +1034,12 @@ static void netThread (void const* argument) {
       }
       //}}}
 
-    mRoot->addAt (new cSelectBmpWidget (r1x80, 1, mTuneChan, mTuneChanChanged, 3, 3), 0, 0);
-    mRoot->add (new cSelectBmpWidget (r2x80, 2, mTuneChan, mTuneChanChanged, 3, 3));
-    mRoot->add (new cSelectBmpWidget (r3x80, 3, mTuneChan, mTuneChanChanged, 3, 3));
-    mRoot->add (new cSelectBmpWidget (r4x80, 4, mTuneChan, mTuneChanChanged, 3, 3));
-    mRoot->add (new cSelectBmpWidget (r5x80, 5, mTuneChan, mTuneChanChanged, 3, 3));
-    mRoot->add (new cSelectBmpWidget (r6x80, 6, mTuneChan, mTuneChanChanged, 3, 3));
+    mRoot->addAt (new cSelectBmpWidget (r1x80, 1, mTuneChan, mTuneChanChanged, 2.5, 2.5), 0, 0);
+    mRoot->add (new cSelectBmpWidget (r2x80, 2, mTuneChan, mTuneChanChanged, 2.5, 2.5));
+    mRoot->add (new cSelectBmpWidget (r3x80, 3, mTuneChan, mTuneChanChanged, 2.5, 2.5));
+    mRoot->add (new cSelectBmpWidget (r4x80, 4, mTuneChan, mTuneChanChanged, 2.5, 2.5));
+    mRoot->add (new cSelectBmpWidget (r5x80, 5, mTuneChan, mTuneChanChanged, 2.5, 2.5));
+    mRoot->add (new cSelectBmpWidget (r6x80, 6, mTuneChan, mTuneChanChanged, 2.5, 2.5));
 
     mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, 2.0f, mRoot->getHeight()));
 
