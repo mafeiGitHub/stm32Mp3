@@ -51,8 +51,9 @@
 #include "widgets/cSelectBmpWidget.h"
 #include "widgets/cWaveCentreWidget.h"
 #include "widgets/cWaveLensWidget.h"
+#include "widgets/cSelectBmpWidget.h"
 
-#include "../icons/radioIcon.h"
+#include "icons/radioIcon.h"
 //}}}
 const bool kStaticIp = false;
 //{{{
