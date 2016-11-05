@@ -1078,7 +1078,7 @@ static void mainThread (void const* argument) {
   cLcd::debug ("SD init " + cLcd::dec (sdState));
 
   if (SD_present()) {
-    if (BSP_PB_GetState (BUTTON_WAKEUP) != GPIO_PIN_SET) {
+    if (BSP_PB_GetState (BUTTON_WAKEUP) == GPIO_PIN_SET) {
       cLcd::debug ("USB MSC mainThread");
       USBD_Init (&USBD_Device, &MSC_Desc, 0);
       USBD_RegisterClass (&USBD_Device, &USBD_MSC);
