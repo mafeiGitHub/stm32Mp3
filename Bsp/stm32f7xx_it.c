@@ -24,7 +24,7 @@ void SysTick_Handler() { HAL_IncTick(); osSystickHandler(); }
 
 // usb
 extern PCD_HandleTypeDef hpcd;
-//void OTG_FS_IRQHandler() { HAL_PCD_IRQHandler (&hpcd); }
+void OTG_FS_IRQHandler() { HAL_PCD_IRQHandler (&hpcd); }
 void OTG_HS_IRQHandler() { HAL_PCD_IRQHandler (&hpcd); }
 
 // ethernet
