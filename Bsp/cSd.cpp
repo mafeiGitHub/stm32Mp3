@@ -182,11 +182,11 @@ uint8_t SD_Init() {
     HAL_DMA_DeInit (&dma_tx_handle);
     HAL_DMA_Init (&dma_tx_handle);
     //}}}
-    HAL_NVIC_SetPriority (SDMMC2_IRQn, 5, 0);
+    HAL_NVIC_SetPriority (SDMMC2_IRQn, 0x0E, 0);
     HAL_NVIC_EnableIRQ (SDMMC2_IRQn);
-    HAL_NVIC_SetPriority (DMA2_Stream0_IRQn, 0xF, 0);  // f for 769
+    HAL_NVIC_SetPriority (DMA2_Stream0_IRQn, 0x0F, 0);
     HAL_NVIC_EnableIRQ (DMA2_Stream0_IRQn);
-    HAL_NVIC_SetPriority (DMA2_Stream5_IRQn, 0xF, 0);  // f for 769
+    HAL_NVIC_SetPriority (DMA2_Stream5_IRQn, 0x0F, 0);
     HAL_NVIC_EnableIRQ (DMA2_Stream5_IRQn);
   #endif
 

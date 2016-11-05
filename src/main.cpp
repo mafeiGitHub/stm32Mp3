@@ -1074,6 +1074,9 @@ static void mainThread (void const* argument) {
   const bool kMaxTouch = 1;
   mLcd->displayOn();
 
+  auto sdState = SD_Init();
+  cLcd::debug ("SD init " + cLcd::dec (sdState));
+
   if (SD_present()) {
     if (BSP_PB_GetState (BUTTON_WAKEUP) != GPIO_PIN_SET) {
       cLcd::debug ("USB MSC mainThread");
@@ -1294,7 +1297,6 @@ int main() {
   //BSP_QSPI_EnableMemoryMappedMode();
   //QUADSPI->LPTR = 0xFFF; // Configure QSPI: LPTR register with the low-power time out value
 
-  auto sdState = SD_Init();
   BSP_PB_Init (BUTTON_WAKEUP, BUTTON_MODE_GPIO);
   BSP_LED_Init (LED1);
   #ifdef STM32F769I_DISCO
@@ -1304,8 +1306,6 @@ int main() {
 
   mLcd = cLcd::create ("Player built at " + std::string(__TIME__) + " on " + std::string(__DATE__), true);
   mRoot = new cRootContainer (cLcd::getWidthPix(), cLcd::getHeightPix());
-
-  cLcd::debug ("SD init " + cLcd::dec (sdState));
 
   osSemaphoreDef (aud);
   mAudSem = osSemaphoreCreate (osSemaphore (aud), -1);
