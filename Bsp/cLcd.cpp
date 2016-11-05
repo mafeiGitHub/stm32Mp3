@@ -1099,8 +1099,8 @@ void cLcd::init (std::string title) {
     }
 
   // font init
-  //setFont (freeSansBold, freeSansBold_len);
-  setFont ((uint8_t*)0x90000000, 64228);
+  setFont (freeSansBold, freeSansBold_len);
+  //setFont ((uint8_t*)0x90000000, 64228);
 
   setTitle (title);
   }

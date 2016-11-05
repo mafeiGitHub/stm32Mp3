@@ -2,7 +2,12 @@
 #pragma once
 //{{{  includes
 #include <string>
-#include "stm32746g_discovery.h"
+
+#ifdef STM32F746G_DISCO
+  #include "stm32746g_discovery.h"
+#else
+  #include "stm32f769i_discovery.h"
+#endif
 //}}}
 
 typedef enum { MSD_OK, MSD_ERROR, MSD_ERROR_SD_NOT_PRESENT } MSD_RESULT;

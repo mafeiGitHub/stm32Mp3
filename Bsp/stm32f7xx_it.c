@@ -36,7 +36,6 @@ void LTDC_IRQHandler() { LCD_LTDC_IRQHandler(); }
 void DMA2D_IRQHandler() { LCD_DMA2D_IRQHandler(); }
 
 // sd
-void SDMMC1_IRQHandler() { HAL_SD_IRQHandler (&uSdHandle); }
 void BSP_SDMMC_DMA_Tx_IRQHandler() { HAL_DMA_IRQHandler (uSdHandle.hdmatx); }
 void BSP_SDMMC_DMA_Rx_IRQHandler() { HAL_DMA_IRQHandler (uSdHandle.hdmarx); }
 
@@ -46,9 +45,11 @@ void AUDIO_OUT_SAIx_DMAx_IRQHandler() { HAL_DMA_IRQHandler (haudio_out_sai.hdmat
 
 // audio in
 #ifdef STM32F746G_DISCO
+  void SDMMC1_IRQHandler() { HAL_SD_IRQHandler (&uSdHandle); }
   extern SAI_HandleTypeDef haudio_in_sai;
   void AUDIO_IN_SAIx_DMAx_IRQHandler() { HAL_DMA_IRQHandler (haudio_in_sai.hdmarx); }
 #else
+  void SDMMC2_IRQHandler() { HAL_SD_IRQHandler (&uSdHandle); }
   // audioin - reuses SD dma channels?
   extern DFSDM_Filter_HandleTypeDef hAudioInTopLeftFilter;
   extern DFSDM_Filter_HandleTypeDef hAudioInTopRightFilter;

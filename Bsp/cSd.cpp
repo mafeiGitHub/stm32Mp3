@@ -7,18 +7,38 @@
 #include "cLcd.h"
 //}}}
 
-//{{{  SD DMA config
-#define __DMAx_TxRx_CLK_ENABLE  __HAL_RCC_DMA2_CLK_ENABLE
+#ifdef STM32F746G_DISCO
+  //{{{  SD DMA config
+  #define __DMAx_TxRx_CLK_ENABLE  __HAL_RCC_DMA2_CLK_ENABLE
 
-#define SD_DMAx_Rx_CHANNEL      DMA_CHANNEL_4
-#define SD_DMAx_Tx_CHANNEL      DMA_CHANNEL_4
+  #define SD_DMAx_Rx_CHANNEL      DMA_CHANNEL_4
+  #define SD_DMAx_Tx_CHANNEL      DMA_CHANNEL_4
 
-#define SD_DMAx_Rx_STREAM       DMA2_Stream3
-#define SD_DMAx_Tx_STREAM       DMA2_Stream6
+  #define SD_DMAx_Rx_STREAM       DMA2_Stream3
+  #define SD_DMAx_Tx_STREAM       DMA2_Stream6
 
-#define SD_DMAx_Rx_IRQn         DMA2_Stream3_IRQn
-#define SD_DMAx_Tx_IRQn         DMA2_Stream6_IRQn
-//}}}
+  #define SD_DMAx_Rx_IRQn         DMA2_Stream3_IRQn
+  #define SD_DMAx_Tx_IRQn         DMA2_Stream6_IRQn
+  //}}}
+#else
+  //{{{
+  #define __DMAx_TxRx_CLK_ENABLE            __HAL_RCC_DMA2_CLK_ENABLE
+
+  #define SD_DMAx_Tx_CHANNEL                DMA_CHANNEL_11
+  #define SD_DMAx_Rx_CHANNEL                DMA_CHANNEL_11
+
+  #define SD_DMAx_Tx_STREAM                 DMA2_Stream5
+  #define SD_DMAx_Rx_STREAM                 DMA2_Stream0
+
+  #define SD_DMAx_Tx_IRQn                   DMA2_Stream5_IRQn
+  #define SD_DMAx_Rx_IRQn                   DMA2_Stream0_IRQn
+
+  //#define BSP_SDMMC_IRQHandler              SDMMC2_IRQHandler
+  //#define BSP_SDMMC_DMA_Tx_IRQHandler       DMA2_Stream5_IRQHandler
+  //#define BSP_SDMMC_DMA_Rx_IRQHandler       DMA2_Stream0_IRQHandler
+  //}}}
+#endif
+
 SD_HandleTypeDef uSdHandle;
 //{{{  static vars
 static HAL_SD_CardInfoTypedef uSdCardInfo;
@@ -37,6 +57,7 @@ static uint32_t mWrites = 0;
 static uint32_t mWriteMultipleLen = 0;
 static uint32_t mWriteBlock = 0xFFFFFFFF;
 //}}}
+
 osMutexId mSdMutex;
 //if ((mSdMutex, 1000) == osOK)) {
 //osMutexRelease (mSdMutex);
