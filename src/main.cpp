@@ -658,8 +658,7 @@ public:
 static void aacLoadThread (void const* argument) {
 
   cLcd::debug ("aacLoadThread");
-  mPlayFrame = mHlsLoader->changeChan (mTuneChan) - mHlsLoader->getFramesFromSec (30);
-  mLcd->setShowDebug (false, false, false, true);  // debug - title, info, lcdStats, footer
+  mPlayFrame = mHlsLoader->changeChan (mTuneChan) - mHlsLoader->getFramesFromSec (20);
 
   while (true) {
     if (mTuneChanChanged && (mHlsLoader->getChan() != mTuneChan)) {
@@ -1035,17 +1034,16 @@ static void netThread (void const* argument) {
       }
       //}}}
 
+    mLcd->setShowDebug (false, false, false, true);  // debug - title, info, lcdStats, footer
+
     mRoot->addAt (new cSelectBmpWidget (r1x80, 1, mTuneChan, mTuneChanChanged, 2.5, 2.5), 0, 0);
     mRoot->add (new cSelectBmpWidget (r2x80, 2, mTuneChan, mTuneChanChanged, 2.5, 2.5));
     mRoot->add (new cSelectBmpWidget (r3x80, 3, mTuneChan, mTuneChanChanged, 2.5, 2.5));
     mRoot->add (new cSelectBmpWidget (r4x80, 4, mTuneChan, mTuneChanChanged, 2.5, 2.5));
     mRoot->add (new cSelectBmpWidget (r5x80, 5, mTuneChan, mTuneChanChanged, 2.5, 2.5));
     mRoot->add (new cSelectBmpWidget (r6x80, 6, mTuneChan, mTuneChanChanged, 2.5, 2.5));
-
     mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, 2.0f, mRoot->getHeight()));
-
     mRoot->addAt (new cInfoTextBox (mRoot->getWidth(), 1.2), -2 + mRoot->getWidth()/2.0f, -3 + mRoot->getHeight());
-
     mRoot->addBottomRight (new cDotsBox());
 
     const osThreadDef_t osThreadAacLoad = { (char*)"aacLoad", aacLoadThread, osPriorityNormal, 0, 14000 };
@@ -1293,9 +1291,9 @@ int main() {
   HeapRegion_t xHeapRegions[] = { {(uint8_t*)SDRAM_HEAP, SDRAM_HEAP_SIZE }, { nullptr, 0 } };
   vPortDefineHeapRegions (xHeapRegions);
 
-  //BSP_QSPI_Init();
-  //BSP_QSPI_EnableMemoryMappedMode();
-  //QUADSPI->LPTR = 0xFFF; // Configure QSPI: LPTR register with the low-power time out value
+  BSP_QSPI_Init();
+  BSP_QSPI_EnableMemoryMappedMode();
+  QUADSPI->LPTR = 0xFFF; // Configure QSPI: LPTR register with the low-power time out value
 
   BSP_PB_Init (BUTTON_WAKEUP, BUTTON_MODE_GPIO);
   BSP_LED_Init (LED1);
