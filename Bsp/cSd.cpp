@@ -7,38 +7,6 @@
 #include "cLcd.h"
 //}}}
 
-#ifdef STM32F746G_DISCO
-  //{{{  SD DMA config
-  #define __DMAx_TxRx_CLK_ENABLE  __HAL_RCC_DMA2_CLK_ENABLE
-
-  #define SD_DMAx_Rx_CHANNEL      DMA_CHANNEL_4
-  #define SD_DMAx_Tx_CHANNEL      DMA_CHANNEL_4
-
-  #define SD_DMAx_Rx_STREAM       DMA2_Stream3
-  #define SD_DMAx_Tx_STREAM       DMA2_Stream6
-
-  #define SD_DMAx_Rx_IRQn         DMA2_Stream3_IRQn
-  #define SD_DMAx_Tx_IRQn         DMA2_Stream6_IRQn
-  //}}}
-#else
-  //{{{
-  #define __DMAx_TxRx_CLK_ENABLE            __HAL_RCC_DMA2_CLK_ENABLE
-
-  #define SD_DMAx_Tx_CHANNEL                DMA_CHANNEL_11
-  #define SD_DMAx_Rx_CHANNEL                DMA_CHANNEL_11
-
-  #define SD_DMAx_Tx_STREAM                 DMA2_Stream5
-  #define SD_DMAx_Rx_STREAM                 DMA2_Stream0
-
-  #define SD_DMAx_Tx_IRQn                   DMA2_Stream5_IRQn
-  #define SD_DMAx_Rx_IRQn                   DMA2_Stream0_IRQn
-
-  //#define BSP_SDMMC_IRQHandler              SDMMC2_IRQHandler
-  //#define BSP_SDMMC_DMA_Tx_IRQHandler       DMA2_Stream5_IRQHandler
-  //#define BSP_SDMMC_DMA_Rx_IRQHandler       DMA2_Stream0_IRQHandler
-  //}}}
-#endif
-
 SD_HandleTypeDef uSdHandle;
 //{{{  static vars
 static HAL_SD_CardInfoTypedef uSdCardInfo;
@@ -65,15 +33,6 @@ osMutexId mSdMutex;
 //{{{
 uint8_t SD_Init() {
 
-  // uSD device interface configuration
-  uSdHandle.Instance = SDMMC1;
-  uSdHandle.Init.ClockEdge           = SDMMC_CLOCK_EDGE_RISING;
-  uSdHandle.Init.ClockBypass         = SDMMC_CLOCK_BYPASS_DISABLE;
-  uSdHandle.Init.ClockPowerSave      = SDMMC_CLOCK_POWER_SAVE_DISABLE;
-  uSdHandle.Init.BusWide             = SDMMC_BUS_WIDE_1B;
-  uSdHandle.Init.HardwareFlowControl = SDMMC_HARDWARE_FLOW_CONTROL_DISABLE;
-  uSdHandle.Init.ClockDiv            = SDMMC_TRANSFER_CLK_DIV;
-
   //{{{  sdDetect init
   SD_DETECT_GPIO_CLK_ENABLE();
 
@@ -87,70 +46,149 @@ uint8_t SD_Init() {
   if (!SD_present())
     return MSD_ERROR_SD_NOT_PRESENT;
 
-  __HAL_RCC_SDMMC1_CLK_ENABLE();
-  __DMAx_TxRx_CLK_ENABLE();
-  __HAL_RCC_GPIOC_CLK_ENABLE();
-  __HAL_RCC_GPIOD_CLK_ENABLE();
-  //{{{  gpio init
-  gpio_init_structure.Mode      = GPIO_MODE_AF_PP;
-  gpio_init_structure.Pull      = GPIO_PULLUP;
-  gpio_init_structure.Speed     = GPIO_SPEED_HIGH;
-  gpio_init_structure.Alternate = GPIO_AF12_SDMMC1;
-
-  gpio_init_structure.Pin = GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10 | GPIO_PIN_11 | GPIO_PIN_12;
-  HAL_GPIO_Init(GPIOC, &gpio_init_structure);
-
-  gpio_init_structure.Pin = GPIO_PIN_2;
-  HAL_GPIO_Init(GPIOD, &gpio_init_structure);
-  //}}}
-  //{{{  DMA Rx parameters
-  dma_rx_handle.Init.Channel             = SD_DMAx_Rx_CHANNEL;
-  dma_rx_handle.Init.Direction           = DMA_PERIPH_TO_MEMORY;
-  dma_rx_handle.Init.PeriphInc           = DMA_PINC_DISABLE;
-  dma_rx_handle.Init.MemInc              = DMA_MINC_ENABLE;
-  dma_rx_handle.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
-  dma_rx_handle.Init.MemDataAlignment    = DMA_MDATAALIGN_WORD;
-  dma_rx_handle.Init.Mode                = DMA_PFCTRL;
-  dma_rx_handle.Init.Priority            = DMA_PRIORITY_VERY_HIGH;
-  dma_rx_handle.Init.FIFOMode            = DMA_FIFOMODE_ENABLE;
-  dma_rx_handle.Init.FIFOThreshold       = DMA_FIFO_THRESHOLD_FULL;
-  dma_rx_handle.Init.MemBurst            = DMA_MBURST_INC4;
-  dma_rx_handle.Init.PeriphBurst         = DMA_PBURST_INC4;
-  dma_rx_handle.Instance = SD_DMAx_Rx_STREAM;
-  __HAL_LINKDMA (&uSdHandle, hdmarx, dma_rx_handle);
-  HAL_DMA_DeInit (&dma_rx_handle);
-  HAL_DMA_Init (&dma_rx_handle);
-  //}}}
-  //{{{  DMA Tx parameters
-  dma_tx_handle.Init.Channel             = SD_DMAx_Tx_CHANNEL;
-  dma_tx_handle.Init.Direction           = DMA_MEMORY_TO_PERIPH;
-  dma_tx_handle.Init.PeriphInc           = DMA_PINC_DISABLE;
-  dma_tx_handle.Init.MemInc              = DMA_MINC_ENABLE;
-  dma_tx_handle.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
-  dma_tx_handle.Init.MemDataAlignment    = DMA_MDATAALIGN_WORD;
-  dma_tx_handle.Init.Mode                = DMA_PFCTRL;
-  dma_tx_handle.Init.Priority            = DMA_PRIORITY_VERY_HIGH;
-  dma_tx_handle.Init.FIFOMode            = DMA_FIFOMODE_ENABLE;
-  dma_tx_handle.Init.FIFOThreshold       = DMA_FIFO_THRESHOLD_FULL;
-  dma_tx_handle.Init.MemBurst            = DMA_MBURST_INC4;
-  dma_tx_handle.Init.PeriphBurst         = DMA_PBURST_INC4;
-  dma_tx_handle.Instance = SD_DMAx_Tx_STREAM;
-  __HAL_LINKDMA (&uSdHandle, hdmatx, dma_tx_handle);
-  HAL_DMA_DeInit (&dma_tx_handle);
-  HAL_DMA_Init (&dma_tx_handle);
-  //}}}
-
   // sd interrupt
-  HAL_NVIC_SetPriority (SDMMC1_IRQn, 5, 0);
-  HAL_NVIC_EnableIRQ (SDMMC1_IRQn);
+  #ifdef STM32F746G_DISCO
+    uSdHandle.Instance = SDMMC1;
+    uSdHandle.Init.ClockEdge = SDMMC_CLOCK_EDGE_RISING;
+    uSdHandle.Init.ClockBypass = SDMMC_CLOCK_BYPASS_DISABLE;
+    uSdHandle.Init.ClockPowerSave = SDMMC_CLOCK_POWER_SAVE_DISABLE;
+    uSdHandle.Init.BusWide = SDMMC_BUS_WIDE_1B;
+    uSdHandle.Init.HardwareFlowControl = SDMMC_HARDWARE_FLOW_CONTROL_DISABLE;
+    uSdHandle.Init.ClockDiv = SDMMC_TRANSFER_CLK_DIV;
+    __HAL_RCC_SDMMC1_CLK_ENABLE();
+    __HAL_RCC_DMA2_CLK_ENABLE();
+    //{{{  gpio init
+    gpio_init_structure.Mode      = GPIO_MODE_AF_PP;
+    gpio_init_structure.Pull      = GPIO_PULLUP;
+    gpio_init_structure.Speed     = GPIO_SPEED_HIGH;
+    gpio_init_structure.Alternate = GPIO_AF12_SDMMC1;
 
-  // sd rx DMA transfer complete interrupt
-  HAL_NVIC_SetPriority (SD_DMAx_Rx_IRQn, 6, 0);
-  HAL_NVIC_EnableIRQ (SD_DMAx_Rx_IRQn);
+    __HAL_RCC_GPIOC_CLK_ENABLE();
+    gpio_init_structure.Pin = GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10 | GPIO_PIN_11 | GPIO_PIN_12;
+    HAL_GPIO_Init (GPIOC, &gpio_init_structure);
 
-  // sd tx DMA transfer complete interrupt
-  HAL_NVIC_SetPriority (SD_DMAx_Tx_IRQn, 6, 0);
-  HAL_NVIC_EnableIRQ (SD_DMAx_Tx_IRQn);
+    __HAL_RCC_GPIOD_CLK_ENABLE();
+    gpio_init_structure.Pin = GPIO_PIN_2;
+    HAL_GPIO_Init (GPIOD, &gpio_init_structure);
+    //}}}
+    //{{{  DMA Rx parameters
+    dma_rx_handle.Instance                 = DMA2_Stream3;
+    dma_rx_handle.Init.Channel             = DMA_CHANNEL_4;
+    dma_rx_handle.Init.Direction           = DMA_PERIPH_TO_MEMORY;
+    dma_rx_handle.Init.PeriphInc           = DMA_PINC_DISABLE;
+    dma_rx_handle.Init.MemInc              = DMA_MINC_ENABLE;
+    dma_rx_handle.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
+    dma_rx_handle.Init.MemDataAlignment    = DMA_MDATAALIGN_WORD;
+    dma_rx_handle.Init.Mode                = DMA_PFCTRL;
+    dma_rx_handle.Init.Priority            = DMA_PRIORITY_VERY_HIGH;
+    dma_rx_handle.Init.FIFOMode            = DMA_FIFOMODE_ENABLE;
+    dma_rx_handle.Init.FIFOThreshold       = DMA_FIFO_THRESHOLD_FULL;
+    dma_rx_handle.Init.MemBurst            = DMA_MBURST_INC4;
+    dma_rx_handle.Init.PeriphBurst         = DMA_PBURST_INC4;
+
+    __HAL_LINKDMA (&uSdHandle, hdmarx, dma_rx_handle);
+    HAL_DMA_DeInit (&dma_rx_handle);
+    HAL_DMA_Init (&dma_rx_handle);
+    //}}}
+    //{{{  DMA Tx parameters
+    dma_tx_handle.Instance                 = DMA2_Stream6;
+    dma_tx_handle.Init.Channel             = DMA_CHANNEL_4;
+    dma_tx_handle.Init.Direction           = DMA_MEMORY_TO_PERIPH;
+    dma_tx_handle.Init.PeriphInc           = DMA_PINC_DISABLE;
+    dma_tx_handle.Init.MemInc              = DMA_MINC_ENABLE;
+    dma_tx_handle.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
+    dma_tx_handle.Init.MemDataAlignment    = DMA_MDATAALIGN_WORD;
+    dma_tx_handle.Init.Mode                = DMA_PFCTRL;
+    dma_tx_handle.Init.Priority            = DMA_PRIORITY_VERY_HIGH;
+    dma_tx_handle.Init.FIFOMode            = DMA_FIFOMODE_ENABLE;
+    dma_tx_handle.Init.FIFOThreshold       = DMA_FIFO_THRESHOLD_FULL;
+    dma_tx_handle.Init.MemBurst            = DMA_MBURST_INC4;
+    dma_tx_handle.Init.PeriphBurst         = DMA_PBURST_INC4;
+
+    __HAL_LINKDMA (&uSdHandle, hdmatx, dma_tx_handle);
+    HAL_DMA_DeInit (&dma_tx_handle);
+    HAL_DMA_Init (&dma_tx_handle);
+    //}}}
+    HAL_NVIC_SetPriority (SDMMC1_IRQn, 5, 0);
+    HAL_NVIC_EnableIRQ (SDMMC1_IRQn);
+    HAL_NVIC_SetPriority (DMA2_Stream3_IRQn, 6, 0);  // f for 769
+    HAL_NVIC_EnableIRQ (DMA2_Stream3_IRQn);
+    HAL_NVIC_SetPriority (DMA2_Stream6_IRQn, 6, 0);  // f for 769
+    HAL_NVIC_EnableIRQ (DMA2_Stream6_IRQn);
+  #else
+    uSdHandle.Instance = SDMMC2;
+    uSdHandle.Init.ClockEdge           = SDMMC_CLOCK_EDGE_RISING;
+    uSdHandle.Init.ClockBypass         = SDMMC_CLOCK_BYPASS_DISABLE;
+    uSdHandle.Init.ClockPowerSave      = SDMMC_CLOCK_POWER_SAVE_DISABLE;
+    uSdHandle.Init.BusWide             = SDMMC_BUS_WIDE_1B;
+    uSdHandle.Init.HardwareFlowControl = SDMMC_HARDWARE_FLOW_CONTROL_DISABLE;
+    uSdHandle.Init.ClockDiv            = SDMMC_TRANSFER_CLK_DIV;
+    __HAL_RCC_SDMMC2_CLK_ENABLE();
+    __HAL_RCC_DMA2_CLK_ENABLE();
+    //{{{  gpio init
+    gpio_init_structure.Mode      = GPIO_MODE_AF_PP;
+    gpio_init_structure.Pull      = GPIO_PULLUP;
+    gpio_init_structure.Speed     = GPIO_SPEED_HIGH;
+
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+    gpio_init_structure.Alternate = GPIO_AF10_SDMMC2;
+    gpio_init_structure.Pin = GPIO_PIN_3 | GPIO_PIN_4;
+    HAL_GPIO_Init (GPIOB, &gpio_init_structure);
+
+    __HAL_RCC_GPIOD_CLK_ENABLE();
+    gpio_init_structure.Alternate = GPIO_AF11_SDMMC2;
+    gpio_init_structure.Pin = GPIO_PIN_6 | GPIO_PIN_7;
+    HAL_GPIO_Init (GPIOD, &gpio_init_structure);
+
+    __HAL_RCC_GPIOG_CLK_ENABLE();
+    gpio_init_structure.Pin = GPIO_PIN_9 | GPIO_PIN_10;
+    HAL_GPIO_Init (GPIOG, &gpio_init_structure);
+    //}}}
+    //{{{  DMA Rx parameters
+    dma_rx_handle.Init.Channel             = DMA_CHANNEL_11;
+    dma_rx_handle.Init.Direction           = DMA_PERIPH_TO_MEMORY;
+    dma_rx_handle.Init.PeriphInc           = DMA_PINC_DISABLE;
+    dma_rx_handle.Init.MemInc              = DMA_MINC_ENABLE;
+    dma_rx_handle.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
+    dma_rx_handle.Init.MemDataAlignment    = DMA_MDATAALIGN_WORD;
+    dma_rx_handle.Init.Mode                = DMA_PFCTRL;
+    dma_rx_handle.Init.Priority            = DMA_PRIORITY_VERY_HIGH;
+    dma_rx_handle.Init.FIFOMode            = DMA_FIFOMODE_ENABLE;
+    dma_rx_handle.Init.FIFOThreshold       = DMA_FIFO_THRESHOLD_FULL;
+    dma_rx_handle.Init.MemBurst            = DMA_MBURST_INC4;
+    dma_rx_handle.Init.PeriphBurst         = DMA_PBURST_INC4;
+    dma_rx_handle.Instance = DMA2_Stream0;
+
+    __HAL_LINKDMA (&uSdHandle, hdmarx, dma_rx_handle);
+    HAL_DMA_DeInit (&dma_rx_handle);
+    HAL_DMA_Init (&dma_rx_handle);
+    //}}}
+    //{{{  DMA Tx parameters
+    dma_tx_handle.Init.Channel             = DMA_CHANNEL_11;
+    dma_tx_handle.Init.Direction           = DMA_MEMORY_TO_PERIPH;
+    dma_tx_handle.Init.PeriphInc           = DMA_PINC_DISABLE;
+    dma_tx_handle.Init.MemInc              = DMA_MINC_ENABLE;
+    dma_tx_handle.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
+    dma_tx_handle.Init.MemDataAlignment    = DMA_MDATAALIGN_WORD;
+    dma_tx_handle.Init.Mode                = DMA_PFCTRL;
+    dma_tx_handle.Init.Priority            = DMA_PRIORITY_VERY_HIGH;
+    dma_tx_handle.Init.FIFOMode            = DMA_FIFOMODE_ENABLE;
+    dma_tx_handle.Init.FIFOThreshold       = DMA_FIFO_THRESHOLD_FULL;
+    dma_tx_handle.Init.MemBurst            = DMA_MBURST_INC4;
+    dma_tx_handle.Init.PeriphBurst         = DMA_PBURST_INC4;
+    dma_tx_handle.Instance = DMA2_Stream5;
+
+    __HAL_LINKDMA (&uSdHandle, hdmatx, dma_tx_handle);
+    HAL_DMA_DeInit (&dma_tx_handle);
+    HAL_DMA_Init (&dma_tx_handle);
+    //}}}
+    HAL_NVIC_SetPriority (SDMMC2_IRQn, 5, 0);
+    HAL_NVIC_EnableIRQ (SDMMC2_IRQn);
+    HAL_NVIC_SetPriority (DMA2_Stream0_IRQn, 0xF, 0);  // f for 769
+    HAL_NVIC_EnableIRQ (DMA2_Stream0_IRQn);
+    HAL_NVIC_SetPriority (DMA2_Stream5_IRQn, 0xF, 0);  // f for 769
+    HAL_NVIC_EnableIRQ (DMA2_Stream5_IRQn);
+  #endif
 
   // HAL SD initialization
   if (HAL_SD_Init (&uSdHandle, &uSdCardInfo) != SD_OK)

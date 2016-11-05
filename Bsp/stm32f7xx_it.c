@@ -24,20 +24,19 @@ void SysTick_Handler() { HAL_IncTick(); osSystickHandler(); }
 
 // usb
 extern PCD_HandleTypeDef hpcd;
-void OTG_FS_IRQHandler() { HAL_PCD_IRQHandler (&hpcd); }
+//void OTG_FS_IRQHandler() { HAL_PCD_IRQHandler (&hpcd); }
 void OTG_HS_IRQHandler() { HAL_PCD_IRQHandler (&hpcd); }
 
 // ethernet
 extern ETH_HandleTypeDef EthHandle;
 void ETH_IRQHandler() { HAL_ETH_IRQHandler (&EthHandle); }
 
+// QSPI
+extern QSPI_HandleTypeDef QSPIHandle;
+void QUADSPI_IRQHandler() { HAL_QSPI_IRQHandler (&QSPIHandle); }
 // lcd
 void LTDC_IRQHandler() { LCD_LTDC_IRQHandler(); }
 void DMA2D_IRQHandler() { LCD_DMA2D_IRQHandler(); }
-
-// sd
-void BSP_SDMMC_DMA_Tx_IRQHandler() { HAL_DMA_IRQHandler (uSdHandle.hdmatx); }
-void BSP_SDMMC_DMA_Rx_IRQHandler() { HAL_DMA_IRQHandler (uSdHandle.hdmarx); }
 
 // audio
 extern SAI_HandleTypeDef haudio_out_sai;
@@ -46,17 +45,17 @@ void AUDIO_OUT_SAIx_DMAx_IRQHandler() { HAL_DMA_IRQHandler (haudio_out_sai.hdmat
 // audio in
 #ifdef STM32F746G_DISCO
   void SDMMC1_IRQHandler() { HAL_SD_IRQHandler (&uSdHandle); }
-  extern SAI_HandleTypeDef haudio_in_sai;
-  void AUDIO_IN_SAIx_DMAx_IRQHandler() { HAL_DMA_IRQHandler (haudio_in_sai.hdmarx); }
+  void BSP_SDMMC_DMA_Rx_IRQHandler() { HAL_DMA_IRQHandler (uSdHandle.hdmarx); }
+  void BSP_SDMMC_DMA_Tx_IRQHandler() { HAL_DMA_IRQHandler (uSdHandle.hdmatx); }
+  //extern SAI_HandleTypeDef haudio_in_sai;
+  //void AUDIO_IN_SAIx_DMAx_IRQHandler() { HAL_DMA_IRQHandler (haudio_in_sai.hdmarx); }
 #else
   void SDMMC2_IRQHandler() { HAL_SD_IRQHandler (&uSdHandle); }
-  // audioin - reuses SD dma channels?
-  extern DFSDM_Filter_HandleTypeDef hAudioInTopLeftFilter;
-  extern DFSDM_Filter_HandleTypeDef hAudioInTopRightFilter;
+  void BSP_SDMMC_DMA_Rx_IRQHandler() { HAL_DMA_IRQHandler (uSdHandle.hdmarx); }
+  void BSP_SDMMC_DMA_Tx_IRQHandler() { HAL_DMA_IRQHandler (uSdHandle.hdmatx); }
+  // audio in - reuses SD dma channels?
+  //extern DFSDM_Filter_HandleTypeDef hAudioInTopLeftFilter;
+  //extern DFSDM_Filter_HandleTypeDef hAudioInTopRightFilter;
   //void AUDIO_DFSDMx_DMAx_TOP_LEFT_IRQHandler() { HAL_DMA_IRQHandler (hAudioInTopLeftFilter.hdmaReg); }
   //void AUDIO_DFSDMx_DMAx_TOP_RIGHT_IRQHandler() { HAL_DMA_IRQHandler (hAudioInTopRightFilter.hdmaReg); }
 #endif
-
-// QSPI
-extern QSPI_HandleTypeDef QSPIHandle;
-void QUADSPI_IRQHandler() { HAL_QSPI_IRQHandler (&QSPIHandle); }
