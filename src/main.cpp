@@ -107,11 +107,10 @@ static uint8_t* mWave = nullptr;
 static int* mFrameOffsets = nullptr;
 
 // hls
-static int mHlsChan = 3;
-static bool mHlsChanChanged = false;
 static cHlsLoader* mHlsLoader;
 static osSemaphoreId mHlsLoaderSem;
-static std::string mInfoStr;
+static int mHlsChan = 3;
+static bool mHlsChanChanged = false;
 //}}}
 
 //{{{  audio callbacks
@@ -176,7 +175,7 @@ static void aacPlayThread (void const* argument) {
       else
         memset ((int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER + 4096), 0, 4096);
 
-      if (!seqNum || (seqNum != lastSeqNum)) {
+      if (mHlsChanChanged || !seqNum || (seqNum != lastSeqNum)) {
         lastSeqNum = seqNum;
         osSemaphoreRelease (mHlsLoaderSem);
         }
@@ -511,13 +510,13 @@ static void netThread (void const* argument) {
 
     mLcd->setShowDebug (false, false, false, true);  // debug - title, info, lcdStats, footer
 
-    mRoot->addAt (new cBmpWidget (r1x80, 1, mHlsChan, mHlsChanChanged, 3, 3), 0, 0);
+    mRoot->addBottomLeft (new cPowerWidget (mHlsLoader, mRoot->getWidth(), mRoot->getHeight()));
+    mRoot->addTopLeft (new cBmpWidget (r1x80, 1, mHlsChan, mHlsChanChanged, 3, 3));
     mRoot->add (new cBmpWidget (r2x80, 2, mHlsChan, mHlsChanChanged, 3, 3));
     mRoot->add (new cBmpWidget (r3x80, 3, mHlsChan, mHlsChanChanged, 3, 3));
     mRoot->add (new cBmpWidget (r4x80, 4, mHlsChan, mHlsChanChanged, 3, 3));
     mRoot->add (new cBmpWidget (r5x80, 5, mHlsChan, mHlsChanChanged, 3, 3));
     mRoot->add (new cBmpWidget (r6x80, 6, mHlsChan, mHlsChanChanged, 3, 3));
-    mRoot->addBottomLeft (new cPowerWidget (mHlsLoader, mRoot->getWidth(), mRoot->getHeight()));
     mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, 2.0f, mRoot->getHeight()));
     mRoot->addAt (new cInfoTextBox (mHlsLoader, mRoot->getWidth(), 1.2), -2 + mRoot->getWidth()/2.0f, -3 + mRoot->getHeight());
     mRoot->addBottomRight (new cDotsBox (mHlsLoader));
