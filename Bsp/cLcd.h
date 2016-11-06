@@ -13,15 +13,15 @@ public:
 
   // static gets
   #ifdef STM32F746G_DISCO
-    static uint16_t getWidthPix() { return 480; }
-    static uint16_t getHeightPix() { return 272; }
-    static uint16_t getFontHeight() { return 16; }
-    static uint16_t getLineHeight() { return 19; }
+    static uint16_t getLcdWidthPix() { return 480; }
+    static uint16_t getLcdHeightPix() { return 272; }
+    static uint16_t getLcdFontHeight() { return 16; }
+    static uint16_t getLcdLineHeight() { return 19; }
   #else
-    static uint16_t getWidthPix() { return 800; }
-    static uint16_t getHeightPix() { return 480; }
-    static uint16_t getFontHeight() { return 26; }
-    static uint16_t getLineHeight() { return 30; }
+    static uint16_t getLcdWidthPix() { return 800; }
+    static uint16_t getLcdHeightPix() { return 480; }
+    static uint16_t getLcdFontHeight() { return 26; }
+    static uint16_t getLcdLineHeight() { return 30; }
   #endif
 
   // static string utils

@@ -57,10 +57,9 @@
 
 #include "decoders/cHlsLoader.h"
 #include "widgets/cHlsDotsBox.h"
-//}}}
-static int mPlayFrame = 0;
 #include "widgets/cHlsPowerWidget.h"
 #include "widgets/cHlsInfoBox.h"
+//}}}
 
 const bool kStaticIp = false;
 //{{{
@@ -100,6 +99,7 @@ static int fileIndex = 0;
 static bool fileIndexChanged = false;
 static std::vector<std::string> mMp3Files;
 
+static int mMp3PlayFrame = 0;
 static bool mWaveLoad = false;
 static bool mWaveChanged = false;
 static int mWaveLoadFrame = 0;
@@ -107,8 +107,8 @@ static uint8_t* mWave = nullptr;
 static int* mFrameOffsets = nullptr;
 
 // hls
-static int mTuneChan = 3;
-static bool mTuneChanChanged = false;
+static int mHlsChan = 3;
+static bool mHlsChanChanged = false;
 static cHlsLoader* mHlsLoader;
 static osSemaphoreId mHlsLoaderSem;
 static std::string mInfoStr;
@@ -133,15 +133,15 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 static void aacLoadThread (void const* argument) {
 
   cLcd::debug ("aacLoadThread");
-  mPlayFrame = mHlsLoader->changeChan (mTuneChan) - mHlsLoader->getFramesFromSec (20);
+  mHlsLoader->changeChan (mHlsChan); //- mHlsLoader->getFramesFromSec (20);
 
   while (true) {
-    if (mTuneChanChanged && (mHlsLoader->getChan() != mTuneChan)) {
-      mPlayFrame = mHlsLoader->changeChan (mTuneChan);
-      mTuneChanChanged = false;
+    if (mHlsChanChanged) {
+      mHlsLoader->changeChan (mHlsChan);
+      mHlsChanChanged = false;
       }
 
-    if (!mHlsLoader->load (mPlayFrame))
+    if (!mHlsLoader->load())
       osDelay (1000);
 
     osSemaphoreWait (mHlsLoaderSem, osWaitForever);
@@ -168,10 +168,10 @@ static void aacPlayThread (void const* argument) {
   while (true) {
     if (osSemaphoreWait (mAudSem, 50) == osOK) {
       int seqNum;
-      int16_t* audioSamples = mHlsLoader->getSamples (mPlayFrame, seqNum);
+      int16_t* audioSamples = mHlsLoader->getSamples (seqNum);
       if (audioSamples) {
         memcpy ((int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER + 4096), audioSamples, 4096);
-        mPlayFrame++;
+        mHlsLoader->mPlayFrame++;
         }
       else
         memset ((int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER + 4096), 0, 4096);
@@ -220,6 +220,7 @@ static void listDirectory (std::string directoryName, std::string indent) {
 static void mp3PlayThread (void const* argument) {
 
   cLcd::debug ("mp3PlayThread");
+  mMp3PlayFrame = 0;
 
   //{{{  mount fatfs
   cFatFs* fatFs = cFatFs::create();
@@ -265,7 +266,6 @@ static void mp3PlayThread (void const* argument) {
       //{{{  play fileindex file
       int count = 0;
       int bytesLeft = 0;
-      mPlayFrame = 0;
 
       do {
         count++;
@@ -317,12 +317,12 @@ static void mp3PlayThread (void const* argument) {
                   }
                 else
                   bytesLeft = 0;
-                mPlayFrame++;
+                mMp3PlayFrame++;
                 }
               }
             if (mWaveChanged) {
               //{{{  seek new position
-              file.seek (mFrameOffsets [mPlayFrame] & 0xFFFFFFE0);
+              file.seek (mFrameOffsets [mMp3PlayFrame] & 0xFFFFFFE0);
               mWaveChanged = false;
               headerBytes = 0;
               }
@@ -511,12 +511,12 @@ static void netThread (void const* argument) {
 
     mLcd->setShowDebug (false, false, false, true);  // debug - title, info, lcdStats, footer
 
-    mRoot->addAt (new cBmpWidget (r1x80, 1, mTuneChan, mTuneChanChanged, 3, 3), 0, 0);
-    mRoot->add (new cBmpWidget (r2x80, 2, mTuneChan, mTuneChanChanged, 3, 3));
-    mRoot->add (new cBmpWidget (r3x80, 3, mTuneChan, mTuneChanChanged, 3, 3));
-    mRoot->add (new cBmpWidget (r4x80, 4, mTuneChan, mTuneChanChanged, 3, 3));
-    mRoot->add (new cBmpWidget (r5x80, 5, mTuneChan, mTuneChanChanged, 3, 3));
-    mRoot->add (new cBmpWidget (r6x80, 6, mTuneChan, mTuneChanChanged, 3, 3));
+    mRoot->addAt (new cBmpWidget (r1x80, 1, mHlsChan, mHlsChanChanged, 3, 3), 0, 0);
+    mRoot->add (new cBmpWidget (r2x80, 2, mHlsChan, mHlsChanChanged, 3, 3));
+    mRoot->add (new cBmpWidget (r3x80, 3, mHlsChan, mHlsChanChanged, 3, 3));
+    mRoot->add (new cBmpWidget (r4x80, 4, mHlsChan, mHlsChanChanged, 3, 3));
+    mRoot->add (new cBmpWidget (r5x80, 5, mHlsChan, mHlsChanChanged, 3, 3));
+    mRoot->add (new cBmpWidget (r6x80, 6, mHlsChan, mHlsChanChanged, 3, 3));
     mRoot->addBottomLeft (new cPowerWidget (mHlsLoader, mRoot->getWidth(), mRoot->getHeight()));
     mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, 2.0f, mRoot->getHeight()));
     mRoot->addAt (new cInfoTextBox (mHlsLoader, mRoot->getWidth(), 1.2), -2 + mRoot->getWidth()/2.0f, -3 + mRoot->getHeight());
@@ -571,9 +571,9 @@ static void mainThread (void const* argument) {
 
       mRoot->add (new cListWidget (mMp3Files, fileIndex, fileIndexChanged,
                                    mRoot->getWidth(), 0.6f * mRoot->getHeight()));
-      mRoot->add (new cWaveCentreWidget (mWave, mPlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
+      mRoot->add (new cWaveCentreWidget (mWave, mMp3PlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
                                          mRoot->getWidth(), 0.2f * mRoot->getHeight()));
-      mRoot->add (new cWaveLensWidget (mWave, mPlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
+      mRoot->add (new cWaveLensWidget (mWave, mMp3PlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
                                        mRoot->getWidth(), 0.2f * mRoot->getHeight()));
 
       mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, 2.0f, mRoot->getHeight()));
@@ -651,8 +651,8 @@ static void mainThread (void const* argument) {
     button ? mLcd->clear (COL_BLACK) : mRoot->render (mLcd);
     //if (tsState.touchDetected)
     //  mLcd->renderCursor (COL_MAGENTA, x[0], y[0], z[0] ? z[0] : cLcd::getHeight()/10);
-    mLcd->text (COL_YELLOW, cLcd::getFontHeight(), SD_info(),
-                cLcd::getWidthPix()/2, cLcd::getHeightPix()- cLcd::getLineHeight(), cLcd::getWidthPix(), cLcd::getLineHeight());
+    mLcd->text (COL_YELLOW, cLcd::getLcdFontHeight(), SD_info(),
+                cLcd::getLcdWidthPix()/2, cLcd::getLcdHeightPix()- cLcd::getLcdLineHeight(), cLcd::getLcdWidthPix(), cLcd::getLcdLineHeight());
     mLcd->endRender (button);
 
     if (mVolumeChanged && (int(mVolume * 100) != mIntVolume)) {
@@ -779,7 +779,7 @@ int main() {
   #endif
 
   mLcd = cLcd::create ("Player built at " + std::string(__TIME__) + " on " + std::string(__DATE__), true);
-  mRoot = new cRootContainer (cLcd::getWidthPix(), cLcd::getHeightPix());
+  mRoot = new cRootContainer (cLcd::getLcdWidthPix(), cLcd::getLcdHeightPix());
 
   osSemaphoreDef (aud);
   mAudSem = osSemaphoreCreate (osSemaphore (aud), -1);
