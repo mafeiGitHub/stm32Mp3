@@ -141,7 +141,7 @@ static void aacLoadThread (void const* argument) {
       }
 
     if (!mHlsLoader->load())
-      osDelay (1000);
+      osDelay (500);
 
     osSemaphoreWait (mHlsLoaderSem, osWaitForever);
     }
