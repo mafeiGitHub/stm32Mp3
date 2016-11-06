@@ -58,7 +58,10 @@ public:
   virtual void copy (uint8_t* src, int16_t x, int16_t y, uint16_t width, uint16_t height);
   virtual void copy (uint8_t* src, int16_t srcx, int16_t srcy, uint16_t srcWidth, int16_t srcHeight,
                      int16_t dstx, int16_t dsty, uint16_t dstWidth, uint16_t dstHeight);
+
+  virtual ID2D1Bitmap* allocBitmap (uint16_t width, uint16_t height) { return nullptr; }
   virtual void copy (ID2D1Bitmap* bitMap, int16_t x, int16_t y, uint16_t width, uint16_t height) {}
+
   virtual void size (const uint8_t* src, uint8_t* dst, uint16_t components,
                      uint16_t srcWidth, uint16_t srcHeight, uint16_t dstWidth, uint16_t dstHeight);
 
