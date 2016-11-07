@@ -48,7 +48,7 @@
 #include "widgets/cListWidget.h"
 #include "widgets/cTextBox.h"
 #include "widgets/cValueBox.h"
-#include "widgets/cSelectBox.h"
+#include "widgets/cSelectText.h"
 #include "widgets/cBmpWidget.h"
 #include "widgets/cWaveCentreWidget.h"
 #include "widgets/cWaveLensWidget.h"
@@ -110,7 +110,8 @@ static int* mFrameOffsets = nullptr;
 static cHlsLoader* mHlsLoader;
 static osSemaphoreId mHlsLoaderSem;
 static int mHlsChan = 3;
-static bool mHlsChanChanged = false;
+static int mHlsBitrate = 128000;
+static bool mHlsChanged = false;
 //}}}
 
 //{{{  audio callbacks
@@ -129,15 +130,37 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 //}}}
 
 //{{{
+static void initHlsMenu() {
+
+  mRoot->addBottomLeft (new cPowerWidget (mHlsLoader, mRoot->getWidth(), mRoot->getHeight()));
+
+  mRoot->addTopLeft (new cBmpWidget (r1x80, 1, mHlsChan, mHlsChanged, 3, 3));
+  mRoot->add (new cBmpWidget (r2x80, 2, mHlsChan, mHlsChanged, 3, 3));
+  mRoot->add (new cBmpWidget (r3x80, 3, mHlsChan, mHlsChanged, 3, 3));
+  mRoot->add (new cBmpWidget (r4x80, 4, mHlsChan, mHlsChanged, 3, 3));
+  mRoot->add (new cBmpWidget (r5x80, 5, mHlsChan, mHlsChanged, 3, 3));
+  mRoot->add (new cBmpWidget (r6x80, 6, mHlsChan, mHlsChanged, 3, 3));
+
+  mRoot->addAt (new cInfoTextBox (mHlsLoader, mRoot->getWidth(), 1.2), -2 + mRoot->getWidth()/2.0f, -3 + mRoot->getHeight());
+  mRoot->addBottomRight (new cDotsBox (mHlsLoader));
+
+  mRoot->addBottomLeft (new cSelectText("48", 48000, mHlsBitrate, mHlsChanged, 2));
+  mRoot->add (new cSelectText ("128", 128000, mHlsBitrate, mHlsChanged, 2));
+  mRoot->add (new cSelectText ("320", 320000, mHlsBitrate, mHlsChanged, 2));
+
+  mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, 2.0f, mRoot->getHeight()));
+  }
+//}}}
+//{{{
 static void aacLoadThread (void const* argument) {
 
   cLcd::debug ("aacLoadThread");
-  mHlsLoader->changeChan (mHlsChan); //- mHlsLoader->getFramesFromSec (20);
+  mHlsLoader->changeChan (mHlsChan, mHlsBitrate); //- mHlsLoader->getFramesFromSec (20);
 
   while (true) {
-    if (mHlsChanChanged) {
-      mHlsLoader->changeChan (mHlsChan);
-      mHlsChanChanged = false;
+    if (mHlsChanged) {
+      mHlsLoader->changeChan (mHlsChan, mHlsBitrate);
+      mHlsChanged = false;
       }
 
     if (!mHlsLoader->load())
@@ -175,7 +198,7 @@ static void aacPlayThread (void const* argument) {
       else
         memset ((int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER + 4096), 0, 4096);
 
-      if (mHlsChanChanged || !seqNum || (seqNum != lastSeqNum)) {
+      if (mHlsChanged || !seqNum || (seqNum != lastSeqNum)) {
         lastSeqNum = seqNum;
         osSemaphoreRelease (mHlsLoaderSem);
         }
@@ -184,6 +207,20 @@ static void aacPlayThread (void const* argument) {
   }
 //}}}
 
+//{{{
+static void initMp3Menu() {
+
+  mRoot->add (new cListWidget (mMp3Files, fileIndex, fileIndexChanged,
+                               mRoot->getWidth(), 0.6f * mRoot->getHeight()));
+
+  mRoot->add (new cWaveCentreWidget (mWave, mMp3PlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
+                                     mRoot->getWidth(), 0.2f * mRoot->getHeight()));
+  mRoot->add (new cWaveLensWidget (mWave, mMp3PlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
+                                   mRoot->getWidth(), 0.2f * mRoot->getHeight()));
+
+  mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, 2.0f, mRoot->getHeight()));
+  }
+//}}}
 //{{{
 static void listDirectory (std::string directoryName, std::string indent) {
 
@@ -509,17 +546,7 @@ static void netThread (void const* argument) {
       //}}}
 
     mLcd->setShowDebug (false, false, false, true);  // debug - title, info, lcdStats, footer
-
-    mRoot->addBottomLeft (new cPowerWidget (mHlsLoader, mRoot->getWidth(), mRoot->getHeight()));
-    mRoot->addTopLeft (new cBmpWidget (r1x80, 1, mHlsChan, mHlsChanChanged, 3, 3));
-    mRoot->add (new cBmpWidget (r2x80, 2, mHlsChan, mHlsChanChanged, 3, 3));
-    mRoot->add (new cBmpWidget (r3x80, 3, mHlsChan, mHlsChanChanged, 3, 3));
-    mRoot->add (new cBmpWidget (r4x80, 4, mHlsChan, mHlsChanChanged, 3, 3));
-    mRoot->add (new cBmpWidget (r5x80, 5, mHlsChan, mHlsChanChanged, 3, 3));
-    mRoot->add (new cBmpWidget (r6x80, 6, mHlsChan, mHlsChanChanged, 3, 3));
-    mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, 2.0f, mRoot->getHeight()));
-    mRoot->addAt (new cInfoTextBox (mHlsLoader, mRoot->getWidth(), 1.2), -2 + mRoot->getWidth()/2.0f, -3 + mRoot->getHeight());
-    mRoot->addBottomRight (new cDotsBox (mHlsLoader));
+    initHlsMenu();
 
     const osThreadDef_t osThreadAacLoad = { (char*)"aacLoad", aacLoadThread, osPriorityNormal, 0, 14000 };
     osThreadCreate (&osThreadAacLoad, NULL);
@@ -550,53 +577,46 @@ static void mainThread (void const* argument) {
   auto sdState = SD_Init();
   cLcd::debug ("SD init " + cLcd::dec (sdState));
 
-  if (SD_present()) {
-    if (BSP_PB_GetState (BUTTON_WAKEUP) == GPIO_PIN_SET) {
-      cLcd::debug ("USB MSC mainThread");
-      USBD_Init (&USBD_Device, &MSC_Desc, 0);
-      USBD_RegisterClass (&USBD_Device, &USBD_MSC);
-      USBD_MSC_RegisterStorage (&USBD_Device, (USBD_StorageTypeDef*)(&USBD_DISK_fops));
-      USBD_Start (&USBD_Device);
-      cLcd::debug ("USB ok");
-      }
-    else {
-      //{{{  mp3 player
-      cLcd::debug ("MP3 mainThread");
-
-      mFrameOffsets = (int*)pvPortMalloc (60*60*40*sizeof(int));
-      mWave = (uint8_t*)pvPortMalloc (60*60*40*2*sizeof(uint8_t));  // 1 hour of 40 mp3 frames per sec
-      mWave[0] = 0;
-      mWaveLoadFrame = 0;
-
-      mRoot->add (new cListWidget (mMp3Files, fileIndex, fileIndexChanged,
-                                   mRoot->getWidth(), 0.6f * mRoot->getHeight()));
-      mRoot->add (new cWaveCentreWidget (mWave, mMp3PlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
-                                         mRoot->getWidth(), 0.2f * mRoot->getHeight()));
-      mRoot->add (new cWaveLensWidget (mWave, mMp3PlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
-                                       mRoot->getWidth(), 0.2f * mRoot->getHeight()));
-
-      mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, 2.0f, mRoot->getHeight()));
-
-      const osThreadDef_t osThreadPlay =  { (char*)"Play", mp3PlayThread, osPriorityNormal, 0, 8192 };
-      osThreadCreate (&osThreadPlay, NULL);
-
-      const osThreadDef_t osThreadWave =  { (char*)"Wave", waveThread, osPriorityNormal, 0, 8192 };
-      osThreadCreate (&osThreadWave, NULL);
-      }
-      //}}}
-    }
-  else {
-    //{{{  hls aac player
+  if (!SD_present()) {
+    //{{{  HLS player
     cLcd::debug ("HLS mainThread");
 
     mHlsLoader = new cHlsLoader();
     osSemaphoreDef (hlsLoader);
     mHlsLoaderSem = osSemaphoreCreate (osSemaphore (hlsLoader), -1);
 
-    mRoot->addBottomLeft (new cPowerWidget (mHlsLoader, mRoot->getWidth(), mRoot->getHeight()));
-
     const osThreadDef_t osThreadNet =  { (char*)"Net", netThread, osPriorityNormal, 0, 1024 };
     osThreadCreate (&osThreadNet, NULL);
+    }
+    //}}}
+  else if (BSP_PB_GetState (BUTTON_WAKEUP) == GPIO_PIN_SET) {
+    //{{{  USB MSC
+    cLcd::debug ("USB MSC mainThread");
+
+    USBD_Init (&USBD_Device, &MSC_Desc, 0);
+    USBD_RegisterClass (&USBD_Device, &USBD_MSC);
+    USBD_MSC_RegisterStorage (&USBD_Device, (USBD_StorageTypeDef*)(&USBD_DISK_fops));
+    USBD_Start (&USBD_Device);
+
+    cLcd::debug ("USB ok");
+    }
+    //}}}
+  else {
+    //{{{  MP3 player
+    cLcd::debug ("MP3 mainThread");
+
+    mFrameOffsets = (int*)pvPortMalloc (60*60*40*sizeof(int));
+    mWave = (uint8_t*)pvPortMalloc (60*60*40*2*sizeof(uint8_t));  // 1 hour of 40 mp3 frames per sec
+    mWave[0] = 0;
+    mWaveLoadFrame = 0;
+
+    initMp3Menu();
+
+    const osThreadDef_t osThreadPlay =  { (char*)"Play", mp3PlayThread, osPriorityNormal, 0, 8192 };
+    osThreadCreate (&osThreadPlay, NULL);
+
+    const osThreadDef_t osThreadWave =  { (char*)"Wave", waveThread, osPriorityNormal, 0, 8192 };
+    osThreadCreate (&osThreadWave, NULL);
     }
     //}}}
 
@@ -650,8 +670,9 @@ static void mainThread (void const* argument) {
     button ? mLcd->clear (COL_BLACK) : mRoot->render (mLcd);
     //if (tsState.touchDetected)
     //  mLcd->renderCursor (COL_MAGENTA, x[0], y[0], z[0] ? z[0] : cLcd::getHeight()/10);
-    mLcd->text (COL_YELLOW, cLcd::getLcdFontHeight(), SD_info(),
-                cLcd::getLcdWidthPix()/2, cLcd::getLcdHeightPix()- cLcd::getLcdLineHeight(), cLcd::getLcdWidthPix(), cLcd::getLcdLineHeight());
+    mLcd->text (COL_YELLOW, mLcd->getLcdFontHeight(), SD_info(),
+                mLcd->getLcdWidthPix()/2, mLcd->getLcdHeightPix()- mLcd->getLcdLineHeight(),
+                mLcd->getLcdWidthPix(), mLcd->getLcdLineHeight());
     mLcd->endRender (button);
 
     if (mVolumeChanged && (int(mVolume * 100) != mIntVolume)) {
@@ -778,7 +799,7 @@ int main() {
   #endif
 
   mLcd = cLcd::create ("Player built at " + std::string(__TIME__) + " on " + std::string(__DATE__), true);
-  mRoot = new cRootContainer (cLcd::getLcdWidthPix(), cLcd::getLcdHeightPix());
+  mRoot = new cRootContainer (mLcd->getLcdWidthPix(), mLcd->getLcdHeightPix());
 
   osSemaphoreDef (aud);
   mAudSem = osSemaphoreCreate (osSemaphore (aud), -1);

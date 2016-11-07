@@ -11,19 +11,6 @@ public:
   static cLcd* create (std::string title, bool isr);
   static cLcd* get() { return mLcd; }
 
-  // static gets
-  #ifdef STM32F746G_DISCO
-    static uint16_t getLcdWidthPix() { return 480; }
-    static uint16_t getLcdHeightPix() { return 272; }
-    static uint16_t getLcdFontHeight() { return 16; }
-    static uint16_t getLcdLineHeight() { return 19; }
-  #else
-    static uint16_t getLcdWidthPix() { return 800; }
-    static uint16_t getLcdHeightPix() { return 480; }
-    static uint16_t getLcdFontHeight() { return 26; }
-    static uint16_t getLcdLineHeight() { return 30; }
-  #endif
-
   // static string utils
   static std::string hex (int value, uint8_t width = 0);
   static std::string dec (int value, uint8_t width = 0, char fill = ' ');
@@ -51,28 +38,26 @@ public:
   void displayOff();
 
   // iDraw
+  #ifdef STM32F769I_DISCO
+    uint16_t getLcdWidthPix() { return 800; }
+    uint16_t getLcdHeightPix() { return 480; }
+    uint16_t getLcdFontHeight() { return 26; }
+    uint16_t getLcdLineHeight() { return 30; }
+  #else
+    uint16_t getLcdWidthPix() { return 480; }
+    uint16_t getLcdHeightPix() { return 272; }
+    uint16_t getLcdFontHeight() { return 16; }
+    uint16_t getLcdLineHeight() { return 19; }
+  #endif
+
   virtual void pixel (uint32_t colour, int16_t x, int16_t y);
   virtual void rect (uint32_t col, int16_t x, int16_t y, uint16_t width, uint16_t height);
   virtual void stamp (uint32_t colour, uint8_t* src, int16_t x, int16_t y, uint16_t width, uint16_t height);
   virtual int text (uint32_t col, uint16_t fontHeight, std::string str, int16_t x, int16_t y, uint16_t width, uint16_t height);
+
   virtual void copy (uint8_t* src, int16_t x, int16_t y, uint16_t width, uint16_t height);
   virtual void copy (uint8_t* src, int16_t srcx, int16_t srcy, uint16_t srcWidth, int16_t srcHeight,
                      int16_t dstx, int16_t dsty, uint16_t dstWidth, uint16_t dstHeight);
-
-  virtual ID2D1Bitmap* allocBitmap (uint16_t width, uint16_t height) { return nullptr; }
-  virtual void copy (ID2D1Bitmap* bitMap, int16_t x, int16_t y, uint16_t width, uint16_t height) {}
-
-  virtual void size (const uint8_t* src, uint8_t* dst, uint16_t components,
-                     uint16_t srcWidth, uint16_t srcHeight, uint16_t dstWidth, uint16_t dstHeight);
-
-  virtual void pixelClipped (uint32_t colour, int16_t x, int16_t y);
-  virtual void stampClipped (uint32_t colour, uint8_t* src, int16_t x, int16_t y, uint16_t width, uint16_t height);
-  virtual void rectClipped (uint32_t colour, int16_t x, int16_t y, uint16_t width, uint16_t height);
-  virtual void rectOutline (uint32_t colour, int16_t x, int16_t y, uint16_t width, uint16_t height, uint8_t thickness);
-  virtual void clear (uint32_t colour);
-  virtual void ellipse (uint32_t colour, int16_t x, int16_t Ypos, uint16_t xradius, uint16_t yradius);
-  virtual void ellipseOutline (uint32_t colour, int16_t x, int16_t y, uint16_t xradius, uint16_t yradius);
-  virtual void line (uint32_t colour, int16_t x1, int16_t y1, int16_t x2, int16_t y2);
 
 private:
   void init (std::string title);
