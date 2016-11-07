@@ -80,7 +80,6 @@ static const USBD_StorageTypeDef USBD_DISK_fops = {
   (int8_t*)SD_InquiryData,
   };
 //}}}
-
 //{{{  static vars
 static USBD_HandleTypeDef USBD_Device;
 
@@ -110,10 +109,8 @@ static int* mFrameOffsets = nullptr;
 // hls
 static cHlsLoader* mHlsLoader;
 static osSemaphoreId mHlsLoaderSem;
-static int mHlsChan = 3;
-static int mHlsBitrate = 128000;
-static bool mHlsChanged = false;
-static bool mPlayFrameChanged = false;
+static int mHlsChan = 0;
+static int mHlsBitrate = 0;
 //}}}
 
 //{{{  audio callbacks
@@ -134,23 +131,23 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 //{{{
 static void initHlsMenu() {
 
-  mRoot->addBottomLeft (new cPowerWidget (mHlsLoader, mPlayFrameChanged, mRoot->getWidth(), mRoot->getHeight()));
+  mRoot->addBottomLeft (new cPowerWidget (mHlsLoader, mRoot->getWidth(), mRoot->getHeight()));
 
-  mRoot->addTopLeft (new cBmpWidget (r1x80, 1, mHlsChan, mHlsChanged, 3, 3));
-  mRoot->add (new cBmpWidget (r2x80, 2, mHlsChan, mHlsChanged, 3, 3));
-  mRoot->add (new cBmpWidget (r3x80, 3, mHlsChan, mHlsChanged, 3, 3));
-  mRoot->add (new cBmpWidget (r4x80, 4, mHlsChan, mHlsChanged, 3, 3));
-  mRoot->add (new cBmpWidget (r5x80, 5, mHlsChan, mHlsChanged, 3, 3));
-  mRoot->add (new cBmpWidget (r6x80, 6, mHlsChan, mHlsChanged, 3, 3));
+  mRoot->addTopLeft (new cBmpWidget (r1x80, 1, mHlsChan, mHlsLoader->mChanChanged, 3, 3));
+  mRoot->add (new cBmpWidget (r2x80, 2, mHlsChan,  mHlsLoader->mChanChanged, 3, 3));
+  mRoot->add (new cBmpWidget (r3x80, 3, mHlsChan,  mHlsLoader->mChanChanged, 3, 3));
+  mRoot->add (new cBmpWidget (r4x80, 4, mHlsChan,  mHlsLoader->mChanChanged, 3, 3));
+  mRoot->add (new cBmpWidget (r5x80, 5, mHlsChan,  mHlsLoader->mChanChanged, 3, 3));
+  mRoot->add (new cBmpWidget (r6x80, 6, mHlsChan,  mHlsLoader->mChanChanged, 3, 3));
 
   mRoot->addAt (new cInfoTextBox (mHlsLoader, mRoot->getWidth(), 1.2), -2 + mRoot->getWidth()/2.0f, -3 + mRoot->getHeight());
 
   mRoot->addBottomRight (new cDotsBox (mHlsLoader));
-  mRoot->addLeft (new cSelectText("48", 48000, mHlsBitrate, mHlsChanged, 2));
-  mRoot->addLeft (new cSelectText ("128", 128000, mHlsBitrate, mHlsChanged, 2));
-  mRoot->addLeft (new cSelectText ("320", 320000, mHlsBitrate, mHlsChanged, 2));
-  mRoot->addAbove (new cHlsIncBox (mHlsLoader,  "5s",  5, mPlayFrameChanged, 2));
-  mRoot->add (new cHlsIncBox (mHlsLoader, "-5s", -5, mPlayFrameChanged, 2));
+  mRoot->addLeft (new cSelectText("48", 48000, mHlsBitrate,  mHlsLoader->mChanChanged, 2));
+  mRoot->addLeft (new cSelectText ("128", 128000, mHlsBitrate,  mHlsLoader->mChanChanged, 2));
+  mRoot->addLeft (new cSelectText ("320", 320000, mHlsBitrate,  mHlsLoader->mChanChanged, 2));
+  mRoot->addAbove (new cHlsIncBox (mHlsLoader,  "5s",  5, 2));
+  mRoot->add (new cHlsIncBox (mHlsLoader, "-5s", -5, 2));
 
   mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, 2.0f, mRoot->getHeight()));
   }
@@ -159,13 +156,14 @@ static void initHlsMenu() {
 static void aacLoadThread (void const* argument) {
 
   cLcd::debug ("aacLoadThread");
-  mHlsLoader->changeChan (mHlsChan, mHlsBitrate); //- mHlsLoader->getFramesFromSec (20);
+
+  mHlsChan = 3;
+  mHlsBitrate = 128000;
+  mHlsLoader->mChanChanged = true;
 
   while (true) {
-    if (mHlsChanged) {
+    if (mHlsLoader->mChanChanged)
       mHlsLoader->changeChan (mHlsChan, mHlsBitrate);
-      mHlsChanged = false;
-      }
 
     if (!mHlsLoader->load())
       osDelay (500);
@@ -200,7 +198,7 @@ static void aacPlayThread (void const* argument) {
       else
         memset ((int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER + 4096), 0, 4096);
 
-      if (mHlsChanged || !seqNum || (seqNum != lastSeqNum)) {
+      if (mHlsLoader->mChanChanged || !seqNum || (seqNum != lastSeqNum)) {
         lastSeqNum = seqNum;
         osSemaphoreRelease (mHlsLoaderSem);
         }
