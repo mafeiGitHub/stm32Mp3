@@ -142,11 +142,11 @@ static void initHlsMenu() {
   mRoot->add (new cBmpWidget (r6x80, 6, mHlsChan, mHlsChanged, 3, 3));
 
   mRoot->addAt (new cInfoTextBox (mHlsLoader, mRoot->getWidth(), 1.2), -2 + mRoot->getWidth()/2.0f, -3 + mRoot->getHeight());
-  mRoot->addBottomRight (new cDotsBox (mHlsLoader));
 
-  mRoot->addBottomLeft (new cSelectText("48", 48000, mHlsBitrate, mHlsChanged, 2));
-  mRoot->add (new cSelectText ("128", 128000, mHlsBitrate, mHlsChanged, 2));
-  mRoot->add (new cSelectText ("320", 320000, mHlsBitrate, mHlsChanged, 2));
+  mRoot->addBottomRight (new cDotsBox (mHlsLoader));
+  mRoot->addLeft (new cSelectText("48", 48000, mHlsBitrate, mHlsChanged, 2));
+  mRoot->addLeft (new cSelectText ("128", 128000, mHlsBitrate, mHlsChanged, 2));
+  mRoot->addLeft (new cSelectText ("320", 320000, mHlsBitrate, mHlsChanged, 2));
 
   mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, 2.0f, mRoot->getHeight()));
   }
@@ -219,6 +219,8 @@ static void initMp3Menu() {
                                    mRoot->getWidth(), 0.2f * mRoot->getHeight()));
 
   mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, 2.0f, mRoot->getHeight()));
+
+  mRoot->addTopLeft (new cBmpWidget (r1x80, 1, mHlsChan, mHlsChanged, 3, 3));
   }
 //}}}
 //{{{
@@ -670,9 +672,9 @@ static void mainThread (void const* argument) {
     button ? mLcd->clear (COL_BLACK) : mRoot->render (mLcd);
     //if (tsState.touchDetected)
     //  mLcd->renderCursor (COL_MAGENTA, x[0], y[0], z[0] ? z[0] : cLcd::getHeight()/10);
-    mLcd->text (COL_YELLOW, mLcd->getLcdFontHeight(), SD_info(),
-                mLcd->getLcdWidthPix()/2, mLcd->getLcdHeightPix()- mLcd->getLcdLineHeight(),
-                mLcd->getLcdWidthPix(), mLcd->getLcdLineHeight());
+    mLcd->text (COL_YELLOW, cWidget::getFontHeight(), SD_info(),
+                mLcd->getLcdWidthPix()/2, mLcd->getLcdHeightPix()- cWidget::getBoxHeight(),
+                mLcd->getLcdWidthPix(), cWidget::getBoxHeight());
     mLcd->endRender (button);
 
     if (mVolumeChanged && (int(mVolume * 100) != mIntVolume)) {

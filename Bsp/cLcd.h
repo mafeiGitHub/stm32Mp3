@@ -41,13 +41,9 @@ public:
   #ifdef STM32F769I_DISCO
     uint16_t getLcdWidthPix() { return 800; }
     uint16_t getLcdHeightPix() { return 480; }
-    uint16_t getLcdFontHeight() { return 26; }
-    uint16_t getLcdLineHeight() { return 30; }
   #else
     uint16_t getLcdWidthPix() { return 480; }
     uint16_t getLcdHeightPix() { return 272; }
-    uint16_t getLcdFontHeight() { return 16; }
-    uint16_t getLcdLineHeight() { return 19; }
   #endif
 
   virtual void pixel (uint32_t colour, int16_t x, int16_t y);
