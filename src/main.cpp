@@ -57,8 +57,9 @@
 
 #include "decoders/cHlsLoader.h"
 #include "widgets/cHlsDotsBox.h"
-#include "widgets/cHlsPowerWidget.h"
+#include "widgets/cHlsIncBox.h"
 #include "widgets/cHlsInfoBox.h"
+#include "widgets/cHlsPowerWidget.h"
 //}}}
 
 const bool kStaticIp = false;
@@ -112,6 +113,7 @@ static osSemaphoreId mHlsLoaderSem;
 static int mHlsChan = 3;
 static int mHlsBitrate = 128000;
 static bool mHlsChanged = false;
+static bool mPlayFrameChanged = false;
 //}}}
 
 //{{{  audio callbacks
@@ -132,7 +134,7 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 //{{{
 static void initHlsMenu() {
 
-  mRoot->addBottomLeft (new cPowerWidget (mHlsLoader, mRoot->getWidth(), mRoot->getHeight()));
+  mRoot->addBottomLeft (new cPowerWidget (mHlsLoader, mPlayFrameChanged, mRoot->getWidth(), mRoot->getHeight()));
 
   mRoot->addTopLeft (new cBmpWidget (r1x80, 1, mHlsChan, mHlsChanged, 3, 3));
   mRoot->add (new cBmpWidget (r2x80, 2, mHlsChan, mHlsChanged, 3, 3));
@@ -147,6 +149,8 @@ static void initHlsMenu() {
   mRoot->addLeft (new cSelectText("48", 48000, mHlsBitrate, mHlsChanged, 2));
   mRoot->addLeft (new cSelectText ("128", 128000, mHlsBitrate, mHlsChanged, 2));
   mRoot->addLeft (new cSelectText ("320", 320000, mHlsBitrate, mHlsChanged, 2));
+  mRoot->addAbove (new cHlsIncBox (mHlsLoader,  "5s",  5, mPlayFrameChanged, 2));
+  mRoot->add (new cHlsIncBox (mHlsLoader, "-5s", -5, mPlayFrameChanged, 2));
 
   mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, 2.0f, mRoot->getHeight()));
   }
@@ -191,10 +195,8 @@ static void aacPlayThread (void const* argument) {
     if (osSemaphoreWait (mAudSem, 50) == osOK) {
       int seqNum;
       int16_t* audioSamples = mHlsLoader->getSamples (seqNum);
-      if (audioSamples) {
+      if (audioSamples)
         memcpy ((int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER + 4096), audioSamples, 4096);
-        mHlsLoader->mPlayFrame++;
-        }
       else
         memset ((int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER + 4096), 0, 4096);
 
