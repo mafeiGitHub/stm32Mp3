@@ -38,12 +38,12 @@ public:
   void displayOff();
 
   // iDraw
-  #ifdef STM32F769I_DISCO
-    uint16_t getLcdWidthPix() { return 800; }
-    uint16_t getLcdHeightPix() { return 480; }
-  #else
+  #ifdef STM32F746G_DISCO
     uint16_t getLcdWidthPix() { return 480; }
     uint16_t getLcdHeightPix() { return 272; }
+  #else
+    uint16_t getLcdWidthPix() { return 800; }
+    uint16_t getLcdHeightPix() { return 480; }
   #endif
 
   virtual void pixel (uint32_t colour, int16_t x, int16_t y);

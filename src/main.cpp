@@ -219,8 +219,6 @@ static void initMp3Menu() {
                                    mRoot->getWidth(), 0.2f * mRoot->getHeight()));
 
   mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, 2.0f, mRoot->getHeight()));
-
-  mRoot->addTopLeft (new cBmpWidget (r1x80, 1, mHlsChan, mHlsChanged, 3, 3));
   }
 //}}}
 //{{{
