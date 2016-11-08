@@ -24,8 +24,10 @@ char *strchr(), *strrchr();
 
 uint32_t get_sample_rate (const uint8_t sr_index);
 
-void* faad_malloc (size_t size);
-void faad_free (void* b);
+#define faad_malloc malloc
+#define faad_free free
+//#define faad_malloc pvPortMalloc
+//#define faad_free vPortFree
 
 //#define FIXED_POINT
 #define ERROR_RESILIENCE

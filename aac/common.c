@@ -184,22 +184,6 @@ int8_t can_decode_ot (const uint8_t object_type)
 /*}}}*/
 
 /*{{{*/
-void* faad_malloc (size_t size)
-{
-    //return pvPortMalloc(size);
-    return malloc(size);
-}
-/*}}}*/
-/*{{{*/
-/* common free function */
-void faad_free (void *b)
-{
-    //vPortFree(b);
-    free(b);
-}
-/*}}}*/
-
-/*{{{*/
 static const  uint8_t    Parity [256] = {  // parity
     0,1,1,0,1,0,0,1,1,0,0,1,0,1,1,0,1,0,0,1,0,1,1,0,0,1,1,0,1,0,0,1,
     1,0,0,1,0,1,1,0,0,1,1,0,1,0,0,1,0,1,1,0,1,0,0,1,1,0,0,1,0,1,1,0,

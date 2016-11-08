@@ -138,6 +138,8 @@ static void hlsLoaderThread (void const* argument) {
 //{{{
 static void hlsPlayerThread (void const* argument) {
 
+  const int kAudioBuffer = 1024 * 2 * 2 * 2; // 8192 = 1024 samplesPerFrame * 2 chans * 2 bytesPperSample * 2 swing buffers
+
   #ifdef STM32F746G_DISCO
     BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mVolume * 100), 48000);
     BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
@@ -146,8 +148,8 @@ static void hlsPlayerThread (void const* argument) {
     BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);
   #endif
 
-  memset ((void*)AUDIO_BUFFER, 0, 8192);
-  BSP_AUDIO_OUT_Play ((uint16_t*)AUDIO_BUFFER, 8192);
+  memset ((void*)AUDIO_BUFFER, 0, kAudioBuffer);
+  BSP_AUDIO_OUT_Play ((uint16_t*)AUDIO_BUFFER, kAudioBuffer);
 
   int lastSeqNum = 0;
   while (true) {
@@ -155,9 +157,9 @@ static void hlsPlayerThread (void const* argument) {
       int seqNum;
       int16_t* audioSamples = mHlsLoader->getSamples (seqNum);
       if (mHlsLoader->getPlaying() && audioSamples)
-        memcpy ((int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER + 4096), audioSamples, 4096);
+        memcpy ((int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER + kAudioBuffer/2), audioSamples, kAudioBuffer/2);
       else
-        memset ((int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER + 4096), 0, 4096);
+        memset ((int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER + kAudioBuffer/2), 0, kAudioBuffer/2);
 
       if (mHlsLoader->mChanChanged || !seqNum || (seqNum != lastSeqNum)) {
         lastSeqNum = seqNum;
@@ -476,10 +478,10 @@ static void netThread (void const* argument) {
       while (true) {
         if (netIf.ip_addr.addr) {
           //{{{  dhcp allocated
-          cLcd::debug (COL_YELLOW, "dhcp allocated " + cLcd::dec ( (int)(netIf.ip_addr.addr & 0xFF)) + "." +
-                                                       cLcd::dec ((int)((netIf.ip_addr.addr >> 16) & 0xFF)) + "." +
-                                                       cLcd::dec ((int)((netIf.ip_addr.addr >> 8) & 0xFF)) + "." +
-                                                       cLcd::dec ( (int)(netIf.ip_addr.addr >> 24)));
+          cLcd::debug (COL_YELLOW, "dhcp " + cLcd::dec ( (int)(netIf.ip_addr.addr & 0xFF)) + "." +
+                                             cLcd::dec ((int)((netIf.ip_addr.addr >> 16) & 0xFF)) + "." +
+                                             cLcd::dec ((int)((netIf.ip_addr.addr >> 8) & 0xFF)) + "." +
+                                             cLcd::dec ( (int)(netIf.ip_addr.addr >> 24)));
           dhcp_stop (&netIf);
           break;
           }
