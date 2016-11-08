@@ -53,13 +53,8 @@
 #include "widgets/cWaveCentreWidget.h"
 #include "widgets/cWaveLensWidget.h"
 
-#include "icons/radioIcon.h"
-
-#include "decoders/cHlsLoader.h"
-#include "widgets/cHlsDotsBox.h"
-#include "widgets/cHlsIncBox.h"
-#include "widgets/cHlsInfoBox.h"
-#include "widgets/cHlsPowerWidget.h"
+#include "hls/icons.h"
+#include "hls/hls.h"
 //}}}
 const bool kSdDebug = false;
 const bool kStaticIp = false;
@@ -128,30 +123,7 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 //}}}
 //}}}
 
-//{{{
-static void initHlsMenu() {
-
-  mRoot->addBottomLeft (new cPowerWidget (mHlsLoader, mRoot->getWidth(), mRoot->getHeight()));
-
-  mRoot->addTopLeft (new cBmpWidget (r1x80, 1, mHlsChan, mHlsLoader->mChanChanged, 3, 3));
-  mRoot->add (new cBmpWidget (r2x80, 2, mHlsChan,  mHlsLoader->mChanChanged, 3, 3));
-  mRoot->add (new cBmpWidget (r3x80, 3, mHlsChan,  mHlsLoader->mChanChanged, 3, 3));
-  mRoot->add (new cBmpWidget (r4x80, 4, mHlsChan,  mHlsLoader->mChanChanged, 3, 3));
-  mRoot->add (new cBmpWidget (r5x80, 5, mHlsChan,  mHlsLoader->mChanChanged, 3, 3));
-  mRoot->add (new cBmpWidget (r6x80, 6, mHlsChan,  mHlsLoader->mChanChanged, 3, 3));
-
-  mRoot->addAt (new cInfoTextBox (mHlsLoader, mRoot->getWidth(), 1.2), -2 + mRoot->getWidth()/2.0f, -3 + mRoot->getHeight());
-
-  mRoot->addBottomRight (new cDotsBox (mHlsLoader));
-  mRoot->addLeft (new cSelectText ("128", 128000, mHlsBitrate,  mHlsLoader->mChanChanged, 2));
-  mRoot->addLeft (new cSelectText ("320", 320000, mHlsBitrate,  mHlsLoader->mChanChanged, 2));
-
-  mRoot->addAt (new cHlsIncBox (mHlsLoader, "-m", -60, 2), 0, -3 + mRoot->getHeight());
-  mRoot->addAt (new cHlsIncBox (mHlsLoader, "m", 60, 2), -2 + mRoot->getWidth(), -3 + mRoot->getHeight());
-
-  mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, 1, mRoot->getHeight()))->setOverPick (1);
-  }
-//}}}
+#include "hls/menu.inc"
 //{{{
 static void aacLoadThread (void const* argument) {
 
@@ -188,8 +160,8 @@ static void aacPlayThread (void const* argument) {
   while (true) {
     if (osSemaphoreWait (mAudSem, 50) == osOK) {
       int seqNum;
-      int16_t* audioSamples = mHlsLoader->getSamples (seqNum);
-      if (mHlsLoader->mPlaying && audioSamples)
+      int16_t* audioSamples = mHlsLoader->getSamples (seqNum, 1);
+      if (mHlsLoader->getPlaying() && audioSamples)
         memcpy ((int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER + 4096), audioSamples, 4096);
       else
         memset ((int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER + 4096), 0, 4096);
