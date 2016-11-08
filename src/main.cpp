@@ -61,7 +61,7 @@
 #include "widgets/cHlsInfoBox.h"
 #include "widgets/cHlsPowerWidget.h"
 //}}}
-
+const bool kSdDebug = false;
 const bool kStaticIp = false;
 //{{{
 static const uint8_t SD_InquiryData[] = {
@@ -143,21 +143,19 @@ static void initHlsMenu() {
   mRoot->addAt (new cInfoTextBox (mHlsLoader, mRoot->getWidth(), 1.2), -2 + mRoot->getWidth()/2.0f, -3 + mRoot->getHeight());
 
   mRoot->addBottomRight (new cDotsBox (mHlsLoader));
-  mRoot->addLeft (new cSelectText("48", 48000, mHlsBitrate,  mHlsLoader->mChanChanged, 2));
   mRoot->addLeft (new cSelectText ("128", 128000, mHlsBitrate,  mHlsLoader->mChanChanged, 2));
   mRoot->addLeft (new cSelectText ("320", 320000, mHlsBitrate,  mHlsLoader->mChanChanged, 2));
-  mRoot->addAbove (new cHlsIncBox (mHlsLoader,  "5s",  5, 2));
-  mRoot->add (new cHlsIncBox (mHlsLoader, "-5s", -5, 2));
 
-  mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, 2.0f, mRoot->getHeight()));
+  mRoot->addAt (new cHlsIncBox (mHlsLoader, "-m", -60, 2), 0, -3 + mRoot->getHeight());
+  mRoot->addAt (new cHlsIncBox (mHlsLoader, "m", 60, 2), -2 + mRoot->getWidth(), -3 + mRoot->getHeight());
+
+  mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, 1, mRoot->getHeight()))->setOverPick (1);
   }
 //}}}
 //{{{
 static void aacLoadThread (void const* argument) {
 
-  cLcd::debug ("aacLoadThread");
-
-  mHlsChan = 3;
+  mHlsChan = 4;
   mHlsBitrate = 128000;
   mHlsLoader->mChanChanged = true;
 
@@ -175,8 +173,6 @@ static void aacLoadThread (void const* argument) {
 //{{{
 static void aacPlayThread (void const* argument) {
 
-  cLcd::debug ("aacPlayThread");
-
   #ifdef STM32F746G_DISCO
     BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mVolume * 100), 48000);
     BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
@@ -193,7 +189,7 @@ static void aacPlayThread (void const* argument) {
     if (osSemaphoreWait (mAudSem, 50) == osOK) {
       int seqNum;
       int16_t* audioSamples = mHlsLoader->getSamples (seqNum);
-      if (audioSamples)
+      if (mHlsLoader->mPlaying && audioSamples)
         memcpy ((int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER + 4096), audioSamples, 4096);
       else
         memset ((int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER + 4096), 0, 4096);
@@ -574,13 +570,9 @@ static void mainThread (void const* argument) {
   const bool kMaxTouch = 1;
   mLcd->displayOn();
 
-  auto sdState = SD_Init();
-  cLcd::debug ("SD init " + cLcd::dec (sdState));
-
+  SD_Init();
   if (!SD_present()) {
     //{{{  HLS player
-    cLcd::debug ("HLS mainThread");
-
     mHlsLoader = new cHlsLoader();
     osSemaphoreDef (hlsLoader);
     mHlsLoaderSem = osSemaphoreCreate (osSemaphore (hlsLoader), -1);
@@ -591,20 +583,15 @@ static void mainThread (void const* argument) {
     //}}}
   else if (BSP_PB_GetState (BUTTON_WAKEUP) == GPIO_PIN_SET) {
     //{{{  USB MSC
-    cLcd::debug ("USB MSC mainThread");
-
     USBD_Init (&USBD_Device, &MSC_Desc, 0);
     USBD_RegisterClass (&USBD_Device, &USBD_MSC);
     USBD_MSC_RegisterStorage (&USBD_Device, (USBD_StorageTypeDef*)(&USBD_DISK_fops));
     USBD_Start (&USBD_Device);
-
     cLcd::debug ("USB ok");
     }
     //}}}
   else {
     //{{{  MP3 player
-    cLcd::debug ("MP3 mainThread");
-
     mFrameOffsets = (int*)pvPortMalloc (60*60*40*sizeof(int));
     mWave = (uint8_t*)pvPortMalloc (60*60*40*2*sizeof(uint8_t));  // 1 hour of 40 mp3 frames per sec
     mWave[0] = 0;
@@ -670,9 +657,10 @@ static void mainThread (void const* argument) {
     button ? mLcd->clear (COL_BLACK) : mRoot->render (mLcd);
     //if (tsState.touchDetected)
     //  mLcd->renderCursor (COL_MAGENTA, x[0], y[0], z[0] ? z[0] : cLcd::getHeight()/10);
-    mLcd->text (COL_YELLOW, cWidget::getFontHeight(), SD_info(),
-                mLcd->getLcdWidthPix()/2, mLcd->getLcdHeightPix()- cWidget::getBoxHeight(),
-                mLcd->getLcdWidthPix(), cWidget::getBoxHeight());
+    if (kSdDebug)
+      mLcd->text (COL_YELLOW, cWidget::getFontHeight(), SD_info(),
+                  mLcd->getLcdWidthPix()/2, mLcd->getLcdHeightPix()- cWidget::getBoxHeight(),
+                  mLcd->getLcdWidthPix(), cWidget::getBoxHeight());
     mLcd->endRender (button);
 
     if (mVolumeChanged && (int(mVolume * 100) != mIntVolume)) {
