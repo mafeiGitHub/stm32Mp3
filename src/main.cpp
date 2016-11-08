@@ -53,7 +53,6 @@
 #include "widgets/cWaveCentreWidget.h"
 #include "widgets/cWaveLensWidget.h"
 
-#include "hls/icons.h"
 #include "hls/hls.h"
 //}}}
 const bool kSdDebug = false;
@@ -80,9 +79,9 @@ static USBD_HandleTypeDef USBD_Device;
 
 static osSemaphoreId mAudSem;
 static bool mAudHalf = false;
+static int mIntVolume = 0;
 
 static float mVolume = 0.7f;
-static int mIntVolume = 0;
 static bool mVolumeChanged = false;
 
 // ui
@@ -104,8 +103,6 @@ static int* mFrameOffsets = nullptr;
 // hls
 static cHlsLoader* mHlsLoader;
 static osSemaphoreId mHlsLoaderSem;
-static int mHlsChan = 0;
-static int mHlsBitrate = 0;
 //}}}
 
 //{{{  audio callbacks
@@ -123,17 +120,13 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 //}}}
 //}}}
 
-#include "hls/menu.inc"
 //{{{
-static void aacLoadThread (void const* argument) {
+static void hlsLoaderThread (void const* argument) {
 
-  mHlsChan = 4;
-  mHlsBitrate = 128000;
   mHlsLoader->mChanChanged = true;
-
   while (true) {
     if (mHlsLoader->mChanChanged)
-      mHlsLoader->changeChan (mHlsChan, mHlsBitrate);
+      mHlsLoader->changeChan (mHlsLoader->mHlsChan, mHlsLoader->mHlsBitrate);
 
     if (!mHlsLoader->load())
       osDelay (500);
@@ -143,7 +136,7 @@ static void aacLoadThread (void const* argument) {
   }
 //}}}
 //{{{
-static void aacPlayThread (void const* argument) {
+static void hlsPlayerThread (void const* argument) {
 
   #ifdef STM32F746G_DISCO
     BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mVolume * 100), 48000);
@@ -160,7 +153,7 @@ static void aacPlayThread (void const* argument) {
   while (true) {
     if (osSemaphoreWait (mAudSem, 50) == osOK) {
       int seqNum;
-      int16_t* audioSamples = mHlsLoader->getSamples (seqNum, 1);
+      int16_t* audioSamples = mHlsLoader->getSamples (seqNum);
       if (mHlsLoader->getPlaying() && audioSamples)
         memcpy ((int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER + 4096), audioSamples, 4096);
       else
@@ -239,7 +232,6 @@ static void mp3PlayThread (void const* argument) {
                " freeSectors:" + cLcd::dec (fatFs->getFreeSectors()));
   //}}}
   listDirectory ("", "");
-  mLcd->setShowDebug (false, false, false, true);  // disable debug - title, info, lcdStats, footer
 
   auto mp3Decoder = new cMp3Decoder;
   cLcd::debug ("play mp3Decoder");
@@ -513,13 +505,10 @@ static void netThread (void const* argument) {
       }
       //}}}
 
-    mLcd->setShowDebug (false, false, false, true);  // debug - title, info, lcdStats, footer
-    initHlsMenu();
-
-    const osThreadDef_t osThreadAacLoad = { (char*)"aacLoad", aacLoadThread, osPriorityNormal, 0, 14000 };
-    osThreadCreate (&osThreadAacLoad, NULL);
-    const osThreadDef_t osThreadAacPlay = { (char*)"aacPlay", aacPlayThread, osPriorityAboveNormal, 0, 2000 };
-    osThreadCreate (&osThreadAacPlay, NULL);
+    const osThreadDef_t osThreadHlsLoader = { (char*)"hlsLoad", hlsLoaderThread, osPriorityNormal, 0, 14000 };
+    osThreadCreate (&osThreadHlsLoader, NULL);
+    const osThreadDef_t osThreadHlsPlayer = { (char*)"hlsPlay", hlsPlayerThread, osPriorityAboveNormal, 0, 2000 };
+    osThreadCreate (&osThreadHlsPlayer, NULL);
     const osThreadDef_t osThreadHttp = { (char*)"http", httpServerThread, osPriorityNormal, 0, DEFAULT_THREAD_STACKSIZE };
     osThreadCreate (&osThreadHttp, NULL);
 
@@ -549,6 +538,10 @@ static void mainThread (void const* argument) {
     osSemaphoreDef (hlsLoader);
     mHlsLoaderSem = osSemaphoreCreate (osSemaphore (hlsLoader), -1);
 
+    hlsMenu (mRoot, mHlsLoader);
+    mLcd->setShowDebug (false, false, false, true);  // debug - title, info, lcdStats, footer
+
+
     const osThreadDef_t osThreadNet =  { (char*)"Net", netThread, osPriorityNormal, 0, 1024 };
     osThreadCreate (&osThreadNet, NULL);
     }
@@ -570,6 +563,7 @@ static void mainThread (void const* argument) {
     mWaveLoadFrame = 0;
 
     initMp3Menu();
+    mLcd->setShowDebug (false, false, false, true);  // disable debug - title, info, lcdStats, footer
 
     const osThreadDef_t osThreadPlay =  { (char*)"Play", mp3PlayThread, osPriorityNormal, 0, 8192 };
     osThreadCreate (&osThreadPlay, NULL);
@@ -634,14 +628,24 @@ static void mainThread (void const* argument) {
                   mLcd->getLcdWidthPix()/2, mLcd->getLcdHeightPix()- cWidget::getBoxHeight(),
                   mLcd->getLcdWidthPix(), cWidget::getBoxHeight());
     mLcd->endRender (button);
-
-    if (mVolumeChanged && (int(mVolume * 100) != mIntVolume)) {
-      //{{{  set volume
-      mIntVolume = int(mVolume * 100);
-      BSP_AUDIO_OUT_SetVolume (mIntVolume);
-      mVolumeChanged = false;
+    if (mHlsLoader) {
+      if (mHlsLoader->mVolumeChanged && (int(mHlsLoader->mVolume * 100) != mIntVolume)) {
+        //{{{  set volume
+        mIntVolume = int(mHlsLoader->mVolume * 100);
+        BSP_AUDIO_OUT_SetVolume (mIntVolume);
+        mHlsLoader->mVolumeChanged = false;
+        }
+        //}}}
       }
-      //}}}
+    else {
+      if (mVolumeChanged && (int(mVolume * 100) != mIntVolume)) {
+        //{{{  set volume
+        mIntVolume = int(mVolume * 100);
+        BSP_AUDIO_OUT_SetVolume (mIntVolume);
+        mVolumeChanged = false;
+        }
+        //}}}
+      }
     }
   }
 //}}}

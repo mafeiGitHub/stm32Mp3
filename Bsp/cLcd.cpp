@@ -524,11 +524,8 @@ void cLcd::endRender (bool forceInfo) {
   if (mShowFooter || forceInfo)
     //{{{  draw footer
     text (COL_YELLOW, cWidget::getFontHeight(),
-          dec (xPortGetFreeHeapSize()) + " " +
-          dec (osGetCPUUsage()) + "% " +
-          dec (mDrawTime) + "ms " +
-          dec (mDma2dCurBuf - mDma2dBuf),
-          0, getLcdHeightPix()-cWidget::getBoxHeight(), getLcdWidthPix(), cWidget::getBoxHeight());
+          dec (xPortGetFreeHeapSize()) + " " + dec (osGetCPUUsage()) + "% " + dec (mDrawTime) + "ms " + dec (mDma2dCurBuf - mDma2dBuf),
+          0, -cWidget::getFontHeight() + getLcdHeightPix(), getLcdWidthPix(), cWidget::getFontHeight());
     //}}}
 
   // terminate opCode buffer
