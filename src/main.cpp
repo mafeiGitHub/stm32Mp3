@@ -103,6 +103,7 @@ static int* mFrameOffsets = nullptr;
 // hls
 static cHlsLoader* mHlsLoader;
 static osSemaphoreId mHlsLoaderSem;
+static int16_t* mReSamples;
 //}}}
 
 //{{{  audio callbacks
@@ -120,6 +121,35 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 //}}}
 //}}}
 
+//{{{
+static int resample (int16_t* srcSamples, int16_t* dstSamples, float speed) {
+
+  float src = 0.0f;
+  if ((speed > 0) && (speed <= 2.0f)) {
+    for (int i = 0; i < 1024; i++) {
+      float subSrc = src - trunc(src);
+      float invSubSrc = 1.0f - subSrc;
+      *dstSamples++ = int16_t(((*(srcSamples + int(src)*2) * invSubSrc) + (*(srcSamples + int(src+1)*2) * subSrc)) / 2);
+      *dstSamples++ = int16_t(((*(srcSamples + int(src)*2 + 1) * invSubSrc) + (*(srcSamples + int(src+1)*2+1) * subSrc)) / 2);
+      src += speed;
+      }
+    }
+  else if ((speed < 0) && (speed > -2.0f)) {
+    // reverse
+    srcSamples += 2048;
+    for (int i = 0; i < 1024; i++) {
+      *dstSamples++ = *(srcSamples - int(src)*2 - 1);
+      *dstSamples++ = *(srcSamples - int(src)*2 - 2);
+      src -= speed;
+      }
+    src = -src;
+    }
+  else
+    memset (dstSamples, 0, 4096);
+
+  return int(src);
+  }
+//}}}
 //{{{
 static void hlsLoaderThread (void const* argument) {
 
@@ -155,9 +185,17 @@ static void hlsPlayerThread (void const* argument) {
   while (true) {
     if (osSemaphoreWait (mAudSem, 50) == osOK) {
       int seqNum;
-      int16_t* audioSamples = mHlsLoader->getSamples (seqNum);
-      if (mHlsLoader->getPlaying() && audioSamples)
-        memcpy ((int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER + kAudioBuffer/2), audioSamples, kAudioBuffer/2);
+      int numSamples;
+      auto sample = mHlsLoader->getPlaySample (seqNum, numSamples);
+      if (mHlsLoader->getScrubbing() && sample) {
+        int srcSamplesConsumed = resample (sample, mReSamples, mHlsLoader->mSpeed);
+        memcpy ((int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER + kAudioBuffer/2), mReSamples, kAudioBuffer/2);
+        mHlsLoader->incPlaySamples (srcSamplesConsumed);
+        }
+      else if (mHlsLoader->getPlaying() && sample) {
+        memcpy ((int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER + kAudioBuffer/2), sample, kAudioBuffer/2);
+        mHlsLoader->incPlayFrames (1);
+        }
       else
         memset ((int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER + kAudioBuffer/2), 0, kAudioBuffer/2);
 
@@ -539,6 +577,9 @@ static void mainThread (void const* argument) {
     mHlsLoader = new cHlsLoader();
     osSemaphoreDef (hlsLoader);
     mHlsLoaderSem = osSemaphoreCreate (osSemaphore (hlsLoader), -1);
+
+    mReSamples = (int16_t*)pvPortMalloc (4096);
+    memset (mReSamples, 0, 4096);
 
     hlsMenu (mRoot, mHlsLoader);
     mLcd->setShowDebug (false, false, false, true);  // debug - title, info, lcdStats, footer
