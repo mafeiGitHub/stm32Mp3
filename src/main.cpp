@@ -141,6 +141,7 @@ static void hlsPlayerThread (void const* argument) {
 
   const int kAudioBuffer = 1024 * 2 * 2 * 2; // 8192 = 1024 samplesPerFrame * 2 chans * 2 bytesPperSample * 2 swing buffers
 
+  //{{{  setup BSP_AUDIO_OUT
   #ifdef STM32F746G_DISCO
     BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mVolume * 100), 48000);
     BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
@@ -148,15 +149,17 @@ static void hlsPlayerThread (void const* argument) {
     BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 48000);
     BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);
   #endif
+  //}}}
 
   memset ((void*)AUDIO_BUFFER, 0, kAudioBuffer);
   BSP_AUDIO_OUT_Play ((uint16_t*)AUDIO_BUFFER, kAudioBuffer);
 
-  int seqNum = 0;
-  int lastSeqNum = 0;
-  int numSamples = 0;
-  int scrubCount = 0;
+  uint32_t seqNum = 0;
+  uint32_t lastSeqNum = 0;
+  uint32_t numSamples = 0;
+  uint16_t scrubCount = 0;
   double scrubSample = 0;
+
   while (true) {
     if (osSemaphoreWait (mAudSem, 50) == osOK) {
       int16_t* sample = nullptr;
