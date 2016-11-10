@@ -122,35 +122,6 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 //}}}
 
 //{{{
-static int resample (int16_t* srcSamples, int16_t* dstSamples, float speed) {
-
-  float src = 0.0f;
-  if ((speed > 0) && (speed <= 2.0f)) {
-    for (int i = 0; i < 1024; i++) {
-      float subSrc = src - trunc(src);
-      float invSubSrc = 1.0f - subSrc;
-      *dstSamples++ = int16_t(((*(srcSamples + int(src)*2) * invSubSrc) + (*(srcSamples + int(src+1)*2) * subSrc)) / 2);
-      *dstSamples++ = int16_t(((*(srcSamples + int(src)*2 + 1) * invSubSrc) + (*(srcSamples + int(src+1)*2+1) * subSrc)) / 2);
-      src += speed;
-      }
-    }
-  else if ((speed < 0) && (speed > -2.0f)) {
-    // reverse
-    srcSamples += 2048;
-    for (int i = 0; i < 1024; i++) {
-      *dstSamples++ = *(srcSamples - int(src)*2 - 1);
-      *dstSamples++ = *(srcSamples - int(src)*2 - 2);
-      src -= speed;
-      }
-    src = -src;
-    }
-  else
-    memset (dstSamples, 0, 4096);
-
-  return int(src);
-  }
-//}}}
-//{{{
 static void hlsLoaderThread (void const* argument) {
 
   mHlsLoader->mChanChanged = true;
@@ -181,21 +152,31 @@ static void hlsPlayerThread (void const* argument) {
   memset ((void*)AUDIO_BUFFER, 0, kAudioBuffer);
   BSP_AUDIO_OUT_Play ((uint16_t*)AUDIO_BUFFER, kAudioBuffer);
 
+  int seqNum = 0;
   int lastSeqNum = 0;
+  int numSamples = 0;
+  int scrubCount = 0;
+  double scrubSample = 0;
   while (true) {
     if (osSemaphoreWait (mAudSem, 50) == osOK) {
-      int seqNum;
-      int numSamples;
-      auto sample = mHlsLoader->getPlaySample (seqNum, numSamples);
-      if (mHlsLoader->getScrubbing() && sample) {
-        int srcSamplesConsumed = resample (sample, mReSamples, mHlsLoader->mSpeed);
-        memcpy ((int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER + kAudioBuffer/2), mReSamples, kAudioBuffer/2);
-        mHlsLoader->incPlaySamples (srcSamplesConsumed);
+      int16_t* sample = nullptr;
+      if (mHlsLoader->getScrubbing()) {
+        if (scrubCount == 0)
+          scrubSample = mHlsLoader->getPlaySample();
+        sample = mHlsLoader->getPlaySamples (scrubSample + (scrubCount * mHlsLoader->getSamplesPerFrame()), seqNum, numSamples);
+        if (scrubCount++ > 3) {
+          sample = nullptr;
+          scrubCount = 0;
+          }
         }
-      else if (mHlsLoader->getPlaying() && sample) {
+      else if (mHlsLoader->getPlaying()) {
+        sample = mHlsLoader->getPlaySamples (mHlsLoader->getPlaySample(), seqNum, numSamples);
+        if (sample)
+          mHlsLoader->incPlayFrame (1);
+        }
+
+      if (sample)
         memcpy ((int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER + kAudioBuffer/2), sample, kAudioBuffer/2);
-        mHlsLoader->incPlayFrames (1);
-        }
       else
         memset ((int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER + kAudioBuffer/2), 0, kAudioBuffer/2);
 
