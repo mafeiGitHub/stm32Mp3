@@ -166,7 +166,7 @@ static void hlsPlayerThread (void const* argument) {
       if (mHlsLoader->getScrubbing()) {
         if (scrubCount == 0)
           scrubSample = mHlsLoader->getPlaySample();
-        sample = mHlsLoader->getPlaySamples (scrubSample + (scrubCount * mHlsLoader->getSamplesPerFrame()), seqNum, numSamples);
+        sample = mHlsLoader->getPlaySamples (scrubSample + (scrubCount * kSamplesPerFrame), seqNum, numSamples);
         if (scrubCount++ > 3) {
           sample = nullptr;
           scrubCount = 0;
