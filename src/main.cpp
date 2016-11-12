@@ -101,8 +101,8 @@ static uint8_t* mWave = nullptr;
 static int* mFrameOffsets = nullptr;
 
 // hls
-static cHlsLoader* mHlsLoader;
-static osSemaphoreId mHlsLoaderSem;
+static cHls* mHls;
+static osSemaphoreId mHlsSem;
 static int16_t* mReSamples;
 //}}}
 
@@ -124,15 +124,15 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 //{{{
 static void hlsLoaderThread (void const* argument) {
 
-  mHlsLoader->mChanChanged = true;
+  mHls->mChanChanged = true;
   while (true) {
-    if (mHlsLoader->mChanChanged)
-      mHlsLoader->changeChan (mHlsLoader->mHlsChan, mHlsLoader->mHlsBitrate);
+    if (mHls->mChanChanged)
+      mHls->changeChan (mHls->mHlsChan, mHls->mHlsBitrate);
 
-    if (!mHlsLoader->load())
+    if (!mHls->load())
       osDelay (500);
 
-    osSemaphoreWait (mHlsLoaderSem, osWaitForever);
+    osSemaphoreWait (mHlsSem, osWaitForever);
     }
   }
 //}}}
@@ -163,19 +163,19 @@ static void hlsPlayerThread (void const* argument) {
   while (true) {
     if (osSemaphoreWait (mAudSem, 50) == osOK) {
       int16_t* sample = nullptr;
-      if (mHlsLoader->getScrubbing()) {
+      if (mHls->getScrubbing()) {
         if (scrubCount == 0)
-          scrubSample = mHlsLoader->getPlaySample();
-        sample = mHlsLoader->getPlaySamples (scrubSample + (scrubCount * kSamplesPerFrame), seqNum, numSamples);
+          scrubSample = mHls->getPlaySample();
+        sample = mHls->getPlaySamples (scrubSample + (scrubCount * kSamplesPerFrame), seqNum, numSamples);
         if (scrubCount++ > 3) {
           sample = nullptr;
           scrubCount = 0;
           }
         }
-      else if (mHlsLoader->getPlaying()) {
-        sample = mHlsLoader->getPlaySamples (mHlsLoader->getPlaySample(), seqNum, numSamples);
+      else if (mHls->getPlaying()) {
+        sample = mHls->getPlaySamples (mHls->getPlaySample(), seqNum, numSamples);
         if (sample)
-          mHlsLoader->incPlayFrame (1);
+          mHls->incPlayFrame (1);
         }
 
       if (sample)
@@ -183,9 +183,9 @@ static void hlsPlayerThread (void const* argument) {
       else
         memset ((int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER + kAudioBuffer/2), 0, kAudioBuffer/2);
 
-      if (mHlsLoader->mChanChanged || !seqNum || (seqNum != lastSeqNum)) {
+      if (mHls->mChanChanged || !seqNum || (seqNum != lastSeqNum)) {
         lastSeqNum = seqNum;
-        osSemaphoreRelease (mHlsLoaderSem);
+        osSemaphoreRelease (mHlsSem);
         }
       }
     }
@@ -558,14 +558,14 @@ static void mainThread (void const* argument) {
   SD_Init();
   if (!SD_present()) {
     //{{{  HLS player
-    mHlsLoader = new cHlsLoader();
+    mHls = new cHls();
     osSemaphoreDef (hlsLoader);
-    mHlsLoaderSem = osSemaphoreCreate (osSemaphore (hlsLoader), -1);
+    mHlsSem = osSemaphoreCreate (osSemaphore (hlsLoader), -1);
 
     mReSamples = (int16_t*)pvPortMalloc (4096);
     memset (mReSamples, 0, 4096);
 
-    hlsMenu (mRoot, mHlsLoader);
+    hlsMenu (mRoot, mHls);
     mLcd->setShowDebug (false, false, false, true);  // debug - title, info, lcdStats, footer
 
 
@@ -655,12 +655,12 @@ static void mainThread (void const* argument) {
                   mLcd->getLcdWidthPix()/2, mLcd->getLcdHeightPix()- cWidget::getBoxHeight(),
                   mLcd->getLcdWidthPix(), cWidget::getBoxHeight());
     mLcd->endRender (button);
-    if (mHlsLoader) {
-      if (mHlsLoader->mVolumeChanged && (int(mHlsLoader->mVolume * 100) != mIntVolume)) {
+    if (mHls) {
+      if (mHls->mVolumeChanged && (int(mHls->mVolume * 100) != mIntVolume)) {
         //{{{  set volume
-        mIntVolume = int(mHlsLoader->mVolume * 100);
+        mIntVolume = int(mHls->mVolume * 100);
         BSP_AUDIO_OUT_SetVolume (mIntVolume);
-        mHlsLoader->mVolumeChanged = false;
+        mHls->mVolumeChanged = false;
         }
         //}}}
       }
