@@ -40,9 +40,6 @@
 #include "cSd.h"
 #include "../fatfs/fatFs.h"
 
-#include "decoders/cMp3decoder.h"
-#include "../aac/neaacdec.h"
-
 #include "cLcd.h"
 #include "widgets/cRootContainer.h"
 #include "widgets/cListWidget.h"
@@ -53,7 +50,10 @@
 #include "widgets/cWaveCentreWidget.h"
 #include "widgets/cWaveLensWidget.h"
 
+#include "../aac/neaacdec.h"
 #include "hls/hls.h"
+
+#include "decoders/cMp3decoder.h"
 //}}}
 const bool kSdDebug = false;
 const bool kStaticIp = false;
