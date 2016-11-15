@@ -586,7 +586,7 @@ private:
               //{{{  header key char
               mScratch [mKeyStrLen] = tolower((uint8_t)(*data));
               if (mKeyStrLen >= maxScratch)
-                printf ("mScratch overflow\n");
+                printf ("mScratch header key overflow %d > %d\n", mKeyStrLen, maxScratch);
               else
                 mKeyStrLen++;
               break;
@@ -595,7 +595,7 @@ private:
               //{{{  header value char
               mScratch [mKeyStrLen + mValueStrLen] = *data;
               if (mKeyStrLen + mValueStrLen >= maxScratch)
-                printf ("mScratch overflow\n");
+                printf ("mScratch header value overflow %d + %d > %d\n", mKeyStrLen, mValueStrLen, maxScratch);
               else
                 mValueStrLen++;
               break;
