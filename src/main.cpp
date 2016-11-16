@@ -124,6 +124,8 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 //{{{
 static void hlsLoaderThread (void const* argument) {
 
+  mLcd->setShowDebug (false, false, false, true);  // debug - title, info, lcdStats, footer
+
   mHls->mChanChanged = true;
   while (true) {
     if (mHls->mChanChanged)
@@ -566,8 +568,6 @@ static void mainThread (void const* argument) {
     memset (mReSamples, 0, 4096);
 
     hlsMenu (mRoot, mHls);
-    mLcd->setShowDebug (false, false, false, true);  // debug - title, info, lcdStats, footer
-
 
     const osThreadDef_t osThreadNet =  { (char*)"Net", netThread, osPriorityNormal, 0, 1024 };
     osThreadCreate (&osThreadNet, NULL);
