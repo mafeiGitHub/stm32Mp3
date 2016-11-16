@@ -2,6 +2,7 @@
 #include <string>
 #include "../../shared/widgets/iDraw.h"
 
+class cFontChar;
 class cLcd : public iDraw {
 public:
   cLcd (uint32_t buffer0, uint32_t buffer1);
@@ -73,6 +74,7 @@ private:
   void displayTop();
   void displayTail();
   void updateNumDrawLines();
+  cFontChar* loadChar (uint16_t fontHeight, char ch);
 
   // static vars
   static cLcd* mLcd;
