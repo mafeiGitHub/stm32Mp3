@@ -127,9 +127,9 @@ static void hlsLoaderThread (void const* argument) {
   mHls->mChanChanged = true;
   while (true) {
     if (mHls->mChanChanged)
-      mHls->changeChan (mHls->mHlsChan, mHls->mHlsBitrate);
+      mHls->setChan (mHls->mHlsChan, mHls->mHlsBitrate);
 
-    if (!mHls->load())
+    if (!mHls->loadAtPlayFrame())
       osDelay (500);
 
     osSemaphoreWait (mHlsSem, osWaitForever);

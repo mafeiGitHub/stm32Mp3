@@ -34,19 +34,19 @@ public:
   ~cUrl() {
 
     if (scheme)
-      free (scheme);
+      vPortFree (scheme);
     if (host)
-      free (host);
+      vPortFree (host);
     if (port)
-      free (port);
+      vPortFree (port);
     if (query)
-      free (query);
+      vPortFree (query);
     if (fragment)
-      free (fragment);
+      vPortFree (fragment);
     if (username)
-      free (username);
+      vPortFree (username);
     if (password)
-      free (password);
+      vPortFree (password);
     }
   //}}}
   //{{{
@@ -69,7 +69,7 @@ public:
         return;
 
     // Copy the scheme to the storage
-    scheme = (char*)malloc (len+1);
+    scheme = (char*)pvPortMalloc (len+1);
     strncpy (scheme, curstr, len);
     scheme[len] = '\0';
 
@@ -116,7 +116,7 @@ public:
          tmpstr++;
 
       len = tmpstr - curstr;
-      username = (char*)malloc(len+1);
+      username = (char*)pvPortMalloc(len+1);
       strncpy (username, curstr, len);
       username[len] = '\0';
       //}}}
@@ -131,7 +131,7 @@ public:
           tmpstr++;
 
         len = tmpstr - curstr;
-        password = (char*)malloc (len+1);
+        password = (char*)pvPortMalloc (len+1);
         strncpy (password, curstr, len);
         password[len] = '\0';
         curstr = tmpstr;
@@ -161,7 +161,7 @@ public:
       }
 
     len = tmpstr - curstr;
-    host = (char*)malloc(len+1);
+    host = (char*)pvPortMalloc(len+1);
     strncpy (host, curstr, len);
     host[len] = '\0';
     curstr = tmpstr;
@@ -176,7 +176,7 @@ public:
         tmpstr++;
 
       len = tmpstr - curstr;
-      port = (char*)malloc(len+1);
+      port = (char*)pvPortMalloc(len+1);
       strncpy (port, curstr, len);
       port[len] = '\0';
       curstr = tmpstr;
@@ -199,7 +199,7 @@ public:
       tmpstr++;
 
     len = tmpstr - curstr;
-    path = (char*)malloc(len+1);
+    path = (char*)pvPortMalloc(len+1);
     strncpy (path, curstr, len);
     path[len] = '\0';
     curstr = tmpstr;
@@ -215,7 +215,7 @@ public:
         tmpstr++;
       len = tmpstr - curstr;
 
-      query = (char*)malloc(len+1);
+      query = (char*)pvPortMalloc(len+1);
       strncpy (query, curstr, len);
       query[len] = '\0';
       curstr = tmpstr;
@@ -232,7 +232,7 @@ public:
         tmpstr++;
       len = tmpstr - curstr;
 
-      fragment = (char*)malloc(len+1);
+      fragment = (char*)pvPortMalloc(len+1);
       strncpy (fragment, curstr, len);
       fragment[len] = '\0';
 
