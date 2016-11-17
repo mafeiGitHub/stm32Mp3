@@ -25,6 +25,8 @@
 
 #include "cSd.h"
 #include "../fatfs/fatFs.h"
+
+#include "utils.h"
 //}}}
 //{{{  defines
 #define FTP_VERSION              "FTP-2015-07-31"
@@ -277,7 +279,7 @@ private:
 
     deletebuf:
 
-    cLcd::debug ("rxcmd " + cLcd::dec (num) + " " + command + " " + parameters);
+    cLcd::debug ("rxcmd " + dec (num) + " " + command + " " + parameters);
 
     netbuf_delete (inbuf);
     return rc;
@@ -1101,8 +1103,8 @@ void ftpServerThread (void const* argument) {
     return;
     }
   cLcd::debug (ftpServer.mFatFs->getLabel() +
-               " vsn:" + cLcd::hex (ftpServer.mFatFs->getVolumeSerialNumber()) +
-               " freeSectors:" + cLcd::dec (ftpServer.mFatFs->getFreeSectors()));
+               " vsn:" + hex (ftpServer.mFatFs->getVolumeSerialNumber()) +
+               " freeSectors:" + dec (ftpServer.mFatFs->getFreeSectors()));
 
   // create the TCP connection handle
   struct netconn* ftpServerNetConn = netconn_new (NETCONN_TCP);

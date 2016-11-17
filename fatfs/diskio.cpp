@@ -8,6 +8,7 @@
 
 #include "cSd.h"
 
+#include "utils.h"
 #include "cLcd.h"
 //}}}
 
@@ -69,7 +70,7 @@ DRESULT diskIoctl (BYTE cmd, void* buff) {
 DRESULT diskRead (BYTE* buffer, DWORD sector, UINT count) {
 
   if ((uint32_t)buffer & 0x03) {
-    cLcd::debug ("diskRead align b:" + cLcd::hex ((int)buffer) + " sec:" + cLcd::dec (sector) + " num:" + cLcd::dec (count));
+    cLcd::debug ("diskRead align b:" + hex ((int)buffer) + " sec:" + dec (sector) + " num:" + dec (count));
 
     // not 32bit aligned, dma fails,
     auto tempBuffer = (uint8_t*)pvPortMalloc (count * SECTOR_SIZE);

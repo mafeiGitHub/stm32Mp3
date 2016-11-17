@@ -17,7 +17,7 @@
 #include "lwip/api.h"
 #include "os/ethernetif.h"
 
-#include "cHttp.h"
+#include "net/cHttpLwip.h"
 #include "../httpServer/httpServer.h"
 #include "../httpServer/ftpServer.h"
 
@@ -51,6 +51,7 @@
 #include "widgets/cWaveLensWidget.h"
 
 #include "../aac/neaacdec.h"
+#include "utils.h"
 #include "hls/hls.h"
 
 #include "decoders/cMp3decoder.h"
@@ -216,7 +217,7 @@ static void listDirectory (std::string directoryName, std::string indent) {
   cDirectory directory (directoryName);
   if (directory.getError()) {
     //{{{  open error
-    cLcd::debug (COL_RED, "directory open error:"  + cLcd::dec (directory.getError()));
+    cLcd::debug (COL_RED, "directory open error:"  + dec (directory.getError()));
     return;
     }
     //}}}
@@ -254,8 +255,8 @@ static void mp3PlayThread (void const* argument) {
     return;
     }
     //}}}
-  cLcd::debug (fatFs->getLabel() + " vsn:" + cLcd::hex (fatFs->getVolumeSerialNumber()) +
-               " freeSectors:" + cLcd::dec (fatFs->getFreeSectors()));
+  cLcd::debug (fatFs->getLabel() + " vsn:" + hex (fatFs->getVolumeSerialNumber()) +
+               " freeSectors:" + dec (fatFs->getFreeSectors()));
   //}}}
   listDirectory ("", "");
 
@@ -278,9 +279,9 @@ static void mp3PlayThread (void const* argument) {
   while (true) {
     cFile file (mMp3Files[fileIndex], FA_OPEN_EXISTING | FA_READ);
     if (file.getError())
-      cLcd::debug ("- play open failed " + cLcd::dec (file.getError()) + " " + mMp3Files[fileIndex]);
+      cLcd::debug ("- play open failed " + dec (file.getError()) + " " + mMp3Files[fileIndex]);
     else {
-      cLcd::debug ("play " + mMp3Files[fileIndex] + " " + cLcd::dec (file.getSize()));
+      cLcd::debug ("play " + mMp3Files[fileIndex] + " " + dec (file.getSize()));
       mWaveLoad = true;
 
       memset ((void*)AUDIO_BUFFER, 0, AUDIO_BUFFER_SIZE);
@@ -294,7 +295,7 @@ static void mp3PlayThread (void const* argument) {
         FRESULT fresult = file.read (chunkBuffer, fullChunkSize, bytesLeft);
         if (fresult) {
           //{{{  error
-          cLcd::debug ("play read " + cLcd::dec (count) + " " + cLcd::dec (fresult));
+          cLcd::debug ("play read " + dec (count) + " " + dec (fresult));
           osDelay (100);
           goto exitPlay;
           }
@@ -318,7 +319,7 @@ static void mp3PlayThread (void const* argument) {
                 FRESULT fresult = file.read (nextChunkPtr + bytesLeft, chunkSize, bytesLoaded);
                 if (fresult) {
                   //{{{  error
-                  cLcd::debug ("play read " + cLcd::dec (count) + " " + cLcd::dec (fresult));
+                  cLcd::debug ("play read " + dec (count) + " " + dec (fresult));
                   osDelay (100);
                   goto exitPlay;
                   }
@@ -386,7 +387,7 @@ static void waveThread (void const* argument) {
     cLcd::debug ("wave load " + mMp3Files[fileIndex]);
     cFile file (mMp3Files[fileIndex], FA_OPEN_EXISTING | FA_READ);
     if (file.getError())
-      cLcd::debug ("- wave open failed " + cLcd::dec (file.getError()) + " " + mMp3Files[fileIndex]);
+      cLcd::debug ("- wave open failed " + dec (file.getError()) + " " + mMp3Files[fileIndex]);
     else {
       int bytesLeft = 0;
       do {
@@ -394,7 +395,7 @@ static void waveThread (void const* argument) {
         FRESULT fresult = file.read (chunkBuffer, fullChunkSize, bytesLeft);;
         if (fresult) {
           //{{{  error
-          cLcd::debug ("wave read " + cLcd::dec (count) + " " + cLcd::dec (fresult));
+          cLcd::debug ("wave read " + dec (count) + " " + dec (fresult));
           osDelay (100);
           goto exitWave;
           }
@@ -418,7 +419,7 @@ static void waveThread (void const* argument) {
                 FRESULT fresult = file.read (nextChunkPtr + bytesLeft, chunkSize, bytesLoaded);
                 if (fresult) {
                   //{{{  error
-                  cLcd::debug ("wave read " + cLcd::dec (count) + " " + cLcd::dec (fresult));
+                  cLcd::debug ("wave read " + dec (count) + " " + dec (fresult));
                   osDelay (100);
                   goto exitWave;
                   }
@@ -485,10 +486,10 @@ static void netThread (void const* argument) {
     netif_set_up (&netIf);
     if (kStaticIp)
       //{{{  static ip
-      cLcd::debug (COL_YELLOW, "ethernet static ip " + cLcd::dec ((int) (netIf.ip_addr.addr & 0xFF)) + "." +
-                                                       cLcd::dec ((int)((netIf.ip_addr.addr >> 16) & 0xFF)) + "." +
-                                                       cLcd::dec ((int)((netIf.ip_addr.addr >> 8) & 0xFF)) + "." +
-                                                       cLcd::dec ((int) (netIf.ip_addr.addr >> 24)));
+      cLcd::debug (COL_YELLOW, "ethernet static ip " + dec ((int) (netIf.ip_addr.addr & 0xFF)) + "." +
+                                                       dec ((int)((netIf.ip_addr.addr >> 16) & 0xFF)) + "." +
+                                                       dec ((int)((netIf.ip_addr.addr >> 8) & 0xFF)) + "." +
+                                                       dec ((int) (netIf.ip_addr.addr >> 24)));
       //}}}
     else {
       //{{{  dhcp ip
@@ -502,10 +503,10 @@ static void netThread (void const* argument) {
       while (true) {
         if (netIf.ip_addr.addr) {
           //{{{  dhcp allocated
-          cLcd::debug (COL_YELLOW, "dhcp " + cLcd::dec ( (int)(netIf.ip_addr.addr & 0xFF)) + "." +
-                                             cLcd::dec ((int)((netIf.ip_addr.addr >> 16) & 0xFF)) + "." +
-                                             cLcd::dec ((int)((netIf.ip_addr.addr >> 8) & 0xFF)) + "." +
-                                             cLcd::dec ( (int)(netIf.ip_addr.addr >> 24)));
+          cLcd::debug (COL_YELLOW, "dhcp " + dec ( (int)(netIf.ip_addr.addr & 0xFF)) + "." +
+                                             dec ((int)((netIf.ip_addr.addr >> 16) & 0xFF)) + "." +
+                                             dec ((int)((netIf.ip_addr.addr >> 8) & 0xFF)) + "." +
+                                             dec ( (int)(netIf.ip_addr.addr >> 24)));
           dhcp_stop (&netIf);
           break;
           }

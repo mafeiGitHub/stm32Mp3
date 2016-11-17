@@ -13,8 +13,6 @@ public:
   static cLcd* get() { return mLcd; }
 
   // static string utils
-  static std::string hex (int value, uint8_t width = 0);
-  static std::string dec (int value, uint8_t width = 0, char fill = ' ');
   static void debug (uint32_t colour, std::string str, bool newLine = true) { get()->info (colour, str, newLine); }
   static void debug (std::string str) { get()->info (str); }
   static void debugF (std::string str) { get()->info (str); get()->flush(); }

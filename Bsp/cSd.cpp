@@ -4,6 +4,7 @@
 #include <string.h>
 #include "cmsis_os.h"
 
+#include "utils.h"
 #include "cLcd.h"
 //}}}
 
@@ -234,8 +235,8 @@ void SD_GetCardInfo (HAL_SD_CardInfoTypedef* CardInfo) {
 //}}}
 //{{{
 std::string SD_info() {
-  return "r:" + cLcd::dec (mReadHits) + ":" + cLcd::dec (mReads) + ":"  + cLcd::dec (mReadBlock + mReadMultipleLen) +
-         " w:" + cLcd::dec (mWrites);
+  return "r:" + dec (mReadHits) + ":" + dec (mReads) + ":"  + dec (mReadBlock + mReadMultipleLen) +
+         " w:" + dec (mWrites);
   }
 //}}}
 
@@ -308,7 +309,7 @@ int8_t SD_ReadCached (uint8_t* buf, uint32_t blk_addr, uint16_t blocks) {
     if (blk_addr != mReadBlock + mReadMultipleLen) {
       if (mReadMultipleLen) {
         // flush pending multiple
-        cLcd::debug ("rm:" + cLcd::dec (mReadBlock) + "::" + cLcd::dec (mReadMultipleLen));
+        cLcd::debug ("rm:" + dec (mReadBlock) + "::" + dec (mReadMultipleLen));
         mReadMultipleLen = 0;
         }
       mReadBlock = blk_addr;
@@ -331,7 +332,7 @@ int8_t SD_WriteCached (uint8_t* buf, uint32_t blk_addr, uint16_t blocks) {
     if (blk_addr != mWriteBlock + mWriteMultipleLen) {
       if (mWriteMultipleLen) {
         // flush pending multiple
-        cLcd::debug ("wm:" + cLcd::dec (mWriteBlock) + "::" + cLcd::dec (mWriteMultipleLen));
+        cLcd::debug ("wm:" + dec (mWriteBlock) + "::" + dec (mWriteMultipleLen));
         mWriteMultipleLen = 0;
         }
       mWriteBlock = blk_addr;

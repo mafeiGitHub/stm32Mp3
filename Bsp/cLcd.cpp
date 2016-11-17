@@ -24,6 +24,7 @@
 #include "cpuUsage.h"
 
 #include "widgets/cWidget.h"
+#include "utils.h"
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -364,28 +365,6 @@ cLcd* cLcd::create (std::string title, bool isr) {
     }
 
   return mLcd;
-  }
-//}}}
-//{{{
-std::string cLcd::hex (int value, uint8_t width) {
-
-  std::ostringstream os;
-  if (width)
-    os << std::hex << std::setfill ('0') << std::setw (width) << value;
-  else
-    os << std::hex << value;
-  return os.str();
-  }
-//}}}
-//{{{
-std::string cLcd::dec (int value, uint8_t width, char fill) {
-
-  std::ostringstream os;
-  if (width)
-    os << std::setfill (fill) << std::setw (width) << value;
-  else
-    os << value;
-  return os.str();
   }
 //}}}
 
@@ -850,9 +829,10 @@ void cLcd::init (std::string title) {
   // font init
   setFont (freeSansBold, freeSansBold_len);
   //setFont ((uint8_t*)0x90000000, 64228);
+
+  // prewarm cache
   for (char ch = 0x20; ch <= 0x7F; ch++)
     loadChar (cWidget::getFontHeight(), ch);
-
 
   setTitle (title);
   }
@@ -1370,16 +1350,6 @@ void cLcd::layerInit (uint8_t layer, uint32_t frameBufferAddress) {
 #endif
 
 //{{{
-void cLcd::setFont (const uint8_t* font, int length) {
-
-  FT_Init_FreeType (&FTlibrary);
-  FT_New_Memory_Face (FTlibrary, (FT_Byte*)font, length, 0, &FTface);
-  FTglyphSlot = FTface->glyph;
-  //FT_Done_Face(face);
-  //FT_Done_FreeType (library);
-  }
-//}}}
-//{{{
 void cLcd::setLayer (uint8_t layer, uint32_t frameBufferAddress) {
 
   mCurFrameBufferAddress = frameBufferAddress;
@@ -1391,6 +1361,42 @@ void cLcd::showLayer (uint8_t layer, uint32_t frameBufferAddress, uint8_t alpha)
 
   showFrameBufferAddress[layer] = frameBufferAddress;
   showAlpha[layer] = alpha;
+  }
+//}}}
+
+//{{{
+void cLcd::setFont (const uint8_t* font, int length) {
+
+  FT_Init_FreeType (&FTlibrary);
+  FT_New_Memory_Face (FTlibrary, (FT_Byte*)font, length, 0, &FTface);
+  FTglyphSlot = FTface->glyph;
+  //FT_Done_Face(face);
+  //FT_Done_FreeType (library);
+  }
+//}}}
+//{{{
+cFontChar* cLcd::loadChar (uint16_t fontHeight, char ch) {
+
+  FT_Set_Pixel_Sizes (FTface, 0, fontHeight);
+  FT_Load_Char (FTface, ch, FT_LOAD_RENDER);
+
+  auto fontChar = (cFontChar*)pvPortMalloc (sizeof(cFontChar));
+  fontChar->left = FTglyphSlot->bitmap_left;
+  fontChar->top = FTglyphSlot->bitmap_top;
+  fontChar->pitch = FTglyphSlot->bitmap.pitch;
+  fontChar->rows = FTglyphSlot->bitmap.rows;
+  fontChar->advance = FTglyphSlot->advance.x / 64;
+  fontChar->bitmap = nullptr;
+
+  if (FTglyphSlot->bitmap.buffer) {
+    fontChar->bitmap = (uint8_t*)pvPortMalloc (FTglyphSlot->bitmap.pitch * FTglyphSlot->bitmap.rows);
+    memcpy (fontChar->bitmap, FTglyphSlot->bitmap.buffer, FTglyphSlot->bitmap.pitch * FTglyphSlot->bitmap.rows);
+    }
+
+  auto insertPair = mFontCharMap.insert (cFontCharMap::value_type (fontHeight<<8 | ch, fontChar));
+  auto fontCharIt = insertPair.first;
+
+  return fontCharIt->second;
   }
 //}}}
 
@@ -1433,31 +1439,5 @@ void cLcd::updateNumDrawLines() {
     numDrawLines--;
 
   mNumDrawLines = numDrawLines;
-  }
-//}}}
-
-//{{{
-cFontChar* cLcd::loadChar (uint16_t fontHeight, char ch) {
-
-  FT_Set_Pixel_Sizes (FTface, 0, fontHeight);
-  FT_Load_Char (FTface, ch, FT_LOAD_RENDER);
-
-  auto fontChar = (cFontChar*)pvPortMalloc (sizeof(cFontChar));
-  fontChar->left = FTglyphSlot->bitmap_left;
-  fontChar->top = FTglyphSlot->bitmap_top;
-  fontChar->pitch = FTglyphSlot->bitmap.pitch;
-  fontChar->rows = FTglyphSlot->bitmap.rows;
-  fontChar->advance = FTglyphSlot->advance.x / 64;
-  fontChar->bitmap = nullptr;
-
-  if (FTglyphSlot->bitmap.buffer) {
-    fontChar->bitmap = (uint8_t*)pvPortMalloc (FTglyphSlot->bitmap.pitch * FTglyphSlot->bitmap.rows);
-    memcpy (fontChar->bitmap, FTglyphSlot->bitmap.buffer, FTglyphSlot->bitmap.pitch * FTglyphSlot->bitmap.rows);
-    }
-
-  auto insertPair = mFontCharMap.insert (cFontCharMap::value_type (fontHeight<<8 | ch, fontChar));
-  auto fontCharIt = insertPair.first;
-
-  return fontCharIt->second;
   }
 //}}}
