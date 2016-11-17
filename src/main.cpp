@@ -210,12 +210,12 @@ static void initMp3Menu() {
 //{{{
 static void listDirectory (std::string directoryName, std::string indent) {
 
-  cLcd::debug ("dir " + directoryName);
+  debug ("dir " + directoryName);
 
   cDirectory directory (directoryName);
   if (directory.getError()) {
     //{{{  open error
-    debugC (COL_RED, "directory open error:"  + dec (directory.getError()));
+    cLcd::get()->info (COL_RED, "directory open error:"  + dec (directory.getError()));
     return;
     }
     //}}}
@@ -484,10 +484,10 @@ static void netThread (void const* argument) {
     netif_set_up (&netIf);
     if (kStaticIp)
       //{{{  static ip
-      debugC (COL_YELLOW, "ethernet static ip " + dec ((int) (netIf.ip_addr.addr & 0xFF)) + "." +
-                                                       dec ((int)((netIf.ip_addr.addr >> 16) & 0xFF)) + "." +
-                                                       dec ((int)((netIf.ip_addr.addr >> 8) & 0xFF)) + "." +
-                                                       dec ((int) (netIf.ip_addr.addr >> 24)));
+      cLcd::get()->info (COL_YELLOW, "ethernet static ip " + dec ((int) (netIf.ip_addr.addr & 0xFF)) + "." +
+                                                      dec ((int)((netIf.ip_addr.addr >> 16) & 0xFF)) + "." +
+                                                      dec ((int)((netIf.ip_addr.addr >> 8) & 0xFF)) + "." +
+                                                      dec ((int) (netIf.ip_addr.addr >> 24)));
       //}}}
     else {
       //{{{  dhcp ip
@@ -501,17 +501,19 @@ static void netThread (void const* argument) {
       while (true) {
         if (netIf.ip_addr.addr) {
           //{{{  dhcp allocated
-          debugC (COL_YELLOW, "dhcp " + dec ( (int)(netIf.ip_addr.addr & 0xFF)) + "." +
-                                             dec ((int)((netIf.ip_addr.addr >> 16) & 0xFF)) + "." +
-                                             dec ((int)((netIf.ip_addr.addr >> 8) & 0xFF)) + "." +
-                                             dec ( (int)(netIf.ip_addr.addr >> 24)));
+          std::string address = dec ( (int)(netIf.ip_addr.addr & 0xFF)) + "." +
+                                dec ((int)((netIf.ip_addr.addr >> 16) & 0xFF)) + "." +
+                                dec ((int)((netIf.ip_addr.addr >> 8) & 0xFF)) + "." +
+                                dec ( (int)(netIf.ip_addr.addr >> 24));
+          cLcd::get()->info (COL_YELLOW, "dhcp " + address);
+
           dhcp_stop (&netIf);
           break;
           }
           //}}}
         else if (netIf.dhcp->tries > 4) {
           //{{{  dhcp timeout
-          debugC (COL_RED, "dhcp timeout");
+          cLcd::get()->info (COL_RED, "dhcp timeout");
           dhcp_stop (&netIf);
 
           // use static address
@@ -543,7 +545,7 @@ static void netThread (void const* argument) {
   else {
     //{{{  no ethernet
     netif_set_down (&netIf);
-    debugC (COL_RED, "no ethernet");
+    cLcd::get()->info (COL_RED, "no ethernet");
     }
     //}}}
 

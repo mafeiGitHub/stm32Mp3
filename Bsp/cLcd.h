@@ -17,8 +17,8 @@ public:
   void setShowDebug (bool title, bool info, bool lcdStats, bool footer);
 
   // string
-  void info (uint32_t colour, std::string str, bool newLine = true);
-  void info (std::string str, bool newLine = true);
+  void info (std::string str);
+  void info (uint32_t colour, std::string str);
 
   // touch
   void press (int pressCount, int16_t x, int16_t y, uint16_t z, int16_t xinc, int16_t yinc);

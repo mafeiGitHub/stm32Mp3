@@ -388,24 +388,23 @@ void cLcd::setShowDebug (bool title, bool info, bool lcdStats, bool footer) {
 //}}}
 
 //{{{
-void cLcd::info (uint32_t colour, std::string str, bool newLine) {
-
-  bool tailing = mLastLine == (int)mFirstLine + mNumDrawLines - 1;
-
-  auto line = (newLine && (mLastLine < mMaxLine-1)) ? mLastLine+1 : mLastLine;
-  mLines[line].mTime = osKernelSysTick();
-  mLines[line].mColour = colour;
-  mLines[line].mString = str;
-  if (newLine)
-    mLastLine = line;
-
-  if (tailing)
-    mFirstLine = mLastLine - mNumDrawLines + 1;
+void cLcd::info (std::string str) {
+  info (COL_WHITE, str);
   }
 //}}}
 //{{{
-void cLcd::info (std::string str, bool newLine) {
-  info (COL_WHITE, str, newLine);
+void cLcd::info (uint32_t colour, std::string str) {
+
+  bool tailing = mLastLine == (int)mFirstLine + mNumDrawLines - 1;
+
+  auto line = (mLastLine < mMaxLine-1) ? mLastLine+1 : mLastLine;
+  mLines[line].mTime = osKernelSysTick();
+  mLines[line].mColour = colour;
+  mLines[line].mString = str;
+  mLastLine = line;
+
+  if (tailing)
+    mFirstLine = mLastLine - mNumDrawLines + 1;
   }
 //}}}
 
