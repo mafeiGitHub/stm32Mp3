@@ -85,7 +85,7 @@ DRESULT diskRead (BYTE* buffer, DWORD sector, UINT count) {
 
   else
     //cLcd::debug ("diskRead - sec:" + cLcd::dec (sector) + " num:" + cLcd::dec (count));
-    return  SD_ReadCached ((uint8_t*)buffer, sector, count) == MSD_OK ? RES_OK : RES_ERROR;
+    return SD_ReadCached ((uint8_t*)buffer, sector, count) == MSD_OK ? RES_OK : RES_ERROR;
   }
 //}}}
 //{{{
