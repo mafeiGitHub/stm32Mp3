@@ -17,6 +17,7 @@
 #include "lwip/api.h"
 #include "os/ethernetif.h"
 
+#include "utils.h"
 #include "net/cHttp.h"
 #include "../httpServer/httpServer.h"
 #include "../httpServer/ftpServer.h"
@@ -51,7 +52,6 @@
 #include "widgets/cWaveLensWidget.h"
 
 #include "../aac/neaacdec.h"
-#include "utils.h"
 #include "hls/hls.h"
 
 #include "decoders/cMp3decoder.h"
@@ -215,7 +215,7 @@ static void listDirectory (std::string directoryName, std::string indent) {
   cDirectory directory (directoryName);
   if (directory.getError()) {
     //{{{  open error
-    cLcd::debug (COL_RED, "directory open error:"  + dec (directory.getError()));
+    debugC (COL_RED, "directory open error:"  + dec (directory.getError()));
     return;
     }
     //}}}
@@ -484,7 +484,7 @@ static void netThread (void const* argument) {
     netif_set_up (&netIf);
     if (kStaticIp)
       //{{{  static ip
-      cLcd::debug (COL_YELLOW, "ethernet static ip " + dec ((int) (netIf.ip_addr.addr & 0xFF)) + "." +
+      debugC (COL_YELLOW, "ethernet static ip " + dec ((int) (netIf.ip_addr.addr & 0xFF)) + "." +
                                                        dec ((int)((netIf.ip_addr.addr >> 16) & 0xFF)) + "." +
                                                        dec ((int)((netIf.ip_addr.addr >> 8) & 0xFF)) + "." +
                                                        dec ((int) (netIf.ip_addr.addr >> 24)));
@@ -501,7 +501,7 @@ static void netThread (void const* argument) {
       while (true) {
         if (netIf.ip_addr.addr) {
           //{{{  dhcp allocated
-          cLcd::debug (COL_YELLOW, "dhcp " + dec ( (int)(netIf.ip_addr.addr & 0xFF)) + "." +
+          debugC (COL_YELLOW, "dhcp " + dec ( (int)(netIf.ip_addr.addr & 0xFF)) + "." +
                                              dec ((int)((netIf.ip_addr.addr >> 16) & 0xFF)) + "." +
                                              dec ((int)((netIf.ip_addr.addr >> 8) & 0xFF)) + "." +
                                              dec ( (int)(netIf.ip_addr.addr >> 24)));
@@ -511,7 +511,7 @@ static void netThread (void const* argument) {
           //}}}
         else if (netIf.dhcp->tries > 4) {
           //{{{  dhcp timeout
-          cLcd::debug (COL_RED, "dhcp timeout");
+          debugC (COL_RED, "dhcp timeout");
           dhcp_stop (&netIf);
 
           // use static address
@@ -543,7 +543,7 @@ static void netThread (void const* argument) {
   else {
     //{{{  no ethernet
     netif_set_down (&netIf);
-    cLcd::debug (COL_RED, "no ethernet");
+    debugC (COL_RED, "no ethernet");
     }
     //}}}
 
