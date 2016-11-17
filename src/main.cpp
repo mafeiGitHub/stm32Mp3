@@ -17,7 +17,7 @@
 #include "lwip/api.h"
 #include "os/ethernetif.h"
 
-#include "net/cHttpLwip.h"
+#include "net/cHttp.h"
 #include "../httpServer/httpServer.h"
 #include "../httpServer/ftpServer.h"
 
