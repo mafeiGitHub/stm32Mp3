@@ -58,10 +58,40 @@
 //}}}
 const bool kSdDebug = false;
 const bool kStaticIp = false;
-//void* operator new(size_t num) { return pvPortMalloc (num); }
+
+//void* operator new (size_t size) { return malloc (size); }
+//void operator delete (void* ptr) { free (ptr); }
+//void* operator new (size_t size) { return pvPortMalloc (size); }
+//void operator delete (void* ptr) { vPortFree (ptr); }
 //void* operator new[](size_t num) { return pvPortMalloc (num); }
-//void operator delete(void *ptr) { vPortFree (ptr); }
-//void operator delete[](void *ptr) { vPortFree (ptr); }
+//void operator delete[](void* ptr) { vPortFree (ptr); }
+
+//void* myMalloc (size_t size) { return pvPortMalloc (size); }
+//void myFree (void* ptr) { vPortFree (ptr); }
+
+uint32_t allocated = 0;
+uint32_t highWater = 0;
+//{{{
+void* myMalloc1 (size_t size) {
+  void* alloc = pvPortMalloc (size);
+  uint32_t allocSize = (*((uint32_t*)(alloc-4))) & 0xFFFFFF;
+  allocated += allocSize;
+  if (allocated > highWater) {
+    highWater = allocated;
+    debug ("heap " + dec (allocated) + " " + dec (size) + " " + dec (allocSize));
+    }
+  return alloc;
+  }
+//}}}
+//{{{
+void myFree1 (void* ptr) {
+  if (ptr) {
+    uint32_t allocSize = (*((uint32_t*)(ptr-4))) & 0xFFFFFF;
+    allocated -= allocSize;
+    }
+  vPortFree (ptr);
+  }
+//}}}
 
 //{{{
 static const uint8_t SD_InquiryData[] = {
@@ -277,7 +307,7 @@ static void mp3PlayThread (void const* argument) {
   //{{{  chunkSize and buffer
   auto chunkSize = 4096;
   auto fullChunkSize = 2048 + chunkSize;
-  auto chunkBuffer = (uint8_t*)pvPortMalloc (fullChunkSize);
+  auto chunkBuffer = (uint8_t*)myMalloc (fullChunkSize);
   //}}}
   while (true) {
     cFile file (mMp3Files[fileIndex], FA_OPEN_EXISTING | FA_READ);
@@ -376,7 +406,7 @@ static void waveThread (void const* argument) {
 
   auto chunkSize = 0x10000 - 2048; // 64k
   auto fullChunkSize = 2048 + chunkSize;
-  auto chunkBuffer = (uint8_t*)pvPortMalloc (fullChunkSize);
+  auto chunkBuffer = (uint8_t*)myMalloc (fullChunkSize);
 
   int loadedFileIndex = -1;
   while (true) {
@@ -543,7 +573,6 @@ static void netThread (void const* argument) {
     osThreadCreate (&osThreadHlsPlayer, NULL);
     const osThreadDef_t osThreadHttp = { (char*)"http", httpServerThread, osPriorityNormal, 0, DEFAULT_THREAD_STACKSIZE };
     osThreadCreate (&osThreadHttp, NULL);
-
     //const osThreadDef_t osThreadFtp = { (char*)"ftp", ftpServerThread, osPriorityNormal, 0, DEFAULT_THREAD_STACKSIZE };
     //osThreadCreate (&osThreadFtp, NULL);
     }
@@ -570,7 +599,7 @@ static void mainThread (void const* argument) {
     osSemaphoreDef (hlsLoader);
     mHlsSem = osSemaphoreCreate (osSemaphore (hlsLoader), -1);
 
-    mReSamples = (int16_t*)pvPortMalloc (4096);
+    mReSamples = (int16_t*)myMalloc (4096);
     memset (mReSamples, 0, 4096);
 
     mLcd->setShowDebug (false, false, false, false);  // debug - title, info, lcdStats, footer
@@ -591,8 +620,8 @@ static void mainThread (void const* argument) {
     //}}}
   else {
     //{{{  MP3 player
-    mFrameOffsets = (int*)pvPortMalloc (60*60*40*sizeof(int));
-    mWave = (uint8_t*)pvPortMalloc (60*60*40*2*sizeof(uint8_t));  // 1 hour of 40 mp3 frames per sec
+    mFrameOffsets = (int*)myMalloc (60*60*40*sizeof(int));
+    mWave = (uint8_t*)myMalloc (60*60*40*2*sizeof(uint8_t));  // 1 hour of 40 mp3 frames per sec
     mWave[0] = 0;
     mWaveLoadFrame = 0;
 

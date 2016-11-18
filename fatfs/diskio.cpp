@@ -3,6 +3,7 @@
 #include "string.h"
 #include <stdlib.h>
 
+#include "utils.h"
 #include "fatFs.h"
 #include "diskio.h"
 
@@ -73,13 +74,13 @@ DRESULT diskRead (BYTE* buffer, DWORD sector, UINT count) {
     cLcd::debug ("diskRead align b:" + hex ((int)buffer) + " sec:" + dec (sector) + " num:" + dec (count));
 
     // not 32bit aligned, dma fails,
-    auto tempBuffer = (uint8_t*)pvPortMalloc (count * SECTOR_SIZE);
+    auto tempBuffer = (uint8_t*)myMalloc (count * SECTOR_SIZE);
 
     // read into 32bit aligned tempBuffer
     auto result = SD_ReadCached (tempBuffer, sector, count) == MSD_OK ? RES_OK : RES_ERROR;
     memcpy (buffer, tempBuffer, count * SECTOR_SIZE);
 
-    vPortFree (tempBuffer);
+    myFree (tempBuffer);
     return result;
     }
 

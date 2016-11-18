@@ -11,6 +11,7 @@
 #include "ftpServer.h"
 #include "cmsis_os.h"
 
+#include "utils.h"
 #include "cLcd.h"
 
 #ifdef STM32F746G_DISCO

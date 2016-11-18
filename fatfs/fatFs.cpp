@@ -13,6 +13,7 @@
 #include "stdlib.h"
 #include "stdarg.h"
 
+#include "utils.h"
 #include "fatFs.h"
 #include "diskio.h"
 

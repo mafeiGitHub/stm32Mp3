@@ -194,7 +194,7 @@ uint8_t SD_Init() {
   osMutexDef (sdMutex);
   mSdMutex = osMutexCreate (osMutex (sdMutex));
 
-  mReadCache = (uint8_t*)pvPortMalloc (512 * mReadCacheSize);
+  mReadCache = (uint8_t*)myMalloc (512 * mReadCacheSize);
 
   return MSD_OK;
   }

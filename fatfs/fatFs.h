@@ -117,8 +117,8 @@ public:
     }
   //}}}
   //}}}
-  void* operator new (std::size_t size) { return pvPortMalloc (size); }
-  void operator delete (void *ptr) { vPortFree (ptr); }
+  void* operator new (std::size_t size) { return myMalloc (size); }
+  void operator delete (void *ptr) { myFree (ptr); }
 
   //{{{  gets
   FRESULT getError() { return mResult; }

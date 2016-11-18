@@ -23,8 +23,8 @@
 #include "cmsis_os.h"
 #include "cpuUsage.h"
 
-#include "widgets/cWidget.h"
 #include "utils.h"
+#include "widgets/cWidget.h"
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -257,7 +257,7 @@ uint32_t showFrameBufferAddress[2];
 class cFontChar {
 public:
   void* operator new (std::size_t size) { return pvPortMalloc (size); }
-  void operator delete (void *ptr) { vPortFree (ptr); }
+  void operator delete (void *ptr) { myFree (ptr); }
 
   uint8_t* bitmap;
   int16_t left;
@@ -814,7 +814,7 @@ void cLcd::init (std::string title) {
   //DMA2D->AMTCR = 0x1001;
 
   // zero out first opcode, point past it
-  mDma2dBuf = (uint32_t*)DMA2D_BUFFER; // pvPortMalloc (8192 * 4);
+  mDma2dBuf = (uint32_t*)DMA2D_BUFFER;
   mDma2dIsrBuf = mDma2dBuf;
   mDma2dCurBuf = mDma2dBuf;
   *mDma2dCurBuf = kEnd;
@@ -1386,7 +1386,7 @@ cFontChar* cLcd::loadChar (uint16_t fontHeight, char ch) {
   FT_Set_Pixel_Sizes (FTface, 0, fontHeight);
   FT_Load_Char (FTface, ch, FT_LOAD_RENDER);
 
-  auto fontChar = (cFontChar*)pvPortMalloc (sizeof(cFontChar));
+  auto fontChar = (cFontChar*)myMalloc (sizeof(cFontChar));
   fontChar->left = FTglyphSlot->bitmap_left;
   fontChar->top = FTglyphSlot->bitmap_top;
   fontChar->pitch = FTglyphSlot->bitmap.pitch;
@@ -1395,7 +1395,7 @@ cFontChar* cLcd::loadChar (uint16_t fontHeight, char ch) {
   fontChar->bitmap = nullptr;
 
   if (FTglyphSlot->bitmap.buffer) {
-    fontChar->bitmap = (uint8_t*)pvPortMalloc (FTglyphSlot->bitmap.pitch * FTglyphSlot->bitmap.rows);
+    fontChar->bitmap = (uint8_t*)myMalloc (FTglyphSlot->bitmap.pitch * FTglyphSlot->bitmap.rows);
     memcpy (fontChar->bitmap, FTglyphSlot->bitmap.buffer, FTglyphSlot->bitmap.pitch * FTglyphSlot->bitmap.rows);
     }
 
