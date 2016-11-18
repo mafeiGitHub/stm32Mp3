@@ -117,6 +117,9 @@ public:
     }
   //}}}
   //}}}
+  void* operator new (std::size_t size) { return pvPortMalloc (size); }
+  void operator delete (void *ptr) { vPortFree (ptr); }
+
   //{{{  gets
   FRESULT getError() { return mResult; }
   std::string getLabel() { return mLabel; }

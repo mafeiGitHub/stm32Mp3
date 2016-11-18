@@ -199,17 +199,17 @@ static void hlsPlayerThread (void const* argument) {
 //}}}
 
 //{{{
-static void initMp3Menu() {
+static void initMp3Menu (cRootContainer* root) {
 
-  mRoot->add (new cListWidget (mMp3Files, fileIndex, fileIndexChanged,
+  root->add (new cListWidget (mMp3Files, fileIndex, fileIndexChanged,
                                mRoot->getWidth(), 0.6f * mRoot->getHeight()));
 
-  mRoot->add (new cWaveCentreWidget (mWave, mMp3PlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
+  root->add (new cWaveCentreWidget (mWave, mMp3PlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
                                      mRoot->getWidth(), 0.2f * mRoot->getHeight()));
-  mRoot->add (new cWaveLensWidget (mWave, mMp3PlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
+  root->add (new cWaveLensWidget (mWave, mMp3PlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
                                    mRoot->getWidth(), 0.2f * mRoot->getHeight()));
 
-  mRoot->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, 2.0f, mRoot->getHeight()));
+  root->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, 0.5, root->getHeight()))->setOverPick (1.5);
   }
 //}}}
 //{{{
@@ -596,7 +596,7 @@ static void mainThread (void const* argument) {
     mWave[0] = 0;
     mWaveLoadFrame = 0;
 
-    initMp3Menu();
+    initMp3Menu (mRoot);
     mLcd->setShowDebug (false, false, false, true);  // disable debug - title, info, lcdStats, footer
 
     const osThreadDef_t osThreadPlay =  { (char*)"Play", mp3PlayThread, osPriorityNormal, 0, 8192 };
