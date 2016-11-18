@@ -791,7 +791,7 @@ int main() {
     BSP_LED_Init (LED3);
   #endif
 
-  mLcd = cLcd::create ("Player built at " + std::string(__TIME__) + " on " + std::string(__DATE__), true);
+  mLcd = cLcd::create ("Player built at " + std::string(__TIME__) + " on " + std::string(__DATE__));
   mRoot = new cRootContainer (mLcd->getLcdWidthPix(), mLcd->getLcdHeightPix());
 
   osSemaphoreDef (aud);

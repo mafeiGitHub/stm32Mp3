@@ -9,7 +9,7 @@ public:
   virtual ~cLcd();
 
   // static members
-  static cLcd* create (std::string title, bool isr);
+  static cLcd* create (std::string title, bool isr = true);
   static cLcd* get() { return mLcd; }
 
   // sets
