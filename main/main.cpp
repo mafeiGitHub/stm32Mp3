@@ -58,6 +58,11 @@
 //}}}
 const bool kSdDebug = false;
 const bool kStaticIp = false;
+//void* operator new(size_t num) { return pvPortMalloc (num); }
+//void* operator new[](size_t num) { return pvPortMalloc (num); }
+//void operator delete(void *ptr) { vPortFree (ptr); }
+//void operator delete[](void *ptr) { vPortFree (ptr); }
+
 //{{{
 static const uint8_t SD_InquiryData[] = {
   0x00, 0x80, 0x02, 0x02, (24 - 5), 0x00, 0x00, 0x00,
@@ -568,7 +573,7 @@ static void mainThread (void const* argument) {
     mReSamples = (int16_t*)pvPortMalloc (4096);
     memset (mReSamples, 0, 4096);
 
-    mLcd->setShowDebug (false, false, false, true);  // debug - title, info, lcdStats, footer
+    mLcd->setShowDebug (false, false, false, false);  // debug - title, info, lcdStats, footer
     hlsMenu (mRoot, mHls);
 
     const osThreadDef_t osThreadNet =  { (char*)"Net", netThread, osPriorityNormal, 0, 1024 };
@@ -798,7 +803,7 @@ int main() {
   mAudSem = osSemaphoreCreate (osSemaphore (aud), -1);
 
   // main thread
-  const osThreadDef_t osMainThread = { (char*)"main", mainThread, osPriorityNormal, 0, 1024 };
+  const osThreadDef_t osMainThread = { (char*)"main", mainThread, osPriorityNormal, 0, 2048 };
   osThreadCreate (&osMainThread, NULL);
 
   osKernelStart();

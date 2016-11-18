@@ -256,6 +256,9 @@ uint32_t showFrameBufferAddress[2];
 //{{{
 class cFontChar {
 public:
+  void* operator new (std::size_t size) { return pvPortMalloc (size); }
+  void operator delete (void *ptr) { vPortFree (ptr); }
+
   uint8_t* bitmap;
   int16_t left;
   int16_t top;
@@ -832,6 +835,10 @@ void cLcd::init (std::string title) {
   // prewarm cache
   for (char ch = 0x20; ch <= 0x7F; ch++)
     loadChar (cWidget::getFontHeight(), ch);
+  for (char ch = 0x20; ch <= 0x7F; ch++)
+    loadChar (cWidget::getBigFontHeight(), ch);
+  for (char ch = 0x20; ch <= 0x7F; ch++)
+    loadChar (cWidget::getSmallFontHeight(), ch);
 
   setTitle (title);
   }
