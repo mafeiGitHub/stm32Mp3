@@ -63,35 +63,6 @@ const bool kStaticIp = false;
 //void operator delete (void* ptr) { free (ptr); }
 //void* operator new (size_t size) { return pvPortMalloc (size); }
 //void operator delete (void* ptr) { vPortFree (ptr); }
-//void* operator new[](size_t num) { return pvPortMalloc (num); }
-//void operator delete[](void* ptr) { vPortFree (ptr); }
-
-//void* myMalloc (size_t size) { return pvPortMalloc (size); }
-//void myFree (void* ptr) { vPortFree (ptr); }
-
-uint32_t allocated = 0;
-uint32_t highWater = 0;
-//{{{
-void* myMalloc1 (size_t size) {
-  void* alloc = pvPortMalloc (size);
-  uint32_t allocSize = (*((uint32_t*)(alloc-4))) & 0xFFFFFF;
-  allocated += allocSize;
-  if (allocated > highWater) {
-    highWater = allocated;
-    debug ("heap " + dec (allocated) + " " + dec (size) + " " + dec (allocSize));
-    }
-  return alloc;
-  }
-//}}}
-//{{{
-void myFree1 (void* ptr) {
-  if (ptr) {
-    uint32_t allocSize = (*((uint32_t*)(ptr-4))) & 0xFFFFFF;
-    allocated -= allocSize;
-    }
-  vPortFree (ptr);
-  }
-//}}}
 
 //{{{
 static const uint8_t SD_InquiryData[] = {

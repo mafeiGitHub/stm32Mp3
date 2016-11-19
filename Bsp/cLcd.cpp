@@ -506,7 +506,9 @@ void cLcd::endRender (bool forceInfo) {
   if (mShowFooter || forceInfo)
     //{{{  draw footer
     text (COL_YELLOW, cWidget::getFontHeight(),
-          dec (xPortGetFreeHeapSize()) + " " + dec (osGetCPUUsage()) + "% " + dec (mDrawTime) + "ms " + dec (mDma2dCurBuf - mDma2dBuf),
+          dec (xPortGetFreeHeapSize()) + " " +
+          dec (xPortGetMinimumEverFreeHeapSize()) + " " +
+          dec (osGetCPUUsage()) + "% " + dec (mDrawTime) + "ms " + dec (mDma2dCurBuf - mDma2dBuf),
           0, -cWidget::getFontHeight() + getLcdHeightPix(), getLcdWidthPix(), cWidget::getFontHeight());
     //}}}
 
@@ -678,7 +680,7 @@ void cLcd::rect (uint32_t colour, int16_t x, int16_t y, uint16_t width, uint16_t
     }
 
   // quite often same stride
-  if (getLcdWidthPix() - width != mDstStride) {
+  if (uint32_t(getLcdWidthPix() - width) != mDstStride) {
     *mDma2dCurBuf++ = AHB1PERIPH_BASE + 0xB000U + 0x40; // OOR - output stride
     mDstStride = getLcdWidthPix() - width;
     *mDma2dCurBuf++ = mDstStride;
@@ -716,7 +718,7 @@ void cLcd::stamp (uint32_t colour, uint8_t* src, int16_t x, int16_t y, uint16_t 
 int cLcd::text (uint32_t colour, uint16_t fontHeight, std::string str, int16_t x, int16_t y, uint16_t width, uint16_t height) {
 
   auto xend = x + width;
-  for (auto i = 0; i < str.size(); i++) {
+  for (uint16_t i = 0; i < str.size(); i++) {
     if ((str[i] >= 0x20) && (str[i] <= 0x7F)) {
       auto fontCharIt = mFontCharMap.find (fontHeight<<8 | str[i]);
       auto fontChar = (fontCharIt == mFontCharMap.end()) ?  loadChar (fontHeight, str[i]) : fontCharIt->second;
