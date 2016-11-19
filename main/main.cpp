@@ -59,10 +59,12 @@
 const bool kSdDebug = false;
 const bool kStaticIp = false;
 
-//void* operator new (size_t size) { return malloc (size); }
-//void operator delete (void* ptr) { free (ptr); }
 //void* operator new (size_t size) { return pvPortMalloc (size); }
 //void operator delete (void* ptr) { vPortFree (ptr); }
+void* operator new (size_t size) { return malloc (size); }
+void operator delete (void* ptr) { free (ptr); }
+void* operator new[](size_t size) { return malloc (size); }
+void operator delete[](void *ptr) { free (ptr); }
 
 //{{{
 static const uint8_t SD_InquiryData[] = {

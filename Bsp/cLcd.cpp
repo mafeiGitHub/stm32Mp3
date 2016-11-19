@@ -9,6 +9,8 @@
 #include <map>
 
 #include "memory.h"
+#include "cmsis_os.h"
+#include "cpuUsage.h"
 
 #ifdef STM32F746G_DISCO
   #include "stm32746g_discovery.h"
@@ -18,13 +20,10 @@
 
 #include "stm32f7xx_hal_dma2d.h"
 
+#include "utils.h"
 #include "cLcd.h"
 #include "cLcdPrivate.h"
 
-#include "cmsis_os.h"
-#include "cpuUsage.h"
-
-#include "utils.h"
 #include "widgets/cWidget.h"
 
 #include <ft2build.h>

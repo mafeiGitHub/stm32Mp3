@@ -117,8 +117,8 @@ public:
     }
   //}}}
   //}}}
-  void* operator new (std::size_t size) { return smallMalloc (size, "cFatFs"); }
-  void operator delete (void *ptr) { smallFree (ptr); }
+  void* operator new (std::size_t size) { return bigMalloc (size, "cFatFs"); }
+  void operator delete (void *ptr) { bigFree (ptr); }
 
   //{{{  gets
   FRESULT getError() { return mResult; }
@@ -220,6 +220,8 @@ public:
   cDirectory (std::string path);
   ~cDirectory();
   //}}}
+  void* operator new (std::size_t size) { return bigMalloc (size, "cFatFs"); }
+  void operator delete (void *ptr) { bigFree (ptr); }
   //{{{  gets
   FRESULT getError() { return mResult; }
   //}}}
@@ -267,6 +269,8 @@ public:
   cFile (std::string path, BYTE mode);
   ~cFile();
   //}}}
+  void* operator new (std::size_t size) { return bigMalloc (size, "cFatFs"); }
+  void operator delete (void *ptr) { bigFree (ptr); }
   //{{{  gets
   FRESULT getError() { return mResult; }
 
@@ -312,4 +316,3 @@ public:
    DWORD* mClusterTable = nullptr; // Pointer to the cluster link map table (Nulled on file open)
  //}}}
   };
-
