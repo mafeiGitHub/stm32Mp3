@@ -59,7 +59,6 @@ private:
     void otm8009aInit (bool landscape);
   #endif
 
-  void setFont (const uint8_t* font, int length);
   void setLayer (uint8_t layer, uint32_t frameBufferAddress);
   void showLayer (uint8_t layer, uint32_t frameBufferAddress, uint8_t alpha);
 

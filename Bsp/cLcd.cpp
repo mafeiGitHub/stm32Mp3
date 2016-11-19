@@ -721,13 +721,15 @@ int cLcd::text (uint32_t colour, uint16_t fontHeight, std::string str, int16_t x
   for (uint16_t i = 0; i < str.size(); i++) {
     if ((str[i] >= 0x20) && (str[i] <= 0x7F)) {
       auto fontCharIt = mFontCharMap.find (fontHeight<<8 | str[i]);
-      auto fontChar = (fontCharIt == mFontCharMap.end()) ?  loadChar (fontHeight, str[i]) : fontCharIt->second;
-      if (x + fontChar->left + fontChar->pitch >= xend)
-        break;
-      else if (fontChar->bitmap)
-        stampClipped (colour, fontChar->bitmap, x + fontChar->left, y + fontHeight - fontChar->top, fontChar->pitch, fontChar->rows);
+      if (fontCharIt != mFontCharMap.end()) {
+        auto fontChar = fontCharIt->second;
+        if (x + fontChar->left + fontChar->pitch >= xend)
+          break;
+        else if (fontChar->bitmap)
+          stampClipped (colour, fontChar->bitmap, x + fontChar->left, y + fontHeight - fontChar->top, fontChar->pitch, fontChar->rows);
 
-      x += fontChar->advance;
+        x += fontChar->advance;
+        }
       }
     }
 
@@ -831,16 +833,21 @@ void cLcd::init (std::string title) {
     }
 
   // font init
-  setFont (freeSansBold, freeSansBold_len);
   //setFont ((uint8_t*)0x90000000, 64228);
+  FT_Init_FreeType (&FTlibrary);
+  FT_New_Memory_Face (FTlibrary, (FT_Byte*)freeSansBold, freeSansBold_len, 0, &FTface);
+  FTglyphSlot = FTface->glyph;
 
-  // prewarm cache
+  // preload fontChars
   for (char ch = 0x20; ch <= 0x7F; ch++)
     loadChar (cWidget::getFontHeight(), ch);
-  for (char ch = 0x20; ch <= 0x7F; ch++)
+  for (char ch = 0x21; ch <= 0x3F; ch++)
     loadChar (cWidget::getBigFontHeight(), ch);
-  for (char ch = 0x20; ch <= 0x7F; ch++)
+  for (char ch = 0x21; ch <= 0x3F; ch++)
     loadChar (cWidget::getSmallFontHeight(), ch);
+
+  FT_Done_Face (FTface);
+  //FT_Done_FreeType (FTlibrary);
 
   setTitle (title);
   }
@@ -1372,16 +1379,6 @@ void cLcd::showLayer (uint8_t layer, uint32_t frameBufferAddress, uint8_t alpha)
   }
 //}}}
 
-//{{{
-void cLcd::setFont (const uint8_t* font, int length) {
-
-  FT_Init_FreeType (&FTlibrary);
-  FT_New_Memory_Face (FTlibrary, (FT_Byte*)font, length, 0, &FTface);
-  FTglyphSlot = FTface->glyph;
-  //FT_Done_Face(face);
-  //FT_Done_FreeType (library);
-  }
-//}}}
 //{{{
 cFontChar* cLcd::loadChar (uint16_t fontHeight, char ch) {
 
