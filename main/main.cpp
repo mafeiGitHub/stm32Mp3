@@ -278,7 +278,7 @@ static void mp3PlayThread (void const* argument) {
   //{{{  chunkSize and buffer
   auto chunkSize = 4096;
   auto fullChunkSize = 2048 + chunkSize;
-  auto chunkBuffer = (uint8_t*)myMalloc (fullChunkSize);
+  auto chunkBuffer = (uint8_t*)bigMalloc (fullChunkSize, "mp3ChunkBuf");
   //}}}
   while (true) {
     cFile file (mMp3Files[fileIndex], FA_OPEN_EXISTING | FA_READ);
@@ -377,7 +377,7 @@ static void waveThread (void const* argument) {
 
   auto chunkSize = 0x10000 - 2048; // 64k
   auto fullChunkSize = 2048 + chunkSize;
-  auto chunkBuffer = (uint8_t*)myMalloc (fullChunkSize);
+  auto chunkBuffer = (uint8_t*)bigMalloc (fullChunkSize, "waveChunkBuf");
 
   int loadedFileIndex = -1;
   while (true) {
@@ -570,7 +570,7 @@ static void mainThread (void const* argument) {
     osSemaphoreDef (hlsLoader);
     mHlsSem = osSemaphoreCreate (osSemaphore (hlsLoader), -1);
 
-    mReSamples = (int16_t*)myMalloc (4096);
+    mReSamples = (int16_t*)bigMalloc (4096, "hlsResamples");
     memset (mReSamples, 0, 4096);
 
     mLcd->setShowDebug (false, false, false, false);  // debug - title, info, lcdStats, footer
@@ -591,8 +591,8 @@ static void mainThread (void const* argument) {
     //}}}
   else {
     //{{{  MP3 player
-    mFrameOffsets = (int*)myMalloc (60*60*40*sizeof(int));
-    mWave = (uint8_t*)myMalloc (60*60*40*2*sizeof(uint8_t));  // 1 hour of 40 mp3 frames per sec
+    mFrameOffsets = (int*)bigMalloc (60*60*40*sizeof(int), "mp3FrameOff");
+    mWave = (uint8_t*)bigMalloc (60*60*40*2*sizeof(uint8_t), "mp3Wave");  // 1 hour of 40 mp3 frames per sec
     mWave[0] = 0;
     mWaveLoadFrame = 0;
 

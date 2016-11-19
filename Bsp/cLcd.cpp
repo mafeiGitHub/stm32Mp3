@@ -1,6 +1,7 @@
 // cLcd.cpp
 //#define USE_RGB888
 //{{{  includes
+#include <stdlib.h>
 #include <string>
 #include <sstream>
 #include <iostream>
@@ -256,8 +257,8 @@ uint32_t showFrameBufferAddress[2];
 //{{{
 class cFontChar {
 public:
-  void* operator new (std::size_t size) { return pvPortMalloc (size); }
-  void operator delete (void *ptr) { myFree (ptr); }
+  void* operator new (std::size_t size) { return bigMalloc (size, "cFontChar"); }
+  void operator delete (void *ptr) { bigFree (ptr); }
 
   uint8_t* bitmap;
   int16_t left;
@@ -1388,7 +1389,7 @@ cFontChar* cLcd::loadChar (uint16_t fontHeight, char ch) {
   FT_Set_Pixel_Sizes (FTface, 0, fontHeight);
   FT_Load_Char (FTface, ch, FT_LOAD_RENDER);
 
-  auto fontChar = (cFontChar*)myMalloc (sizeof(cFontChar));
+  auto fontChar = new cFontChar();
   fontChar->left = FTglyphSlot->bitmap_left;
   fontChar->top = FTglyphSlot->bitmap_top;
   fontChar->pitch = FTglyphSlot->bitmap.pitch;
@@ -1397,7 +1398,7 @@ cFontChar* cLcd::loadChar (uint16_t fontHeight, char ch) {
   fontChar->bitmap = nullptr;
 
   if (FTglyphSlot->bitmap.buffer) {
-    fontChar->bitmap = (uint8_t*)myMalloc (FTglyphSlot->bitmap.pitch * FTglyphSlot->bitmap.rows);
+    fontChar->bitmap = (uint8_t*)bigMalloc (FTglyphSlot->bitmap.pitch * FTglyphSlot->bitmap.rows, "fontBitmap");
     memcpy (fontChar->bitmap, FTglyphSlot->bitmap.buffer, FTglyphSlot->bitmap.pitch * FTglyphSlot->bitmap.rows);
     }
 

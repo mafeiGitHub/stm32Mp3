@@ -117,8 +117,8 @@ public:
     }
   //}}}
   //}}}
-  void* operator new (std::size_t size) { return myMalloc (size); }
-  void operator delete (void *ptr) { myFree (ptr); }
+  void* operator new (std::size_t size) { return smallMalloc (size, "cFatFs"); }
+  void operator delete (void *ptr) { smallFree (ptr); }
 
   //{{{  gets
   FRESULT getError() { return mResult; }
