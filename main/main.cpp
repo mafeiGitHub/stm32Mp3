@@ -54,7 +54,7 @@
 #include "../aac/neaacdec.h"
 #include "hls/hls.h"
 
-#include "decoders/cMp3decoder.h"
+#include "decoders/cMp3.h"
 //}}}
 const bool kSdDebug = false;
 const bool kStaticIp = false;
@@ -266,8 +266,8 @@ static void mp3PlayThread (void const* argument) {
   //}}}
   listDirectory ("", "");
 
-  auto mp3Decoder = new cMp3Decoder;
-  cLcd::debug ("play mp3Decoder");
+  auto mp3 = new cMp3;
+  cLcd::debug ("play mp3");
 
   #ifdef STM32F746G_DISCO
     BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mVolume * 100), 44100);
@@ -310,11 +310,11 @@ static void mp3PlayThread (void const* argument) {
           auto chunkPtr = chunkBuffer;
           int headerBytes;
           do {
-            headerBytes = mp3Decoder->findNextHeader (chunkPtr, bytesLeft);
+            headerBytes = mp3->findNextHeader (chunkPtr, bytesLeft);
             if (headerBytes) {
               chunkPtr += headerBytes;
               bytesLeft -= headerBytes;
-              if (bytesLeft < mp3Decoder->getFrameBodySize() + 4) {
+              if (bytesLeft < mp3->getFrameBodySize() + 4) {
                 // partial frameBody+nextHeader, move bytesLeft to front of chunkBuffer,  next read partial buffer 32bit aligned
                 auto nextChunkPtr = chunkBuffer + ((4 - (bytesLeft & 3)) & 3);
                 memcpy (nextChunkPtr, chunkPtr, bytesLeft);
@@ -337,9 +337,9 @@ static void mp3PlayThread (void const* argument) {
                 else
                   bytesLeft = 0;
                 }
-              if (bytesLeft >= mp3Decoder->getFrameBodySize()) {
+              if (bytesLeft >= mp3->getFrameBodySize()) {
                 osSemaphoreWait (mAudSem, 100);
-                auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, nullptr, (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
+                auto frameBytes = mp3->decodeFrameBody (chunkPtr, nullptr, (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
                 if (frameBytes) {
                   chunkPtr += frameBytes;
                   bytesLeft -= frameBytes;
@@ -374,8 +374,8 @@ static void mp3PlayThread (void const* argument) {
 static void waveThread (void const* argument) {
 
   cLcd::debug ("waveThread");
-  auto mp3Decoder = new cMp3Decoder;
-  cLcd::debug ("wave mp3Decoder");
+  auto mp3 = new cMp3;
+  cLcd::debug ("wave mp3");
 
   auto chunkSize = 0x10000 - 2048; // 64k
   auto fullChunkSize = 2048 + chunkSize;
@@ -410,11 +410,11 @@ static void waveThread (void const* argument) {
           auto chunkPtr = chunkBuffer;
           int headerBytes;
           do {
-            headerBytes = mp3Decoder->findNextHeader (chunkPtr, bytesLeft);
+            headerBytes = mp3->findNextHeader (chunkPtr, bytesLeft);
             if (headerBytes) {
               chunkPtr += headerBytes;
               bytesLeft -= headerBytes;
-              if (bytesLeft < mp3Decoder->getFrameBodySize() + 4) { // not enough for frameBody and next header
+              if (bytesLeft < mp3->getFrameBodySize() + 4) { // not enough for frameBody and next header
                 // move bytesLeft to front of chunkBuffer,  next read partial buffer 32bit aligned
                 auto nextChunkPtr = chunkBuffer + ((4 - (bytesLeft & 3)) & 3);
                 memcpy (nextChunkPtr, chunkPtr, bytesLeft);
@@ -437,9 +437,9 @@ static void waveThread (void const* argument) {
                 else
                   bytesLeft = 0;
                 }
-              if (bytesLeft >= mp3Decoder->getFrameBodySize()) {
+              if (bytesLeft >= mp3->getFrameBodySize()) {
                 mFrameOffsets[mWaveLoadFrame] = file.getPosition(); // not right !!!!
-                auto frameBytes = mp3Decoder->decodeFrameBody (chunkPtr, mWave + 1 + (mWaveLoadFrame * 2), nullptr);
+                auto frameBytes = mp3->decodeFrameBody (chunkPtr, mWave + 1 + (mWaveLoadFrame * 2), nullptr);
                 if (*wavePtr > *mWave)
                   *mWave = *wavePtr;
                 wavePtr++;
