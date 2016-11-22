@@ -617,7 +617,7 @@ static void mainThread (void const* argument) {
   for (auto touch = 0; touch < kMaxTouch; touch++)
     pressed[touch] = 0;
   //}}}
-  BSP_TS_Init (mRoot->getWidthPix(), mRoot->getHeightPix());
+  BSP_TS_Init (mRoot->getPixWidth(), mRoot->getPixHeight());
   while (true) {
     //bool button = true;
     bool button = BSP_PB_GetState (BUTTON_WAKEUP) == GPIO_PIN_SET;
