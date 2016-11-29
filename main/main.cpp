@@ -133,12 +133,15 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
 //{{{
 static void hlsLoaderThread (void const* argument) {
 
+  cHttp http;
+
   mHls->mChanChanged = true;
   while (true) {
     if (mHls->mChanChanged)
-      mHls->setChan (mHls->mHlsChan, mHls->mHlsBitrate);
+      mHls->setChan (http, mHls->mHlsChan, mHls->mHlsBitrate);
 
-    if (!mHls->loadAtPlayFrame())
+    mHls->loadPicAtPlayFrame (http);
+    if (!mHls->loadAtPlayFrame (http))
       osDelay (500);
 
     osSemaphoreWait (mHlsSem, osWaitForever);
