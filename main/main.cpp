@@ -86,7 +86,7 @@ static const USBD_StorageTypeDef USBD_DISK_fops = {
 //{{{  static vars
 static USBD_HandleTypeDef USBD_Device;
 
-static osSemaphoreId mAudSem;
+static SemaphoreHandle_t mAudSem;
 static bool mAudHalf = false;
 static int mIntVolume = 0;
 
@@ -111,7 +111,7 @@ static int* mFrameOffsets = nullptr;
 
 // hls
 static cHls* mHls;
-static osSemaphoreId mHlsSem;
+static SemaphoreHandle_t mHlsSem;
 static int16_t* mReSamples;
 //}}}
 
@@ -142,9 +142,9 @@ static void hlsLoaderThread (void const* argument) {
 
     mHls->loadPicAtPlayFrame (http);
     if (!mHls->loadAtPlayFrame (http))
-      osDelay (500);
+      vTaskDelay (500);
 
-    osSemaphoreWait (mHlsSem, osWaitForever);
+    xSemaphoreTake (mHlsSem, portMAX_DELAY);
     }
   }
 //}}}
@@ -197,7 +197,7 @@ static void hlsPlayerThread (void const* argument) {
 
       if (mHls->mChanChanged || !seqNum || (seqNum != lastSeqNum)) {
         lastSeqNum = seqNum;
-        osSemaphoreRelease (mHlsSem);
+        xSemaphoreGive (mHlsSem);
         }
       }
     }
@@ -305,7 +305,7 @@ static void mp3PlayThread (void const* argument) {
         if (fresult) {
           //{{{  error
           cLcd::debug ("play read " + dec (count) + " " + dec (fresult));
-          osDelay (100);
+          vTaskDelay (100);
           goto exitPlay;
           }
           //}}}
@@ -329,7 +329,7 @@ static void mp3PlayThread (void const* argument) {
                 if (fresult) {
                   //{{{  error
                   cLcd::debug ("play read " + dec (count) + " " + dec (fresult));
-                  osDelay (100);
+                  vTaskDelay (100);
                   goto exitPlay;
                   }
                   //}}}
@@ -405,7 +405,7 @@ static void waveThread (void const* argument) {
         if (fresult) {
           //{{{  error
           cLcd::debug ("wave read " + dec (count) + " " + dec (fresult));
-          osDelay (100);
+          vTaskDelay (100);
           goto exitWave;
           }
           //}}}
@@ -429,7 +429,7 @@ static void waveThread (void const* argument) {
                 if (fresult) {
                   //{{{  error
                   cLcd::debug ("wave read " + dec (count) + " " + dec (fresult));
-                  osDelay (100);
+                  vTaskDelay (100);
                   goto exitWave;
                   }
                   //}}}
@@ -468,7 +468,7 @@ static void waveThread (void const* argument) {
 
     // wait for file change
     while (fileIndex == loadedFileIndex)
-      osDelay (100);
+      vTaskDelay (100);
     }
   }
 //}}}
@@ -538,17 +538,15 @@ static void netThread (void const* argument) {
           break;
           }
           //}}}
-        osDelay (250);
+        vTaskDelay (250);
         }
       }
       //}}}
 
-    const osThreadDef_t osThreadHlsLoader = { (char*)"hlsLoad", hlsLoaderThread, osPriorityNormal, 0, 14000 };
-    osThreadCreate (&osThreadHlsLoader, NULL);
-    const osThreadDef_t osThreadHlsPlayer = { (char*)"hlsPlay", hlsPlayerThread, osPriorityAboveNormal, 0, 2000 };
-    osThreadCreate (&osThreadHlsPlayer, NULL);
-    const osThreadDef_t osThreadHttp = { (char*)"http", httpServerThread, osPriorityNormal, 0, DEFAULT_THREAD_STACKSIZE };
-    osThreadCreate (&osThreadHttp, NULL);
+    TaskHandle_t handle;
+    xTaskCreate ((TaskFunction_t)hlsLoaderThread, "hlsLoad", 14000, 0, 3, &handle);
+    xTaskCreate ((TaskFunction_t)hlsPlayerThread, "hlsPlay", 2000, 0, 4, &handle);
+    xTaskCreate ((TaskFunction_t)httpServerThread, "http", DEFAULT_THREAD_STACKSIZE, 0, 4, &handle);
     //const osThreadDef_t osThreadFtp = { (char*)"ftp", ftpServerThread, osPriorityNormal, 0, DEFAULT_THREAD_STACKSIZE };
     //osThreadCreate (&osThreadFtp, NULL);
     }
@@ -572,8 +570,6 @@ static void mainThread (void const* argument) {
   if (!SD_present()) {
     //{{{  HLS player
     mHls = new cHls();
-    osSemaphoreDef (hlsLoader);
-    mHlsSem = osSemaphoreCreate (osSemaphore (hlsLoader), -1);
 
     mReSamples = (int16_t*)bigMalloc (4096, "hlsResamples");
     memset (mReSamples, 0, 4096);
@@ -581,8 +577,10 @@ static void mainThread (void const* argument) {
     mLcd->setShowDebug (false, false, false, false);  // debug - title, info, lcdStats, footer
     hlsMenu (mRoot, mHls);
 
-    const osThreadDef_t osThreadNet =  { (char*)"Net", netThread, osPriorityNormal, 0, 1024 };
-    osThreadCreate (&osThreadNet, NULL);
+    vSemaphoreCreateBinary (mHlsSem);
+
+    TaskHandle_t handle;
+    xTaskCreate ((TaskFunction_t)netThread, "Net", 1024, 0, 3, &handle);
     }
     //}}}
   else if (BSP_PB_GetState (BUTTON_WAKEUP) == GPIO_PIN_SET) {
@@ -804,14 +802,12 @@ int main() {
   mLcd = cLcd::create ("Player built at " + std::string(__TIME__) + " on " + std::string(__DATE__));
   mRoot = new cRootContainer (mLcd->getLcdWidthPix(), mLcd->getLcdHeightPix());
 
-  osSemaphoreDef (aud);
-  mAudSem = osSemaphoreCreate (osSemaphore (aud), -1);
+  vSemaphoreCreateBinary (mAudSem);
 
-  // main thread
-  const osThreadDef_t osMainThread = { (char*)"main", mainThread, osPriorityNormal, 0, 2048 };
-  osThreadCreate (&osMainThread, NULL);
+  TaskHandle_t handle;
+  xTaskCreate ((TaskFunction_t)mainThread, "main", 2048, 0, 3, &handle);
 
-  osKernelStart();
+  vTaskStartScheduler();
 
   return 0;
   }
