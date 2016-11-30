@@ -144,7 +144,6 @@ static void hlsLoaderThread (void const* argument) {
 
   cHttp http;
 
-  mHls->mChanChanged = true;
   while (true) {
     if (mHls->mChanChanged)
       mHls->setChan (http, mHls->mHlsChan, mHls->mHlsBitrate);
@@ -160,8 +159,8 @@ static void hlsLoaderThread (void const* argument) {
 //{{{
 static void hlsPlayerThread (void const* argument) {
 
-  const int kAudioBuffer = 1024 * 2 * 2 * 2; // 8192 = 1024 samplesPerFrame * 2 chans * 2 bytesPperSample * 2 swing buffers
-
+  // 8192 = 1024 samplesPerFrame * 2 chans * 2 bytesPperSample * 2 swing buffers
+  const int kAudioBuffer = 1024 * 2 * 2 * 2;
   //{{{  setup BSP_AUDIO_OUT
   #ifdef STM32F746G_DISCO
     BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mVolume * 100), 48000);
@@ -216,15 +215,11 @@ static void hlsPlayerThread (void const* argument) {
 //{{{
 static void initMp3Menu (cRootContainer* root) {
 
-  root->add (new cListWidget (mMp3Files, fileIndex, fileIndexChanged,
-                               mRoot->getWidth(), 0.6f * mRoot->getHeight()));
+  root->add (new cListWidget (mMp3Files, fileIndex, fileIndexChanged, 0, -4));
+  root->add (new cWaveLensWidget (mWave, mMp3PlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged, 0, 2));
+  root->add (new cWaveCentreWidget (mWave, mMp3PlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged, 0, 2));
 
-  root->add (new cWaveCentreWidget (mWave, mMp3PlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
-                                     mRoot->getWidth(), 0.2f * mRoot->getHeight()));
-  root->add (new cWaveLensWidget (mWave, mMp3PlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged,
-                                   mRoot->getWidth(), 0.2f * mRoot->getHeight()));
-
-  root->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, 0.5, root->getHeight()))->setOverPick (1.5);
+  root->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, 0.5, 0))->setOverPick (1.5);
   }
 //}}}
 //{{{
