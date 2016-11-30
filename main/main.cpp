@@ -119,14 +119,22 @@ static int16_t* mReSamples;
 //{{{  audio callbacks
 //{{{
 void BSP_AUDIO_OUT_HalfTransfer_CallBack() {
+
   mAudHalf = true;
-  osSemaphoreRelease (mAudSem);
+
+  portBASE_TYPE taskWoken = pdFALSE;
+  if (xSemaphoreGiveFromISR (mAudSem, &taskWoken) == pdTRUE)
+    portEND_SWITCHING_ISR (taskWoken);
   }
 //}}}
 //{{{
 void BSP_AUDIO_OUT_TransferComplete_CallBack() {
+
   mAudHalf = false;
-  osSemaphoreRelease (mAudSem);
+
+  portBASE_TYPE taskWoken = pdFALSE;
+  if (xSemaphoreGiveFromISR (mAudSem, &taskWoken) == pdTRUE)
+    portEND_SWITCHING_ISR (taskWoken);
   }
 //}}}
 //}}}
@@ -174,7 +182,7 @@ static void hlsPlayerThread (void const* argument) {
   double scrubSample = 0;
 
   while (true) {
-    if (osSemaphoreWait (mAudSem, 50) == osOK) {
+    if (xSemaphoreTake (mAudSem, 50) == pdTRUE) {
       int16_t* sample = nullptr;
       if (mHls->getScrubbing()) {
         if (scrubCount == 0)
@@ -342,7 +350,7 @@ static void mp3PlayThread (void const* argument) {
                   bytesLeft = 0;
                 }
               if (bytesLeft >= mp3->getFrameBodySize()) {
-                osSemaphoreWait (mAudSem, 100);
+                xSemaphoreTake (mAudSem, 100);
                 auto frameBytes = mp3->decodeFrameBody (chunkPtr, nullptr, (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
                 if (frameBytes) {
                   chunkPtr += frameBytes;
