@@ -58,13 +58,14 @@
 //}}}
 const bool kSdDebug = false;
 const bool kStaticIp = false;
-
+//{{{  new, delete ops
 //void* operator new (size_t size) { return pvPortMalloc (size); }
 //void operator delete (void* ptr) { vPortFree (ptr); }
 void* operator new (size_t size) { return malloc (size); }
 void operator delete (void* ptr) { free (ptr); }
 void* operator new[](size_t size) { return malloc (size); }
 void operator delete[](void *ptr) { free (ptr); }
+//}}}
 
 //{{{
 static const uint8_t SD_InquiryData[] = {
@@ -260,7 +261,7 @@ static void mp3PlayThread (void const* argument) {
   if (fatFs->mount() != FR_OK) {
     //{{{  fatfs mount error, return
     cLcd::debug ("fatFs mount problem");
-    osThreadTerminate (NULL);
+    vTaskDelete (NULL);
     return;
     }
     //}}}
@@ -547,8 +548,7 @@ static void netThread (void const* argument) {
     xTaskCreate ((TaskFunction_t)hlsLoaderThread, "hlsLoad", 14000, 0, 3, &handle);
     xTaskCreate ((TaskFunction_t)hlsPlayerThread, "hlsPlay", 2000, 0, 4, &handle);
     xTaskCreate ((TaskFunction_t)httpServerThread, "http", DEFAULT_THREAD_STACKSIZE, 0, 4, &handle);
-    //const osThreadDef_t osThreadFtp = { (char*)"ftp", ftpServerThread, osPriorityNormal, 0, DEFAULT_THREAD_STACKSIZE };
-    //osThreadCreate (&osThreadFtp, NULL);
+    //xTaskCreate ((TaskFunction_t)ftpServerThread, "ftp", DEFAULT_THREAD_STACKSIZE, 0, 4, &handle);
     }
   else {
     //{{{  no ethernet
@@ -557,7 +557,7 @@ static void netThread (void const* argument) {
     }
     //}}}
 
-  osThreadTerminate (NULL);
+  vTaskDelete (NULL);
   }
 //}}}
 //{{{
@@ -589,6 +589,7 @@ static void mainThread (void const* argument) {
     USBD_RegisterClass (&USBD_Device, &USBD_MSC);
     USBD_MSC_RegisterStorage (&USBD_Device, (USBD_StorageTypeDef*)(&USBD_DISK_fops));
     USBD_Start (&USBD_Device);
+
     cLcd::debug ("USB ok");
     }
     //}}}
@@ -602,11 +603,9 @@ static void mainThread (void const* argument) {
     initMp3Menu (mRoot);
     mLcd->setShowDebug (false, false, false, true);  // disable debug - title, info, lcdStats, footer
 
-    const osThreadDef_t osThreadPlay =  { (char*)"Play", mp3PlayThread, osPriorityNormal, 0, 8192 };
-    osThreadCreate (&osThreadPlay, NULL);
-
-    const osThreadDef_t osThreadWave =  { (char*)"Wave", waveThread, osPriorityNormal, 0, 8192 };
-    osThreadCreate (&osThreadWave, NULL);
+    TaskHandle_t handle;
+    xTaskCreate ((TaskFunction_t)mp3PlayThread, "Play", 8192, 0, 3, &handle);
+    xTaskCreate ((TaskFunction_t)waveThread, "Wave", 8192, 0, 3, &handle);
     }
     //}}}
 
