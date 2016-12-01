@@ -4,20 +4,17 @@
 #include "os/ethernetif.h"
 
 #include "memory.h"
-#include "cmsis_os.h"
-
 #include "stm32f7xx_hal.h"
 
 #include "lwip/opt.h"
 #include "lwip/lwip_timers.h"
 #include "netif/etharp.h"
 /*}}}*/
-static const uint8_t macaddress[6] = { 2, 0, 0x11, 0x22, 0x33, 0x44 };
+static const uint8_t kMacAddress[6] = { 2, 0, 0x11, 0x22, 0x33, 0x44 };
 
 // vars
 ETH_HandleTypeDef EthHandle;
-
-static osSemaphoreId rxSem = NULL;
+static SemaphoreHandle_t mRxSem = NULL;
 
 /*{{{*/
 static err_t ethernetOutput (struct netif* netif, struct pbuf* p) {
@@ -159,7 +156,7 @@ static void ethernetInputThread (void const* argument) {
   struct netif *netif = (struct netif*)argument;
 
   while (1) {
-    if (osSemaphoreWait (rxSem, 100) == osOK) {
+    if (xSemaphoreTake (mRxSem, 100) == pdTRUE) {
       struct pbuf* buf;
       do {
         buf = ethernetInput (netif);
@@ -176,7 +173,7 @@ static void ethernetInputThread (void const* argument) {
 err_t ethernetif_init (struct netif* netif) {
 
   EthHandle.Instance = ETH;
-  EthHandle.Init.MACAddr = (uint8_t*)macaddress;
+  EthHandle.Init.MACAddr = (uint8_t*)kMacAddress;
   EthHandle.Init.AutoNegotiation = ETH_AUTONEGOTIATION_ENABLE;
   EthHandle.Init.Speed = ETH_SPEED_100M;
   EthHandle.Init.DuplexMode = ETH_MODE_FULLDUPLEX;
@@ -184,7 +181,7 @@ err_t ethernetif_init (struct netif* netif) {
   EthHandle.Init.RxMode = ETH_RXINTERRUPT_MODE;
   EthHandle.Init.ChecksumMode = ETH_CHECKSUM_BY_HARDWARE;
   EthHandle.Init.PhyAddress = 0; // LAN8742A_PHY_ADDRESS;
-  if (HAL_ETH_Init (&EthHandle) == HAL_OK) 
+  if (HAL_ETH_Init (&EthHandle) == HAL_OK)
     netif->flags |= NETIF_FLAG_LINK_UP;
 
   // Initialize Rx Descriptors list: Chain Mode
@@ -199,16 +196,14 @@ err_t ethernetif_init (struct netif* netif) {
   netif->output = etharp_output;
   netif->linkoutput = ethernetOutput;
   netif->hwaddr_len = ETHARP_HWADDR_LEN;
-  for (int i = 0; i < 6; i++)
-    netif->hwaddr[i] = macaddress[i];
+  memcpy (netif->hwaddr, kMacAddress, 6);
   netif->mtu = 1500; // netif maximum transfer unit
   netif->flags |= NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP; // Accept broadcast address and ARP traffic
 
-  osSemaphoreDef (ethernetRxSem);
-  rxSem = osSemaphoreCreate (osSemaphore (ethernetRxSem), 1);
+  vSemaphoreCreateBinary (mRxSem);
 
-  osThreadDef (ethIf, ethernetInputThread, osPriorityRealtime, 0, 350);
-  osThreadCreate (osThread (ethIf), netif);
+  TaskHandle_t handle;
+  xTaskCreate ((TaskFunction_t)ethernetInputThread, "eth", 350, netif, 6, &handle);
 
   // Enable MAC and DMA transmission and reception
   HAL_ETH_Start (&EthHandle);
@@ -218,7 +213,7 @@ err_t ethernetif_init (struct netif* netif) {
 /*}}}*/
 
 /*{{{*/
-void HAL_ETH_MspInit (ETH_HandleTypeDef* heth) {
+void HAL_ETH_MspInit (ETH_HandleTypeDef* hEth) {
 // Ethernet pins config
 //   RMII_REF_CLK ----------------------> PA1
 //   RMII_MDIO -------------------------> PA2
@@ -262,7 +257,9 @@ void HAL_ETH_MspInit (ETH_HandleTypeDef* heth) {
   }
 /*}}}*/
 /*{{{*/
-void HAL_ETH_RxCpltCallback (ETH_HandleTypeDef* heth) {
-  osSemaphoreRelease (rxSem);
+void HAL_ETH_RxCpltCallback (ETH_HandleTypeDef* hEth) {
+  portBASE_TYPE taskWoken = pdFALSE;
+  if (xSemaphoreGiveFromISR (mRxSem, &taskWoken) == pdTRUE)
+    portEND_SWITCHING_ISR (taskWoken);
   }
 /*}}}*/
