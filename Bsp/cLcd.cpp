@@ -235,7 +235,7 @@ const uint8_t lcdRegData28[] = {0x00, 0x00, 0x01, 0xDF, OTM8009A_CMD_PASET};
 
 //{{{  struct tLTDC
 typedef struct {
-  osSemaphoreId sem;
+  SemaphoreHandle_t sem;
   uint32_t timeouts;
   uint32_t lineIrq;
   uint32_t fifoUnderunIrq;
@@ -247,11 +247,12 @@ typedef struct {
 //}}}
 static tLTDC ltdc;
 
-static uint32_t* mDma2dBuf = nullptr;
-static uint32_t* mDma2dIsrBuf = nullptr;
-static osSemaphoreId mDma2dSem;
 static uint8_t showAlpha[2];
 uint32_t showFrameBufferAddress[2];
+
+static uint32_t* mDma2dBuf = nullptr;
+static uint32_t* mDma2dIsrBuf = nullptr;
+static SemaphoreHandle_t mDma2dSem;
 
 //{{{
 class cFontChar {
