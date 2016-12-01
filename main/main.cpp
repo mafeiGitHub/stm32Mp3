@@ -441,10 +441,6 @@ static void mp3PlayThread (void const* argument) {
   cLcd::debug ("mp3PlayThread");
   mMp3PlayFrame = 0;
 
-  cLcd::debug ("mp3PlayThread early return");
-  vTaskDelete (NULL);
-  return;
-
   //{{{  mount fatfs
   cFatFs* fatFs = cFatFs::create();
   if (fatFs->mount() != FR_OK) {
@@ -458,13 +454,12 @@ static void mp3PlayThread (void const* argument) {
   cLcd::debug (fatFs->getLabel() + " vsn:" + hex (fatFs->getVolumeSerialNumber()) +
                " freeSectors:" + dec (fatFs->getFreeSectors()));
   //}}}
-
-  cLcd::debug ("fatfs mounted");
-
   listDirectory ("", "");
 
   TaskHandle_t handle;
   xTaskCreate ((TaskFunction_t)mp3WaveThread, "mp3Wave", 8192, 0, 3, &handle);
+  //vTaskDelete (NULL);
+  //return;
 
   auto mp3 = new cMp3;
   cLcd::debug ("play mp3");
@@ -538,6 +533,7 @@ static void mp3PlayThread (void const* argument) {
                   bytesLeft = 0;
                 }
               if (bytesLeft >= mp3->getFrameBodySize()) {
+                //if (xSemaphoreTake (mAudSem, 50) == pdTRUE) {
                 xSemaphoreTake (mAudSem, 100);
                 auto frameBytes = mp3->decodeFrameBody (chunkPtr, nullptr, (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
                 if (frameBytes) {
@@ -685,7 +681,7 @@ static void mainThread (void const* argument) {
     mWaveLoadFrame = 0;
 
     initMp3Menu (mRoot);
-    //mLcd->setShowDebug (false, false, false, true);  // disable debug - title, info, lcdStats, footer
+    mLcd->setShowDebug (false, false, false, true);  // disable debug - title, info, lcdStats, footer
 
     TaskHandle_t handle;
     xTaskCreate ((TaskFunction_t)mp3PlayThread, "mp3Play", 8192, 0, 3, &handle);

@@ -309,7 +309,7 @@ int8_t SD_ReadCached (uint8_t* buf, uint32_t blk_addr, uint16_t blocks) {
     if (blk_addr != mReadBlock + mReadMultipleLen) {
       if (mReadMultipleLen) {
         // flush pending multiple
-        cLcd::debug ("rm:" + dec (mReadBlock) + "::" + dec (mReadMultipleLen));
+        //cLcd::debug ("rm:" + dec (mReadBlock) + "::" + dec (mReadMultipleLen));
         mReadMultipleLen = 0;
         }
       mReadBlock = blk_addr;
@@ -332,7 +332,7 @@ int8_t SD_WriteCached (uint8_t* buf, uint32_t blk_addr, uint16_t blocks) {
     if (blk_addr != mWriteBlock + mWriteMultipleLen) {
       if (mWriteMultipleLen) {
         // flush pending multiple
-        cLcd::debug ("wm:" + dec (mWriteBlock) + "::" + dec (mWriteMultipleLen));
+        //cLcd::debug ("wm:" + dec (mWriteBlock) + "::" + dec (mWriteMultipleLen));
         mWriteMultipleLen = 0;
         }
       mWriteBlock = blk_addr;

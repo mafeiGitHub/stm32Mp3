@@ -48,19 +48,12 @@ void AUDIO_OUT_SAIx_DMAx_IRQHandler() { HAL_DMA_IRQHandler (haudio_out_sai.hdmat
   void SDMMC1_IRQHandler() { HAL_SD_IRQHandler (&uSdHandle); }
   void DMA2_Stream3_IRQHandler() { HAL_DMA_IRQHandler (uSdHandle.hdmarx); }
   void DMA2_Stream6_IRQHandler() { HAL_DMA_IRQHandler (uSdHandle.hdmatx); }
-  void BSP_SDMMC2_IRQHandler() { HAL_SD_IRQHandler (&uSdHandle); }
-  void DMA2_Stream0_IRQHandler() { HAL_DMA_IRQHandler (uSdHandle.hdmarx); }
-  void DMA2_Stream5_IRQHandler() { HAL_DMA_IRQHandler (uSdHandle.hdmatx); }
-
   // audio in
   //extern SAI_HandleTypeDef haudio_in_sai;
   //void AUDIO_IN_SAIx_DMAx_IRQHandler() { HAL_DMA_IRQHandler (haudio_in_sai.hdmarx); }
 #else
   // sd irqs
-  void SDMMC1_IRQHandler() { HAL_SD_IRQHandler (&uSdHandle); }
-  void DMA2_Stream3_IRQHandler() { HAL_DMA_IRQHandler (uSdHandle.hdmarx); }
-  void DMA2_Stream6_IRQHandler() { HAL_DMA_IRQHandler (uSdHandle.hdmatx); }
-  void BSP_SDMMC2_IRQHandler() { HAL_SD_IRQHandler (&uSdHandle); }
+  void SDMMC2_IRQHandler() { HAL_SD_IRQHandler (&uSdHandle); }
   void DMA2_Stream0_IRQHandler() { HAL_DMA_IRQHandler (uSdHandle.hdmarx); }
   void DMA2_Stream5_IRQHandler() { HAL_DMA_IRQHandler (uSdHandle.hdmatx); }
 
