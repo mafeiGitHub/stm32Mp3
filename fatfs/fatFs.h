@@ -2,6 +2,8 @@
 #pragma once
 //{{{  includes, defines
 #include <string>
+
+#include "FreeRTOS.h"
 #include "cmsis_os.h"
 
 class cFile;

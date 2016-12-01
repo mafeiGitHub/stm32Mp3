@@ -9,7 +9,9 @@
 #include <map>
 
 #include "memory.h"
-#include "cmsis_os.h"
+#include "FreeRTOS.h"
+#include "task.h"
+#include "semphr.h"
 #include "cpuUsage.h"
 
 #ifdef STM32F746G_DISCO
@@ -297,8 +299,8 @@ void LCD_LTDC_IRQHandler() {
       ltdcLayer->CR &= ~LTDC_LxCR_LEN;
     LTDC->SRCR |= LTDC_SRCR_IMR;
 
-    ltdc.lineTicks = osKernelSysTick() - ltdc.lastTicks;
-    ltdc.lastTicks = osKernelSysTick();
+    ltdc.lineTicks = xTaskGetTickCount() - ltdc.lastTicks;
+    ltdc.lastTicks = xTaskGetTickCount();
     ltdc.lineIrq++;
 
     if (ltdc.frameWait) {
@@ -407,7 +409,7 @@ void cLcd::info (uint32_t colour, std::string str) {
   bool tailing = mLastLine == (int)mFirstLine + mNumDrawLines - 1;
 
   auto line = (mLastLine < mMaxLine-1) ? mLastLine+1 : mLastLine;
-  mLines[line].mTime = osKernelSysTick();
+  mLines[line].mTime = xTaskGetTickCount();
   mLines[line].mColour = colour;
   mLines[line].mString = str;
   mLastLine = line;
@@ -458,7 +460,7 @@ void cLcd::startRender() {
   if (xSemaphoreTake (ltdc.sem, 100) == pdFALSE)
     ltdc.timeouts++;
 
-  mDrawStartTime = osKernelSysTick();
+  mDrawStartTime = xTaskGetTickCount();
   }
 //}}}
 //{{{
@@ -533,7 +535,7 @@ void cLcd::endRender (bool forceInfo) {
   mDma2dCurBuf = mDma2dBuf;
   *mDma2dCurBuf = kEnd;
 
-  mDrawTime = osKernelSysTick() - mDrawStartTime;
+  mDrawTime = xTaskGetTickCount() - mDrawStartTime;
   }
 //}}}
 //{{{
@@ -583,7 +585,7 @@ void cLcd::flush() {
   mCurFrameBufferAddress = SDRAM_FRAME0;
   mSetFrameBufferAddress[0] = SDRAM_FRAME0;
 
-  mDrawStartTime = osKernelSysTick();
+  mDrawStartTime = xTaskGetTickCount();
 
   // clear interrupts
   DMA2D->IFCR = DMA2D_ISR_TCIF | DMA2D_ISR_TEIF | DMA2D_ISR_CEIF;
@@ -612,7 +614,7 @@ void cLcd::flush() {
       }
     opcode = *mDma2dIsrBuf++;
     }
-  mDrawTime = osKernelSysTick() - mDrawStartTime;
+  mDrawTime = xTaskGetTickCount() - mDrawStartTime;
 
   showFrameBufferAddress[0] = SDRAM_FRAME0;
   showAlpha[0] = 255;
@@ -830,9 +832,9 @@ void cLcd::init (std::string title) {
   *mDma2dCurBuf = kEnd;
 
   if (mIsr) {
+    // why is this counting, init -1 ??
     //vSemaphoreCreateBinary (mDma2dSem);
-    osSemaphoreDef (mDma2dSem);
-    mDma2dSem = osSemaphoreCreate (osSemaphore (mDma2dSem), -1);
+    mDma2dSem = xSemaphoreCreateCounting (-1, 0);
 
     // dma2d IRQ init
     HAL_NVIC_SetPriority (DMA2D_IRQn, 0x0F, 0);
@@ -1417,7 +1419,7 @@ void cLcd::reset() {
   for (auto i = 0; i < mMaxLine; i++)
     mLines[i].clear();
 
-  mStartTime = osKernelSysTick();
+  mStartTime = xTaskGetTickCount();
   mLastLine = -1;
   mFirstLine = 0;
   }
