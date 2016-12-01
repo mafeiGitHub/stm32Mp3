@@ -321,15 +321,14 @@ void LCD_DMA2D_IRQHandler() {
   while (true) {
     uint32_t opcode = *mDma2dIsrBuf++;
     switch (opcode) {
-      case kEnd:
+      case kEnd: {
         DMA2D->CR = 0;
         mDma2dIsrBuf = mDma2dBuf;
-        osSemaphoreRelease (mDma2dSem);
-        //portBASE_TYPE taskWoken = pdFALSE;
-        //if (xSemaphoreGiveFromISR (mDma2dSem, &taskWoken) == pdTRUE)
-        //  portEND_SWITCHING_ISR (taskWoken);
+        portBASE_TYPE taskWoken = pdFALSE;
+        if (xSemaphoreGiveFromISR (mDma2dSem, &taskWoken) == pdTRUE)
+          portEND_SWITCHING_ISR (taskWoken);
         return;
-
+        }
       case kStamp:
         DMA2D->OMAR    = *mDma2dIsrBuf;   // output start address
         DMA2D->BGMAR   = *mDma2dIsrBuf++; // - repeated to bgnd start addres
@@ -526,8 +525,7 @@ void cLcd::endRender (bool forceInfo) {
   LCD_DMA2D_IRQHandler();
 
   // wait
-  //if (xSemaphoreTake (mDma2dSem, 500) == pdFALSE)
-  if (osSemaphoreWait (mDma2dSem, 500) != osOK)
+  if (xSemaphoreTake (mDma2dSem, 500) == pdFALSE)
     mDma2dTimeouts++;
   showLayer (0, mBuffer[mDrawBuffer], 255);
 
