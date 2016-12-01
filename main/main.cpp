@@ -210,6 +210,89 @@ static void hlsPlayerThread (void const* argument) {
     }
   }
 //}}}
+//{{{
+static void hlsNetThread (void const* argument) {
+
+  tcpip_init (NULL, NULL);
+  cLcd::debug ("hlsNetThread");
+
+  // init LwIP stack
+  struct ip_addr ipAddr;
+  IP4_ADDR (&ipAddr, 192, 168, 1, 67);
+  struct ip_addr netmask;
+  IP4_ADDR (&netmask, 255, 255 , 255, 0);
+  struct ip_addr gateway;
+  IP4_ADDR (&gateway, 192, 168, 0, 1);
+
+  struct netif netIf;
+  netif_add (&netIf, &ipAddr, &netmask, &gateway, NULL, &ethernetif_init, &tcpip_input);
+  netif_set_default (&netIf);
+
+  if (!netif_is_link_up (&netIf)) {
+    netif_set_down (&netIf);
+    cLcd::get()->info (COL_RED, "no ethernet");
+    }
+  else {
+    netif_set_up (&netIf);
+    if (kStaticIp)
+      //{{{  static ip
+      cLcd::get()->info (COL_YELLOW, "ethernet static ip " + dec ((int) (netIf.ip_addr.addr & 0xFF)) + "." +
+                                                      dec ((int)((netIf.ip_addr.addr >> 16) & 0xFF)) + "." +
+                                                      dec ((int)((netIf.ip_addr.addr >> 8) & 0xFF)) + "." +
+                                                      dec ((int) (netIf.ip_addr.addr >> 24)));
+      //}}}
+    else {
+      //{{{  dhcp ip
+      struct ip_addr nullIpAddr;
+      IP4_ADDR (&nullIpAddr, 0, 0, 0, 0);
+      netIf.ip_addr = nullIpAddr;
+      netIf.netmask = nullIpAddr;
+      netIf.gw = nullIpAddr;
+      dhcp_start (&netIf);
+
+      while (true) {
+        if (netIf.ip_addr.addr) {
+          // dhcp allocated
+          std::string address = dec ( (int)(netIf.ip_addr.addr & 0xFF)) + "." +
+                                dec ((int)((netIf.ip_addr.addr >> 16) & 0xFF)) + "." +
+                                dec ((int)((netIf.ip_addr.addr >> 8) & 0xFF)) + "." +
+                                dec ( (int)(netIf.ip_addr.addr >> 24));
+          cLcd::get()->info (COL_YELLOW, "dhcp " + address);
+
+          dhcp_stop (&netIf);
+          break;
+          }
+        else if (netIf.dhcp->tries > 4) {
+          // dhcp timeout
+          cLcd::get()->info (COL_RED, "dhcp timeout");
+          dhcp_stop (&netIf);
+
+          // use static address
+          struct ip_addr ipAddr;
+          IP4_ADDR (&ipAddr, 192 ,168 , 1 , 67 );
+          struct ip_addr netmask;
+          IP4_ADDR (&netmask, 255, 255, 255, 0);
+          struct ip_addr gateway;
+          IP4_ADDR (&gateway, 192, 168, 0, 1);
+          netif_set_addr (&netIf, &ipAddr , &netmask, &gateway);
+          break;
+          }
+
+        vTaskDelay (250);
+        }
+      }
+      //}}}
+
+    TaskHandle_t handle;
+    xTaskCreate ((TaskFunction_t)hlsLoaderThread, "hlsLoad", 14000, 0, 3, &handle);
+    xTaskCreate ((TaskFunction_t)hlsPlayerThread, "hlsPlay", 2000, 0, 4, &handle);
+    xTaskCreate ((TaskFunction_t)httpServerThread, "hlsHttp", DEFAULT_THREAD_STACKSIZE, 0, 4, &handle);
+    //xTaskCreate ((TaskFunction_t)ftpServerThread, "ftp", DEFAULT_THREAD_STACKSIZE, 0, 4, &handle);
+    }
+
+  vTaskDelete (NULL);
+  }
+//}}}
 
 //{{{
 static void initMp3Menu (cRootContainer* root) {
@@ -253,10 +336,114 @@ static void listDirectory (std::string directoryName, std::string indent) {
   }
 //}}}
 //{{{
+static void mp3WaveThread (void const* argument) {
+
+  cLcd::debug ("mp3WaveThread");
+
+  auto mp3 = new cMp3;
+  cLcd::debug ("wave mp3");
+
+  auto chunkSize = 0x10000 - 2048; // 64k
+  auto fullChunkSize = 2048 + chunkSize;
+  auto chunkBuffer = (uint8_t*)bigMalloc (fullChunkSize, "waveChunkBuf");
+
+  int loadedFileIndex = -1;
+  while (true) {
+    loadedFileIndex = fileIndex;
+
+    mWaveLoadFrame = 0;
+    mWave[0] = 0;
+    auto wavePtr = mWave + 1;
+
+    int count = 0;
+    cLcd::debug ("wave load " + mMp3Files[fileIndex]);
+    cFile file (mMp3Files[fileIndex], FA_OPEN_EXISTING | FA_READ);
+    if (file.getError())
+      cLcd::debug ("- wave open failed " + dec (file.getError()) + " " + mMp3Files[fileIndex]);
+    else {
+      int bytesLeft = 0;
+      do {
+        count++;
+        FRESULT fresult = file.read (chunkBuffer, fullChunkSize, bytesLeft);;
+        if (fresult) {
+          //{{{  error
+          cLcd::debug ("wave read " + dec (count) + " " + dec (fresult));
+          vTaskDelay (100);
+          goto exitWave;
+          }
+          //}}}
+        if (bytesLeft) {
+          auto chunkPtr = chunkBuffer;
+          int headerBytes;
+          do {
+            headerBytes = mp3->findNextHeader (chunkPtr, bytesLeft);
+            if (headerBytes) {
+              chunkPtr += headerBytes;
+              bytesLeft -= headerBytes;
+              if (bytesLeft < mp3->getFrameBodySize() + 4) { // not enough for frameBody and next header
+                // move bytesLeft to front of chunkBuffer,  next read partial buffer 32bit aligned
+                auto nextChunkPtr = chunkBuffer + ((4 - (bytesLeft & 3)) & 3);
+                memcpy (nextChunkPtr, chunkPtr, bytesLeft);
+
+                // read next chunks worth, including rest of frame, 32bit aligned
+                count++;
+                int bytesLoaded;
+                FRESULT fresult = file.read (nextChunkPtr + bytesLeft, chunkSize, bytesLoaded);
+                if (fresult) {
+                  //{{{  error
+                  cLcd::debug ("wave read " + dec (count) + " " + dec (fresult));
+                  vTaskDelay (100);
+                  goto exitWave;
+                  }
+                  //}}}
+                if (bytesLoaded) {
+                  chunkPtr = nextChunkPtr;
+                  bytesLeft += bytesLoaded;
+                  }
+                else
+                  bytesLeft = 0;
+                }
+              if (bytesLeft >= mp3->getFrameBodySize()) {
+                mFrameOffsets[mWaveLoadFrame] = file.getPosition(); // not right !!!!
+                auto frameBytes = mp3->decodeFrameBody (chunkPtr, mWave + 1 + (mWaveLoadFrame * 2), nullptr);
+                if (*wavePtr > *mWave)
+                  *mWave = *wavePtr;
+                wavePtr++;
+                if (*wavePtr > *mWave)
+                  *mWave = *wavePtr;
+                wavePtr++;
+                mWaveLoadFrame++;
+
+                if (frameBytes) {
+                  chunkPtr += frameBytes;
+                  bytesLeft -= frameBytes;
+                  }
+                else
+                  bytesLeft = 0;
+                }
+              }
+            } while ((fileIndex == loadedFileIndex) && headerBytes && (bytesLeft > 0));
+          }
+        } while ((fileIndex == loadedFileIndex) && (bytesLeft > 0));
+      }
+  exitWave:
+    cLcd::debug ("wave loaded");
+
+    // wait for file change
+    while (fileIndex == loadedFileIndex)
+      vTaskDelay (100);
+    }
+  }
+//}}}
+//{{{
 static void mp3PlayThread (void const* argument) {
 
   cLcd::debug ("mp3PlayThread");
   mMp3PlayFrame = 0;
+
+  cLcd::debug ("mp3PlayThread early return");
+  vTaskDelete (NULL);
+  return;
 
   //{{{  mount fatfs
   cFatFs* fatFs = cFatFs::create();
@@ -267,10 +454,17 @@ static void mp3PlayThread (void const* argument) {
     return;
     }
     //}}}
+
   cLcd::debug (fatFs->getLabel() + " vsn:" + hex (fatFs->getVolumeSerialNumber()) +
                " freeSectors:" + dec (fatFs->getFreeSectors()));
   //}}}
+
+  cLcd::debug ("fatfs mounted");
+
   listDirectory ("", "");
+
+  TaskHandle_t handle;
+  xTaskCreate ((TaskFunction_t)mp3WaveThread, "mp3Wave", 8192, 0, 3, &handle);
 
   auto mp3 = new cMp3;
   cLcd::debug ("play mp3");
@@ -376,317 +570,6 @@ static void mp3PlayThread (void const* argument) {
     }
   }
 //}}}
-//{{{
-static void waveThread (void const* argument) {
-
-  cLcd::debug ("waveThread");
-  auto mp3 = new cMp3;
-  cLcd::debug ("wave mp3");
-
-  auto chunkSize = 0x10000 - 2048; // 64k
-  auto fullChunkSize = 2048 + chunkSize;
-  auto chunkBuffer = (uint8_t*)bigMalloc (fullChunkSize, "waveChunkBuf");
-
-  int loadedFileIndex = -1;
-  while (true) {
-    loadedFileIndex = fileIndex;
-
-    mWaveLoadFrame = 0;
-    mWave[0] = 0;
-    auto wavePtr = mWave + 1;
-
-    int count = 0;
-    cLcd::debug ("wave load " + mMp3Files[fileIndex]);
-    cFile file (mMp3Files[fileIndex], FA_OPEN_EXISTING | FA_READ);
-    if (file.getError())
-      cLcd::debug ("- wave open failed " + dec (file.getError()) + " " + mMp3Files[fileIndex]);
-    else {
-      int bytesLeft = 0;
-      do {
-        count++;
-        FRESULT fresult = file.read (chunkBuffer, fullChunkSize, bytesLeft);;
-        if (fresult) {
-          //{{{  error
-          cLcd::debug ("wave read " + dec (count) + " " + dec (fresult));
-          vTaskDelay (100);
-          goto exitWave;
-          }
-          //}}}
-        if (bytesLeft) {
-          auto chunkPtr = chunkBuffer;
-          int headerBytes;
-          do {
-            headerBytes = mp3->findNextHeader (chunkPtr, bytesLeft);
-            if (headerBytes) {
-              chunkPtr += headerBytes;
-              bytesLeft -= headerBytes;
-              if (bytesLeft < mp3->getFrameBodySize() + 4) { // not enough for frameBody and next header
-                // move bytesLeft to front of chunkBuffer,  next read partial buffer 32bit aligned
-                auto nextChunkPtr = chunkBuffer + ((4 - (bytesLeft & 3)) & 3);
-                memcpy (nextChunkPtr, chunkPtr, bytesLeft);
-
-                // read next chunks worth, including rest of frame, 32bit aligned
-                count++;
-                int bytesLoaded;
-                FRESULT fresult = file.read (nextChunkPtr + bytesLeft, chunkSize, bytesLoaded);
-                if (fresult) {
-                  //{{{  error
-                  cLcd::debug ("wave read " + dec (count) + " " + dec (fresult));
-                  vTaskDelay (100);
-                  goto exitWave;
-                  }
-                  //}}}
-                if (bytesLoaded) {
-                  chunkPtr = nextChunkPtr;
-                  bytesLeft += bytesLoaded;
-                  }
-                else
-                  bytesLeft = 0;
-                }
-              if (bytesLeft >= mp3->getFrameBodySize()) {
-                mFrameOffsets[mWaveLoadFrame] = file.getPosition(); // not right !!!!
-                auto frameBytes = mp3->decodeFrameBody (chunkPtr, mWave + 1 + (mWaveLoadFrame * 2), nullptr);
-                if (*wavePtr > *mWave)
-                  *mWave = *wavePtr;
-                wavePtr++;
-                if (*wavePtr > *mWave)
-                  *mWave = *wavePtr;
-                wavePtr++;
-                mWaveLoadFrame++;
-
-                if (frameBytes) {
-                  chunkPtr += frameBytes;
-                  bytesLeft -= frameBytes;
-                  }
-                else
-                  bytesLeft = 0;
-                }
-              }
-            } while ((fileIndex == loadedFileIndex) && headerBytes && (bytesLeft > 0));
-          }
-        } while ((fileIndex == loadedFileIndex) && (bytesLeft > 0));
-      }
-  exitWave:
-    cLcd::debug ("wave loaded");
-
-    // wait for file change
-    while (fileIndex == loadedFileIndex)
-      vTaskDelay (100);
-    }
-  }
-//}}}
-
-//{{{
-static void netThread (void const* argument) {
-
-  tcpip_init (NULL, NULL);
-  cLcd::debug ("configuring ethernet");
-
-  // init LwIP stack
-  struct ip_addr ipAddr;
-  IP4_ADDR (&ipAddr, 192, 168, 1, 67);
-  struct ip_addr netmask;
-  IP4_ADDR (&netmask, 255, 255 , 255, 0);
-  struct ip_addr gateway;
-  IP4_ADDR (&gateway, 192, 168, 0, 1);
-
-  struct netif netIf;
-  netif_add (&netIf, &ipAddr, &netmask, &gateway, NULL, &ethernetif_init, &tcpip_input);
-  netif_set_default (&netIf);
-
-  if (netif_is_link_up (&netIf)) {
-    netif_set_up (&netIf);
-    if (kStaticIp)
-      //{{{  static ip
-      cLcd::get()->info (COL_YELLOW, "ethernet static ip " + dec ((int) (netIf.ip_addr.addr & 0xFF)) + "." +
-                                                      dec ((int)((netIf.ip_addr.addr >> 16) & 0xFF)) + "." +
-                                                      dec ((int)((netIf.ip_addr.addr >> 8) & 0xFF)) + "." +
-                                                      dec ((int) (netIf.ip_addr.addr >> 24)));
-      //}}}
-    else {
-      //{{{  dhcp ip
-      struct ip_addr nullIpAddr;
-      IP4_ADDR (&nullIpAddr, 0, 0, 0, 0);
-      netIf.ip_addr = nullIpAddr;
-      netIf.netmask = nullIpAddr;
-      netIf.gw = nullIpAddr;
-      dhcp_start (&netIf);
-
-      while (true) {
-        if (netIf.ip_addr.addr) {
-          //{{{  dhcp allocated
-          std::string address = dec ( (int)(netIf.ip_addr.addr & 0xFF)) + "." +
-                                dec ((int)((netIf.ip_addr.addr >> 16) & 0xFF)) + "." +
-                                dec ((int)((netIf.ip_addr.addr >> 8) & 0xFF)) + "." +
-                                dec ( (int)(netIf.ip_addr.addr >> 24));
-          cLcd::get()->info (COL_YELLOW, "dhcp " + address);
-
-          dhcp_stop (&netIf);
-          break;
-          }
-          //}}}
-        else if (netIf.dhcp->tries > 4) {
-          //{{{  dhcp timeout
-          cLcd::get()->info (COL_RED, "dhcp timeout");
-          dhcp_stop (&netIf);
-
-          // use static address
-          struct ip_addr ipAddr;
-          IP4_ADDR (&ipAddr, 192 ,168 , 1 , 67 );
-          struct ip_addr netmask;
-          IP4_ADDR (&netmask, 255, 255, 255, 0);
-          struct ip_addr gateway;
-          IP4_ADDR (&gateway, 192, 168, 0, 1);
-          netif_set_addr (&netIf, &ipAddr , &netmask, &gateway);
-          break;
-          }
-          //}}}
-        vTaskDelay (250);
-        }
-      }
-      //}}}
-
-    TaskHandle_t handle;
-    xTaskCreate ((TaskFunction_t)hlsLoaderThread, "hlsLoad", 14000, 0, 3, &handle);
-    xTaskCreate ((TaskFunction_t)hlsPlayerThread, "hlsPlay", 2000, 0, 4, &handle);
-    xTaskCreate ((TaskFunction_t)httpServerThread, "http", DEFAULT_THREAD_STACKSIZE, 0, 4, &handle);
-    //xTaskCreate ((TaskFunction_t)ftpServerThread, "ftp", DEFAULT_THREAD_STACKSIZE, 0, 4, &handle);
-    }
-  else {
-    //{{{  no ethernet
-    netif_set_down (&netIf);
-    cLcd::get()->info (COL_RED, "no ethernet");
-    }
-    //}}}
-
-  vTaskDelete (NULL);
-  }
-//}}}
-//{{{
-static void mainThread (void const* argument) {
-
-  const bool kMaxTouch = 1;
-  mLcd->displayOn();
-
-  SD_Init();
-  if (!SD_present()) {
-    //{{{  HLS player
-    mHls = new cHls();
-
-    mReSamples = (int16_t*)bigMalloc (4096, "hlsResamples");
-    memset (mReSamples, 0, 4096);
-
-    mLcd->setShowDebug (false, false, false, false);  // debug - title, info, lcdStats, footer
-    hlsMenu (mRoot, mHls);
-
-    vSemaphoreCreateBinary (mHlsSem);
-
-    TaskHandle_t handle;
-    xTaskCreate ((TaskFunction_t)netThread, "Net", 1024, 0, 3, &handle);
-    }
-    //}}}
-  else if (BSP_PB_GetState (BUTTON_WAKEUP) == GPIO_PIN_SET) {
-    //{{{  USB MSC
-    USBD_Init (&USBD_Device, &MSC_Desc, 0);
-    USBD_RegisterClass (&USBD_Device, &USBD_MSC);
-    USBD_MSC_RegisterStorage (&USBD_Device, (USBD_StorageTypeDef*)(&USBD_DISK_fops));
-    USBD_Start (&USBD_Device);
-
-    cLcd::debug ("USB ok");
-    }
-    //}}}
-  else {
-    //{{{  MP3 player
-    mFrameOffsets = (int*)bigMalloc (60*60*40*sizeof(int), "mp3FrameOff");
-    mWave = (uint8_t*)bigMalloc (60*60*40*2*sizeof(uint8_t), "mp3Wave");  // 1 hour of 40 mp3 frames per sec
-    mWave[0] = 0;
-    mWaveLoadFrame = 0;
-
-    initMp3Menu (mRoot);
-    mLcd->setShowDebug (false, false, false, true);  // disable debug - title, info, lcdStats, footer
-
-    TaskHandle_t handle;
-    xTaskCreate ((TaskFunction_t)mp3PlayThread, "Play", 8192, 0, 3, &handle);
-    xTaskCreate ((TaskFunction_t)waveThread, "Wave", 8192, 0, 3, &handle);
-    }
-    //}}}
-
-  //{{{  init vars
-  int16_t x[kMaxTouch];
-  int16_t y[kMaxTouch];
-  uint8_t z[kMaxTouch];
-  int pressed[kMaxTouch];
-  for (auto touch = 0; touch < kMaxTouch; touch++)
-    pressed[touch] = 0;
-  //}}}
-  BSP_TS_Init (mRoot->getPixWidth(), mRoot->getPixHeight());
-  while (true) {
-    //bool button = true;
-    bool button = BSP_PB_GetState (BUTTON_WAKEUP) == GPIO_PIN_SET;
-    TS_StateTypeDef tsState;
-    BSP_TS_GetState (&tsState);
-    for (auto touch = 0; touch < kMaxTouch; touch++) {
-      if (touch < tsState.touchDetected) {
-        //{{{  pressed
-        auto xinc = pressed[touch] ? tsState.touchX[touch] - x[touch] : 0;
-        auto yinc = pressed[touch] ? tsState.touchY[touch] - y[touch] : 0;
-        x[touch] = tsState.touchX[touch];
-        y[touch] = tsState.touchY[touch];
-        z[touch] = tsState.touchWeight[touch];
-        if (touch == 0)
-          button ? mLcd->press (pressed[0], x[0], y[0], z[0], xinc, yinc) : mRoot->press (pressed[0], x[0], y[0], z[0], xinc, yinc);
-        pressed[touch]++;
-        }
-        //}}}
-      else {
-        //{{{  released
-        x[touch] = 0;
-        y[touch] = 0;
-        z[touch] = 0;
-        if (!touch && pressed[0])
-          mRoot->release();
-        pressed[touch] = 0;
-        }
-        //}}}
-      }
-
-    #ifdef STM32F769I_DISCO
-      //{{{  update led2,3
-      button ? BSP_LED_On (LED2) : BSP_LED_Off (LED2);
-      tsState.touchDetected ? BSP_LED_On (LED3) : BSP_LED_Off (LED3);
-      //}}}
-    #endif
-
-    mLcd->startRender();
-    button ? mLcd->clear (COL_BLACK) : mRoot->render (mLcd);
-    //if (tsState.touchDetected)
-    //  mLcd->renderCursor (COL_MAGENTA, x[0], y[0], z[0] ? z[0] : cLcd::getHeight()/10);
-    if (kSdDebug)
-      mLcd->text (COL_YELLOW, cWidget::getFontHeight(), SD_info(),
-                  mLcd->getLcdWidthPix()/2, mLcd->getLcdHeightPix()- cWidget::getBoxHeight(),
-                  mLcd->getLcdWidthPix(), cWidget::getBoxHeight());
-    mLcd->endRender (button);
-    if (mHls) {
-      if (mHls->mVolumeChanged && (int(mHls->mVolume * 100) != mIntVolume)) {
-        //{{{  set volume
-        mIntVolume = int(mHls->mVolume * 100);
-        BSP_AUDIO_OUT_SetVolume (mIntVolume);
-        mHls->mVolumeChanged = false;
-        }
-        //}}}
-      }
-    else {
-      if (mVolumeChanged && (int(mVolume * 100) != mIntVolume)) {
-        //{{{  set volume
-        mIntVolume = int(mVolume * 100);
-        BSP_AUDIO_OUT_SetVolume (mIntVolume);
-        mVolumeChanged = false;
-        }
-        //}}}
-      }
-    }
-  }
-//}}}
 
 //{{{
 static void initMpuRegions() {
@@ -774,6 +657,131 @@ static void initClock() {
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
   if (HAL_RCC_ClockConfig (&RCC_ClkInitStruct, FLASH_LATENCY_7) != HAL_OK)
     while (true) {;}
+  }
+//}}}
+//{{{
+static void mainThread (void const* argument) {
+
+  const bool kMaxTouch = 1;
+  mLcd->displayOn();
+
+  SD_Init();
+
+  if (BSP_PB_GetState (BUTTON_WAKEUP) == GPIO_PIN_SET) {
+    //{{{  usb sd MSC
+    USBD_Init (&USBD_Device, &MSC_Desc, 0);
+    USBD_RegisterClass (&USBD_Device, &USBD_MSC);
+    USBD_MSC_RegisterStorage (&USBD_Device, (USBD_StorageTypeDef*)(&USBD_DISK_fops));
+    USBD_Start (&USBD_Device);
+
+    cLcd::debug ("USB ok");
+    }
+    //}}}
+  else if (SD_present()) {
+    //{{{  sd MP3
+    mFrameOffsets = (int*)bigMalloc (60*60*40*sizeof(int), "mp3FrameOff");
+    mWave = (uint8_t*)bigMalloc (60*60*40*2*sizeof(uint8_t), "mp3Wave");  // 1 hour of 40 mp3 frames per sec
+    mWave[0] = 0;
+    mWaveLoadFrame = 0;
+
+    initMp3Menu (mRoot);
+    //mLcd->setShowDebug (false, false, false, true);  // disable debug - title, info, lcdStats, footer
+
+    TaskHandle_t handle;
+    xTaskCreate ((TaskFunction_t)mp3PlayThread, "mp3Play", 8192, 0, 3, &handle);
+    }
+    //}}}
+  else {
+    //{{{  net HLS
+    mReSamples = (int16_t*)bigMalloc (4096, "hlsResamples");
+    memset (mReSamples, 0, 4096);
+
+    mLcd->setShowDebug (false, false, false, false);  // debug - title, info, lcdStats, footer
+
+    mHls = new cHls();
+    hlsMenu (mRoot, mHls);
+
+    vSemaphoreCreateBinary (mHlsSem);
+
+    TaskHandle_t handle;
+    xTaskCreate ((TaskFunction_t)hlsNetThread, "Net", 1024, 0, 3, &handle);
+    }
+    //}}}
+
+  //{{{  init vars
+  int16_t x[kMaxTouch];
+  int16_t y[kMaxTouch];
+  uint8_t z[kMaxTouch];
+  int pressed[kMaxTouch];
+  for (auto touch = 0; touch < kMaxTouch; touch++)
+    pressed[touch] = 0;
+  //}}}
+  BSP_TS_Init (mRoot->getPixWidth(), mRoot->getPixHeight());
+  while (true) {
+    //bool button = true;
+    bool button = BSP_PB_GetState (BUTTON_WAKEUP) == GPIO_PIN_SET;
+    TS_StateTypeDef tsState;
+    BSP_TS_GetState (&tsState);
+    for (auto touch = 0; touch < kMaxTouch; touch++) {
+      if (touch < tsState.touchDetected) {
+        //{{{  pressed
+        auto xinc = pressed[touch] ? tsState.touchX[touch] - x[touch] : 0;
+        auto yinc = pressed[touch] ? tsState.touchY[touch] - y[touch] : 0;
+        x[touch] = tsState.touchX[touch];
+        y[touch] = tsState.touchY[touch];
+        z[touch] = tsState.touchWeight[touch];
+        if (touch == 0)
+          button ? mLcd->press (pressed[0], x[0], y[0], z[0], xinc, yinc) : mRoot->press (pressed[0], x[0], y[0], z[0], xinc, yinc);
+        pressed[touch]++;
+        }
+        //}}}
+      else {
+        //{{{  released
+        x[touch] = 0;
+        y[touch] = 0;
+        z[touch] = 0;
+        if (!touch && pressed[0])
+          mRoot->release();
+        pressed[touch] = 0;
+        }
+        //}}}
+      }
+
+    #ifdef STM32F769I_DISCO
+      //{{{  update led2,3
+      button ? BSP_LED_On (LED2) : BSP_LED_Off (LED2);
+      tsState.touchDetected ? BSP_LED_On (LED3) : BSP_LED_Off (LED3);
+      //}}}
+    #endif
+
+    mLcd->startRender();
+    button ? mLcd->clear (COL_BLACK) : mRoot->render (mLcd);
+    //if (tsState.touchDetected)
+    //  mLcd->renderCursor (COL_MAGENTA, x[0], y[0], z[0] ? z[0] : cLcd::getHeight()/10);
+    if (kSdDebug)
+      mLcd->text (COL_YELLOW, cWidget::getFontHeight(), SD_info(),
+                  mLcd->getLcdWidthPix()/2, mLcd->getLcdHeightPix()- cWidget::getBoxHeight(),
+                  mLcd->getLcdWidthPix(), cWidget::getBoxHeight());
+    mLcd->endRender (button);
+    if (mHls) {
+      if (mHls->mVolumeChanged && (int(mHls->mVolume * 100) != mIntVolume)) {
+        //{{{  set volume
+        mIntVolume = int(mHls->mVolume * 100);
+        BSP_AUDIO_OUT_SetVolume (mIntVolume);
+        mHls->mVolumeChanged = false;
+        }
+        //}}}
+      }
+    else {
+      if (mVolumeChanged && (int(mVolume * 100) != mIntVolume)) {
+        //{{{  set volume
+        mIntVolume = int(mVolume * 100);
+        BSP_AUDIO_OUT_SetVolume (mIntVolume);
+        mVolumeChanged = false;
+        }
+        //}}}
+      }
+    }
   }
 //}}}
 
