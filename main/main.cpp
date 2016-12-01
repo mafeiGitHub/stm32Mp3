@@ -8,7 +8,6 @@
 #include <math.h>
 
 #include "memory.h"
-#include "cmsis_os.h"
 
 #include "lwip/netif.h"
 #include "lwip/tcpip.h"
