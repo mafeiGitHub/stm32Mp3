@@ -301,8 +301,11 @@ void LCD_LTDC_IRQHandler() {
     ltdc.lastTicks = osKernelSysTick();
     ltdc.lineIrq++;
 
-    if (ltdc.frameWait)
-      osSemaphoreRelease (ltdc.sem);
+    if (ltdc.frameWait) {
+      portBASE_TYPE taskWoken = pdFALSE;
+      if (xSemaphoreGiveFromISR (ltdc.sem, &taskWoken) == pdTRUE)
+        portEND_SWITCHING_ISR (taskWoken);
+      }
     ltdc.frameWait = 0;
     }
 
@@ -322,6 +325,9 @@ void LCD_DMA2D_IRQHandler() {
         DMA2D->CR = 0;
         mDma2dIsrBuf = mDma2dBuf;
         osSemaphoreRelease (mDma2dSem);
+        //portBASE_TYPE taskWoken = pdFALSE;
+        //if (xSemaphoreGiveFromISR (mDma2dSem, &taskWoken) == pdTRUE)
+        //  portEND_SWITCHING_ISR (taskWoken);
         return;
 
       case kStamp:
@@ -450,7 +456,7 @@ void cLcd::startRender() {
 
   // frameSync;
   ltdc.frameWait = 1;
-  if (osSemaphoreWait (ltdc.sem, 100) != osOK)
+  if (xSemaphoreTake (ltdc.sem, 100) == pdFALSE)
     ltdc.timeouts++;
 
   mDrawStartTime = osKernelSysTick();
@@ -520,6 +526,7 @@ void cLcd::endRender (bool forceInfo) {
   LCD_DMA2D_IRQHandler();
 
   // wait
+  //if (xSemaphoreTake (mDma2dSem, 500) == pdFALSE)
   if (osSemaphoreWait (mDma2dSem, 500) != osOK)
     mDma2dTimeouts++;
   showLayer (0, mBuffer[mDrawBuffer], 255);
@@ -825,8 +832,9 @@ void cLcd::init (std::string title) {
   *mDma2dCurBuf = kEnd;
 
   if (mIsr) {
-    osSemaphoreDef (dma2dSem);
-    mDma2dSem = osSemaphoreCreate (osSemaphore (dma2dSem), -1);
+    //vSemaphoreCreateBinary (mDma2dSem);
+    osSemaphoreDef (mDma2dSem);
+    mDma2dSem = osSemaphoreCreate (osSemaphore (mDma2dSem), -1);
 
     // dma2d IRQ init
     HAL_NVIC_SetPriority (DMA2D_IRQn, 0x0F, 0);
@@ -1087,8 +1095,7 @@ void cLcd::ltdcInit (uint32_t frameBufferAddress) {
   ltdc.frameWait = 0;
 
   if (mIsr) {
-    osSemaphoreDef (ltdcSem);
-    ltdc.sem = osSemaphoreCreate (osSemaphore (ltdcSem), -1);
+    vSemaphoreCreateBinary (ltdc.sem);
 
     HAL_NVIC_SetPriority (LTDC_IRQn, 0xE, 0);
     HAL_NVIC_EnableIRQ (LTDC_IRQn);
