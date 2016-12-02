@@ -57,7 +57,7 @@
 //}}}
 const bool kSdDebug = false;
 const bool kStaticIp = false;
-//{{{  new, delete ops
+//{{{  new, delete
 //void* operator new (size_t size) { return pvPortMalloc (size); }
 //void operator delete (void* ptr) { vPortFree (ptr); }
 void* operator new (size_t size) { return malloc (size); }
@@ -136,6 +136,37 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack() {
     portEND_SWITCHING_ISR (taskWoken);
   }
 //}}}
+//}}}
+//{{{
+static void listDirectory (std::string directoryName, std::string ext) {
+
+  debug ("dir " + directoryName);
+
+  cDirectory directory (directoryName);
+  if (directory.getError()) {
+    //{{{  open error
+    cLcd::get()->info (COL_RED, "directory open error:"  + dec (directory.getError()));
+    return;
+    }
+    //}}}
+
+  cFileInfo fileInfo;
+  while ((directory.find (fileInfo) == FR_OK) && !fileInfo.getEmpty()) {
+    if (fileInfo.getBack()) {
+      //cLcd::debug (fileInfo.getName());
+      }
+
+    else if (fileInfo.isDirectory())
+      listDirectory (directoryName + "/" + fileInfo.getName(), ext);
+
+    else if (fileInfo.matchExtension (ext.c_str())) {
+      mMp3Files.push_back (directoryName + "/" + fileInfo.getName());
+      //cLcd::debug (fileInfo.getName());
+      cFile file (directoryName + "/" + fileInfo.getName(), FA_OPEN_EXISTING | FA_READ);
+      //cLcd::debug ("- filesize " + cLcd::intStr (file.getSize()));
+      }
+    }
+  }
 //}}}
 
 //{{{
@@ -305,37 +336,6 @@ static void initMp3Menu (cRootContainer* root) {
   }
 //}}}
 //{{{
-static void listDirectory (std::string directoryName, std::string indent) {
-
-  debug ("dir " + directoryName);
-
-  cDirectory directory (directoryName);
-  if (directory.getError()) {
-    //{{{  open error
-    cLcd::get()->info (COL_RED, "directory open error:"  + dec (directory.getError()));
-    return;
-    }
-    //}}}
-
-  cFileInfo fileInfo;
-  while ((directory.find (fileInfo) == FR_OK) && !fileInfo.getEmpty()) {
-    if (fileInfo.getBack()) {
-      //cLcd::debug (fileInfo.getName());
-      }
-
-    else if (fileInfo.isDirectory())
-      listDirectory (directoryName + "/" + fileInfo.getName(), indent + "-");
-
-    else if (fileInfo.matchExtension ("MP3")) {
-      mMp3Files.push_back (directoryName + "/" + fileInfo.getName());
-      cLcd::debug (indent + fileInfo.getName());
-      cFile file (directoryName + "/" + fileInfo.getName(), FA_OPEN_EXISTING | FA_READ);
-      //cLcd::debug ("- filesize " + cLcd::intStr (file.getSize()));
-      }
-    }
-  }
-//}}}
-//{{{
 static void mp3WaveThread (void const* argument) {
 
   cLcd::debug ("mp3WaveThread");
@@ -439,7 +439,6 @@ static void mp3WaveThread (void const* argument) {
 static void mp3PlayThread (void const* argument) {
 
   cLcd::debug ("mp3PlayThread");
-  mMp3PlayFrame = 0;
 
   //{{{  mount fatfs
   cFatFs* fatFs = cFatFs::create();
@@ -454,12 +453,10 @@ static void mp3PlayThread (void const* argument) {
   cLcd::debug (fatFs->getLabel() + " vsn:" + hex (fatFs->getVolumeSerialNumber()) +
                " freeSectors:" + dec (fatFs->getFreeSectors()));
   //}}}
-  listDirectory ("", "");
+  listDirectory ("", "MP3");
 
   TaskHandle_t handle;
-  xTaskCreate ((TaskFunction_t)mp3WaveThread, "mp3Wave", 8192, 0, 3, &handle);
-  //vTaskDelete (NULL);
-  //return;
+  xTaskCreate ((TaskFunction_t)mp3WaveThread, "mp3Wave", 8192, 0, 2, &handle);
 
   auto mp3 = new cMp3;
   cLcd::debug ("play mp3");
@@ -477,7 +474,9 @@ static void mp3PlayThread (void const* argument) {
   auto fullChunkSize = 2048 + chunkSize;
   auto chunkBuffer = (uint8_t*)bigMalloc (fullChunkSize, "mp3ChunkBuf");
   //}}}
+
   while (true) {
+    mMp3PlayFrame = 0;
     cFile file (mMp3Files[fileIndex], FA_OPEN_EXISTING | FA_READ);
     if (file.getError())
       cLcd::debug ("- play open failed " + dec (file.getError()) + " " + mMp3Files[fileIndex]);
@@ -533,7 +532,6 @@ static void mp3PlayThread (void const* argument) {
                   bytesLeft = 0;
                 }
               if (bytesLeft >= mp3->getFrameBodySize()) {
-                //if (xSemaphoreTake (mAudSem, 50) == pdTRUE) {
                 xSemaphoreTake (mAudSem, 100);
                 auto frameBytes = mp3->decodeFrameBody (chunkPtr, nullptr, (int16_t*)(mAudHalf ? AUDIO_BUFFER : AUDIO_BUFFER_HALF));
                 if (frameBytes) {
@@ -662,7 +660,6 @@ static void mainThread (void const* argument) {
   mLcd->displayOn();
 
   SD_Init();
-
   if (BSP_PB_GetState (BUTTON_WAKEUP) == GPIO_PIN_SET) {
     //{{{  usb sd MSC
     USBD_Init (&USBD_Device, &MSC_Desc, 0);
@@ -752,8 +749,10 @@ static void mainThread (void const* argument) {
 
     mLcd->startRender();
     button ? mLcd->clear (COL_BLACK) : mRoot->render (mLcd);
+    //{{{  cursor
     //if (tsState.touchDetected)
     //  mLcd->renderCursor (COL_MAGENTA, x[0], y[0], z[0] ? z[0] : cLcd::getHeight()/10);
+    //}}}
     if (kSdDebug)
       mLcd->text (COL_YELLOW, cWidget::getFontHeight(), SD_info(),
                   mLcd->getLcdWidthPix()/2, mLcd->getLcdHeightPix()- cWidget::getBoxHeight(),
