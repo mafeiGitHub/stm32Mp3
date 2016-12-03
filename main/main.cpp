@@ -329,8 +329,8 @@ static void hlsNetThread (void const* argument) {
 static void initMp3Menu (cRootContainer* root) {
 
   root->add (new cListWidget (mMp3Files, fileIndex, fileIndexChanged, 0, -4));
-  root->add (new cWaveLensWidget (mWave, mMp3PlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged, 0, 2));
   root->add (new cWaveCentreWidget (mWave, mMp3PlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged, 0, 2));
+  root->add (new cWaveLensWidget (mWave, mMp3PlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged, 0, 2));
 
   root->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, 0.5, 0))->setOverPick (1.5);
   }

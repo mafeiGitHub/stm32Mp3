@@ -31,8 +31,8 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
-extern int freeSansBold_len;
-extern const uint8_t freeSansBold[64228];
+#define QSPI_DATA
+#include "hls/FreeSansBold.h"
 //}}}
 //{{{  defines
 #define ABS(X) ((X) > 0 ? (X) : -(X))
@@ -490,13 +490,18 @@ void cLcd::endRender (bool forceInfo) {
     auto lastLine = (int)mFirstLine + mNumDrawLines - 1;
     if (lastLine > mLastLine)
       lastLine = mLastLine;
+
     for (auto lineIndex = (int)mFirstLine; lineIndex <= lastLine; lineIndex++) {
       auto x = 0;
       auto xinc = text (COL_GREEN, cWidget::getFontHeight(),
                         dec ((mLines[lineIndex].mTime-mStartTime) / 1000) + "." +
-                        dec ((mLines[lineIndex].mTime-mStartTime) % 1000, 3, '0'), x, y, getLcdWidthPix(), cWidget::getBoxHeight());
+                        dec ((mLines[lineIndex].mTime-mStartTime) % 1000, 3, '0'),
+                        x, y, getLcdWidthPix(), cWidget::getBoxHeight());
       x += xinc + 3;
-      text (mLines[lineIndex].mColour, cWidget::getFontHeight(), mLines[lineIndex].mString, x, y, getLcdWidthPix(), cWidget::getBoxHeight());
+
+      text (mLines[lineIndex].mColour, cWidget::getFontHeight(), mLines[lineIndex].mString,
+            x, y, getLcdWidthPix()-x, getLcdHeightPix());
+
       y += cWidget::getBoxHeight();
       }
     }
@@ -844,7 +849,8 @@ void cLcd::init (std::string title) {
   // font init
   //setFont ((uint8_t*)0x90000000, 64228);
   FT_Init_FreeType (&FTlibrary);
-  FT_New_Memory_Face (FTlibrary, (FT_Byte*)freeSansBold, freeSansBold_len, 0, &FTface);
+  FT_New_Memory_Face (FTlibrary, (FT_Byte*)freeSansBold, sizeof (freeSansBold), 0, &FTface);
+  //FT_New_Memory_Face (FTlibrary, (FT_Byte*)0x90000000, 64228, 0, &FTface);
   FTglyphSlot = FTface->glyph;
 
   // preload fontChars
