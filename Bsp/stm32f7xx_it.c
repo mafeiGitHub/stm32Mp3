@@ -52,6 +52,16 @@ void AUDIO_OUT_SAIx_DMAx_IRQHandler() { HAL_DMA_IRQHandler (haudio_out_sai.hdmat
   //extern SAI_HandleTypeDef haudio_in_sai;
   //void AUDIO_IN_SAIx_DMAx_IRQHandler() { HAL_DMA_IRQHandler (haudio_in_sai.hdmarx); }
 #else
+  // uart
+  extern UART_HandleTypeDef UartHandle;
+  void UART5_IRQHandler();
+  void DMA1_Stream0_IRQHandler();
+  void DMA1_Stream7_IRQHandler();
+
+  void UART5_IRQHandler() { HAL_UART_IRQHandler (&UartHandle); }
+  void DMA1_Stream0_IRQHandler() { HAL_DMA_IRQHandler (UartHandle.hdmarx); }
+  void DMA1_Stream7_IRQHandler() { HAL_DMA_IRQHandler (UartHandle.hdmatx); }
+
   // sd irqs
   void SDMMC2_IRQHandler() { HAL_SD_IRQHandler (&uSdHandle); }
   void DMA2_Stream0_IRQHandler() { HAL_DMA_IRQHandler (uSdHandle.hdmarx); }
