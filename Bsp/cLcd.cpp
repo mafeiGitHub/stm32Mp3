@@ -847,10 +847,8 @@ void cLcd::init (std::string title) {
     }
 
   // font init
-  //setFont ((uint8_t*)0x90000000, 64228);
   FT_Init_FreeType (&FTlibrary);
   FT_New_Memory_Face (FTlibrary, (FT_Byte*)freeSansBold, sizeof (freeSansBold), 0, &FTface);
-  //FT_New_Memory_Face (FTlibrary, (FT_Byte*)0x90000000, 64228, 0, &FTface);
   FTglyphSlot = FTface->glyph;
 
   // preload fontChars
