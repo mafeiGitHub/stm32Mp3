@@ -17,9 +17,6 @@
 #include "os/ethernetif.h"
 
 #include "utils.h"
-#include "net/cHttp.h"
-#include "../httpServer/httpServer.h"
-#include "../httpServer/ftpServer.h"
 
 #include "usbd_core.h"
 #include "usbd_desc.h"
@@ -50,11 +47,15 @@
 #include "widgets/cWaveCentreWidget.h"
 #include "widgets/cWaveLensWidget.h"
 
+#include "net/cHttp.h"
+#include "../httpServer/httpServer.h"
+//#include "../httpServer/ftpServer.h"
 #include "../aac/neaacdec.h"
 #include "hls/hls.h"
 
 #include "decoders/cMp3.h"
 //}}}
+
 const bool kSdDebug = false;
 const bool kStaticIp = false;
 //{{{  new, delete
@@ -173,6 +174,7 @@ static void listDirectory (std::string directoryName, std::string ext) {
 static void hlsLoaderThread (void const* argument) {
 
   cHttp http;
+  http.init();
 
   while (true) {
     if (mHls->mChanChanged)
@@ -689,7 +691,7 @@ static void mainThread (void const* argument) {
     mReSamples = (int16_t*)bigMalloc (4096, "hlsResamples");
     memset (mReSamples, 0, 4096);
 
-    mLcd->setShowDebug (false, false, false, false);  // debug - title, info, lcdStats, footer
+    //mLcd->setShowDebug (false, true, false, true);  // debug - title, info, lcdStats, footer
 
     mHls = new cHls();
     hlsMenu (mRoot, mHls);
@@ -697,7 +699,12 @@ static void mainThread (void const* argument) {
     vSemaphoreCreateBinary (mHlsSem);
 
     TaskHandle_t handle;
-    xTaskCreate ((TaskFunction_t)hlsNetThread, "Net", 1024, 0, 3, &handle);
+    #ifdef ESP8266
+      xTaskCreate ((TaskFunction_t)hlsLoaderThread, "hlsLoad", 14000, 0, 3, &handle);
+      xTaskCreate ((TaskFunction_t)hlsPlayerThread, "hlsPlay", 2000, 0, 4, &handle);
+    #else
+      xTaskCreate ((TaskFunction_t)hlsNetThread, "Net", 1024, 0, 3, &handle);
+    #endif
     }
     //}}}
 
