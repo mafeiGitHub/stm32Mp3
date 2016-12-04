@@ -9,7 +9,7 @@ public:
   virtual ~cLcd();
 
   // static members
-  static cLcd* create (std::string title, bool isr = true);
+  static cLcd* create (std::string title);
   static cLcd* get() { return mLcd; }
 
   // sets
@@ -26,7 +26,6 @@ public:
   void startRender();
   void renderCursor (uint32_t colour, int16_t x, int16_t y, int16_t z);
   void endRender (bool forceInfo);
-  void flush();
 
   void displayOn();
   void displayOff();
@@ -73,7 +72,6 @@ private:
 
   //{{{  vars
   int mStartTime = 0;
-  bool mIsr = true;
 
   float mFirstLine = 0;
   int mNumDrawLines = 0;
