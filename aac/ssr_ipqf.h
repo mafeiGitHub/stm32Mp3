@@ -1,6 +1,6 @@
 /*
 ** FAAD2 - Freeware Advanced Audio (AAC) Decoder including SBR decoding
-** Copyright (C) 2003-2005 M. Bakker, Nero AG, http://www.nero.com
+** Copyright (C) 2003-2005 M. Bakker, Ahead Software AG, http://www.nero.com
 **  
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -23,28 +23,22 @@
 ** must read: "Code from FAAD2 is copyright (c) Nero AG, www.nero.com"
 **
 ** Commercial non-GPL licensing of this software is possible.
-** For more info contact Nero AG through Mpeg4AAClicense@nero.com.
+** For more info contact Ahead Software through Mpeg4AAClicense@nero.com.
 **
-** $Id: mp4.h,v 1.28 2009/02/05 00:51:03 menno Exp $
+** $Id: ssr_ipqf.h,v 1.17 2007/11/01 12:33:39 menno Exp $
 **/
 
-#ifndef __MP4_H__
-#define __MP4_H__
+#ifndef __SSR_IPQF_H__
+#define __SSR_IPQF_H__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include "neaacdec.h"
+void ssr_ipqf(ssr_info *ssr, real_t *in_data, real_t *out_data,
+              real_t buffer[SSR_BANDS][96/4],
+              uint16_t frame_len, uint8_t bands);
 
-int8_t AudioSpecificConfig2(uint8_t *pBuffer,
-                            uint32_t buffer_size,
-                            mp4AudioSpecificConfig *mp4ASC,
-                            program_config *pce, uint8_t short_form);
- 
-int8_t AudioSpecificConfigFromBitfile(bitfile *ld,
-                                      mp4AudioSpecificConfig *mp4ASC,
-                                      program_config *pce, uint32_t bsize, uint8_t short_form);
 
 #ifdef __cplusplus
 }

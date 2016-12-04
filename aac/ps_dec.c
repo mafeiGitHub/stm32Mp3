@@ -757,7 +757,7 @@ static void map34indexto20(int8_t *index, uint8_t bins)
 
 static void map20indexto34(int8_t *index, uint8_t bins)
 {
-    //index[0] = index[0];
+    index[0] = index[0];
     index[1] = (index[0] + index[1])/2;
     index[2] = index[1];
     index[3] = index[2];

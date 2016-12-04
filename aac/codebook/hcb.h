@@ -1,19 +1,19 @@
 /*
 ** FAAD2 - Freeware Advanced Audio (AAC) Decoder including SBR decoding
 ** Copyright (C) 2003-2005 M. Bakker, Nero AG, http://www.nero.com
-**  
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
 ** (at your option) any later version.
-** 
+**
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
 ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
-** 
+**
 ** You should have received a copy of the GNU General Public License
-** along with this program; if not, write to the Free Software 
+** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 **
 ** Any non-GPL usage of this software or parts of this software is strictly
@@ -125,18 +125,18 @@ int hcb_2_quad_table_size[];
 int hcb_2_pair_table_size[];
 int hcb_bin_table_size[];
 
-#include "../codebook/hcb_1.h"
-#include "../codebook/hcb_2.h"
-#include "../codebook/hcb_3.h"
-#include "../codebook/hcb_4.h"
-#include "../codebook/hcb_5.h"
-#include "../codebook/hcb_6.h"
-#include "../codebook/hcb_7.h"
-#include "../codebook/hcb_8.h"
-#include "../codebook/hcb_9.h"
-#include "../codebook/hcb_10.h"
-#include "../codebook/hcb_11.h"
-#include "../codebook/hcb_sf.h"
+#include "hcb_1.h"
+#include "hcb_2.h"
+#include "hcb_3.h"
+#include "hcb_4.h"
+#include "hcb_5.h"
+#include "hcb_6.h"
+#include "hcb_7.h"
+#include "hcb_8.h"
+#include "hcb_9.h"
+#include "hcb_10.h"
+#include "hcb_11.h"
+#include "hcb_sf.h"
 
 
 #ifdef __cplusplus

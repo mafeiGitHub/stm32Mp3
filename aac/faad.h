@@ -25,28 +25,11 @@
 ** Commercial non-GPL licensing of this software is possible.
 ** For more info contact Nero AG through Mpeg4AAClicense@nero.com.
 **
-** $Id: mp4.h,v 1.28 2009/02/05 00:51:03 menno Exp $
+** $Id: faad.h,v 1.51 2007/11/01 12:33:29 menno Exp $
 **/
 
-#ifndef __MP4_H__
-#define __MP4_H__
+/* warn people for update */
+#pragma message("please update faad2 include filename and function names!")
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
+/* Backwards compatible link */
 #include "neaacdec.h"
-
-int8_t AudioSpecificConfig2(uint8_t *pBuffer,
-                            uint32_t buffer_size,
-                            mp4AudioSpecificConfig *mp4ASC,
-                            program_config *pce, uint8_t short_form);
- 
-int8_t AudioSpecificConfigFromBitfile(bitfile *ld,
-                                      mp4AudioSpecificConfig *mp4ASC,
-                                      program_config *pce, uint32_t bsize, uint8_t short_form);
-
-#ifdef __cplusplus
-}
-#endif
-#endif
