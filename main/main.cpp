@@ -691,7 +691,7 @@ static void mainThread (void const* argument) {
     mReSamples = (int16_t*)bigMalloc (4096, "hlsResamples");
     memset (mReSamples, 0, 4096);
 
-    //mLcd->setShowDebug (false, true, false, true);  // debug - title, info, lcdStats, footer
+    mLcd->setShowDebug (false, false, false, false);  // debug - title, info, lcdStats, footer
 
     mHls = new cHls();
     hlsMenu (mRoot, mHls);
