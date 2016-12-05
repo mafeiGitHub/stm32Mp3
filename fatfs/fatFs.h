@@ -4,7 +4,7 @@
 #include <string>
 
 #include "FreeRTOS.h"
-#include "cmsis_os.h"
+#include "semphr.h"
 
 class cFile;
 class cDirectory;

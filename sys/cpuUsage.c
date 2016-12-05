@@ -2,7 +2,8 @@
 /*{{{  includes*/
 #include "cpuUsage.h"
 
-#include "cmsis_os.h"
+#include "freertos.h"
+#include "task.h"
 /*}}}*/
 
 // const

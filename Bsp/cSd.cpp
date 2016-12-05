@@ -2,7 +2,7 @@
 //{{{  includes
 #include "cSd.h"
 #include <string.h>
-#include "cmsis_os.h"
+#include "freertos.h"
 
 #include "utils.h"
 #include "cLcd.h"
@@ -27,7 +27,7 @@ static uint32_t mWriteMultipleLen = 0;
 static uint32_t mWriteBlock = 0xFFFFFFFF;
 //}}}
 
-osMutexId mSdMutex;
+//osMutexId mSdMutex;
 //if ((mSdMutex, 1000) == osOK)) {
 //osMutexRelease (mSdMutex);
 
@@ -191,8 +191,8 @@ uint8_t SD_Init() {
   if (HAL_SD_HighSpeed (&uSdHandle) != SD_OK)
     return MSD_ERROR;
 
-  osMutexDef (sdMutex);
-  mSdMutex = osMutexCreate (osMutex (sdMutex));
+  //osMutexDef (sdMutex);
+  //mSdMutex = osMutexCreate (osMutex (sdMutex));
 
   mReadCache = (uint8_t*)bigMalloc (512 * mReadCacheSize, "sdReadCache");
 

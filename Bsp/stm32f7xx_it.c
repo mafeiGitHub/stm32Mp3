@@ -3,7 +3,7 @@
 #include "stm32f7xx.h"
 #include "stm32f7xx_hal.h"
 
-#include "cmsis_os.h"
+#include "freertos.h"
 #include "os/ethernetif.h"
 #include "cLcdPrivate.h"
 #include "cSdPrivate.h"
@@ -20,7 +20,7 @@ void MemManage_Handler()  { while (1) {} }
 void BusFault_Handler()   { while (1) {} }
 void UsageFault_Handler() { while (1) {} }
 
-void SysTick_Handler() { HAL_IncTick(); osSystickHandler(); }
+void SysTick_Handler() { HAL_IncTick(); xPortSysTickHandler(); }
 
 // usb
 extern PCD_HandleTypeDef hpcd;
