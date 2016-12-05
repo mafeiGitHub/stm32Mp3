@@ -56,6 +56,7 @@
 
 #include "decoders/cMp3.h"
 //}}}
+#define ESP8266
 const bool kSdDebug = false;
 const bool kStaticIp = false;
 //{{{  new, delete
@@ -174,8 +175,12 @@ static void listDirectory (std::string directoryName, std::string ext) {
 //{{{
 static void hlsLoaderThread (void const* argument) {
 
-  cLwipHttp http;
-  //cUartEsp8266Http http;
+  #ifdef ESP8266
+    cUartEsp8266Http http;
+  #else
+    cLwipHttp http;
+  #endif
+
   http.init();
 
   while (true) {
