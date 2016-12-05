@@ -47,7 +47,8 @@
 #include "widgets/cWaveCentreWidget.h"
 #include "widgets/cWaveLensWidget.h"
 
-#include "net/cHttp.h"
+#include "net/cLwipHttp.h"
+#include "net/cUartEsp8266Http.h"
 #include "../httpServer/httpServer.h"
 //#include "../httpServer/ftpServer.h"
 #include "libfaad/neaacdec.h"
@@ -55,7 +56,6 @@
 
 #include "decoders/cMp3.h"
 //}}}
-
 const bool kSdDebug = false;
 const bool kStaticIp = false;
 //{{{  new, delete
@@ -174,7 +174,8 @@ static void listDirectory (std::string directoryName, std::string ext) {
 //{{{
 static void hlsLoaderThread (void const* argument) {
 
-  cHttp http;
+  cLwipHttp http;
+  //cUartEsp8266Http http;
   http.init();
 
   while (true) {
@@ -199,8 +200,10 @@ static void hlsPlayerThread (void const* argument) {
     BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mVolume * 100), 48000);
     BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
   #else
-    BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 48000);
-    BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);
+    //BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 48000);
+    //BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);
+    BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mVolume * 100), 48000);
+    BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
   #endif
   //}}}
 
