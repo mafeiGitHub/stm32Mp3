@@ -3,7 +3,6 @@
 #include "stm32f7xx.h"
 #include "stm32f7xx_hal.h"
 
-#include "freertos.h"
 #include "os/ethernetif.h"
 #include "cLcdPrivate.h"
 #include "cSdPrivate.h"
@@ -20,6 +19,7 @@ void MemManage_Handler()  { while (1) {} }
 void BusFault_Handler()   { while (1) {} }
 void UsageFault_Handler() { while (1) {} }
 
+extern void xPortSysTickHandler(void);
 void SysTick_Handler() { HAL_IncTick(); xPortSysTickHandler(); }
 
 // usb

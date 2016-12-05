@@ -49,7 +49,7 @@
 
 #include "net/cLwipHttp.h"
 #include "net/cUartEsp8266Http.h"
-#include "../httpServer/httpServer.h"
+//#include "../httpServer/httpServer.h"
 //#include "../httpServer/ftpServer.h"
 #include "libfaad/neaacdec.h"
 #include "hls/hls.h"
@@ -333,7 +333,7 @@ static void hlsNetThread (void const* argument) {
     TaskHandle_t handle;
     xTaskCreate ((TaskFunction_t)hlsLoaderThread, "hlsLoad", 14000, 0, 3, &handle);
     xTaskCreate ((TaskFunction_t)hlsPlayerThread, "hlsPlay", 2000, 0, 4, &handle);
-    xTaskCreate ((TaskFunction_t)httpServerThread, "hlsHttp", DEFAULT_THREAD_STACKSIZE, 0, 4, &handle);
+    //xTaskCreate ((TaskFunction_t)httpServerThread, "hlsHttp", DEFAULT_THREAD_STACKSIZE, 0, 4, &handle);
     //xTaskCreate ((TaskFunction_t)ftpServerThread, "ftp", DEFAULT_THREAD_STACKSIZE, 0, 4, &handle);
     }
 
