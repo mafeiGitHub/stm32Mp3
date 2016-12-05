@@ -50,7 +50,7 @@
 #include "net/cHttp.h"
 #include "../httpServer/httpServer.h"
 //#include "../httpServer/ftpServer.h"
-#include "../aac/neaacdec.h"
+#include "libfaad/neaacdec.h"
 #include "hls/hls.h"
 
 #include "decoders/cMp3.h"
