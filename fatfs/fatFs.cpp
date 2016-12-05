@@ -1312,10 +1312,7 @@ FRESULT cFatFs::makeFileSystem (BYTE sfd, UINT au) {
 //{{{  cFatFs private members
 //{{{
 cFatFs::cFatFs() {
-
-  osMutexDef (fatfs);
-  mMutex = osMutexCreate (osMutex (fatfs));
-
+  mMutex = xSemaphoreCreateMutex();
   mWindowBuffer = (BYTE*)malloc (SECTOR_SIZE);
   }
 //}}}
@@ -1835,7 +1832,7 @@ FRESULT cFatFs::removeChain (DWORD cluster) {
 bool cFatFs::lock() {
 // lock fatfs, also sd access lock
 
-  if (osMutexWait (mMutex, 1000) != osOK)
+  if (xSemaphoreTake (mMutex, 1000) != pdTRUE)
     mResult = FR_TIMEOUT;
   else if (diskStatus() & STA_NOINIT)
     mResult = FR_DISK_ERR;
@@ -1852,7 +1849,7 @@ void cFatFs::unlock (FRESULT result) {
       result != FR_INVALID_DRIVE &&
       result != FR_INVALID_OBJECT &&
       result != FR_TIMEOUT)
-    osMutexRelease (mMutex);
+    xSemaphoreGive(mMutex);
   }
 //}}}
 

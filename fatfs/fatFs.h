@@ -188,7 +188,7 @@ private:
 
   // private vars
   BYTE* mWindowBuffer = nullptr; // Disk access window for Directory, FAT
-  osMutexId mMutex;              // Identifier of sync object
+  SemaphoreHandle_t mMutex;      // Identifier of sync object
   FRESULT mResult = FR_UNUSED;   // Pointer to the related file system
 
   char  mLabel[13];
