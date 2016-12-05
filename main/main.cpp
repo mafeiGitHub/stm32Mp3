@@ -186,7 +186,7 @@ static void hlsLoaderThread (void const* argument) {
     cLwipHttp http;
   #endif
 
-  http.init();
+  http.initialise();
 
   while (true) {
     if (mHls->mChanChanged)
