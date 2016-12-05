@@ -19,7 +19,7 @@ void MemManage_Handler()  { while (1) {} }
 void BusFault_Handler()   { while (1) {} }
 void UsageFault_Handler() { while (1) {} }
 
-extern void xPortSysTickHandler(void);
+extern void xPortSysTickHandler();
 void SysTick_Handler() { HAL_IncTick(); xPortSysTickHandler(); }
 
 // usb
