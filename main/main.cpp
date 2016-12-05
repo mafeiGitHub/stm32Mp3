@@ -56,7 +56,12 @@
 
 #include "decoders/cMp3.h"
 //}}}
-#define ESP8266
+
+#ifdef STM32F746G_DISCO
+#else
+  #define ESP8266
+#endif
+
 const bool kSdDebug = false;
 const bool kStaticIp = false;
 //{{{  new, delete
