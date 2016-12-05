@@ -140,20 +140,6 @@
 							<inputType id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s.661094692" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s"/>
 						</tool>
 					</fileInfo>
-					<folderInfo id="fr.ac6.managedbuild.config.gnu.cross.exe.debug.792794573.420340549" name="/" resourcePath="libfaad">
-						<toolChain id="fr.ac6.managedbuild.toolchain.gnu.cross.exe.debug.52752622" name="Ac6 STM32 MCU GCC" superClass="fr.ac6.managedbuild.toolchain.gnu.cross.exe.debug" unusedChildren="">
-							<option id="fr.ac6.managedbuild.option.gnu.cross.mcu.1121589177.1204062135" name="Mcu" superClass="fr.ac6.managedbuild.option.gnu.cross.mcu.1121589177"/>
-							<option id="fr.ac6.managedbuild.option.gnu.cross.board.1670751641.930032561" name="Board" superClass="fr.ac6.managedbuild.option.gnu.cross.board.1670751641"/>
-							<option id="fr.ac6.managedbuild.option.gnu.cross.fpu.194367106.203596850" name="Floating point hardware" superClass="fr.ac6.managedbuild.option.gnu.cross.fpu.194367106"/>
-							<option id="fr.ac6.managedbuild.option.gnu.cross.floatabi.785265181.1849254998" name="Floating-point ABI" superClass="fr.ac6.managedbuild.option.gnu.cross.floatabi.785265181"/>
-							<tool id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.141409401" name="MCU GCC Compiler" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1902826541"/>
-							<tool id="fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.1151574777" name="MCU G++ Compiler" superClass="fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.1260873934"/>
-							<tool id="fr.ac6.managedbuild.tool.gnu.cross.c.linker.1845401014" name="MCU GCC Linker" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.linker.37806325"/>
-							<tool id="fr.ac6.managedbuild.tool.gnu.cross.cpp.linker.601421175" name="MCU G++ Linker" superClass="fr.ac6.managedbuild.tool.gnu.cross.cpp.linker.1734062425"/>
-							<tool id="fr.ac6.managedbuild.tool.gnu.archiver.1911318041" name="MCU GCC Archiver" superClass="fr.ac6.managedbuild.tool.gnu.archiver.2051665393"/>
-							<tool id="fr.ac6.managedbuild.tool.gnu.cross.assembler.889306286" name="MCU GCC Assembler" superClass="fr.ac6.managedbuild.tool.gnu.cross.assembler.1679561408"/>
-						</toolChain>
-					</folderInfo>
 					<sourceEntries>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Bsp"/>
 						<entry excluding="Source/portable/MemMang/heap_4.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="FreeRTOS"/>
@@ -295,20 +281,6 @@
 							<inputType id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s.1751959566" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s"/>
 						</tool>
 					</fileInfo>
-					<folderInfo id="fr.ac6.managedbuild.config.gnu.cross.exe.debug.792794573.1172666407.317859039" name="/" resourcePath="libfaad">
-						<toolChain id="fr.ac6.managedbuild.toolchain.gnu.cross.exe.debug.1323120111" name="Ac6 STM32 MCU GCC" superClass="fr.ac6.managedbuild.toolchain.gnu.cross.exe.debug" unusedChildren="">
-							<option id="fr.ac6.managedbuild.option.gnu.cross.mcu.49412755.839757562" name="Mcu" superClass="fr.ac6.managedbuild.option.gnu.cross.mcu.49412755"/>
-							<option id="fr.ac6.managedbuild.option.gnu.cross.board.14252302.1838622424" name="Board" superClass="fr.ac6.managedbuild.option.gnu.cross.board.14252302"/>
-							<option id="fr.ac6.managedbuild.option.gnu.cross.fpu.266826980.1096971857" name="Floating point hardware" superClass="fr.ac6.managedbuild.option.gnu.cross.fpu.266826980"/>
-							<option id="fr.ac6.managedbuild.option.gnu.cross.floatabi.867477977.941863666" name="Floating-point ABI" superClass="fr.ac6.managedbuild.option.gnu.cross.floatabi.867477977"/>
-							<tool id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.270010500" name="MCU GCC Compiler" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1609548106"/>
-							<tool id="fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.2037600670" name="MCU G++ Compiler" superClass="fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.1052945268"/>
-							<tool id="fr.ac6.managedbuild.tool.gnu.cross.c.linker.1522618982" name="MCU GCC Linker" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.linker.1777534834"/>
-							<tool id="fr.ac6.managedbuild.tool.gnu.cross.cpp.linker.1400326861" name="MCU G++ Linker" superClass="fr.ac6.managedbuild.tool.gnu.cross.cpp.linker.397492539"/>
-							<tool id="fr.ac6.managedbuild.tool.gnu.archiver.485185533" name="MCU GCC Archiver" superClass="fr.ac6.managedbuild.tool.gnu.archiver.251905955"/>
-							<tool id="fr.ac6.managedbuild.tool.gnu.cross.assembler.797705737" name="MCU GCC Assembler" superClass="fr.ac6.managedbuild.tool.gnu.cross.assembler.1244633740"/>
-						</toolChain>
-					</folderInfo>
 					<sourceEntries>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Bsp"/>
 						<entry excluding="Source/portable/MemMang/heap_4.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="FreeRTOS"/>
