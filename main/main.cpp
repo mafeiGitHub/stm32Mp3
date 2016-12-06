@@ -59,7 +59,7 @@
 
 #ifdef STM32F746G_DISCO
 #else
-  #define ESP8266
+  //#define ESP8266
 #endif
 
 const bool kSdDebug = false;
@@ -672,6 +672,7 @@ static void initClock() {
 //{{{
 static void mainThread (void const* argument) {
 
+  //int ch = 0;
   const bool kMaxTouch = 1;
   mLcd->displayOn();
 
@@ -767,6 +768,8 @@ static void mainThread (void const* argument) {
       tsState.touchDetected ? BSP_LED_On (LED3) : BSP_LED_Off (LED3);
       //}}}
     #endif
+
+    //ITM_SendChar ( (ch++) & 0xFF );
 
     mLcd->startRender();
     button ? mLcd->clear (COL_BLACK) : mRoot->render (mLcd);

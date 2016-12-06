@@ -1,6 +1,8 @@
 // lwipopts.h
 #pragma once
 
+#define LWIP_SOCKET   0 // wouldn't compile
+
 #define LWIP_NETCONN  1
 #define LWIP_DHCP     1
 #define LWIP_TCP      1
