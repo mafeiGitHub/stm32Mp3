@@ -3,6 +3,9 @@
 #include "stm32f7xx.h"
 #include "stm32f7xx_hal.h"
 
+#include "FreeRtos.h"
+#include "task.h"
+
 #include "os/ethernetif.h"
 #include "cLcdPrivate.h"
 #include "cSdPrivate.h"
@@ -20,7 +23,11 @@ void BusFault_Handler()   { while (1) {} }
 void UsageFault_Handler() { while (1) {} }
 
 extern void xPortSysTickHandler();
-void SysTick_Handler() { HAL_IncTick(); xPortSysTickHandler(); }
+void SysTick_Handler() {
+  HAL_IncTick();
+  if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED)
+    xPortSysTickHandler();
+  }
 
 // usb
 extern PCD_HandleTypeDef hpcd;

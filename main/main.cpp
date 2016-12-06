@@ -59,7 +59,7 @@
 
 #ifdef STM32F746G_DISCO
 #else
-  //#define ESP8266
+  #define ESP8266
 #endif
 
 const bool kSdDebug = false;
