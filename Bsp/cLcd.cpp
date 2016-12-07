@@ -259,7 +259,7 @@ static SemaphoreHandle_t mDma2dSem;
 //{{{
 class cFontChar {
 public:
-  void* operator new (std::size_t size) { return bigMalloc (size, "cFontChar"); }
+  void* operator new (std::size_t size) { return bigMalloc(size, "cFontChar"); }
   void operator delete (void *ptr) { bigFree (ptr); }
 
   uint8_t* bitmap;
@@ -1309,7 +1309,7 @@ cFontChar* cLcd::loadChar (uint16_t fontHeight, char ch) {
   fontChar->bitmap = nullptr;
 
   if (FTglyphSlot->bitmap.buffer) {
-    fontChar->bitmap = (uint8_t*)bigMalloc (FTglyphSlot->bitmap.pitch * FTglyphSlot->bitmap.rows, "fontBitmap");
+    fontChar->bitmap = (uint8_t*)bigMalloc(FTglyphSlot->bitmap.pitch * FTglyphSlot->bitmap.rows, "fontBitmap");
     memcpy (fontChar->bitmap, FTglyphSlot->bitmap.buffer, FTglyphSlot->bitmap.pitch * FTglyphSlot->bitmap.rows);
     }
 

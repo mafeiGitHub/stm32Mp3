@@ -59,7 +59,7 @@
 
 #ifdef STM32F746G_DISCO
 #else
-  #define ESP8266
+  //#define ESP8266
 #endif
 
 const bool kSdDebug = false;
@@ -98,9 +98,6 @@ static SemaphoreHandle_t mAudSem;
 static bool mAudHalf = false;
 static int mIntVolume = 0;
 
-static float mVolume = 0.7f;
-static bool mVolumeChanged = false;
-
 // ui
 static cLcd* mLcd = nullptr;
 static cRootContainer* mRoot = nullptr;
@@ -116,6 +113,9 @@ static bool mWaveChanged = false;
 static int mWaveLoadFrame = 0;
 static uint8_t* mWave = nullptr;
 static int* mFrameOffsets = nullptr;
+
+static float mMp3Volume = 0.7f;
+static bool mMp3VolumeChanged = false;
 
 // hls
 static cHls* mHls;
@@ -212,7 +212,7 @@ static void hlsPlayerThread (void const* argument) {
   #else
     //BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 48000);
     //BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);
-    BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mVolume * 100), 48000);
+    BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mMp3Volume * 100), 48000);
     BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
   #endif
   //}}}
@@ -348,7 +348,7 @@ static void initMp3Menu (cRootContainer* root) {
   root->add (new cWaveCentreWidget (mWave, mMp3PlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged, 0, 2));
   root->add (new cWaveLensWidget (mWave, mMp3PlayFrame, mWaveLoadFrame, mWaveLoadFrame, mWaveChanged, 0, 2));
 
-  root->addTopRight (new cValueBox (mVolume, mVolumeChanged, COL_YELLOW, 0.5, 0))->setOverPick (1.5);
+  root->addTopRight (new cValueBox (mMp3Volume, mMp3VolumeChanged, COL_YELLOW, 0.5, 0))->setOverPick (1.5);
   }
 //}}}
 //{{{
@@ -478,10 +478,10 @@ static void mp3PlayThread (void const* argument) {
   cLcd::debug ("play mp3");
 
   #ifdef STM32F746G_DISCO
-    BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mVolume * 100), 44100);
+    BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mMp3Volume * 100), 44100);
     BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
   #else
-    BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 44100);
+    BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mMp3Volume * 100), 44100);
     BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);
   #endif
 
@@ -672,7 +672,6 @@ static void initClock() {
 //{{{
 static void mainThread (void const* argument) {
 
-  //int ch = 0;
   const bool kMaxTouch = 1;
   mLcd->displayOn();
 
@@ -769,8 +768,6 @@ static void mainThread (void const* argument) {
       //}}}
     #endif
 
-    //ITM_SendChar ( (ch++) & 0xFF );
-
     mLcd->startRender();
     button ? mLcd->clear (COL_BLACK) : mRoot->render (mLcd);
     //{{{  cursor
@@ -792,11 +789,11 @@ static void mainThread (void const* argument) {
         //}}}
       }
     else {
-      if (mVolumeChanged && (int(mVolume * 100) != mIntVolume)) {
+      if (mMp3VolumeChanged && (int(mMp3Volume * 100) != mIntVolume)) {
         //{{{  set volume
-        mIntVolume = int(mVolume * 100);
+        mIntVolume = int(mMp3Volume * 100);
         BSP_AUDIO_OUT_SetVolume (mIntVolume);
-        mVolumeChanged = false;
+        mMp3VolumeChanged = false;
         }
         //}}}
       }
