@@ -62,8 +62,11 @@
   //#define ESP8266
 #endif
 
+UART_HandleTypeDef DebugUartHandle;
+
 const bool kSdDebug = false;
 const bool kStaticIp = false;
+const std::string kHello = "Player built at " + std::string(__TIME__) + " on " + std::string(__DATE__) + "\n";
 //{{{  new, delete
 //void* operator new (size_t size) { return pvPortMalloc (size); }
 //void operator delete (void* ptr) { vPortFree (ptr); }
@@ -710,12 +713,6 @@ static void mainThread (void const* argument) {
         //}}}
       }
     }
-
-  for (int j = 0x30; j < 0x5f; j++)
-     ITM_SendChar (j);
-  ITM_SendChar (0x0d);
-  ITM_SendChar (0x0a);
-  printf ("hello colin\n");
   }
 //}}}
 
@@ -808,6 +805,50 @@ static void initClock() {
   }
 //}}}
 //{{{
+static void initDebugUart() {
+
+  __USART1_FORCE_RESET();
+  __USART1_RELEASE_RESET();
+
+  __GPIOA_CLK_ENABLE();
+  __USART1_CLK_ENABLE();
+
+  // PA9 - USART1 tx pin configuration
+  GPIO_InitTypeDef  GPIO_InitStruct;
+  GPIO_InitStruct.Pin       = GPIO_PIN_9;
+  GPIO_InitStruct.Mode      = GPIO_MODE_AF_PP;
+  GPIO_InitStruct.Pull      = GPIO_PULLUP;
+  GPIO_InitStruct.Speed     = GPIO_SPEED_HIGH;
+  GPIO_InitStruct.Alternate = GPIO_AF7_USART1;
+  HAL_GPIO_Init (GPIOA, &GPIO_InitStruct);
+
+#ifdef STM32F746G_DISCO
+  // PA10 - USART1 rx pin configuration
+  GPIO_InitStruct.Pin = GPIO_PIN_10;
+  HAL_GPIO_Init (GPIOA, &GPIO_InitStruct);
+#else
+  // PB7 - USART1 rx pin configuration
+  __GPIOB_CLK_ENABLE();
+  GPIO_InitStruct.Pin = GPIO_PIN_7;
+  HAL_GPIO_Init (GPIOB, &GPIO_InitStruct);
+#endif
+
+  // 8 Bits, One Stop bit, Parity = None, RTS,CTS flow control
+  DebugUartHandle.Instance   = USART1;
+  DebugUartHandle.Init.BaudRate   = 115200;
+  DebugUartHandle.Init.WordLength = UART_WORDLENGTH_8B;
+  DebugUartHandle.Init.StopBits   = UART_STOPBITS_1;
+  DebugUartHandle.Init.Parity     = UART_PARITY_NONE;
+  DebugUartHandle.Init.HwFlowCtl  = UART_HWCONTROL_NONE;
+  DebugUartHandle.Init.Mode       = UART_MODE_TX_RX;
+  DebugUartHandle.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  HAL_UART_Init (&DebugUartHandle);
+
+  HAL_UART_Transmit (&DebugUartHandle, (uint8_t*)kHello.c_str(), kHello.size(), 0xFFFF);
+  }
+//}}}
+
+//{{{
 int main() {
 
   SCB_EnableICache();
@@ -815,6 +856,7 @@ int main() {
   HAL_Init();
   initMpuRegions();
   initClock();
+  initDebugUart();
 
   HeapRegion_t xHeapRegions[] = { {(uint8_t*)SDRAM_HEAP, SDRAM_HEAP_SIZE }, { nullptr, 0 } };
   vPortDefineHeapRegions (xHeapRegions);
@@ -830,7 +872,7 @@ int main() {
     BSP_LED_Init (LED3);
   #endif
 
-  mLcd = cLcd::create ("Player built at " + std::string(__TIME__) + " on " + std::string(__DATE__));
+  mLcd = cLcd::create (kHello);
   mRoot = new cRootContainer (mLcd->getLcdWidthPix(), mLcd->getLcdHeightPix());
 
   //uint32_t* nn = (uint32_t*)0x2FFF0000;

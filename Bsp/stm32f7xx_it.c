@@ -50,7 +50,7 @@ void getRegistersFromStack (uint32_t* faultStackAddress) {
   volatile uint32_t pc  = faultStackAddress[6]; // Program counter
   volatile uint32_t psr = faultStackAddress[7]; // Program status register
 
-  printf ("\n\n[Hard fault handler - all numbers in hex]\n");
+  printf ("\n");
   printf ("R0 = %x\n", r0);
   printf ("R1 = %x\n", r1);
   printf ("R2 = %x\n", r2);
@@ -67,14 +67,6 @@ void getRegistersFromStack (uint32_t* faultStackAddress) {
   printf ("DFSR = %x\n", (*((volatile unsigned long *)(0xE000ED30))));
   printf ("AFSR = %x\n", (*((volatile unsigned long *)(0xE000ED3C))));
   printf ("SCB_SHCSR = %x\n", SCB->SHCSR);
-
-  ITM_SendChar ('b');
-  ITM_SendChar ('r');
-  ITM_SendChar ('o');
-  ITM_SendChar ('k');
-  ITM_SendChar ('e');
-  ITM_SendChar (0x0d);
-  ITM_SendChar (0x0a);
 
   __asm("BKPT #0\n") ;
   }
