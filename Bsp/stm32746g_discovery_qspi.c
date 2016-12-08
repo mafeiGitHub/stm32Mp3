@@ -256,6 +256,7 @@ static uint8_t QSPI_DummyCyclesCfg (QSPI_HandleTypeDef* hqspi) {
     return QSPI_ERROR;
 
   /* Reception of the data */
+  uint8_t reg;
   if (HAL_QSPI_Receive (hqspi, &reg, HAL_QPSI_TIMEOUT_DEFAULT_VALUE) != HAL_OK)
     return QSPI_ERROR;
 
@@ -265,7 +266,6 @@ static uint8_t QSPI_DummyCyclesCfg (QSPI_HandleTypeDef* hqspi) {
 
   /* Update volatile configuration register (with new dummy cycles) */
   s_command.Instruction = WRITE_VOL_CFG_REG_CMD;
-  uint8_t reg;
   MODIFY_REG(reg, N25Q128A_VCR_NB_DUMMY, (N25Q128A_DUMMY_CYCLES_READ_QUAD << POSITION_VAL(N25Q128A_VCR_NB_DUMMY)));
 
   /* Configure the write volatile configuration register command */

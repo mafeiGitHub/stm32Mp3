@@ -207,7 +207,7 @@ static void hlsPlayerThread (void const* argument) {
   const int kAudioBuffer = 1024 * 2 * 2 * 2;
   //{{{  setup BSP_AUDIO_OUT
   #ifdef STM32F746G_DISCO
-    BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mVolume * 100), 48000);
+    BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mMp3Volume * 100), 48000);
     BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
   #else
     //BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 48000);
