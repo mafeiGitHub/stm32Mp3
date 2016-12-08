@@ -51,22 +51,22 @@ void getRegistersFromStack (uint32_t* faultStackAddress) {
   volatile uint32_t psr = faultStackAddress[7]; // Program status register
 
   printf ("\n");
-  printf ("R0 = %x\n", r0);
-  printf ("R1 = %x\n", r1);
-  printf ("R2 = %x\n", r2);
-  printf ("R3 = %x\n", r3);
+  printf ("R0 = %lx\n", r0);
+  printf ("R1 = %lx\n", r1);
+  printf ("R2 = %lx\n", r2);
+  printf ("R3 = %lx\n", r3);
 
-  printf ("R12 = %x\n", r12);
-  printf ("LR [R14] = %x  subroutine call return address\n", lr);
-  printf ("PC [R15] = %x  program counter\n", pc);
-  printf ("PSR = %x\n", psr);
+  printf ("R12 = %lx\n", r12);
+  printf ("LR [R14] = %lx  subroutine call return address\n", lr);
+  printf ("PC [R15] = %lx  program counter\n", pc);
+  printf ("PSR = %lx\n", psr);
 
-  printf ("BFAR = %x\n", (*((volatile unsigned long *)(0xE000ED38))));
-  printf ("CFSR = %x\n", (*((volatile unsigned long *)(0xE000ED28))));
-  printf ("HFSR = %x\n", (*((volatile unsigned long *)(0xE000ED2C))));
-  printf ("DFSR = %x\n", (*((volatile unsigned long *)(0xE000ED30))));
-  printf ("AFSR = %x\n", (*((volatile unsigned long *)(0xE000ED3C))));
-  printf ("SCB_SHCSR = %x\n", SCB->SHCSR);
+  printf ("BFAR = %lx\n", (*((volatile unsigned long*)(0xE000ED38))));
+  printf ("CFSR = %lx\n", (*((volatile unsigned long*)(0xE000ED28))));
+  printf ("HFSR = %lx\n", (*((volatile unsigned long*)(0xE000ED2C))));
+  printf ("DFSR = %lx\n", (*((volatile unsigned long*)(0xE000ED30))));
+  printf ("AFSR = %lx\n", (*((volatile unsigned long*)(0xE000ED3C))));
+  printf ("SCB_SHCSR = %lx\n", SCB->SHCSR);
 
   __asm("BKPT #0\n") ;
   }

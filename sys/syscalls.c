@@ -90,9 +90,9 @@ int _read (int file, char *ptr, int len) {
 /*{{{*/
 int _write (int file, char *ptr, int len) {
 
-  for (; len > 0; len--) {
+  for (auto i = 0; i < len ; i++) {
     ITM_SendChar ((*ptr) & 0xff);
-    HAL_UART_Transmit (&DebugUartHandle, (uint8_t*)ptr, 1, 0xFFFF);
+    HAL_UART_Transmit (&DebugUartHandle, ptr, 1, 0xFFFF);
     ptr++;
     }
 
