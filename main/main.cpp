@@ -582,94 +582,6 @@ static void mp3PlayThread (void const* argument) {
 //}}}
 
 //{{{
-static void initMpuRegions() {
-// init MPU regions
-
-  // common MPU config for writeThrough
-  HAL_MPU_Disable();
-
-  MPU_Region_InitTypeDef MPU_InitStruct;
-  MPU_InitStruct.Enable = MPU_REGION_ENABLE;
-  MPU_InitStruct.AccessPermission = MPU_REGION_FULL_ACCESS;
-  MPU_InitStruct.SubRegionDisable = 0x00;
-  MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
-  MPU_InitStruct.IsCacheable = MPU_ACCESS_CACHEABLE;
-  MPU_InitStruct.IsShareable = MPU_ACCESS_NOT_SHAREABLE;
-  MPU_InitStruct.TypeExtField = MPU_TEX_LEVEL0;
-  MPU_InitStruct.DisableExec = MPU_INSTRUCTION_ACCESS_DISABLE;
-
-  // config writeThrough for SRAM1,SRAM2 0x20010000, 256kb, AXI - region0
-  MPU_InitStruct.Number = MPU_REGION_NUMBER0;
-  MPU_InitStruct.BaseAddress = 0x20010000;
-  MPU_InitStruct.Size = MPU_REGION_SIZE_256KB;
-  HAL_MPU_ConfigRegion (&MPU_InitStruct);
-
-  // config writeThrough for SDRAM 0xC0000000, 16mb - region1
-  MPU_InitStruct.Number = MPU_REGION_NUMBER1;
-  MPU_InitStruct.BaseAddress = 0xC0000000;
-  MPU_InitStruct.Size = MPU_REGION_SIZE_16MB;
-  HAL_MPU_ConfigRegion (&MPU_InitStruct);
-
-  HAL_MPU_Enable (MPU_PRIVILEGED_DEFAULT);
-  }
-//}}}
-//{{{
-static void initClock() {
-
-  // Enable Power Control clock
-  __HAL_RCC_PWR_CLK_ENABLE();
-
-  // The voltage scaling allows optimizing the power consumption when the device is
-  // clocked below the maximum system frequency, to update the voltage scaling value
-  // regarding system frequency refer to product datasheet
-   __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
-
-  //  System Clock source            = PLL (HSE)
-  //  SYSCLK(Hz)                     = 216000000
-  //  HCLK(Hz)                       = 216000000
-  //  HSE Frequency(Hz)              = 25000000
-  //  PLL_M                          = 25
-  //  PLL_N                          = 432
-  //  PLL_P                          = 2
-  //  PLL_Q                          = 9
-  //  PLL_R                          = 7
-  //  VDD(V)                         = 3.3
-  //  Main regulator output voltage  = Scale1 mode
-  //  AHB Prescaler                  = 1
-  //  APB1 Prescaler                 = 4
-  //  APB2 Prescaler                 = 2
-  //  Flash Latency(WS)              = 7
-  RCC_OscInitTypeDef RCC_OscInitStruct;
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
-  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-  RCC_OscInitStruct.PLL.PLLM = 25;
-  RCC_OscInitStruct.PLL.PLLN = 432;
-  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-  RCC_OscInitStruct.PLL.PLLQ = 9;
-  #ifdef STM32F769x
-    RCC_OscInitStruct.PLL.PLLR = 7;
-  #endif
-  if (HAL_RCC_OscConfig (&RCC_OscInitStruct) != HAL_OK)
-    while (true) {;}
-
-  // Activate the OverDrive to reach the 216 MHz Frequency
-  if (HAL_PWREx_EnableOverDrive() != HAL_OK)
-    while (true) {;}
-
-  // Select PLL as system clock source and configure the HCLK, PCLK1 and PCLK2 clocks dividers
-  RCC_ClkInitTypeDef RCC_ClkInitStruct;
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
-  if (HAL_RCC_ClockConfig (&RCC_ClkInitStruct, FLASH_LATENCY_7) != HAL_OK)
-    while (true) {;}
-  }
-//}}}
-//{{{
 static void mainThread (void const* argument) {
 
   const bool kMaxTouch = 1;
@@ -798,9 +710,103 @@ static void mainThread (void const* argument) {
         //}}}
       }
     }
+
+  for (int j = 0x30; j < 0x5f; j++)
+     ITM_SendChar (j);
+  ITM_SendChar (0x0d);
+  ITM_SendChar (0x0a);
+  printf ("hello colin\n");
   }
 //}}}
 
+//{{{
+static void initMpuRegions() {
+// init MPU regions
+
+  // common MPU config for writeThrough
+  HAL_MPU_Disable();
+
+  MPU_Region_InitTypeDef MPU_InitStruct;
+  MPU_InitStruct.Enable = MPU_REGION_ENABLE;
+  MPU_InitStruct.AccessPermission = MPU_REGION_FULL_ACCESS;
+  MPU_InitStruct.SubRegionDisable = 0x00;
+  MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
+  MPU_InitStruct.IsCacheable = MPU_ACCESS_CACHEABLE;
+  MPU_InitStruct.IsShareable = MPU_ACCESS_NOT_SHAREABLE;
+  MPU_InitStruct.TypeExtField = MPU_TEX_LEVEL0;
+  MPU_InitStruct.DisableExec = MPU_INSTRUCTION_ACCESS_DISABLE;
+
+  // config writeThrough for SRAM1,SRAM2 0x20010000, 256kb, AXI - region0
+  MPU_InitStruct.Number = MPU_REGION_NUMBER0;
+  MPU_InitStruct.BaseAddress = 0x20010000;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_256KB;
+  HAL_MPU_ConfigRegion (&MPU_InitStruct);
+
+  // config writeThrough for SDRAM 0xC0000000, 16mb - region1
+  MPU_InitStruct.Number = MPU_REGION_NUMBER1;
+  MPU_InitStruct.BaseAddress = 0xC0000000;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_16MB;
+  HAL_MPU_ConfigRegion (&MPU_InitStruct);
+
+  HAL_MPU_Enable (MPU_PRIVILEGED_DEFAULT);
+  }
+//}}}
+//{{{
+static void initClock() {
+
+  // Enable Power Control clock
+  __HAL_RCC_PWR_CLK_ENABLE();
+
+  // The voltage scaling allows optimizing the power consumption when the device is
+  // clocked below the maximum system frequency, to update the voltage scaling value
+  // regarding system frequency refer to product datasheet
+   __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+
+  //  System Clock source            = PLL (HSE)
+  //  SYSCLK(Hz)                     = 216000000
+  //  HCLK(Hz)                       = 216000000
+  //  HSE Frequency(Hz)              = 25000000
+  //  PLL_M                          = 25
+  //  PLL_N                          = 432
+  //  PLL_P                          = 2
+  //  PLL_Q                          = 9
+  //  PLL_R                          = 7
+  //  VDD(V)                         = 3.3
+  //  Main regulator output voltage  = Scale1 mode
+  //  AHB Prescaler                  = 1
+  //  APB1 Prescaler                 = 4
+  //  APB2 Prescaler                 = 2
+  //  Flash Latency(WS)              = 7
+  RCC_OscInitTypeDef RCC_OscInitStruct;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLM = 25;
+  RCC_OscInitStruct.PLL.PLLN = 432;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+  RCC_OscInitStruct.PLL.PLLQ = 9;
+  #ifdef STM32F769x
+    RCC_OscInitStruct.PLL.PLLR = 7;
+  #endif
+  if (HAL_RCC_OscConfig (&RCC_OscInitStruct) != HAL_OK)
+    while (true) {;}
+
+  // Activate the OverDrive to reach the 216 MHz Frequency
+  if (HAL_PWREx_EnableOverDrive() != HAL_OK)
+    while (true) {;}
+
+  // Select PLL as system clock source and configure the HCLK, PCLK1 and PCLK2 clocks dividers
+  RCC_ClkInitTypeDef RCC_ClkInitStruct;
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+  if (HAL_RCC_ClockConfig (&RCC_ClkInitStruct, FLASH_LATENCY_7) != HAL_OK)
+    while (true) {;}
+  }
+//}}}
 //{{{
 int main() {
 
@@ -826,6 +832,10 @@ int main() {
 
   mLcd = cLcd::create ("Player built at " + std::string(__TIME__) + " on " + std::string(__DATE__));
   mRoot = new cRootContainer (mLcd->getLcdWidthPix(), mLcd->getLcdHeightPix());
+
+  //uint32_t* nn = (uint32_t*)0x2FFF0000;
+  //uint32_t mm = *nn;
+  //printf ("%x\d", mm);
 
   vSemaphoreCreateBinary (mAudSem);
 

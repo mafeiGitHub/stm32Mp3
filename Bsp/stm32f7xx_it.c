@@ -17,7 +17,70 @@
 #endif
 /*}}}*/
 
-void HardFault_Handler()  { while (1) {} }
+/*{{{*/
+void HardFault_Handler() __attribute__( ( naked ) );
+// The prototype shows it is a naked function - in effect this is just an assembly function.
+
+void HardFault_Handler() {
+  __asm volatile
+    (
+    " tst lr, #4                                                \n"
+    " ite eq                                                    \n"
+    " mrseq r0, msp                                             \n"
+    " mrsne r0, psp                                             \n"
+    " ldr r1, [r0, #24]                                         \n"
+    " ldr r2, handler2_address_const                            \n"
+    " bx r2                                                     \n"
+    " handler2_address_const: .word getRegistersFromStack    \n"
+    );
+  }
+/*}}}*/
+/*{{{*/
+void getRegistersFromStack (uint32_t* faultStackAddress) {
+// These are volatile to try and prevent the compiler/linker optimising them
+// away as the variables never actually get used.  If the debugger won't show the
+// values of the variables, make them global my moving their declaration outside of this function.
+
+  volatile uint32_t r0  = faultStackAddress[0];
+  volatile uint32_t r1  = faultStackAddress[1];
+  volatile uint32_t r2  = faultStackAddress[2];
+  volatile uint32_t r3  = faultStackAddress[3];
+  volatile uint32_t r12 = faultStackAddress[4];
+  volatile uint32_t lr  = faultStackAddress[5]; // Link register
+  volatile uint32_t pc  = faultStackAddress[6]; // Program counter
+  volatile uint32_t psr = faultStackAddress[7]; // Program status register
+
+  printf ("\n\n[Hard fault handler - all numbers in hex]\n");
+  printf ("R0 = %x\n", r0);
+  printf ("R1 = %x\n", r1);
+  printf ("R2 = %x\n", r2);
+  printf ("R3 = %x\n", r3);
+
+  printf ("R12 = %x\n", r12);
+  printf ("LR [R14] = %x  subroutine call return address\n", lr);
+  printf ("PC [R15] = %x  program counter\n", pc);
+  printf ("PSR = %x\n", psr);
+
+  printf ("BFAR = %x\n", (*((volatile unsigned long *)(0xE000ED38))));
+  printf ("CFSR = %x\n", (*((volatile unsigned long *)(0xE000ED28))));
+  printf ("HFSR = %x\n", (*((volatile unsigned long *)(0xE000ED2C))));
+  printf ("DFSR = %x\n", (*((volatile unsigned long *)(0xE000ED30))));
+  printf ("AFSR = %x\n", (*((volatile unsigned long *)(0xE000ED3C))));
+  printf ("SCB_SHCSR = %x\n", SCB->SHCSR);
+
+  ITM_SendChar ('b');
+  ITM_SendChar ('r');
+  ITM_SendChar ('o');
+  ITM_SendChar ('k');
+  ITM_SendChar ('e');
+  ITM_SendChar (0x0d);
+  ITM_SendChar (0x0a);
+
+  __asm("BKPT #0\n") ;
+  }
+/*}}}*/
+
+//void HardFault_Handler()  { while (1) {} }
 void MemManage_Handler()  { while (1) {} }
 void BusFault_Handler()   { while (1) {} }
 void UsageFault_Handler() { while (1) {} }
