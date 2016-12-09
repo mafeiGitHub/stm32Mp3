@@ -824,16 +824,16 @@ static void initDebugUart() {
   GPIO_InitStruct.Alternate = GPIO_AF7_USART1;
   HAL_GPIO_Init (GPIOA, &GPIO_InitStruct);
 
-#ifdef STM32F746G_DISCO
+  //#ifdef STM32F746G_DISCO
   // PA10 - USART1 rx pin configuration
-  GPIO_InitStruct.Pin = GPIO_PIN_10;
-  HAL_GPIO_Init (GPIOA, &GPIO_InitStruct);
-#else
+  //GPIO_InitStruct.Pin = GPIO_PIN_10;
+  //HAL_GPIO_Init (GPIOA, &GPIO_InitStruct);
+  //#else
   // PB7 - USART1 rx pin configuration
-  __GPIOB_CLK_ENABLE();
-  GPIO_InitStruct.Pin = GPIO_PIN_7;
-  HAL_GPIO_Init (GPIOB, &GPIO_InitStruct);
-#endif
+  //__GPIOB_CLK_ENABLE();
+  //GPIO_InitStruct.Pin = GPIO_PIN_7;
+  //HAL_GPIO_Init (GPIOB, &GPIO_InitStruct);
+  //#endif
 
   // 8 Bits, One Stop bit, Parity = None, RTS,CTS flow control
   DebugUartHandle.Instance   = USART1;
@@ -842,7 +842,7 @@ static void initDebugUart() {
   DebugUartHandle.Init.StopBits   = UART_STOPBITS_1;
   DebugUartHandle.Init.Parity     = UART_PARITY_NONE;
   DebugUartHandle.Init.HwFlowCtl  = UART_HWCONTROL_NONE;
-  DebugUartHandle.Init.Mode       = UART_MODE_TX_RX;
+  DebugUartHandle.Init.Mode       = UART_MODE_TX;
   DebugUartHandle.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
   HAL_UART_Init (&DebugUartHandle);
 
