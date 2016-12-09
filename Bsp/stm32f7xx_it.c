@@ -22,51 +22,47 @@ void HardFault_Handler() __attribute__( ( naked ) );
 // The prototype shows it is a naked function - in effect this is just an assembly function.
 
 void HardFault_Handler() {
-  __asm volatile
-    (
-    " tst lr, #4                                                \n"
-    " ite eq                                                    \n"
-    " mrseq r0, msp                                             \n"
-    " mrsne r0, psp                                             \n"
-    " ldr r1, [r0, #24]                                         \n"
-    " ldr r2, handler2_address_const                            \n"
-    " bx r2                                                     \n"
-    " handler2_address_const: .word getRegistersFromStack    \n"
+  __asm volatile (
+    " tst lr, #4\n"
+    " ite eq\n"
+    " mrseq r0, msp\n"
+    " mrsne r0, psp\n"
+    " ldr r1, [r0, #24]\n"
+    " ldr r2, handler2_address_const\n"
+    " bx r2\n"
+    " handler2_address_const: .word getStackRegs\n"
     );
   }
 /*}}}*/
 /*{{{*/
-void getRegistersFromStack (uint32_t* faultStackAddress) {
-// These are volatile to try and prevent the compiler/linker optimising them
-// away as the variables never actually get used.  If the debugger won't show the
-// values of the variables, make them global my moving their declaration outside of this function.
+void getStackRegs (uint32_t* faultStackAddress) {
 
   volatile uint32_t r0  = faultStackAddress[0];
   volatile uint32_t r1  = faultStackAddress[1];
   volatile uint32_t r2  = faultStackAddress[2];
   volatile uint32_t r3  = faultStackAddress[3];
   volatile uint32_t r12 = faultStackAddress[4];
-  volatile uint32_t lr  = faultStackAddress[5]; // Link register
-  volatile uint32_t pc  = faultStackAddress[6]; // Program counter
-  volatile uint32_t psr = faultStackAddress[7]; // Program status register
+  volatile uint32_t linkReg = faultStackAddress[5];
+  volatile uint32_t programCounter = faultStackAddress[6];
+  volatile uint32_t programStatusReg = faultStackAddress[7];
 
+  printf ("\n*** HardFault ***\n");
+  printf ("r0   %08lx\n", r0);
+  printf ("r1   %08lx\n", r1);
+  printf ("r2   %08lx\n", r2);
+  printf ("r3   %08lx\n", r3);
+  printf ("r12  %08lx\n", r12);
+  printf ("r14  %08lx subRetAdd\n", linkReg);
+  printf ("pc   %08lx\n", programCounter);
+  printf ("psr  %08lx\n", programStatusReg);
   printf ("\n");
-  printf ("R0 = %lx\n", r0);
-  printf ("R1 = %lx\n", r1);
-  printf ("R2 = %lx\n", r2);
-  printf ("R3 = %lx\n", r3);
-
-  printf ("R12 = %lx\n", r12);
-  printf ("LR [R14] = %lx  subroutine call return address\n", lr);
-  printf ("PC [R15] = %lx  program counter\n", pc);
-  printf ("PSR = %lx\n", psr);
-
-  printf ("BFAR = %lx\n", (*((volatile unsigned long*)(0xE000ED38))));
-  printf ("CFSR = %lx\n", (*((volatile unsigned long*)(0xE000ED28))));
-  printf ("HFSR = %lx\n", (*((volatile unsigned long*)(0xE000ED2C))));
-  printf ("DFSR = %lx\n", (*((volatile unsigned long*)(0xE000ED30))));
-  printf ("AFSR = %lx\n", (*((volatile unsigned long*)(0xE000ED3C))));
-  printf ("SCB_SHCSR = %lx\n", SCB->SHCSR);
+  printf ("bfar %08lx\n", SCB->BFAR);
+  printf ("cfsr %08lx\n", SCB->CFSR);
+  printf ("hfsr %08lx\n", SCB->HFSR);
+  printf ("dfsr %08lx\n", SCB->DFSR);
+  printf ("afsr %08lx\n", SCB->AFSR);
+  printf ("hcsr %08lx\n", SCB->SHCSR);
+  printf ("*** breakpoint #0 ***\n");
 
   __asm("BKPT #0\n") ;
   }

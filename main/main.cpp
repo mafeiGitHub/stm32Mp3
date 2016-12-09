@@ -66,7 +66,7 @@ UART_HandleTypeDef DebugUartHandle;
 
 const bool kSdDebug = false;
 const bool kStaticIp = false;
-const std::string kHello = "Player built at " + std::string(__TIME__) + " on " + std::string(__DATE__) + "\n";
+const std::string kHello = "Player built at " + std::string(__TIME__) + " on " + std::string(__DATE__);
 //{{{  new, delete
 //void* operator new (size_t size) { return pvPortMalloc (size); }
 //void operator delete (void* ptr) { vPortFree (ptr); }
@@ -648,6 +648,7 @@ static void mainThread (void const* argument) {
   BSP_TS_Init (mRoot->getPixWidth(), mRoot->getPixHeight());
   while (true) {
     //bool button = true;
+
     bool button = BSP_PB_GetState (BUTTON_WAKEUP) == GPIO_PIN_SET;
     TS_StateTypeDef tsState;
     BSP_TS_GetState (&tsState);
@@ -694,6 +695,7 @@ static void mainThread (void const* argument) {
                   mLcd->getLcdWidthPix()/2, mLcd->getLcdHeightPix()- cWidget::getBoxHeight(),
                   mLcd->getLcdWidthPix(), cWidget::getBoxHeight());
     mLcd->endRender (button);
+
     if (mHls) {
       if (mHls->mVolumeChanged && (int(mHls->mVolume * 100) != mIntVolume)) {
         //{{{  set volume
@@ -844,7 +846,7 @@ static void initDebugUart() {
   DebugUartHandle.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
   HAL_UART_Init (&DebugUartHandle);
 
-  HAL_UART_Transmit (&DebugUartHandle, (uint8_t*)kHello.c_str(), kHello.size(), 0xFFFF);
+  printf ("%s\n", kHello.c_str());
   }
 //}}}
 
@@ -875,9 +877,8 @@ int main() {
   mLcd = cLcd::create (kHello);
   mRoot = new cRootContainer (mLcd->getLcdWidthPix(), mLcd->getLcdHeightPix());
 
-  //uint32_t* nn = (uint32_t*)0x2FFF0000;
-  //uint32_t mm = *nn;
-  //printf ("%x\d", mm);
+  // hard fault test
+  //printf ("%x\n", *((uint32_t*)0x2FFF0000));
 
   vSemaphoreCreateBinary (mAudSem);
 
