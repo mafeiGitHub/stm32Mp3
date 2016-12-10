@@ -27,9 +27,9 @@
 	</natures>
 	<linkedResources>
 		<link>
-			<name>libfaad</name>
+			<name>teensy</name>
 			<type>2</type>
-			<locationURI>PARENT-1-PROJECT_LOC/shared/libfaad</locationURI>
+			<locationURI>PARENT-1-PROJECT_LOC/shared/teensy</locationURI>
 		</link>
 	</linkedResources>
 </projectDescription>
