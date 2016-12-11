@@ -140,6 +140,19 @@
 							<inputType id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s.661094692" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s"/>
 						</tool>
 					</fileInfo>
+					<fileInfo id="fr.ac6.managedbuild.config.gnu.cross.exe.debug.792794573.10754834" name="sbrqmfsk.s" rcbsApplicability="disable" resourcePath="teensyAac/sbrqmfsk.s" toolsToInvoke="fr.ac6.managedbuild.tool.gnu.cross.assembler.1679561408.1499300852">
+						<tool id="fr.ac6.managedbuild.tool.gnu.cross.assembler.1679561408.1499300852" name="MCU GCC Assembler" superClass="fr.ac6.managedbuild.tool.gnu.cross.assembler.1679561408">
+							<option id="gnu.both.asm.option.flags.325200962" name="Assembler flags" superClass="gnu.both.asm.option.flags" value="" valueType="string"/>
+							<inputType id="cdt.managedbuild.tool.gnu.assembler.input.2095587907" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
+							<inputType id="fr.ac6.managedbuild.tool.gnu.cross.assembler.input.590912465" superClass="fr.ac6.managedbuild.tool.gnu.cross.assembler.input"/>
+						</tool>
+						<tool customBuildStep="true" id="org.eclipse.cdt.managedbuilder.ui.rcbs.1826398391" name="Resource Custom Build Step">
+							<inputType id="org.eclipse.cdt.managedbuilder.ui.rcbs.inputtype.1449534019" name="Resource Custom Build Step Input Type">
+								<additionalInput kind="additionalinputdependency" paths=""/>
+							</inputType>
+							<outputType id="org.eclipse.cdt.managedbuilder.ui.rcbs.outputtype.428869689" name="Resource Custom Build Step Output Type"/>
+						</tool>
+					</fileInfo>
 					<sourceEntries>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Bsp"/>
 						<entry excluding="Source/portable/MemMang/heap_4.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="FreeRTOS"/>
@@ -147,11 +160,11 @@
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="LwIP"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="USB_Device"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="fatfs"/>
-						<entry excluding="src/base/ftrfork.c|src/smooth/ftspic.c|src/sfnt/ttbdf.c|src/raster/ftraster.c|src/sfnt/ttpost.c|src/truetype/ttpic.c|src/sfnt/sfntpic.c|src/truetype/ttinterp.c|src/base/ftcalc.c|src/sfnt/ttkern.c|src/truetype/ttdriver.c|src/truetype/ttobjs.c|src/base/ftobjs.c|src/base/basepic.c|src/autofit/afpic.c|src/base/ftsnames.c|src/base/ftgloadr.c|src/autofit/hbshim.c|src/base/ftutil.c|src/autofit/afangles.c|src/autofit/aflatin.c|src/autofit/afdummy.c|src/base/ftfstype.c|src/sfnt/ttmtx.c|src/truetype/ttsubpix.c|src/autofit/afranges.c|src/sfnt/sfdriver.c|src/autofit/afglobal.c|src/raster/rastpic.c|src/truetype/ttpload.c|src/autofit/afloader.c|src/truetype/ttgxvar.c|src/sfnt/sfobjs.c|src/smooth/ftgrays.c|src/autofit/aflatin2.c|src/autofit/afhints.c|src/autofit/afblue.c|src/autofit/afcjk.c|src/base/ftpic.c|src/base/ftdbgmem.c|src/base/ftotval.c|src/base/ftoutln.c|src/autofit/afindic.c|src/sfnt/pngshim.c|src/truetype/ttgload.c|src/base/fttrigon.c|src/raster/ftrend1.c|src/sfnt/ttload.c|src/autofit/afmodule.c|src/base/ftgxval.c|src/sfnt/ttsbit.c|src/autofit/afwarp.c|src/base/ftadvanc.c|src/base/ftstream.c|src/sfnt/ttcmap.c|src/smooth/ftsmooth.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="freetype"/>
-						<entry excluding="vfs.c|fsdata.c|ftpd.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="httpserver"/>
+						<entry excluding="src/base/ftrfork.c|src/smooth/ftspic.c|src/sfnt/ttbdf.c|src/raster/ftraster.c|src/sfnt/ttpost.c|src/truetype/ttpic.c|src/sfnt/sfntpic.c|src/truetype/ttinterp.c|src/base/ftcalc.c|src/sfnt/ttkern.c|src/truetype/ttdriver.c|src/truetype/ttobjs.c|src/base/ftobjs.c|src/base/basepic.c|src/autofit/afpic.c|src/base/ftsnames.c|src/base/ftgloadr.c|src/autofit/hbshim.c|src/base/ftutil.c|src/autofit/afangles.c|src/autofit/aflatin.c|src/autofit/afdummy.c|src/base/ftfstype.c|src/sfnt/ttmtx.c|src/truetype/ttsubpix.c|src/autofit/afranges.c|src/sfnt/sfdriver.c|src/autofit/afglobal.c|src/raster/rastpic.c|src/truetype/ttpload.c|src/autofit/afloader.c|src/truetype/ttgxvar.c|src/sfnt/sfobjs.c|src/smooth/ftgrays.c|src/autofit/aflatin2.c|src/autofit/afhints.c|src/autofit/afblue.c|src/autofit/afcjk.c|src/base/ftpic.c|src/base/ftdbgmem.c|src/base/ftotval.c|src/base/ftoutln.c|src/autofit/afindic.c|src/sfnt/pngshim.c|src/truetype/ttgload.c|src/base/fttrigon.c|src/raster/ftrend1.c|src/sfnt/ttload.c|src/base/ftgxval.c|src/autofit/afmodule.c|src/autofit/afwarp.c|src/sfnt/ttsbit.c|src/base/ftadvanc.c|src/sfnt/ttcmap.c|src/base/ftstream.c|src/smooth/ftsmooth.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="freetype"/>
+						<entry excluding="vfs.c|ftpd.c|fsdata.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="httpserver"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="main"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="sys"/>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="teensy"/>
+						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="teensyAac"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="tjpgd"/>
 					</sourceEntries>
 				</configuration>
@@ -292,7 +305,7 @@
 						<entry excluding="vfs.c|ftpd.c|fsdata.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="httpserver"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="main"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="sys"/>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="teensy"/>
+						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="teensyAac"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="tjpgd"/>
 					</sourceEntries>
 				</configuration>
@@ -338,10 +351,10 @@
 		<scannerConfigBuildInfo instanceId="fr.ac6.managedbuild.config.gnu.cross.exe.debug.792794573;fr.ac6.managedbuild.config.gnu.cross.exe.debug.792794573.;fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1902826541;fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.c.1340536327">
 			<autodiscovery enabled="false" problemReportingEnabled="true" selectedProfileId=""/>
 		</scannerConfigBuildInfo>
-		<scannerConfigBuildInfo instanceId="fr.ac6.managedbuild.config.gnu.cross.exe.debug.792794573;fr.ac6.managedbuild.config.gnu.cross.exe.debug.792794573.;fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.1260873934;fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.input.cpp.1060767720">
+		<scannerConfigBuildInfo instanceId="fr.ac6.managedbuild.config.gnu.cross.exe.release.962948351;fr.ac6.managedbuild.config.gnu.cross.exe.release.962948351.;fr.ac6.managedbuild.tool.gnu.cross.c.compiler.2037190024;fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.c.1566968380">
 			<autodiscovery enabled="false" problemReportingEnabled="true" selectedProfileId=""/>
 		</scannerConfigBuildInfo>
-		<scannerConfigBuildInfo instanceId="fr.ac6.managedbuild.config.gnu.cross.exe.release.962948351;fr.ac6.managedbuild.config.gnu.cross.exe.release.962948351.;fr.ac6.managedbuild.tool.gnu.cross.c.compiler.2037190024;fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.c.1566968380">
+		<scannerConfigBuildInfo instanceId="fr.ac6.managedbuild.config.gnu.cross.exe.debug.792794573;fr.ac6.managedbuild.config.gnu.cross.exe.debug.792794573.;fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.1260873934;fr.ac6.managedbuild.tool.gnu.cross.cpp.compiler.input.cpp.1060767720">
 			<autodiscovery enabled="false" problemReportingEnabled="true" selectedProfileId=""/>
 		</scannerConfigBuildInfo>
 	</storageModule>
