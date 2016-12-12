@@ -117,7 +117,7 @@ static int mWaveLoadFrame = 0;
 static uint8_t* mWave = nullptr;
 static int* mFrameOffsets = nullptr;
 
-static float mMp3Volume = 0.7f;
+static float mMp3Volume = 0.8f;
 static bool mMp3VolumeChanged = false;
 
 // hls
@@ -208,18 +208,6 @@ static void hlsPlayerThread (void const* argument) {
 
   // 8192 = 1024 samplesPerFrame * 2 chans * 2 bytesPperSample * 2 swing buffers
   const int kAudioBuffer = 1024 * 2 * 2 * 2;
-  //{{{  setup BSP_AUDIO_OUT
-  #ifdef STM32F746G_DISCO
-    BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mMp3Volume * 100), 48000);
-    BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
-  #else
-    //BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 48000);
-    //BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);
-    BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mMp3Volume * 100), 48000);
-    BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
-  #endif
-  //}}}
-
   memset ((void*)AUDIO_BUFFER, 0, kAudioBuffer);
   BSP_AUDIO_OUT_Play ((uint16_t*)AUDIO_BUFFER, kAudioBuffer);
 
@@ -480,14 +468,6 @@ static void mp3PlayThread (void const* argument) {
   auto mp3 = new cMp3;
   cLcd::debug ("play mp3");
 
-  #ifdef STM32F746G_DISCO
-    BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mMp3Volume * 100), 44100);
-    BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
-  #else
-    BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mMp3Volume * 100), 44100);
-    BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);
-  #endif
-
   //{{{  chunkSize and buffer
   auto chunkSize = 4096;
   auto fullChunkSize = 2048 + chunkSize;
@@ -636,6 +616,18 @@ static void mainThread (void const* argument) {
     #endif
     }
     //}}}
+
+  //{{{  setup BSP_AUDIO_OUT
+  #ifdef STM32F746G_DISCO
+    BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mMp3Volume * 100), 48000);
+    BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
+  #else
+    //BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 48000);
+    //BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);
+    BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mMp3Volume * 100), 48000);
+    BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
+  #endif
+  //}}}
 
   //{{{  init vars
   int16_t x[kMaxTouch];
