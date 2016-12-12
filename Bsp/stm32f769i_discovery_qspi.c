@@ -1,5 +1,5 @@
 #ifdef STM32F769I_DISCO
-#include "stm32f769i_discovery_qspi.h"
+#include "stm32f7_discovery_qspi.h"
 /*{{{  MX25L512 defines*/
 #define MX25L512_FLASH_SIZE                  0x4000000 // 512 MBits => 64MBytes
 #define MX25L512_SECTOR_SIZE                 0x10000   // 1024 sectors of 64KBytes

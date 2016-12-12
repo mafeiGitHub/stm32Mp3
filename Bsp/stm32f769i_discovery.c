@@ -1,18 +1,5 @@
 #ifdef STM32F769I_DISCO
-// ******************************************************************************
-//  * @file    stm32f769i_discovery.c
-//  * @version V1.1.0
-//  * @date    29-August-2016
 #include "stm32f769i_discovery.h"
-
-#define __STM32F769I_DISCOVERY_BSP_VERSION_MAIN   (0x01) /*!< [31:24] main version */
-#define __STM32F769I_DISCOVERY_BSP_VERSION_SUB1   (0x01) /*!< [23:16] sub1 version */
-#define __STM32F769I_DISCOVERY_BSP_VERSION_SUB2   (0x00) /*!< [15:8]  sub2 version */
-#define __STM32F769I_DISCOVERY_BSP_VERSION_RC     (0x00) /*!< [7:0]  release candidate */
-#define __STM32F769I_DISCOVERY_BSP_VERSION        ((__STM32F769I_DISCOVERY_BSP_VERSION_MAIN << 24)\
-                                                 |(__STM32F769I_DISCOVERY_BSP_VERSION_SUB1 << 16)\
-                                                 |(__STM32F769I_DISCOVERY_BSP_VERSION_SUB2 << 8 )\
-                                                 |(__STM32F769I_DISCOVERY_BSP_VERSION_RC))
 
 uint32_t GPIO_PIN[LEDn]       = {LED1_PIN, LED2_PIN, LED3_PIN};
 GPIO_TypeDef* GPIO_PORT[LEDn] = {LED1_GPIO_PORT, LED2_GPIO_PORT, LED3_GPIO_PORT};
@@ -46,13 +33,6 @@ uint8_t  TS_IO_Read(uint8_t Addr, uint8_t Reg);
 uint16_t TS_IO_ReadMultiple(uint8_t Addr, uint8_t Reg, uint8_t *Buffer, uint16_t Length);
 void     TS_IO_WriteMultiple(uint8_t Addr, uint8_t Reg, uint8_t *Buffer, uint16_t Length);
 void     TS_IO_Delay(uint32_t Delay);
-/*}}}*/
-
-/*{{{*/
-uint32_t BSP_GetVersion(void)
-{
-  return __STM32F769I_DISCOVERY_BSP_VERSION;
-}
 /*}}}*/
 
 /*{{{*/

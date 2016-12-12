@@ -26,13 +26,12 @@
   #include "stm32746g_discovery.h"
   #include "stm32746g_discovery_ts.h"
   #include "stm32746g_discovery_audio.h"
-  #include "stm32746g_discovery_qspi.h"
 #else
   #include "stm32f769i_discovery.h"
   #include "stm32f769i_discovery_ts.h"
   #include "stm32f769i_discovery_audio.h"
-  #include "stm32F769i_discovery_qspi.h"
 #endif
+#include "stm32F7_discovery_qspi.h"
 
 #include "cSd.h"
 #include "../fatfs/fatFs.h"
@@ -59,14 +58,14 @@
 
 #ifdef STM32F746G_DISCO
 #else
-  //#define ESP8266
+  #define ESP8266
 #endif
 
 UART_HandleTypeDef DebugUartHandle;
 
 const bool kSdDebug = false;
 const bool kStaticIp = false;
-const std::string kHello = "Player built at " + std::string(__TIME__) + " on " + std::string(__DATE__);
+const std::string kHello = "built " + std::string(__TIME__) + " on " + std::string(__DATE__);
 //{{{  new, delete
 //void* operator new (size_t size) { return pvPortMalloc (size); }
 //void operator delete (void* ptr) { vPortFree (ptr); }
@@ -117,7 +116,7 @@ static int mWaveLoadFrame = 0;
 static uint8_t* mWave = nullptr;
 static int* mFrameOffsets = nullptr;
 
-static float mMp3Volume = 0.8f;
+static float mMp3Volume = 0.9f;
 static bool mMp3VolumeChanged = false;
 
 // hls
@@ -570,18 +569,6 @@ static void mainThread (void const* argument) {
   const bool kMaxTouch = 1;
   mLcd->displayOn();
 
-  //{{{  setup BSP_AUDIO_OUT
-  #ifdef STM32F746G_DISCO
-    BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mMp3Volume * 100), 48000);
-    BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
-  #else
-    //BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 48000);
-    //BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);
-    BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mMp3Volume * 100), 48000);
-    BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
-  #endif
-  //}}}
-
   SD_Init();
   if (BSP_PB_GetState (BUTTON_WAKEUP) == GPIO_PIN_SET) {
     //{{{  usb sd MSC
@@ -595,6 +582,17 @@ static void mainThread (void const* argument) {
     //}}}
   else if (SD_present()) {
     //{{{  sd MP3
+    #ifdef STM32F746G_DISCO
+      BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mMp3Volume * 100), 44100);
+      BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
+    #else
+      //BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 44100);
+      //BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);
+      BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mMp3Volume * 100), 44100);
+      BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
+    #endif
+
+
     mFrameOffsets = (int*)bigMalloc (60*60*40*sizeof(int), "mp3FrameOff");
     mWave = (uint8_t*)bigMalloc (60*60*40*2*sizeof(uint8_t), "mp3Wave");  // 1 hour of 40 mp3 frames per sec
     mWave[0] = 0;
@@ -609,6 +607,16 @@ static void mainThread (void const* argument) {
     //}}}
   else {
     //{{{  net HLS
+    #ifdef STM32F746G_DISCO
+      BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mMp3Volume * 100), 48000);
+      BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
+    #else
+      //BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 48000);
+      //BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);
+      BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mMp3Volume * 100), 48000);
+      BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
+    #endif
+
     mReSamples = (int16_t*)bigMalloc (4096, "hlsResamples");
     memset (mReSamples, 0, 4096);
 

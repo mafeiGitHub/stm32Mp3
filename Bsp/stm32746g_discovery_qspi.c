@@ -1,5 +1,5 @@
 #ifdef STM32F746G_DISCO
-#include "stm32746g_discovery_qspi.h"
+#include "stm32F7_discovery_qspi.h"
 /*{{{  N25Q128A defines*/
 #define N25Q128A_FLASH_SIZE                  0x1000000 /* 128 MBits => 16MBytes */
 #define N25Q128A_SECTOR_SIZE                 0x10000   /* 256 sectors of 64KBytes */
@@ -143,6 +143,10 @@
 #define QSPI_D2_GPIO_CLK_ENABLE()  __HAL_RCC_GPIOE_CLK_ENABLE()
 #define QSPI_D3_GPIO_CLK_ENABLE()  __HAL_RCC_GPIOD_CLK_ENABLE()
 /*}}}*/
+
+// N25Q128A13EF840E Micron memory
+#define QSPI_FLASH_SIZE    23     // Address bus width to access whole memory space
+#define QSPI_PAGE_SIZE     256
 
 QSPI_HandleTypeDef QSPIHandle;
 

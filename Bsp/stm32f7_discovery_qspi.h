@@ -4,7 +4,6 @@
  extern "C" {
 #endif
 //}}}
-
 #include "stm32f7xx_hal.h"
 
 // QSPI Error codes
@@ -13,10 +12,6 @@
 #define QSPI_BUSY          ((uint8_t)0x02)
 #define QSPI_NOT_SUPPORTED ((uint8_t)0x04)
 #define QSPI_SUSPENDED     ((uint8_t)0x08)
-
-// N25Q128A13EF840E Micron memory
-#define QSPI_FLASH_SIZE    23     // Address bus width to access whole memory space
-#define QSPI_PAGE_SIZE     256
 
 typedef struct {
   uint32_t FlashSize;          /*!< Size of the flash */
@@ -39,7 +34,7 @@ uint8_t BSP_QSPI_GetStatus();
 uint8_t BSP_QSPI_GetInfo (QSPI_Info* pInfo);
 uint8_t BSP_QSPI_EnableMemoryMappedMode();
 
-// These functions can be modified in case the current settings need to be changed for specific application needs
+/* These functions can be modified in case the current settings need to be changed for specific application needs */
 void BSP_QSPI_MspInit (QSPI_HandleTypeDef *hqspi, void *Params);
 void BSP_QSPI_MspDeInit (QSPI_HandleTypeDef *hqspi, void *Params);
 

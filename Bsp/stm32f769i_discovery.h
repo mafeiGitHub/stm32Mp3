@@ -1,14 +1,9 @@
-// ******************************************************************************
-//  * @file    stm32f769i_discovery.h
-//  * @version V1.1.0
-//  * @date    29-August-2016
 #pragma once
 //{{{
 #ifdef __cplusplus
  extern "C" {
 #endif
 //}}}
-
 #include "stm32f7xx_hal.h"
 
 #define LEDn ((uint8_t)4)
