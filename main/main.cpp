@@ -570,6 +570,18 @@ static void mainThread (void const* argument) {
   const bool kMaxTouch = 1;
   mLcd->displayOn();
 
+  //{{{  setup BSP_AUDIO_OUT
+  #ifdef STM32F746G_DISCO
+    BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mMp3Volume * 100), 48000);
+    BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
+  #else
+    //BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 48000);
+    //BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);
+    BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mMp3Volume * 100), 48000);
+    BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
+  #endif
+  //}}}
+
   SD_Init();
   if (BSP_PB_GetState (BUTTON_WAKEUP) == GPIO_PIN_SET) {
     //{{{  usb sd MSC
@@ -616,18 +628,6 @@ static void mainThread (void const* argument) {
     #endif
     }
     //}}}
-
-  //{{{  setup BSP_AUDIO_OUT
-  #ifdef STM32F746G_DISCO
-    BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mMp3Volume * 100), 48000);
-    BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
-  #else
-    //BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_SPEAKER, int(mVolume * 100), 48000);
-    //BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_13);
-    BSP_AUDIO_OUT_Init (OUTPUT_DEVICE_HEADPHONE, int(mMp3Volume * 100), 48000);
-    BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
-  #endif
-  //}}}
 
   //{{{  init vars
   int16_t x[kMaxTouch];
