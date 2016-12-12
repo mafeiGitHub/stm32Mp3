@@ -74,13 +74,13 @@ DRESULT diskRead (BYTE* buffer, DWORD sector, UINT count) {
     cLcd::debug ("diskRead align b:" + hex ((int)buffer) + " sec:" + dec (sector) + " num:" + dec (count));
 
     // not 32bit aligned, dma fails,
-    auto tempBuffer = (uint8_t*)bigMalloc (count * SECTOR_SIZE, "diskioReadBuf");
+    auto tempBuffer = (uint8_t*)pvPortMalloc (count * SECTOR_SIZE);
 
     // read into 32bit aligned tempBuffer
     auto result = SD_ReadCached (tempBuffer, sector, count) == MSD_OK ? RES_OK : RES_ERROR;
     memcpy (buffer, tempBuffer, count * SECTOR_SIZE);
 
-    bigFree (tempBuffer);
+    vPortFree (tempBuffer);
     return result;
     }
 
