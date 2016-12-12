@@ -1,4 +1,5 @@
 #pragma once
+#include <stdint.h>
 #include <string>
 #include "../../shared/widgets/iDraw.h"
 
@@ -9,11 +10,11 @@ public:
   virtual ~cLcd();
 
   // static members
-  static cLcd* create (std::string title);
   static cLcd* get() { return mLcd; }
 
+  void init (std::string title);
+
   // sets
-  void setTitle (std::string title);
   void setShowDebug (bool title, bool info, bool lcdStats, bool footer);
 
   // string
@@ -39,17 +40,16 @@ public:
     uint16_t getLcdHeightPix() { return 480; }
   #endif
 
-  virtual void pixel (uint32_t colour, int16_t x, int16_t y);
-  virtual void rect (uint32_t col, int16_t x, int16_t y, uint16_t width, uint16_t height);
-  virtual void stamp (uint32_t colour, uint8_t* src, int16_t x, int16_t y, uint16_t width, uint16_t height);
-  virtual int text (uint32_t col, uint16_t fontHeight, std::string str, int16_t x, int16_t y, uint16_t width, uint16_t height);
+  void pixel (uint32_t colour, int16_t x, int16_t y);
+  void rect (uint32_t col, int16_t x, int16_t y, uint16_t width, uint16_t height);
+  void stamp (uint32_t colour, uint8_t* src, int16_t x, int16_t y, uint16_t width, uint16_t height);
+  int text (uint32_t col, uint16_t fontHeight, std::string str, int16_t x, int16_t y, uint16_t width, uint16_t height);
 
-  virtual void copy (uint8_t* src, int16_t x, int16_t y, uint16_t width, uint16_t height);
-  virtual void copy (uint8_t* src, int16_t srcx, int16_t srcy, uint16_t srcWidth, int16_t srcHeight,
-                     int16_t dstx, int16_t dsty, uint16_t dstWidth, uint16_t dstHeight);
+  void copy (uint8_t* src, int16_t x, int16_t y, uint16_t width, uint16_t height);
+  void copy (uint8_t* src, int16_t srcx, int16_t srcy, uint16_t srcWidth, uint16_t srcHeight,
+             int16_t dstx, int16_t dsty, uint16_t dstWidth, uint16_t dstHeight);
 
 private:
-  void init (std::string title);
   void ltdcInit (uint32_t frameBufferAddress);
   void layerInit (uint8_t layer, uint32_t frameBufferAddress);
 

@@ -14,6 +14,8 @@
 #include "semphr.h"
 #include "cpuUsage.h"
 
+#include "stm32f7xx_hal.h"
+
 #ifdef STM32F746G_DISCO
   #include "stm32746g_discovery.h"
 #else
@@ -23,6 +25,7 @@
 #include "stm32f7xx_hal_dma2d.h"
 
 #include "utils.h"
+
 #include "cLcd.h"
 #include "cLcdPrivate.h"
 
@@ -259,8 +262,8 @@ static SemaphoreHandle_t mDma2dSem;
 //{{{
 class cFontChar {
 public:
-  void* operator new (std::size_t size) { return bigMalloc(size, "cFontChar"); }
-  void operator delete (void *ptr) { bigFree (ptr); }
+  void* operator new (std::size_t size) { return pvPortMalloc (size); }
+  void operator delete (void *ptr) { vPortFree (ptr); }
 
   uint8_t* bitmap;
   int16_t left;
@@ -356,9 +359,9 @@ void LCD_DMA2D_IRQHandler() {
 //{{{
 cLcd::cLcd (uint32_t buffer0, uint32_t buffer1)  {
 
+  mLcd = this;
   mBuffer[false] = buffer0;
   mBuffer[true] = buffer1;
-
   updateNumDrawLines();
   }
 //}}}
@@ -366,25 +369,59 @@ cLcd::~cLcd() {}
 
 // static
 cLcd* cLcd::mLcd = nullptr;
+
 //{{{
-cLcd* cLcd::create (std::string title) {
+void cLcd::init (std::string title) {
 
-  if (!mLcd) {
-    mLcd = new cLcd (SDRAM_FRAME0, SDRAM_FRAME1);
-    mLcd->init (title);
-    }
+  mDrawBuffer = !mDrawBuffer;
+  ltdcInit (mBuffer[mDrawBuffer]);
 
-  return mLcd;
-  }
-//}}}
+  //  dma2d init
+  // unchanging dma2d regs
+  #ifdef USE_RGB888
+    DMA2D->OPFCCR  = DMA2D_INPUT_RGB888; // dst  PFC
+    DMA2D->BGPFCCR = DMA2D_INPUT_RGB888; // bgnd PFC
+  #else
+    DMA2D->OPFCCR  = DMA2D_INPUT_ARGB8888;
+    DMA2D->BGPFCCR = DMA2D_INPUT_ARGB8888;
+  #endif
+  //DMA2D->AMTCR = 0x1001;
 
-// public members
-//{{{
-void cLcd::setTitle (std::string title) {
+  // zero out first opcode, point past it
+  mDma2dBuf = (uint32_t*)DMA2D_BUFFER;
+  mDma2dIsrBuf = mDma2dBuf;
+  mDma2dCurBuf = mDma2dBuf;
+  *mDma2dCurBuf = kEnd;
+
+  // why is this counting, init -1 ??
+  //vSemaphoreCreateBinary (mDma2dSem);
+  mDma2dSem = xSemaphoreCreateCounting (-1, 0);
+
+  // dma2d IRQ init
+  HAL_NVIC_SetPriority (DMA2D_IRQn, 0x0F, 0);
+  HAL_NVIC_EnableIRQ (DMA2D_IRQn);
+
+  // font init
+  FT_Init_FreeType (&FTlibrary);
+  FT_New_Memory_Face (FTlibrary, (FT_Byte*)freeSansBold, sizeof (freeSansBold), 0, &FTface);
+  FTglyphSlot = FTface->glyph;
+
+  // preload fontChars
+  for (char ch = 0x20; ch <= 0x7F; ch++)
+    loadChar (cWidget::getFontHeight(), ch);
+  for (char ch = 0x21; ch <= 0x3F; ch++)
+    loadChar (cWidget::getBigFontHeight(), ch);
+  for (char ch = 0x21; ch <= 0x3F; ch++)
+    loadChar (cWidget::getSmallFontHeight(), ch);
+
+  FT_Done_Face (FTface);
+  //FT_Done_FreeType (FTlibrary);
+
   mTitle = title;
   updateNumDrawLines();
   }
 //}}}
+
 //{{{
 void cLcd::setShowDebug (bool title, bool info, bool lcdStats, bool footer) {
 
@@ -687,7 +724,7 @@ void cLcd::copy (uint8_t* src, int16_t x, int16_t y, uint16_t width, uint16_t he
   }
 //}}}
 //{{{
-void cLcd::copy (uint8_t* src, int16_t srcx, int16_t srcy, uint16_t srcWidth, int16_t srcHeight,
+void cLcd::copy (uint8_t* src, int16_t srcx, int16_t srcy, uint16_t srcWidth, uint16_t srcHeight,
                  int16_t dstx, int16_t dsty, uint16_t dstWidth, uint16_t dstHeight) {
 // copy src to dst
 // - some corner cases missing, not enough src for dst needs padding
@@ -720,56 +757,6 @@ void cLcd::copy (uint8_t* src, int16_t srcx, int16_t srcy, uint16_t srcWidth, in
 //}}}
 
 // private
-//{{{
-void cLcd::init (std::string title) {
-
-  mDrawBuffer = !mDrawBuffer;
-  ltdcInit (mBuffer[mDrawBuffer]);
-
-  //  dma2d init
-  // unchanging dma2d regs
-  #ifdef USE_RGB888
-    DMA2D->OPFCCR  = DMA2D_INPUT_RGB888; // dst  PFC
-    DMA2D->BGPFCCR = DMA2D_INPUT_RGB888; // bgnd PFC
-  #else
-    DMA2D->OPFCCR  = DMA2D_INPUT_ARGB8888;
-    DMA2D->BGPFCCR = DMA2D_INPUT_ARGB8888;
-  #endif
-  //DMA2D->AMTCR = 0x1001;
-
-  // zero out first opcode, point past it
-  mDma2dBuf = (uint32_t*)DMA2D_BUFFER;
-  mDma2dIsrBuf = mDma2dBuf;
-  mDma2dCurBuf = mDma2dBuf;
-  *mDma2dCurBuf = kEnd;
-
-  // why is this counting, init -1 ??
-  //vSemaphoreCreateBinary (mDma2dSem);
-  mDma2dSem = xSemaphoreCreateCounting (-1, 0);
-
-  // dma2d IRQ init
-  HAL_NVIC_SetPriority (DMA2D_IRQn, 0x0F, 0);
-  HAL_NVIC_EnableIRQ (DMA2D_IRQn);
-
-  // font init
-  FT_Init_FreeType (&FTlibrary);
-  FT_New_Memory_Face (FTlibrary, (FT_Byte*)freeSansBold, sizeof (freeSansBold), 0, &FTface);
-  FTglyphSlot = FTface->glyph;
-
-  // preload fontChars
-  for (char ch = 0x20; ch <= 0x7F; ch++)
-    loadChar (cWidget::getFontHeight(), ch);
-  for (char ch = 0x21; ch <= 0x3F; ch++)
-    loadChar (cWidget::getBigFontHeight(), ch);
-  for (char ch = 0x21; ch <= 0x3F; ch++)
-    loadChar (cWidget::getSmallFontHeight(), ch);
-
-  FT_Done_Face (FTface);
-  //FT_Done_FreeType (FTlibrary);
-
-  setTitle (title);
-  }
-//}}}
 //{{{
 void cLcd::ltdcInit (uint32_t frameBufferAddress) {
 
@@ -1309,7 +1296,7 @@ cFontChar* cLcd::loadChar (uint16_t fontHeight, char ch) {
   fontChar->bitmap = nullptr;
 
   if (FTglyphSlot->bitmap.buffer) {
-    fontChar->bitmap = (uint8_t*)bigMalloc(FTglyphSlot->bitmap.pitch * FTglyphSlot->bitmap.rows, "fontBitmap");
+    fontChar->bitmap = (uint8_t*)pvPortMalloc (FTglyphSlot->bitmap.pitch * FTglyphSlot->bitmap.rows);
     memcpy (fontChar->bitmap, FTglyphSlot->bitmap.buffer, FTglyphSlot->bitmap.pitch * FTglyphSlot->bitmap.rows);
     }
 

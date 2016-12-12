@@ -351,7 +351,7 @@ static void mp3WaveThread (void const* argument) {
 
   auto chunkSize = 0x10000 - 2048; // 64k
   auto fullChunkSize = 2048 + chunkSize;
-  auto chunkBuffer = (uint8_t*)bigMalloc (fullChunkSize, "waveChunkBuf");
+  auto chunkBuffer = (uint8_t*)pvPortMalloc (fullChunkSize);
 
   int loadedFileIndex = -1;
   while (true) {
@@ -470,7 +470,7 @@ static void mp3PlayThread (void const* argument) {
   //{{{  chunkSize and buffer
   auto chunkSize = 4096;
   auto fullChunkSize = 2048 + chunkSize;
-  auto chunkBuffer = (uint8_t*)bigMalloc (fullChunkSize, "mp3ChunkBuf");
+  auto chunkBuffer = (uint8_t*)pvPortMalloc (fullChunkSize);
   //}}}
 
   while (true) {
@@ -593,8 +593,8 @@ static void mainThread (void const* argument) {
     #endif
 
 
-    mFrameOffsets = (int*)bigMalloc (60*60*40*sizeof(int), "mp3FrameOff");
-    mWave = (uint8_t*)bigMalloc (60*60*40*2*sizeof(uint8_t), "mp3Wave");  // 1 hour of 40 mp3 frames per sec
+    mFrameOffsets = (int*)pvPortMalloc (60*60*40*sizeof(int));
+    mWave = (uint8_t*)pvPortMalloc (60*60*40*2*sizeof(uint8_t));  // 1 hour of 40 mp3 frames per sec
     mWave[0] = 0;
     mWaveLoadFrame = 0;
 
@@ -617,7 +617,7 @@ static void mainThread (void const* argument) {
       BSP_AUDIO_OUT_SetAudioFrameSlot (CODEC_AUDIOFRAME_SLOT_02);
     #endif
 
-    mReSamples = (int16_t*)bigMalloc (4096, "hlsResamples");
+    mReSamples = (int16_t*)pvPortMalloc (4096);
     memset (mReSamples, 0, 4096);
 
     mLcd->setShowDebug (false, false, false, false);  // debug - title, info, lcdStats, footer
@@ -874,7 +874,8 @@ int main() {
     BSP_LED_Init (LED3);
   #endif
 
-  mLcd = cLcd::create (kHello);
+  mLcd = new cLcd (SDRAM_FRAME0, SDRAM_FRAME1);
+  mLcd->init (kHello);
   mRoot = new cRootContainer (mLcd->getLcdWidthPix(), mLcd->getLcdHeightPix());
 
   // hard fault test
