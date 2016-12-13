@@ -16,8 +16,6 @@
 #include "lwip/api.h"
 #include "os/ethernetif.h"
 
-#include "utils.h"
-
 #include "usbd_core.h"
 #include "usbd_desc.h"
 #include "usbd_msc.h"
@@ -37,6 +35,10 @@
 #include "../fatfs/fatFs.h"
 
 #include "cLcd.h"
+
+#include "utils.h"
+
+#include "widgets/cWidget.h"
 #include "widgets/cRootContainer.h"
 #include "widgets/cListWidget.h"
 #include "widgets/cTextBox.h"
@@ -50,7 +52,6 @@
 #include "net/cUartEsp8266Http.h"
 //#include "../httpServer/httpServer.h"
 //#include "../httpServer/ftpServer.h"
-#include "libfaad/neaacdec.h"
 #include "hls/hls.h"
 
 #include "decoders/cMp3.h"
@@ -163,7 +164,7 @@ static void listDirectory (std::string directoryName, std::string ext) {
   cFileInfo fileInfo;
   while ((directory.find (fileInfo) == FR_OK) && !fileInfo.getEmpty()) {
     if (fileInfo.getBack()) {
-      //cLcd::debug (fileInfo.getName());
+      //debug (fileInfo.getName());
       }
 
     else if (fileInfo.isDirectory())
@@ -171,9 +172,9 @@ static void listDirectory (std::string directoryName, std::string ext) {
 
     else if (fileInfo.matchExtension (ext.c_str())) {
       mMp3Files.push_back (directoryName + "/" + fileInfo.getName());
-      //cLcd::debug (fileInfo.getName());
+      //debug (fileInfo.getName());
       cFile file (directoryName + "/" + fileInfo.getName(), FA_OPEN_EXISTING | FA_READ);
-      //cLcd::debug ("- filesize " + cLcd::intStr (file.getSize()));
+      //debug ("- filesize " + cLcd::intStr (file.getSize()));
       }
     }
   }
@@ -251,7 +252,7 @@ static void hlsPlayerThread (void const* argument) {
 static void hlsNetThread (void const* argument) {
 
   tcpip_init (NULL, NULL);
-  cLcd::debug ("hlsNetThread");
+  debug ("hlsNetThread");
 
   // init LwIP stack
   struct ip_addr ipAddr;
@@ -344,10 +345,10 @@ static void initMp3Menu (cRootContainer* root) {
 //{{{
 static void mp3WaveThread (void const* argument) {
 
-  cLcd::debug ("mp3WaveThread");
+  debug ("mp3WaveThread");
 
   auto mp3 = new cMp3;
-  cLcd::debug ("wave mp3");
+  debug ("wave mp3");
 
   auto chunkSize = 0x10000 - 2048; // 64k
   auto fullChunkSize = 2048 + chunkSize;
@@ -362,10 +363,10 @@ static void mp3WaveThread (void const* argument) {
     auto wavePtr = mWave + 1;
 
     int count = 0;
-    cLcd::debug ("wave load " + mMp3Files[fileIndex]);
+    debug ("wave load " + mMp3Files[fileIndex]);
     cFile file (mMp3Files[fileIndex], FA_OPEN_EXISTING | FA_READ);
     if (file.getError())
-      cLcd::debug ("- wave open failed " + dec (file.getError()) + " " + mMp3Files[fileIndex]);
+      debug ("- wave open failed " + dec (file.getError()) + " " + mMp3Files[fileIndex]);
     else {
       int bytesLeft = 0;
       do {
@@ -373,7 +374,7 @@ static void mp3WaveThread (void const* argument) {
         FRESULT fresult = file.read (chunkBuffer, fullChunkSize, bytesLeft);;
         if (fresult) {
           //{{{  error
-          cLcd::debug ("wave read " + dec (count) + " " + dec (fresult));
+          debug ("wave read " + dec (count) + " " + dec (fresult));
           vTaskDelay (100);
           goto exitWave;
           }
@@ -397,7 +398,7 @@ static void mp3WaveThread (void const* argument) {
                 FRESULT fresult = file.read (nextChunkPtr + bytesLeft, chunkSize, bytesLoaded);
                 if (fresult) {
                   //{{{  error
-                  cLcd::debug ("wave read " + dec (count) + " " + dec (fresult));
+                  debug ("wave read " + dec (count) + " " + dec (fresult));
                   vTaskDelay (100);
                   goto exitWave;
                   }
@@ -433,7 +434,7 @@ static void mp3WaveThread (void const* argument) {
         } while ((fileIndex == loadedFileIndex) && (bytesLeft > 0));
       }
   exitWave:
-    cLcd::debug ("wave loaded");
+    debug ("wave loaded");
 
     // wait for file change
     while (fileIndex == loadedFileIndex)
@@ -444,20 +445,20 @@ static void mp3WaveThread (void const* argument) {
 //{{{
 static void mp3PlayThread (void const* argument) {
 
-  cLcd::debug ("mp3PlayThread");
+  debug ("mp3PlayThread");
 
   //{{{  mount fatfs
   cFatFs* fatFs = cFatFs::create();
   if (fatFs->mount() != FR_OK) {
     //{{{  fatfs mount error, return
-    cLcd::debug ("fatFs mount problem");
+    debug ("fatFs mount problem");
     vTaskDelete (NULL);
     return;
     }
     //}}}
 
-  cLcd::debug (fatFs->getLabel() + " vsn:" + hex (fatFs->getVolumeSerialNumber()) +
-               " freeSectors:" + dec (fatFs->getFreeSectors()));
+  debug (fatFs->getLabel() + " vsn:" + hex (fatFs->getVolumeSerialNumber()) +
+         " freeSectors:" + dec (fatFs->getFreeSectors()));
   //}}}
   listDirectory ("", "MP3");
 
@@ -465,7 +466,7 @@ static void mp3PlayThread (void const* argument) {
   xTaskCreate ((TaskFunction_t)mp3WaveThread, "mp3Wave", 8192, 0, 2, &handle);
 
   auto mp3 = new cMp3;
-  cLcd::debug ("play mp3");
+  debug ("play mp3");
 
   //{{{  chunkSize and buffer
   auto chunkSize = 4096;
@@ -477,9 +478,9 @@ static void mp3PlayThread (void const* argument) {
     mMp3PlayFrame = 0;
     cFile file (mMp3Files[fileIndex], FA_OPEN_EXISTING | FA_READ);
     if (file.getError())
-      cLcd::debug ("- play open failed " + dec (file.getError()) + " " + mMp3Files[fileIndex]);
+      debug ("- play open failed " + dec (file.getError()) + " " + mMp3Files[fileIndex]);
     else {
-      cLcd::debug ("play " + mMp3Files[fileIndex] + " " + dec (file.getSize()));
+      debug ("play " + mMp3Files[fileIndex] + " " + dec (file.getSize()));
       mWaveLoad = true;
 
       memset ((void*)AUDIO_BUFFER, 0, AUDIO_BUFFER_SIZE);
@@ -493,7 +494,7 @@ static void mp3PlayThread (void const* argument) {
         FRESULT fresult = file.read (chunkBuffer, fullChunkSize, bytesLeft);
         if (fresult) {
           //{{{  error
-          cLcd::debug ("play read " + dec (count) + " " + dec (fresult));
+          debug ("play read " + dec (count) + " " + dec (fresult));
           vTaskDelay (100);
           goto exitPlay;
           }
@@ -517,7 +518,7 @@ static void mp3PlayThread (void const* argument) {
                 FRESULT fresult = file.read (nextChunkPtr + bytesLeft, chunkSize, bytesLoaded);
                 if (fresult) {
                   //{{{  error
-                  cLcd::debug ("play read " + dec (count) + " " + dec (fresult));
+                  debug ("play read " + dec (count) + " " + dec (fresult));
                   vTaskDelay (100);
                   goto exitPlay;
                   }
@@ -577,7 +578,7 @@ static void mainThread (void const* argument) {
     USBD_MSC_RegisterStorage (&USBD_Device, (USBD_StorageTypeDef*)(&USBD_DISK_fops));
     USBD_Start (&USBD_Device);
 
-    cLcd::debug ("USB ok");
+    debug ("USB ok");
     }
     //}}}
   else if (SD_present()) {
