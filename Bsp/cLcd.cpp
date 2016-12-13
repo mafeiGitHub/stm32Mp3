@@ -34,8 +34,7 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
-#define QSPI_DATA
-#include "hls/FreeSansBold.h"
+#include "FreeSansBold.h"
 //}}}
 //{{{  defines
 #define ABS(X) ((X) > 0 ? (X) : -(X))
