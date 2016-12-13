@@ -85,13 +85,13 @@ Infinite_Loop:
 .align 4
 NVIC_INT_CTRL_CONST: .word 0xe000ed04
 
-//{{{  g_pfnVectors -  minimal vector table for a Cortex M7. must be placed at physical address 0x0000.0000.
+//{{{  vectorTable -  minimal vector table for a Cortex M7. must be placed at physical address 0x0000.0000.
   .section  .isr_vector,"a",%progbits
-  .type  g_pfnVectors, %object
-  .size  g_pfnVectors, .-g_pfnVectors
-  .global  g_pfnVectors
+  .type  vectorTable, %object
+  .size  vectorTable, .-vectorTable
+  .global  vectorTable
 
-g_pfnVectors:
+vectorTable:
   .word  _estack
   .word  Reset_Handler
 

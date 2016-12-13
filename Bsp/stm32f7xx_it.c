@@ -18,10 +18,8 @@
 /*}}}*/
 
 /*{{{*/
-void HardFault_Handler() __attribute__( ( naked ) );
-// The prototype shows it is a naked function - in effect this is just an assembly function.
+__attribute__((naked)) void HardFault_Handler() {
 
-void HardFault_Handler() {
   __asm volatile (
     " tst lr, #4\n"
     " ite eq\n"
@@ -68,7 +66,6 @@ void getStackRegs (uint32_t* faultStackAddress) {
   }
 /*}}}*/
 
-//void HardFault_Handler()  { while (1) {} }
 void MemManage_Handler()  { while (1) {} }
 void BusFault_Handler()   { while (1) {} }
 void UsageFault_Handler() { while (1) {} }
