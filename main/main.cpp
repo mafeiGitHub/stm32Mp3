@@ -30,11 +30,9 @@
   #include "stm32f769i_discovery_audio.h"
 #endif
 #include "stm32F7_discovery_qspi.h"
-
+#include "cLcd.h"
 #include "cSd.h"
 #include "../fatfs/fatFs.h"
-
-#include "cLcd.h"
 
 #include "utils.h"
 
@@ -52,8 +50,8 @@
 #include "net/cUartEsp8266Http.h"
 //#include "../httpServer/httpServer.h"
 //#include "../httpServer/ftpServer.h"
-#include "hls/hls.h"
 
+#include "hls/hls.h"
 #include "decoders/cMp3.h"
 //}}}
 
