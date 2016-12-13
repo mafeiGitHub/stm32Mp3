@@ -56,7 +56,7 @@
 //}}}
 
 #ifdef STM32F746G_DISCO
-#else
+#elif STM32F769i_DISCO
   #define ESP8266
 #endif
 
